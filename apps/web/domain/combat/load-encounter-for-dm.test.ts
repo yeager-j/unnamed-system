@@ -73,7 +73,11 @@ const instanceRow: MapInstanceRow = {
   id: "mi-1",
   mapId: null,
   state: {
-    geometry: { zones: {}, connections: {} },
+    geometry: {
+      pages: { default: { id: "default", name: "Page 1" } },
+      zones: {},
+      connections: {},
+    },
     occupancy: {},
     enchantment: null,
     reveal: {
@@ -81,6 +85,7 @@ const instanceRow: MapInstanceRow = {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    lastMovedTokenKey: null,
   },
   version: 0,
   createdAt: FIXED_DATE,

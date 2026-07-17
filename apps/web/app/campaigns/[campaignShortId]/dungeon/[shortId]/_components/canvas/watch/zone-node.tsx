@@ -7,6 +7,10 @@ import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[short
 import { WatchRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/roster-token"
 import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
+import {
+  PageLinkChips,
+  type PageLinkView,
+} from "@/components/shared/canvas/set-piece/page-link-chip"
 import { ThresholdNotch } from "@/components/shared/canvas/set-piece/threshold-notch"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
@@ -63,6 +67,13 @@ export function WatchExitStubs({
 export type WatchZoneData = {
   view: ZoneSetPieceView
   exits: WatchZoneExit[]
+  /** "Leads to ⇢" chips for revealed cross-page connections (UNN-586) — both
+   *  endpoints are revealed, so the chip discloses nothing new; clicking follows
+   *  the passage to the far page. */
+  pageLinks: PageLinkView[]
+  /** Switches the watch board to another revealed page, centering a Zone —
+   *  supplied by the canvas, which owns the page override state. */
+  onNavigatePage: (pageId: string, focusZoneId: string) => void
   /** The Zone's active Bard Enchantment badge, when one sits here (UNN-489). */
   enchantment?: ZoneEnchantmentBadge
   /** Docks the watch roster inspector on this Zone (the crowded card's "Open
@@ -85,7 +96,8 @@ export function DungeonWatchZoneNode({
   id,
   data,
 }: NodeProps<DungeonWatchZoneNode>) {
-  const { view, exits, enchantment, onOpenRoster } = data
+  const { view, exits, pageLinks, onNavigatePage, enchantment, onOpenRoster } =
+    data
   const partnerHighlighted = useConnectionHighlight(id)
 
   const tokenChip = (occupant: (typeof view.occupants)[number]) => (
@@ -99,6 +111,15 @@ export function DungeonWatchZoneNode({
       onOpenRoster={onOpenRoster}
       handles={<FloatingEdgeHandles />}
       rim={<WatchExitStubs exits={exits} size={view.size} />}
+      pageLinks={
+        pageLinks.length > 0 ? (
+          // React Flow sets `pointer-events: none` on the read-only fog node;
+          // re-enable it so the chips stay clickable (like the badge above).
+          <span className="pointer-events-auto">
+            <PageLinkChips links={pageLinks} onNavigate={onNavigatePage} />
+          </span>
+        ) : undefined
+      }
       titleAccessory={
         enchantment ? (
           // React Flow sets `pointer-events: none` on this read-only fog node,

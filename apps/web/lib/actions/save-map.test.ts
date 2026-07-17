@@ -49,6 +49,7 @@ describe("saveMapAction", () => {
 
   it("routes a geometry patch to saveMapGeometry (gated)", async () => {
     const geometry = {
+      pages: { default: { id: "default", name: "Page 1" } },
       zones: {
         "zone-a": {
           id: "zone-a",
@@ -56,6 +57,7 @@ describe("saveMapAction", () => {
           description: "",
           dmNotes: "",
           position: { x: 10, y: 20 },
+          pageId: "default",
         },
       },
       connections: {},

@@ -78,6 +78,10 @@ export interface ZoneSetPieceProps {
   closeupFooter?: ReactNode
   /** Procedural Dungeons contents reserve, shipped empty. */
   manifestSlot?: ReactNode
+  /** "Leads to ⇢" chips for this Zone's cross-page connections (UNN-586) —
+   *  rendered on the Stage and Closeup layers (cross-page links draw no edge,
+   *  so the chips are the connection's only presence). */
+  pageLinks?: ReactNode
 }
 
 const UNOCCUPIED = "Unoccupied"
@@ -103,6 +107,7 @@ export function ZoneSetPiece({
   onOpenRoster,
   closeupFooter,
   manifestSlot,
+  pageLinks,
 }: ZoneSetPieceProps) {
   const describedById = useId()
   const unmapped = view.reveal === "unmapped"
@@ -211,6 +216,7 @@ export function ZoneSetPiece({
           </p>
         ) : null}
         <div className="mt-auto flex flex-col gap-1">
+          {pageLinks}
           {occupied ? (
             <>
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -283,6 +289,7 @@ export function ZoneSetPiece({
             )))
           )}
           {closeupFooter}
+          {pageLinks}
         </div>
         {manifestSlot}
       </div>

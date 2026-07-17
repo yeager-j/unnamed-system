@@ -85,9 +85,15 @@ export function CombatantPositionSection({
               </SelectValue>
             </SelectTrigger>
             <SelectContent align="start">
-              {position.targets.map((zone) => (
-                <SelectItem key={zone.id} value={zone.id}>
-                  {zone.name}
+              {position.targets.map((target) => (
+                <SelectItem key={target.id} value={target.id}>
+                  {target.name}
+                  {target.pageLabel ? (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {target.pageLabel}
+                    </span>
+                  ) : null}
                 </SelectItem>
               ))}
             </SelectContent>

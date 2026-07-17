@@ -15,7 +15,7 @@ import {
   type Node,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
@@ -79,6 +79,13 @@ const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 export function DungeonCanvas(props: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
+  /** The page the board shows (UNN-586) — one page at a time; the host owns the
+   *  choice (sidebar switcher in explore, follow-the-turn in combat). Absent ⇒
+   *  first page in canonical order. */
+  activePageId?: string
+  /** A chip navigation's landing request — center this Zone once its page's
+   *  nodes are in. The `nonce` distinguishes repeat requests for the same Zone. */
+  focusZone?: { zoneId: string; nonce: number } | null
   /** The dungeon's name — the cartouche title (§D8). */
   dungeonName: string
   /** The delve's turn counter — the cartouche subtitle on the DM console (the turn
@@ -108,6 +115,8 @@ export function DungeonCanvas(props: {
 function DungeonCanvasInner({
   instance,
   mode,
+  activePageId,
+  focusZone,
   dungeonName,
   turnCounter,
   bar,
@@ -118,6 +127,8 @@ function DungeonCanvasInner({
 }: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
+  activePageId?: string
+  focusZone?: { zoneId: string; nonce: number } | null
   dungeonName: string
   turnCounter: number
   bar?: ReactNode
@@ -154,11 +165,28 @@ function DungeonCanvasInner({
   const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   // Re-derive the board from the (optimistic) Instance whenever it changes — a
-  // move/reveal/turn snaps tokens + reveal badges to the new truth.
+  // move/reveal/turn snaps tokens + reveal badges to the new truth; a page switch
+  // refilters both halves (UNN-586).
   useEffect(() => {
-    setNodes(buildNodes(instance, mode))
-    setEdges(buildEdges(instance))
-  }, [instance, mode, setNodes, setEdges])
+    setNodes(buildNodes(instance, mode, activePageId))
+    setEdges(buildEdges(instance, activePageId))
+  }, [instance, mode, activePageId, setNodes, setEdges])
+
+  // Land a chip navigation: once the far page's nodes are in, center the linked
+  // Zone. The consumed nonce guards against re-centering on unrelated re-derives.
+  const consumedFocusNonce = useRef<number | null>(null)
+  useEffect(() => {
+    if (!focusZone || consumedFocusNonce.current === focusZone.nonce) return
+    const node = nodes.find((candidate) => candidate.id === focusZone.zoneId)
+    if (!node) return
+    consumedFocusNonce.current = focusZone.nonce
+    const w = node.measured?.width ?? node.width ?? 0
+    const h = node.measured?.height ?? node.height ?? 0
+    void setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+      zoom: getZoom(),
+      duration: prefersReducedMotion() ? 0 : 200,
+    })
+  }, [focusZone, nodes, setCenter, getZoom])
 
   const [minimapVisible, setMinimapVisible] = useState(() =>
     persistKey ? readMinimapVisible(persistKey) : true

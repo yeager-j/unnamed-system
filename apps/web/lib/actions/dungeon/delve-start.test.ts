@@ -63,6 +63,7 @@ const MAP_INSTANCE_ID = "mi-1"
 const MAP_ID = "map-1"
 
 const GEOMETRY: MapGeometry = {
+  pages: { default: { id: "default", name: "Page 1" } },
   zones: {
     z1: {
       id: "z1",
@@ -70,6 +71,7 @@ const GEOMETRY: MapGeometry = {
       description: "",
       dmNotes: "",
       position: { x: 0, y: 0 },
+      pageId: "default",
     },
   },
   connections: {},

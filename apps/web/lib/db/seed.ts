@@ -218,6 +218,12 @@ async function seedDungeonFixtures(): Promise<void> {
     id: "seed-dungeon-a-instance",
     state: mapInstanceStateSchema.parse({
       geometry: {
+        // Two pages so every pages surface (tabs, sidebar, chips, watch
+        // switcher) is exercisable from dev data (UNN-586).
+        pages: {
+          default: { id: "default", name: "Page 1" },
+          "page-undercroft": { id: "page-undercroft", name: "Undercroft" },
+        },
         zones: {
           "zone-entry": {
             id: "zone-entry",
@@ -225,6 +231,7 @@ async function seedDungeonFixtures(): Promise<void> {
             description: "A cracked stone arch, half-sunk in brackish water.",
             dmNotes: "",
             position: { x: 0, y: 0 },
+            pageId: "default",
           },
           "zone-hall": {
             id: "zone-hall",
@@ -232,6 +239,7 @@ async function seedDungeonFixtures(): Promise<void> {
             description: "",
             dmNotes: "Current pulls toward the crypt.",
             position: { x: 280, y: -40 },
+            pageId: "default",
           },
           "zone-crypt": {
             id: "zone-crypt",
@@ -239,6 +247,15 @@ async function seedDungeonFixtures(): Promise<void> {
             description: "",
             dmNotes: "The vault's prize rests here.",
             position: { x: 520, y: 60 },
+            pageId: "default",
+          },
+          "zone-ossuary": {
+            id: "zone-ossuary",
+            name: "Drowned Ossuary",
+            description: "",
+            dmNotes: "Below the crypt; reached by the bone stair.",
+            position: { x: 0, y: 0 },
+            pageId: "page-undercroft",
           },
         },
         connections: {
@@ -261,6 +278,13 @@ async function seedDungeonFixtures(): Promise<void> {
             fromZoneId: "zone-entry",
             toZoneId: "zone-crypt",
             hidden: true,
+            locked: false,
+          },
+          "conn-crypt-ossuary": {
+            id: "conn-crypt-ossuary",
+            fromZoneId: "zone-crypt",
+            toZoneId: "zone-ossuary",
+            hidden: false,
             locked: false,
           },
         },
@@ -405,6 +429,7 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
       description: "Ankle-deep brine laps at a ring of worn steps.",
       dmNotes: "",
       position: { x: 0, y: 0 },
+      pageId: "default",
       size: "S" as const,
       motif: "water" as const,
       mood: "cool" as const,
@@ -415,6 +440,7 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
       description: "Shelved skulls watch from every wall.",
       dmNotes: "The bones remember.",
       position: { x: 320, y: 0 },
+      pageId: "default",
       size: "M" as const,
       motif: "bones" as const,
       mood: "dim" as const,
@@ -425,6 +451,7 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
       description: "A cathedral hall, its saints capsized in silt.",
       dmNotes: "",
       position: { x: 760, y: -60 },
+      pageId: "default",
       size: "XL" as const,
       motif: "statue" as const,
       mood: "warm" as const,
@@ -435,6 +462,7 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
       description: "Broken treads spiral down into the dark.",
       dmNotes: "",
       position: { x: 0, y: 260 },
+      pageId: "default",
       size: "M" as const,
       motif: "stair" as const,
       mood: "dim" as const,
@@ -445,6 +473,7 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
       description: "Rusted grates hang open on their hinges.",
       dmNotes: "",
       position: { x: 440, y: 300 },
+      pageId: "default",
       size: "S" as const,
       motif: "cell" as const,
       mood: "cool" as const,
@@ -455,6 +484,7 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
       description: "A gold-chased door, still locked after an age.",
       dmNotes: "The vault's prize rests here.",
       position: { x: 780, y: 380 },
+      pageId: "default",
       size: "L" as const,
       motif: "treasure" as const,
       mood: "warm" as const,
@@ -502,7 +532,11 @@ async function seedDungeonShowcaseFixtures(): Promise<void> {
   const instanceRow = {
     id: "seed-dungeon-showcase-instance",
     state: mapInstanceStateSchema.parse({
-      geometry: { zones, connections },
+      geometry: {
+        pages: { default: { id: "default", name: "Page 1" } },
+        zones,
+        connections,
+      },
       occupancy,
       reveal: {
         revealedZoneIds: Object.keys(zones),

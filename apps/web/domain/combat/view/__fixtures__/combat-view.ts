@@ -16,7 +16,14 @@ import type { ParticipantMeta } from "@/domain/combat/participant-meta"
  */
 
 export function zone(id: string, name: string = id): MapZone {
-  return { id, name, description: "", dmNotes: "", position: { x: 0, y: 0 } }
+  return {
+    id,
+    name,
+    description: "",
+    dmNotes: "",
+    position: { x: 0, y: 0 },
+    pageId: "default",
+  }
 }
 
 export function connection(
@@ -47,6 +54,7 @@ export function instanceWith(parts: {
 }): MapInstanceState {
   return {
     geometry: {
+      pages: { default: { id: "default", name: "Page 1" } },
       zones: Object.fromEntries((parts.zones ?? []).map((z) => [z.id, z])),
       connections: Object.fromEntries(
         (parts.connections ?? []).map((c) => [c.id, c])
@@ -59,6 +67,7 @@ export function instanceWith(parts: {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    lastMovedTokenKey: null,
   }
 }
 

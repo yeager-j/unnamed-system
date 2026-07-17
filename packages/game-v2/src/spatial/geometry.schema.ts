@@ -31,6 +31,35 @@ export const MAP_ZONE_MOTIFS = [
   "tomb",
 ] as const
 
+/**
+ * The page id every pre-pages blob was migrated onto (UNN-586's one-time SQL
+ * migration) and the id `mapGeometrySchema`'s `pages` default mints. A **fixed**
+ * id — a random default would break parse determinism (`parse(parse(x)) ===
+ * parse(x)`, the load-schema fixed-point law) and make two parses of `{}` unequal.
+ */
+export const DEFAULT_PAGE_ID = "default"
+
+/**
+ * One **page** of a Map — a floor, district, or region whose Zones share a canvas
+ * coordinate space. The canvas renders exactly one page at a time; a connection
+ * whose endpoints sit on different pages is **cross-page by derivation** (never a
+ * stored flag) and renders as a "leads to ⇢" chip instead of a drawn edge (D3).
+ *
+ * `growth` is the page's procedural growth mode (D6) — authored later by the
+ * generation phases; schema-ready now so pages need no second migration.
+ */
+export const mapPageSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  growth: z.enum(["edge", "open"]).optional(),
+})
+export type MapPage = z.infer<typeof mapPageSchema>
+
+/** The `pages` record a pageless blob defaults to — one {@link DEFAULT_PAGE_ID} page. */
+export const defaultPages = (): Record<string, MapPage> => ({
+  [DEFAULT_PAGE_ID]: { id: DEFAULT_PAGE_ID, name: "Page 1" },
+})
+
 /** A Zone's authored footprint size — one of four fixed world-rect tiers (UNN-630). */
 export type MapZoneSize = "S" | "M" | "L" | "XL"
 /** A Zone's authored motif glyph (UNN-630); one of {@link MAP_ZONE_MOTIFS}. */
@@ -57,6 +86,10 @@ export const mapZoneSchema = z.object({
   description: z.string().default(""),
   dmNotes: z.string().default(""),
   position: z.object({ x: z.number(), y: z.number() }),
+  // REQUIRED, no default — a Zone with no page is a modeling error, and the
+  // UNN-586 migration guarantees no stored blob lacks it. Cross-page-ness of a
+  // connection is derived from its endpoints' pageIds, never stored (D3).
+  pageId: z.string(),
   size: z.enum(["S", "M", "L", "XL"]).optional(),
   motif: z.enum(MAP_ZONE_MOTIFS).optional(),
   mood: z.enum(["warm", "dim", "cool"]).optional(),
@@ -81,13 +114,17 @@ export const mapConnectionSchema = z.object({
 export type MapConnection = z.infer<typeof mapConnectionSchema>
 
 /**
- * The Map's jsonb `geometry`. `zones` keys a Zone id to its {@link MapZone};
- * `connections` keys a connection id to its {@link MapConnection} — a record (not a
- * flat adjacency list, which can't carry the per-edge `hidden`/`locked` flags) for
- * O(1) flag toggles and a stable id per edge (matching the canvas's id-keyed edge
- * model). Both fields `.default()` empty so a freshly-created Map parses.
+ * The Map's jsonb `geometry`. `pages` keys a page id to its {@link MapPage};
+ * `zones` keys a Zone id to its {@link MapZone}; `connections` keys a connection id
+ * to its {@link MapConnection} — a record (not a flat adjacency list, which can't
+ * carry the per-edge `hidden`/`locked` flags) for O(1) flag toggles and a stable id
+ * per edge (matching the canvas's id-keyed edge model). `zones`/`connections`
+ * `.default()` empty and `pages` defaults to the single {@link DEFAULT_PAGE_ID}
+ * page so a freshly-created Map parses. Postgres jsonb does **not** preserve key
+ * order — page display order goes through `orderedPages`, never `Object.keys`.
  */
 export const mapGeometrySchema = z.object({
+  pages: z.record(z.string(), mapPageSchema).default(defaultPages),
   zones: z.record(z.string(), mapZoneSchema).default({}),
   connections: z.record(z.string(), mapConnectionSchema).default({}),
 })

@@ -15,6 +15,7 @@ import {
   createTestMap,
   createTestMapInstance,
   createTracker,
+  testGeometry,
 } from "./fixtures/factory"
 
 /**
@@ -93,7 +94,12 @@ test("editing a Map leaves a referencing Instance unchanged (snapshot isolation)
 
   const geometry = mapGeometrySchema.parse({
     zones: {
-      z1: { id: "z1", name: "New Wing", position: { x: 5, y: 7 } },
+      z1: {
+        id: "z1",
+        name: "New Wing",
+        position: { x: 5, y: 7 },
+        pageId: "default",
+      },
     },
   })
   const result = await saveMapGeometry(map.id, geometry, 0)
@@ -139,4 +145,70 @@ test("the editor 404s for a non-owner", async ({ browser }) => {
 
   expect(response?.status()).toBe(404)
   await context.close()
+})
+
+test("pages: tabs render, chips replace cross-page edges, chip navigates, new page autosaves (UNN-586)", async ({
+  page,
+}) => {
+  const map = await createTestMap(tracker, {
+    name: "Paged Map",
+    geometry: testGeometry({
+      pages: [
+        { id: "default", name: "Page 1" },
+        { id: "p2", name: "Undercroft" },
+      ],
+      zones: [
+        { id: "z-hall", name: "Hall", x: 0, y: 0 },
+        { id: "z-ossuary", name: "Ossuary", pageId: "p2", x: 400, y: 0 },
+      ],
+      connections: [{ id: "c-cross", from: "z-hall", to: "z-ossuary" }],
+    }),
+  })
+
+  await page.goto(map.url)
+
+  // One page at a time: the first page's zone renders, the far page's doesn't;
+  // the cross-page connection is a chip, not an edge.
+  await expect(
+    page.getByRole("button", { name: "Page 1", exact: true })
+  ).toBeVisible()
+  await expect(page.getByLabel("Zone: Hall")).toBeVisible()
+  await expect(page.getByLabel("Zone: Ossuary")).toHaveCount(0)
+  // The card mounts all three tier layers, so the chip exists once per layer
+  // and BOTH copies count as Playwright-visible during the ~0.3s tier
+  // crossfade (visibility flips on a delay). toHaveCount polls past the fade
+  // where a bare toBeVisible would abort on the strict-mode violation.
+  const chip = page
+    .getByRole("button", { name: "Leads to Ossuary on Undercroft" })
+    .filter({ visible: true })
+  await expect(chip).toHaveCount(1)
+
+  // In the editor the chip opens its connection menu (the cross-page link has
+  // no edge, so the chip carries the edit controls too); "Go to" navigates to
+  // the far page, and the reciprocal chip sits on the far zone.
+  await chip.click()
+  await page.getByRole("menuitem", { name: "Go to Ossuary" }).click()
+  await expect(page.getByLabel("Zone: Ossuary")).toBeVisible()
+  await expect(page.getByLabel("Zone: Hall")).toHaveCount(0)
+  await expect(
+    page
+      .getByRole("button", { name: "Leads to Hall on Page 1" })
+      .filter({ visible: true })
+  ).toHaveCount(1)
+
+  // Page CRUD rides the existing whole-blob autosave.
+  await page.getByRole("button", { name: "New page" }).click()
+  await expect(
+    page.getByRole("button", { name: "Page 2", exact: true })
+  ).toBeVisible()
+  await expect
+    .poll(async () => {
+      const [row] = await getDb()
+        .select({ geometry: maps.geometry })
+        .from(maps)
+        .where(eq(maps.id, map.id))
+        .limit(1)
+      return Object.keys(row?.geometry.pages ?? {}).length
+    })
+    .toBe(3)
 })

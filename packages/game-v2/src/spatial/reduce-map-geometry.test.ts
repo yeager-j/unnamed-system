@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { mapGeometrySchema, type MapGeometry } from "./geometry.schema"
+import {
+  DEFAULT_PAGE_ID,
+  mapGeometrySchema,
+  type MapGeometry,
+} from "./geometry.schema"
 import { reduceMapGeometry } from "./reduce-map-geometry"
 
 type Point = { x: number; y: number }
@@ -14,7 +18,14 @@ function withZones(...names: [id: string, name: string][]): MapGeometry {
     zones: Object.fromEntries(
       names.map(([id, name]) => [
         id,
-        { id, name, description: "", dmNotes: "", position: { x: 0, y: 0 } },
+        {
+          id,
+          name,
+          description: "",
+          dmNotes: "",
+          position: { x: 0, y: 0 },
+          pageId: DEFAULT_PAGE_ID,
+        },
       ])
     ),
   })
@@ -23,9 +34,10 @@ function withZones(...names: [id: string, name: string][]): MapGeometry {
 function addZone(
   geometry: MapGeometry,
   id: string,
-  position: Point
+  position: Point,
+  pageId: string = DEFAULT_PAGE_ID
 ): MapGeometry {
-  return reduceMapGeometry(geometry, { kind: "addZone", id, position })
+  return reduceMapGeometry(geometry, { kind: "addZone", id, position, pageId })
 }
 
 function addConnection(
@@ -95,6 +107,7 @@ describe("duplicateZone", () => {
       sourceId: "a",
       newId: "b",
       position: { x: 40, y: 40 },
+      pageId: DEFAULT_PAGE_ID,
     })
     expect(next.zones["b"]).toMatchObject({
       id: "b",
@@ -118,6 +131,7 @@ describe("duplicateZone", () => {
       sourceId: "a",
       newId: "c",
       position: { x: 1, y: 1 },
+      pageId: DEFAULT_PAGE_ID,
     })
     expect(Object.keys(next.connections)).toEqual(["ab"])
   })
@@ -130,6 +144,7 @@ describe("duplicateZone", () => {
         sourceId: "ghost",
         newId: "b",
         position: { x: 0, y: 0 },
+        pageId: DEFAULT_PAGE_ID,
       })
     ).toBe(geometry)
   })
@@ -140,6 +155,7 @@ describe("duplicateZone", () => {
       sourceId: "a",
       newId: "b",
       position: { x: 5, y: 5 },
+      pageId: DEFAULT_PAGE_ID,
     })
     expect(() => mapGeometrySchema.parse(geometry)).not.toThrow()
   })
@@ -275,7 +291,14 @@ describe("setZoneIdentity", () => {
 describe("mapZoneSchema identity fields", () => {
   it("leaves absent identity fields absent (load-schema fixed point)", () => {
     const parsed = mapGeometrySchema.parse({
-      zones: { a: { id: "a", name: "A", position: { x: 0, y: 0 } } },
+      zones: {
+        a: {
+          id: "a",
+          name: "A",
+          position: { x: 0, y: 0 },
+          pageId: DEFAULT_PAGE_ID,
+        },
+      },
     })
     const zone = parsed.zones["a"]!
     expect(zone).not.toHaveProperty("size")
@@ -290,6 +313,7 @@ describe("mapZoneSchema identity fields", () => {
           id: "a",
           name: "A",
           position: { x: 0, y: 0 },
+          pageId: DEFAULT_PAGE_ID,
           size: "L",
           motif: "altar",
           mood: "warm",
@@ -467,6 +491,276 @@ describe("deleteConnection", () => {
       reduceMapGeometry(geometry, {
         kind: "deleteConnection",
         connectionId: "ghost",
+      })
+    ).toBe(geometry)
+  })
+})
+
+/** Two pages ("default" + p2), zones a/b on default and c on p2, with an
+ *  intra-page connection ab and a cross-page connection bc. */
+function twoPageGeometry(): MapGeometry {
+  const paged = reduceMapGeometry(withZones(["a", "A"], ["b", "B"]), {
+    kind: "addPage",
+    id: "p2",
+    name: "Undercroft",
+  })
+  const withC = reduceMapGeometry(paged, {
+    kind: "addZone",
+    id: "c",
+    position: { x: 0, y: 0 },
+    pageId: "p2",
+  })
+  return addConnection(addConnection(withC, "ab", "a", "b"), "bc", "b", "c")
+}
+
+describe("addPage", () => {
+  it("mints a page under the supplied id with the trimmed name", () => {
+    const next = reduceMapGeometry(makeGeometry(), {
+      kind: "addPage",
+      id: "p2",
+      name: "  Undercroft  ",
+    })
+    expect(next.pages["p2"]).toEqual({ id: "p2", name: "Undercroft" })
+  })
+
+  it("derives the lowest free 'Page N' when the name is absent or blank", () => {
+    const base = makeGeometry() // holds "Page 1" (the default page)
+    const second = reduceMapGeometry(base, { kind: "addPage", id: "p2" })
+    expect(second.pages["p2"]?.name).toBe("Page 2")
+
+    const blank = reduceMapGeometry(second, {
+      kind: "addPage",
+      id: "p3",
+      name: "   ",
+    })
+    expect(blank.pages["p3"]?.name).toBe("Page 3")
+  })
+
+  it("no-ops an existing id (same ref)", () => {
+    const geometry = makeGeometry()
+    expect(
+      reduceMapGeometry(geometry, { kind: "addPage", id: DEFAULT_PAGE_ID })
+    ).toBe(geometry)
+  })
+})
+
+describe("renamePage", () => {
+  it("trims and sets the name", () => {
+    const next = reduceMapGeometry(makeGeometry(), {
+      kind: "renamePage",
+      pageId: DEFAULT_PAGE_ID,
+      name: "  Ground Floor  ",
+    })
+    expect(next.pages[DEFAULT_PAGE_ID]?.name).toBe("Ground Floor")
+  })
+
+  it("no-ops an empty name and an unknown id (same ref)", () => {
+    const geometry = makeGeometry()
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "renamePage",
+        pageId: DEFAULT_PAGE_ID,
+        name: "   ",
+      })
+    ).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "renamePage",
+        pageId: "ghost",
+        name: "X",
+      })
+    ).toBe(geometry)
+  })
+})
+
+describe("deletePage", () => {
+  it("cascades the page's zones and every connection touching them, severing cross-page links", () => {
+    const next = reduceMapGeometry(twoPageGeometry(), {
+      kind: "deletePage",
+      pageId: DEFAULT_PAGE_ID,
+    })
+    expect(Object.keys(next.pages)).toEqual(["p2"])
+    expect(Object.keys(next.zones)).toEqual(["c"])
+    expect(next.connections).toEqual({})
+  })
+
+  it("keeps the surviving page's intra-page geometry intact", () => {
+    const next = reduceMapGeometry(twoPageGeometry(), {
+      kind: "deletePage",
+      pageId: "p2",
+    })
+    expect(Object.keys(next.zones).sort()).toEqual(["a", "b"])
+    expect(Object.keys(next.connections)).toEqual(["ab"])
+  })
+
+  it("no-ops the last remaining page (same ref)", () => {
+    const geometry = withZones(["a", "A"])
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "deletePage",
+        pageId: DEFAULT_PAGE_ID,
+      })
+    ).toBe(geometry)
+  })
+
+  it("no-ops an unknown id (same ref)", () => {
+    const geometry = twoPageGeometry()
+    expect(
+      reduceMapGeometry(geometry, { kind: "deletePage", pageId: "ghost" })
+    ).toBe(geometry)
+  })
+})
+
+describe("duplicatePage", () => {
+  it("deep-copies the page's zones and intra-page connections under the supplied id maps", () => {
+    const base = twoPageGeometry()
+    const next = reduceMapGeometry(base, {
+      kind: "duplicatePage",
+      sourcePageId: DEFAULT_PAGE_ID,
+      newPageId: "p3",
+      zoneIdMap: { a: "a2", b: "b2" },
+      connectionIdMap: { ab: "ab2" },
+    })
+    expect(next.pages["p3"]).toEqual({ id: "p3", name: "Page 1 copy" })
+    expect(next.zones["a2"]).toMatchObject({
+      id: "a2",
+      name: "A",
+      pageId: "p3",
+      position: base.zones["a"]!.position,
+    })
+    expect(next.connections["ab2"]).toMatchObject({
+      id: "ab2",
+      fromZoneId: "a2",
+      toZoneId: "b2",
+    })
+    expect(base.zones["a"]).toEqual(next.zones["a"])
+  })
+
+  it("does not copy cross-page connections even when mapped", () => {
+    const next = reduceMapGeometry(twoPageGeometry(), {
+      kind: "duplicatePage",
+      sourcePageId: DEFAULT_PAGE_ID,
+      newPageId: "p3",
+      zoneIdMap: { a: "a2", b: "b2" },
+      connectionIdMap: { ab: "ab2", bc: "bc2" },
+    })
+    expect(next.connections).not.toHaveProperty("bc2")
+  })
+
+  it("skips a stale zone map entry and its dependent connections", () => {
+    const next = reduceMapGeometry(twoPageGeometry(), {
+      kind: "duplicatePage",
+      sourcePageId: DEFAULT_PAGE_ID,
+      newPageId: "p3",
+      zoneIdMap: { a: "a2", ghost: "g2" },
+      connectionIdMap: { ab: "ab2" },
+    })
+    expect(next.zones).toHaveProperty("a2")
+    expect(next.zones).not.toHaveProperty("g2")
+    // b was never mapped, so ab can't remap both endpoints — not copied.
+    expect(next.connections).not.toHaveProperty("ab2")
+  })
+
+  it("no-ops an unknown source page and a taken new id (same ref)", () => {
+    const geometry = twoPageGeometry()
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "duplicatePage",
+        sourcePageId: "ghost",
+        newPageId: "p3",
+        zoneIdMap: {},
+        connectionIdMap: {},
+      })
+    ).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "duplicatePage",
+        sourcePageId: DEFAULT_PAGE_ID,
+        newPageId: "p2",
+        zoneIdMap: {},
+        connectionIdMap: {},
+      })
+    ).toBe(geometry)
+  })
+
+  it("produces geometry that still parses", () => {
+    const next = reduceMapGeometry(twoPageGeometry(), {
+      kind: "duplicatePage",
+      sourcePageId: DEFAULT_PAGE_ID,
+      newPageId: "p3",
+      zoneIdMap: { a: "a2", b: "b2" },
+      connectionIdMap: { ab: "ab2" },
+    })
+    expect(() => mapGeometrySchema.parse(next)).not.toThrow()
+  })
+})
+
+describe("moveZoneToPage", () => {
+  it("re-homes the zone, leaving position and connections untouched", () => {
+    const base = twoPageGeometry()
+    const next = reduceMapGeometry(base, {
+      kind: "moveZoneToPage",
+      zoneId: "a",
+      pageId: "p2",
+    })
+    expect(next.zones["a"]?.pageId).toBe("p2")
+    expect(next.zones["a"]?.position).toEqual(base.zones["a"]!.position)
+    expect(next.connections).toEqual(base.connections)
+  })
+
+  it("no-ops an unknown zone, an unknown page, and a same-page move (same ref)", () => {
+    const geometry = twoPageGeometry()
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "moveZoneToPage",
+        zoneId: "ghost",
+        pageId: "p2",
+      })
+    ).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "moveZoneToPage",
+        zoneId: "a",
+        pageId: "ghost",
+      })
+    ).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "moveZoneToPage",
+        zoneId: "a",
+        pageId: DEFAULT_PAGE_ID,
+      })
+    ).toBe(geometry)
+  })
+})
+
+describe("page stamping on zone mints", () => {
+  it("addZone stamps the event's page and no-ops an unknown page", () => {
+    const geometry = twoPageGeometry()
+    const next = addZone(geometry, "d", { x: 9, y: 9 }, "p2")
+    expect(next.zones["d"]?.pageId).toBe("p2")
+
+    expect(addZone(geometry, "e", { x: 0, y: 0 }, "ghost")).toBe(geometry)
+  })
+
+  it("duplicateZone stamps the event's page and no-ops an unknown page", () => {
+    const geometry = twoPageGeometry()
+    const next = reduceMapGeometry(geometry, {
+      kind: "duplicateZone",
+      sourceId: "a",
+      newId: "a2",
+      position: { x: 1, y: 1 },
+      pageId: "p2",
+    })
+    expect(next.zones["a2"]?.pageId).toBe("p2")
+
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "duplicateZone",
+        sourceId: "a",
+        newId: "a3",
+        position: { x: 1, y: 1 },
+        pageId: "ghost",
       })
     ).toBe(geometry)
   })

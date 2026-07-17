@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { dungeonReminders } from "@workspace/game-v2/spatial"
+import {
+  dungeonReminders,
+  firstPageId,
+  orderedPages,
+} from "@workspace/game-v2/spatial"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
@@ -132,6 +136,37 @@ export function DungeonExploreBody({
   // the Map builder over the live Instance geometry.
   const [mode, setMode] = useState<"play" | "edit">("play")
 
+  // One page at a time (UNN-586): the console's page choice is shared by the
+  // Pages sidebar tab, the Play board, and the Edit board. DM-local, ephemeral.
+  const [activePageId, setActivePageId] = useState(() =>
+    firstPageId(instance.state.geometry)
+  )
+  const [pageFocus, setPageFocus] = useState<{
+    zoneId: string
+    nonce: number
+  } | null>(null)
+  // Render-phase reset: if the active page vanished (deleted here or by a
+  // realtime edit), fall back to the first page in canonical order.
+  if (instanceState.geometry.pages[activePageId] === undefined) {
+    setActivePageId(firstPageId(instanceState.geometry))
+  }
+  const navigateToPage = (pageId: string, focusZoneId?: string) => {
+    setActivePageId(pageId)
+    if (focusZoneId !== undefined) {
+      setPageFocus((current) => ({
+        zoneId: focusZoneId,
+        nonce: (current?.nonce ?? 0) + 1,
+      }))
+    }
+  }
+  // The Edit board's MapCanvas seeds React Flow once and owns edits internally;
+  // sidebar page CRUD bypasses that internal state, so page-set changes (add /
+  // delete / rename / duplicate) remount it. Zoom/pan survives via the shared
+  // viewport store. Rename is in the signature: chip far-page labels read it.
+  const pagesSignature = orderedPages(instanceState.geometry)
+    .map((page) => `${page.id}:${page.name}`)
+    .join("|")
+
   const moveToken = (characterId: string, toZoneId: string) =>
     dispatch({ kind: "moveCombatant", tokenKey: characterId, toZoneId })
 
@@ -192,6 +227,9 @@ export function DungeonExploreBody({
           }
           onMoveToken={moveToken}
           onPlaceToken={placeToken}
+          activePageId={activePageId}
+          onSelectPage={navigateToPage}
+          onGeometryEvent={(event) => dispatch({ kind: "editGeometry", event })}
         />
       </DungeonSidebarSlot>
 
@@ -218,6 +256,7 @@ export function DungeonExploreBody({
               turnCounter: dungeonState.turnCounter,
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
               finishDelve,
+              navigateToPage,
               onStartEncounter: () =>
                 router.push(dungeonSetupPath(campaignShortId, dungeon.shortId)),
               mode,
@@ -229,6 +268,8 @@ export function DungeonExploreBody({
               <DungeonCanvas
                 instance={instanceState}
                 mode={canvasMode}
+                activePageId={activePageId}
+                focusZone={pageFocus}
                 dungeonName={dungeon.name}
                 turnCounter={dungeonState.turnCounter}
                 persistKey={dungeon.shortId}
@@ -250,9 +291,12 @@ export function DungeonExploreBody({
         ) : (
           <div className="absolute inset-0">
             <DungeonEditCanvas
+              key={pagesSignature}
               instance={instanceState}
               roster={roster}
               dungeonName={dungeon.name}
+              activePageId={activePageId}
+              onActivePageChange={setActivePageId}
               onGeometryEvent={(event) =>
                 dispatch({ kind: "editGeometry", event })
               }

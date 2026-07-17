@@ -53,7 +53,11 @@ function map(overrides: Partial<MapRow> = {}): MapRow {
     shortId: MAP_SHORT_ID,
     userId: DM_ID,
     name: "The Sunken Crypt",
-    geometry: { zones: {}, connections: {} },
+    geometry: {
+      pages: { default: { id: "default", name: "Page 1" } },
+      zones: {},
+      connections: {},
+    },
     version: 0,
     createdAt: new Date(),
     updatedAt: new Date(),

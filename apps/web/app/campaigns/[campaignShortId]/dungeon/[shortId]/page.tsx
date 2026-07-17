@@ -12,6 +12,7 @@ import {
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/run-console"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
+import { groupZonesByPage } from "@/domain/map/view/page-groups"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
@@ -62,10 +63,14 @@ export default async function DungeonPage({ params }: PageProps) {
       // Zones come from the source template — the Instance is blank until start.
       const map = instance.mapId ? await loadMapRowById(instance.mapId) : null
       const zones: PrepZone[] = map
-        ? Object.values(map.geometry.zones).map((zone) => ({
-            id: zone.id,
-            name: zone.name,
-          }))
+        ? groupZonesByPage(map.geometry).flatMap((group) =>
+            group.zones.map((zone) => ({
+              id: zone.id,
+              name: zone.name,
+              pageId: group.pageId,
+              pageName: group.pageName,
+            }))
+          )
         : []
       return (
         <DungeonPrep

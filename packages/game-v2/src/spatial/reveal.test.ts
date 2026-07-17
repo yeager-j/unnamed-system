@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { makeConnection, makeMapInstanceState } from "./__fixtures__/spatial"
+import { defaultPages } from "./geometry.schema"
 import type { RevealState } from "./map-instance.schema"
 import {
   connectionFogState,
@@ -117,6 +118,7 @@ describe("reveal derivations (the fog overlay, §2.7)", () => {
     it("pairs each connection with its fog state + effective-locked flag", () => {
       const mapInstance = makeMapInstanceState({
         geometry: {
+          pages: defaultPages(),
           zones: {},
           connections: {
             c1: makeConnection("c1", "z1", "z2", { locked: true }),

@@ -70,7 +70,11 @@ const dungeonState = (
 })
 
 const mapInstanceWith = (occupancy: Record<string, { zoneId: string }>) => ({
-  geometry: { zones: {}, connections: {} },
+  geometry: {
+    pages: { default: { id: "default", name: "Page 1" } },
+    zones: {},
+    connections: {},
+  },
   occupancy: Object.fromEntries(
     Object.entries(occupancy).map(([k, v]) => [
       k,
@@ -79,6 +83,7 @@ const mapInstanceWith = (occupancy: Record<string, { zoneId: string }>) => ({
   ),
   enchantment: null,
   reveal: reveal(),
+  lastMovedTokenKey: null,
 })
 
 describe("golden-master: connectionFogState (the three-state fog derivation)", () => {

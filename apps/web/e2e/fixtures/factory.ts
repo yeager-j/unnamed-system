@@ -203,6 +203,46 @@ export interface TestMap {
   name: string
 }
 
+/**
+ * Builds a parsed multi-page {@link MapGeometry} from terse specs (UNN-586) —
+ * the factory's pages-aware geometry seed. `pages` defaults to the single
+ * default page; zone `pageId` defaults to the first page given (or "default").
+ */
+export function testGeometry(spec: {
+  pages?: Array<{ id: string; name: string }>
+  zones: Array<{
+    id: string
+    name?: string
+    pageId?: string
+    x?: number
+    y?: number
+  }>
+  connections?: Array<{ id: string; from: string; to: string }>
+}): MapGeometry {
+  const pages = spec.pages ?? [{ id: "default", name: "Page 1" }]
+  const firstPageId = pages[0]?.id ?? "default"
+  return mapGeometrySchema.parse({
+    pages: Object.fromEntries(pages.map((page) => [page.id, page])),
+    zones: Object.fromEntries(
+      spec.zones.map((zone) => [
+        zone.id,
+        {
+          id: zone.id,
+          name: zone.name ?? zone.id,
+          position: { x: zone.x ?? 0, y: zone.y ?? 0 },
+          pageId: zone.pageId ?? firstPageId,
+        },
+      ])
+    ),
+    connections: Object.fromEntries(
+      (spec.connections ?? []).map((conn) => [
+        conn.id,
+        { id: conn.id, fromZoneId: conn.from, toZoneId: conn.to },
+      ])
+    ),
+  })
+}
+
 /** Mints a user-owned Map template (UNN-460) with unique id / shortId. Geometry
  *  defaults empty; pass one to seed authored zones/connections. */
 export async function createTestMap(

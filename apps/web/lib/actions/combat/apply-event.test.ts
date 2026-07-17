@@ -147,6 +147,7 @@ function makeLocators(): Map<ParticipantId, StoredEntityLocator> {
 function makeInstanceState(): MapInstanceState {
   return {
     geometry: {
+      pages: { default: { id: "default", name: "Page 1" } },
       zones: {
         z: {
           id: "z",
@@ -154,6 +155,7 @@ function makeInstanceState(): MapInstanceState {
           description: "",
           dmNotes: "",
           position: { x: 0, y: 0 },
+          pageId: "default",
         },
       },
       connections: {},
@@ -168,6 +170,7 @@ function makeInstanceState(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    lastMovedTokenKey: null,
   }
 }
 

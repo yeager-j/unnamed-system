@@ -4,6 +4,7 @@ import { createContext, useContext } from "react"
 
 import type {
   ConnectionFlag,
+  MapPage,
   MapZoneMood,
   MapZoneMotif,
   MapZoneSize,
@@ -49,6 +50,19 @@ export interface MapCanvasContextValue {
   ) => void
   /** Deletes a connection. */
   deleteConnection: (connectionId: string) => void
+  /** The page the canvas is showing — nodes/edges are filtered to it (UNN-586). */
+  activePageId: string
+  /** Every page in canonical display order (`orderedPages`) — the "Move to
+   *  page…" menu and the connect picker's group headings read it. */
+  pages: MapPage[]
+  /** Switches the canvas to `pageId`, optionally centering a Zone once there —
+   *  the "leads to ⇢" chip's affordance. */
+  navigateToPage: (pageId: string, focusZoneId?: string) => void
+  /** Opens the searchable, page-grouped connect picker seeded from `zoneId` —
+   *  the drag-free connector, and the only way to author a cross-page link. */
+  openConnectPicker: (zoneId: string) => void
+  /** Re-homes a Zone onto another page (position untouched). */
+  moveZoneToPage: (zoneId: string, pageId: string) => void
   /**
    * Zones that must not be deleted (the live-Instance host marks Zones an
    * occupancy token stands in). A {@link import("./zone-node").ZoneNode} in this set

@@ -47,6 +47,9 @@ export interface DungeonCanvasContextValue {
   onModeChange: (mode: DungeonConsoleMode) => void
   /** True while a write is in flight — disables the turn-loop controls. */
   disabled: boolean
+  /** Switches the board to another page, optionally centering a Zone once there —
+   *  the cross-page chip's affordance (UNN-586). */
+  navigateToPage: (pageId: string, focusZoneId?: string) => void
 }
 
 const DungeonCanvasContext = createContext<DungeonCanvasContextValue | null>(

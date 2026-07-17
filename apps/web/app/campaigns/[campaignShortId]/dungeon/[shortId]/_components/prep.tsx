@@ -9,7 +9,9 @@ import { Label } from "@workspace/ui/components/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
@@ -27,6 +29,9 @@ import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 export interface PrepZone {
   id: string
   name: string
+  /** The page grouping the zone picker renders under (UNN-586). */
+  pageId: string
+  pageName: string
 }
 
 /**
@@ -140,11 +145,28 @@ export function DungeonPrep({
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {zones.map((zone) => (
-                        <SelectItem key={zone.id} value={zone.id}>
-                          {zone.name}
-                        </SelectItem>
-                      ))}
+                      {[...new Set(zones.map((zone) => zone.pageId))].map(
+                        (pageId) => {
+                          const pageZones = zones.filter(
+                            (zone) => zone.pageId === pageId
+                          )
+                          return (
+                            <SelectGroup key={pageId}>
+                              {new Set(zones.map((zone) => zone.pageId)).size >
+                                1 && (
+                                <SelectLabel>
+                                  {pageZones[0]?.pageName}
+                                </SelectLabel>
+                              )}
+                              {pageZones.map((zone) => (
+                                <SelectItem key={zone.id} value={zone.id}>
+                                  {zone.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )
+                        }
+                      )}
                     </SelectContent>
                   </Select>
                 </li>

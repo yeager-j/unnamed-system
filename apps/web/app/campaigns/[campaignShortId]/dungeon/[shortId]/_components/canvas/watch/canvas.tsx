@@ -5,6 +5,7 @@ import "@xyflow/react/dist/style.css"
 import {
   Background,
   BackgroundVariant,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -12,9 +13,11 @@ import {
   useReactFlow,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
+import { Button } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
 
 import {
   DungeonConnectionEdge,
@@ -46,6 +49,7 @@ import {
   useHoveredConnection,
 } from "@/components/shared/canvas/hovered-connection-context"
 import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
+import type { PageLinkView } from "@/components/shared/canvas/set-piece/page-link-chip"
 import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
@@ -92,12 +96,52 @@ function exitsByZone(
   return byZone
 }
 
+/** Cross-page links among **revealed** zones, keyed by the on-page endpoint —
+ *  both endpoints are in the snapshot, so the chip discloses nothing beyond what
+ *  the wire already carries (UNN-586). */
+function watchPageLinks(
+  snapshot: DungeonSnapshot,
+  pageId: string
+): Record<string, PageLinkView[]> {
+  const zoneById = new Map(snapshot.zones.map((zone) => [zone.id, zone]))
+  const pageNameById = new Map(
+    snapshot.pages.map((page) => [page.id, page.name])
+  )
+  const byZone: Record<string, PageLinkView[]> = {}
+  for (const connection of snapshot.connections) {
+    const from = zoneById.get(connection.fromZoneId)
+    const to = zoneById.get(connection.toZoneId)
+    if (!from || !to || from.pageId === to.pageId) continue
+    for (const [near, far] of [
+      [from, to],
+      [to, from],
+    ] as const) {
+      if (near.pageId !== pageId) continue
+      ;(byZone[near.id] ??= []).push({
+        connectionId: connection.id,
+        zoneId: near.id,
+        farZoneId: far.id,
+        farZoneName: far.name,
+        farPageId: far.pageId,
+        farPageName: pageNameById.get(far.pageId) ?? far.pageId,
+        // Lock state is already player-visible on drawn edges and exit notches;
+        // the snapshot carries no `hidden` (a hidden connection never reaches it).
+        locked: connection.locked,
+      })
+    }
+  }
+  return byZone
+}
+
 function buildExploreNodes(
   snapshot: DungeonSnapshot,
   ownedCharacterIds: string[],
-  onInspect: (zoneId: string) => void
+  pageId: string,
+  onInspect: (zoneId: string) => void,
+  onNavigatePage: (pageId: string, focusZoneId: string) => void
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
+  const pageLinks = watchPageLinks(snapshot, pageId)
   // The always-on range lens (§D5), origin = the party's zone(s). No re-origin —
   // the watch has no selection. The party's zones also carry the gold keyline (§D6).
   const partyZoneIds = new Set(
@@ -111,31 +155,35 @@ function buildExploreNodes(
     originLabel: "Party",
   })
 
-  return snapshot.zones.map((zone) => {
-    const { w, h } = footprintOf(zone.size)
-    return {
-      id: zone.id,
-      type: "fogZone" as const,
-      position: zone.position,
-      draggable: false,
-      width: w,
-      height: h,
-      style: { width: w, height: h },
-      data: {
-        view: watchExploreZoneView({
-          zone,
-          ownedCharacterIds,
-          party: partyZoneIds.has(zone.id),
-          hop: lensMap[zone.id] ?? null,
-        }),
-        exits: exits[zone.id] ?? [],
-        // The snapshot carries the raw Enchantment (zoneId/type/forte); the badge
-        // (name, forte marking, rule lines) is display shaping, done consumer-side.
-        enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
-        onOpenRoster: () => onInspect(zone.id),
-      },
-    }
-  })
+  return snapshot.zones
+    .filter((zone) => zone.pageId === pageId)
+    .map((zone) => {
+      const { w, h } = footprintOf(zone.size)
+      return {
+        id: zone.id,
+        type: "fogZone" as const,
+        position: zone.position,
+        draggable: false,
+        width: w,
+        height: h,
+        style: { width: w, height: h },
+        data: {
+          view: watchExploreZoneView({
+            zone,
+            ownedCharacterIds,
+            party: partyZoneIds.has(zone.id),
+            hop: lensMap[zone.id] ?? null,
+          }),
+          exits: exits[zone.id] ?? [],
+          pageLinks: pageLinks[zone.id] ?? [],
+          onNavigatePage,
+          // The snapshot carries the raw Enchantment (zoneId/type/forte); the badge
+          // (name, forte marking, rule lines) is display shaping, done consumer-side.
+          enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
+          onOpenRoster: () => onInspect(zone.id),
+        },
+      }
+    })
 }
 
 /**
@@ -151,9 +199,12 @@ function buildCombatNodes(
   snapshot: DungeonSnapshot,
   combatants: WatchCombatant[],
   ownedCharacterIds: string[],
-  onInspect: (zoneId: string) => void
+  pageId: string,
+  onInspect: (zoneId: string) => void,
+  onNavigatePage: (pageId: string, focusZoneId: string) => void
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
+  const pageLinks = watchPageLinks(snapshot, pageId)
   const byZone: Record<string, WatchCombatant[]> = {}
   for (const combatant of combatants) {
     if (combatant.zoneId === null) continue
@@ -176,60 +227,75 @@ function buildCombatNodes(
     origins: originZoneIds,
   })
 
-  return snapshot.zones.map((zone) => {
-    const zoneCombatants = byZone[zone.id] ?? []
-    const { w, h } = footprintOf(zone.size)
-    return {
-      id: zone.id,
-      type: "fogCombatZone" as const,
-      position: zone.position,
-      draggable: false,
-      width: w,
-      height: h,
-      style: { width: w, height: h },
-      data: {
-        view: watchCombatZoneView({
-          zone,
+  return snapshot.zones
+    .filter((zone) => zone.pageId === pageId)
+    .map((zone) => {
+      const zoneCombatants = byZone[zone.id] ?? []
+      const { w, h } = footprintOf(zone.size)
+      return {
+        id: zone.id,
+        type: "fogCombatZone" as const,
+        position: zone.position,
+        draggable: false,
+        width: w,
+        height: h,
+        style: { width: w, height: h },
+        data: {
+          view: watchCombatZoneView({
+            zone,
+            combatants: zoneCombatants,
+            ownedCharacterIds,
+            hop: lensMap[zone.id] ?? null,
+          }),
           combatants: zoneCombatants,
-          ownedCharacterIds,
-          hop: lensMap[zone.id] ?? null,
-        }),
-        combatants: zoneCombatants,
-        exits: exits[zone.id] ?? [],
-        enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
-        onOpenRoster: () => onInspect(zone.id),
-      },
-    }
-  })
+          exits: exits[zone.id] ?? [],
+          pageLinks: pageLinks[zone.id] ?? [],
+          onNavigatePage,
+          enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
+          onOpenRoster: () => onInspect(zone.id),
+        },
+      }
+    })
 }
 
 /** Revealed connections (both endpoints discovered) as read-only threshold edges,
  *  reusing the run console's edge — every player-visible edge is `revealed` fog. */
-function buildEdges(snapshot: DungeonSnapshot): DungeonConnectionEdgeType[] {
+function buildEdges(
+  snapshot: DungeonSnapshot,
+  pageId: string
+): DungeonConnectionEdgeType[] {
   const nameOf = new Map(snapshot.zones.map((zone) => [zone.id, zone.name]))
-  return snapshot.connections.map((connection) => {
-    const fromName = nameOf.get(connection.fromZoneId) ?? ""
-    const toName = nameOf.get(connection.toZoneId) ?? ""
-    return {
-      id: connection.id,
-      type: "dungeonConnection" as const,
-      source: connection.fromZoneId,
-      target: connection.toZoneId,
-      selectable: false,
-      focusable: true,
-      // Player-side connections are always revealed (no secrets reach the watch).
-      ariaLabel: connectionAriaLabel(fromName, toName, {
-        hidden: false,
-        locked: connection.locked,
-      }),
-      data: {
-        fog: "revealed" as const,
-        locked: connection.locked,
-        fromName,
-        toName,
-      },
-    }
-  })
+  const pageOf = new Map(snapshot.zones.map((zone) => [zone.id, zone.pageId]))
+  return snapshot.connections
+    .filter(
+      (connection) =>
+        // Intra-page only — a cross-page connection renders as chips (UNN-586).
+        pageOf.get(connection.fromZoneId) === pageId &&
+        pageOf.get(connection.toZoneId) === pageId
+    )
+    .map((connection) => {
+      const fromName = nameOf.get(connection.fromZoneId) ?? ""
+      const toName = nameOf.get(connection.toZoneId) ?? ""
+      return {
+        id: connection.id,
+        type: "dungeonConnection" as const,
+        source: connection.fromZoneId,
+        target: connection.toZoneId,
+        selectable: false,
+        focusable: true,
+        // Player-side connections are always revealed (no secrets reach the watch).
+        ariaLabel: connectionAriaLabel(fromName, toName, {
+          hidden: false,
+          locked: connection.locked,
+        }),
+        data: {
+          fog: "revealed" as const,
+          locked: connection.locked,
+          fromName,
+          toName,
+        },
+      }
+    })
 }
 
 /**
@@ -282,6 +348,31 @@ function DungeonWatchCanvasInner({
     useEdgesState<DungeonConnectionEdgeType>([])
   const edgeFocusPairing = useEdgeFocusPairing(edges)
 
+  // One revealed page at a time (UNN-586). Following the party is the default:
+  // the effective page tracks the snapshot's derived hint. A manual pick (the
+  // switcher or a chip) overrides until "Follow party" clears it — or until the
+  // override page stops being revealed (it can't: reveal never retracts pages
+  // mid-delve, but a phase re-seed could — fall back defensively).
+  const [pageOverride, setPageOverride] = useState<string | null>(null)
+  const revealedPageIds = new Set(snapshot.pages.map((page) => page.id))
+  const followedPageId =
+    snapshot.activePageId !== undefined &&
+    revealedPageIds.has(snapshot.activePageId)
+      ? snapshot.activePageId
+      : (snapshot.pages[0]?.id ?? "")
+  const activePageId =
+    pageOverride !== null && revealedPageIds.has(pageOverride)
+      ? pageOverride
+      : followedPageId
+  const following = pageOverride === null
+
+  // A chip navigation's landing: center the far Zone once its page's nodes are in.
+  const pendingFocusZoneIdRef = useRef<string | null>(null)
+  const navigateToPage = useCallback((pageId: string, focusZoneId?: string) => {
+    setPageOverride(pageId)
+    pendingFocusZoneIdRef.current = focusZoneId ?? null
+  }, [])
+
   // The roster inspector's target — owned here (the watch has no details sheet to
   // coordinate with), independent of the camera. `elementsSelectable={false}`
   // keeps the click ring-less, but `onNodeClick` still fires for center + inspect.
@@ -325,7 +416,7 @@ function DungeonWatchCanvasInner({
   )
 
   // Re-derive the board from each poll's snapshot. A reveal snaps the new Zone in;
-  // the viewport stays put (fitView is init-only).
+  // the viewport stays put (fitView is init-only). A page switch refilters.
   useEffect(() => {
     setNodes(
       mode.kind === "combat"
@@ -333,12 +424,44 @@ function DungeonWatchCanvasInner({
             snapshot,
             mode.combatants,
             ownedCharacterIds,
-            setInspectId
+            activePageId,
+            setInspectId,
+            navigateToPage
           )
-        : buildExploreNodes(snapshot, ownedCharacterIds, setInspectId)
+        : buildExploreNodes(
+            snapshot,
+            ownedCharacterIds,
+            activePageId,
+            setInspectId,
+            navigateToPage
+          )
     )
-    setEdges(buildEdges(snapshot))
-  }, [snapshot, ownedCharacterIds, mode, setNodes, setEdges])
+    setEdges(buildEdges(snapshot, activePageId))
+  }, [
+    snapshot,
+    ownedCharacterIds,
+    mode,
+    activePageId,
+    navigateToPage,
+    setNodes,
+    setEdges,
+  ])
+
+  // Land a chip navigation once the far page's nodes are in — same center math
+  // as a zone click; without a pending focus a page switch keeps the viewport.
+  useEffect(() => {
+    const focusZoneId = pendingFocusZoneIdRef.current
+    if (focusZoneId === null) return
+    const node = nodes.find((candidate) => candidate.id === focusZoneId)
+    if (!node) return
+    pendingFocusZoneIdRef.current = null
+    const w = node.measured?.width ?? node.width ?? 0
+    const h = node.measured?.height ?? node.height ?? 0
+    void setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+      zoom: getZoom(),
+      duration: prefersReducedMotion() ? 0 : 200,
+    })
+  }, [nodes, setCenter, getZoom])
 
   const isEmpty = snapshot.zones.length === 0
 
@@ -385,6 +508,15 @@ function DungeonWatchCanvasInner({
           </CanvasEmptyNotice>
         )}
         {!isEmpty && <CanvasCartouche title={snapshot.name} />}
+        {snapshot.pages.length > 1 && (
+          <WatchPageSwitcher
+            pages={snapshot.pages}
+            activePageId={activePageId}
+            following={following}
+            onSelect={(pageId) => setPageOverride(pageId)}
+            onFollow={() => setPageOverride(null)}
+          />
+        )}
         <RosterInspector
           view={inspectedView}
           onClose={() => setInspectId(null)}
@@ -398,5 +530,58 @@ function DungeonWatchCanvasInner({
         </CanvasBottomBar>
       </ReactFlow>
     </div>
+  )
+}
+
+/**
+ * The watch's revealed-page switcher (UNN-586) — shown only once a second page
+ * holds a revealed Zone. Following the party is the default state; a manual pick
+ * pins a page and surfaces "Follow party" to resume.
+ */
+function WatchPageSwitcher({
+  pages,
+  activePageId,
+  following,
+  onSelect,
+  onFollow,
+}: {
+  pages: DungeonSnapshot["pages"]
+  activePageId: string
+  following: boolean
+  onSelect: (pageId: string) => void
+  onFollow: () => void
+}) {
+  return (
+    <Panel
+      position="top-right"
+      className="flex max-w-[60%] items-center gap-1 overflow-x-auto rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur"
+    >
+      {pages.map((page) => (
+        <button
+          key={page.id}
+          type="button"
+          aria-current={page.id === activePageId ? "page" : undefined}
+          onClick={() => onSelect(page.id)}
+          className={cn(
+            "shrink-0 rounded-md px-2 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+            page.id === activePageId
+              ? "bg-primary/10 text-foreground"
+              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          )}
+        >
+          {page.name}
+        </button>
+      ))}
+      {!following && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="shrink-0"
+          onClick={onFollow}
+        >
+          Follow party
+        </Button>
+      )}
+    </Panel>
   )
 }

@@ -117,9 +117,14 @@ function makeInstanceState(): MapInstanceState {
     description: "",
     dmNotes: "",
     position: { x: 0, y: 0 },
+    pageId: "default",
   })
   return {
-    geometry: { zones: { z1: zone("z1"), z2: zone("z2") }, connections: {} },
+    geometry: {
+      pages: { default: { id: "default", name: "Page 1" } },
+      zones: { z1: zone("z1"), z2: zone("z2") },
+      connections: {},
+    },
     occupancy: {
       [PC_ID]: { zoneId: "z1", engagement: { status: "free" } },
     },
@@ -129,6 +134,7 @@ function makeInstanceState(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    lastMovedTokenKey: null,
   }
 }
 

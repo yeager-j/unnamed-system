@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
 import { DungeonEncounterStaging } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/encounter-staging"
+import { groupZonesByPage } from "@/domain/map/view/page-groups"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { dungeonConsolePath } from "@/lib/paths"
@@ -56,10 +57,14 @@ export default async function DungeonEncounterPage({ params }: PageProps) {
     (characterId) => placedIds.has(characterId)
   )
 
-  const zones = Object.values(instance.state.geometry.zones).map((zone) => ({
-    id: zone.id,
-    name: zone.name,
-  }))
+  const zones = groupZonesByPage(instance.state.geometry).flatMap((group) =>
+    group.zones.map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      pageId: group.pageId,
+      pageName: group.pageName,
+    }))
+  )
 
   return (
     <DungeonEncounterStaging

@@ -14,7 +14,11 @@ import { combatantDetail } from "./detail-view"
 const goblinId = asParticipantId("goblin")
 
 const mapless: MapInstanceState = {
-  geometry: { zones: {}, connections: {} },
+  geometry: {
+    pages: { default: { id: "default", name: "Page 1" } },
+    zones: {},
+    connections: {},
+  },
   occupancy: {},
   enchantment: null,
   reveal: {
@@ -22,6 +26,7 @@ const mapless: MapInstanceState = {
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
+  lastMovedTokenKey: null,
 }
 
 function detailFor(entity: Entity, sheetSlice?: CombatantSheetSlice) {

@@ -15,7 +15,9 @@ import type {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
@@ -49,6 +51,9 @@ const ADVANTAGE_ORDER: readonly CombatAdvantage[] = [
 export interface StagingZone {
   id: string
   name: string
+  /** The page grouping the zone picker renders under (UNN-586). */
+  pageId: string
+  pageName: string
 }
 
 function enemyName(enemyKey: string): string {
@@ -254,6 +259,9 @@ function ZoneSelect({
   onChange: (zoneId: string) => void
 }) {
   const zoneNameById = new Map(zones.map((zone) => [zone.id, zone.name]))
+  // Zones grouped by page (UNN-586); headings only when the map has >1 page.
+  const pageIds = [...new Set(zones.map((zone) => zone.pageId))]
+  const showPageLabels = pageIds.length > 1
 
   return (
     <div className="flex items-center gap-2">
@@ -269,11 +277,21 @@ function ZoneSelect({
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {zones.map((zone) => (
-            <SelectItem key={zone.id} value={zone.id}>
-              {zone.name}
-            </SelectItem>
-          ))}
+          {pageIds.map((pageId) => {
+            const pageZones = zones.filter((zone) => zone.pageId === pageId)
+            return (
+              <SelectGroup key={pageId}>
+                {showPageLabels && (
+                  <SelectLabel>{pageZones[0]?.pageName}</SelectLabel>
+                )}
+                {pageZones.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )
+          })}
         </SelectContent>
       </Select>
     </div>

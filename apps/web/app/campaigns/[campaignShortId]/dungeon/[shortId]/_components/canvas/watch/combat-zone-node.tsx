@@ -7,6 +7,10 @@ import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[short
 import { WatchRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/roster-token"
 import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
+import {
+  PageLinkChips,
+  type PageLinkView,
+} from "@/components/shared/canvas/set-piece/page-link-chip"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
@@ -26,6 +30,10 @@ export type WatchCombatZoneData = {
   exits: WatchZoneExit[]
   /** The Zone's active Bard Enchantment badge, when one sits here. */
   enchantment?: ZoneEnchantmentBadge
+  /** "Leads to ⇢" chips for revealed cross-page connections (UNN-586). */
+  pageLinks: PageLinkView[]
+  /** Switches the watch board to another revealed page, centering a Zone. */
+  onNavigatePage: (pageId: string, focusZoneId: string) => void
   /** Docks the watch roster inspector on this Zone (the crowded card's "Open
    *  roster ▸"; §D7). Supplied by the canvas, which owns the watch `inspectId`. */
   onOpenRoster: () => void
@@ -49,7 +57,15 @@ export function DungeonWatchCombatZoneNode({
   id,
   data,
 }: NodeProps<DungeonWatchCombatZoneNode>) {
-  const { view, combatants, exits, enchantment, onOpenRoster } = data
+  const {
+    view,
+    combatants,
+    exits,
+    enchantment,
+    pageLinks,
+    onNavigatePage,
+    onOpenRoster,
+  } = data
   const partnerHighlighted = useConnectionHighlight(id)
   const byId = new Map(combatants.map((c) => [c.id as string, c]))
 
@@ -64,6 +80,13 @@ export function DungeonWatchCombatZoneNode({
       onOpenRoster={onOpenRoster}
       handles={<FloatingEdgeHandles />}
       rim={<WatchExitStubs exits={exits} size={view.size} />}
+      pageLinks={
+        pageLinks.length > 0 ? (
+          <span className="pointer-events-auto">
+            <PageLinkChips links={pageLinks} onNavigate={onNavigatePage} />
+          </span>
+        ) : undefined
+      }
       titleAccessory={
         enchantment ? (
           <span className="pointer-events-auto">

@@ -4,7 +4,11 @@ import { useState } from "react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err } from "@workspace/game-v2/kernel/result"
-import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import {
+  firstPageId,
+  pageOfZone,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
 import { adjacentZones } from "@workspace/game-v2/spatial/selectors"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
@@ -150,6 +154,39 @@ export function DungeonCombatBody({
     origins: actingZoneId ? [actingZoneId] : [],
   })
 
+  // Follow-the-turn camera (UNN-586): the battlefield shows one page at a time,
+  // defaulting to the acting combatant's page — a chip click overrides for the
+  // rest of the turn, and the next turn's draft snaps back to following.
+  const [pageOverride, setPageOverride] = useState<string | null>(null)
+  const [pageFocus, setPageFocus] = useState<{
+    zoneId: string
+    nonce: number
+  } | null>(null)
+  const [lastActingId, setLastActingId] = useState(actingCombatantId)
+  if (actingCombatantId !== lastActingId) {
+    setLastActingId(actingCombatantId)
+    setPageOverride(null)
+  }
+  const actingPageId = actingZoneId
+    ? (pageOfZone(instanceState.geometry, actingZoneId) ?? null)
+    : null
+  const resolvedOverride =
+    pageOverride !== null &&
+    instanceState.geometry.pages[pageOverride] !== undefined
+      ? pageOverride
+      : null
+  const activePageId =
+    resolvedOverride ?? actingPageId ?? firstPageId(instanceState.geometry)
+  const navigateToPage = (pageId: string, focusZoneId?: string) => {
+    setPageOverride(pageId)
+    if (focusZoneId !== undefined) {
+      setPageFocus((current) => ({
+        zoneId: focusZoneId,
+        nonce: (current?.nonce ?? 0) + 1,
+      }))
+    }
+  }
+
   return (
     <>
       {pcChannelIds.map(({ characterId, shortId }) => (
@@ -192,6 +229,7 @@ export function DungeonCombatBody({
           turnCounter: dungeon.state.turnCounter,
           fallenPcNames,
           disabled: isPending,
+          navigateToPage,
         }}
       >
         <DungeonSidebarSlot>
@@ -209,6 +247,8 @@ export function DungeonCombatBody({
             <DungeonCanvas
               instance={instanceState}
               mode={{ kind: "combat", roster }}
+              activePageId={activePageId}
+              focusZone={pageFocus}
               dungeonName={dungeon.name}
               turnCounter={dungeon.state.turnCounter}
               persistKey={dungeon.shortId}

@@ -39,6 +39,8 @@ import {
 const pid = asParticipantId
 const SECRET_ZONE_NAME = "Lich's Sanctum"
 const SECRET_NOTE = "the lich waits behind the throne"
+const SECRET_PAGE_ID = "page-secret"
+const SECRET_PAGE_NAME = "Sanctum Level"
 
 const META: EncounterSnapshotMeta = {
   status: "live",
@@ -50,14 +52,23 @@ const META: EncounterSnapshotMeta = {
 const viewOf = (entries: Array<[string, ParticipantView]>): ResolvedSession =>
   new Map(entries.map(([id, view]) => [pid(id), view]))
 
-// z1 revealed; z-secret unrevealed (holds dmNotes + a hidden name + an enemy).
+// z1 revealed; z-secret unrevealed (holds dmNotes + a hidden name + an enemy),
+// alone on an unrevealed second page (UNN-586: the page must never serialize).
 const fogInstance = makeMapInstanceState({
   geometry: makeGeometry(
     [
       makeZone("z1", { name: "Entry", dmNotes: "safe" }),
-      makeZone("z-secret", { name: SECRET_ZONE_NAME, dmNotes: SECRET_NOTE }),
+      makeZone("z-secret", {
+        name: SECRET_ZONE_NAME,
+        dmNotes: SECRET_NOTE,
+        pageId: SECRET_PAGE_ID,
+      }),
     ],
-    [makeConnection("c1", "z1", "z-secret")]
+    [makeConnection("c1", "z1", "z-secret")],
+    [
+      { id: "default", name: "Page 1" },
+      { id: SECRET_PAGE_ID, name: SECRET_PAGE_NAME },
+    ]
   ),
   occupancy: { hero: free("z1"), lich: free("z-secret") },
   enchantment: { zoneId: "z-secret", type: "toccata", forte: 3 },
@@ -210,5 +221,85 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
       { id: "c1", zoneId: "z1", locked: false, side: "n", offset: 0.5 },
     ])
     expect(snap.exits[0]).not.toHaveProperty("toZoneId")
+  })
+
+  it("never serializes an unrevealed page's id or name (UNN-586)", () => {
+    expect(wire).not.toContain(SECRET_PAGE_ID)
+    expect(wire).not.toContain(SECRET_PAGE_NAME)
+    expect(snap.pages).toEqual([{ id: "default", name: "Page 1" }])
+  })
+
+  it("keeps following the party's page when the last mover is an enemy", () => {
+    // Enemy participant moved last — its token exists but isn't in the roster,
+    // so the hint falls back to the party's revealed page rather than yanking
+    // the watch to a first-page default (and never the enemy's unrevealed page).
+    const enemyMoved = projectDungeonSnapshot(
+      DUNGEON_META,
+      { ...fogInstance, lastMovedTokenKey: "lich" },
+      {
+        turnCounter: 1,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(enemyMoved.activePageId).toBe("default")
+    // The raw token key never crosses either way.
+    expect(JSON.stringify(enemyMoved)).not.toContain("lich")
+  })
+
+  it("omits the follow hint entirely when no roster member stands revealed", () => {
+    const hidden = projectDungeonSnapshot(
+      DUNGEON_META,
+      {
+        ...fogInstance,
+        occupancy: { hero: free("z-secret"), lich: free("z-secret") },
+        lastMovedTokenKey: "hero",
+      },
+      {
+        turnCounter: 1,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(hidden.activePageId).toBeUndefined()
+    expect("activePageId" in hidden).toBe(false)
+    expect(JSON.stringify(hidden)).not.toContain(SECRET_PAGE_ID)
+  })
+
+  it("resolves the follow hint only through a roster token in a revealed zone", () => {
+    const heroMoved = projectDungeonSnapshot(
+      DUNGEON_META,
+      { ...fogInstance, lastMovedTokenKey: "hero" },
+      {
+        turnCounter: 1,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(heroMoved.activePageId).toBe("default")
+
+    // A dangling key with no roster tokens at all resolves to absent.
+    const dangling = projectDungeonSnapshot(
+      DUNGEON_META,
+      { ...fogInstance, occupancy: {}, lastMovedTokenKey: "hero" },
+      {
+        turnCounter: 1,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(dangling.activePageId).toBeUndefined()
   })
 })

@@ -75,6 +75,7 @@ function instanceRow() {
     mapId: null,
     state: {
       geometry: {
+        pages: { default: { id: "default", name: "Page 1" } },
         zones: {},
         connections: {
           c1: {
@@ -93,6 +94,7 @@ function instanceRow() {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      lastMovedTokenKey: null,
     } satisfies MapInstanceState,
     version: 0,
   }

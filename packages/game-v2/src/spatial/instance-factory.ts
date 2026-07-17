@@ -1,4 +1,7 @@
-import type { MapGeometry } from "@workspace/game-v2/spatial/geometry.schema"
+import {
+  defaultPages,
+  type MapGeometry,
+} from "@workspace/game-v2/spatial/geometry.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial/map-instance.schema"
 
 /**
@@ -14,7 +17,7 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial/map-instance.s
  *  default for a mapless / standalone encounter. */
 export function emptyMapInstance(): MapInstanceState {
   return {
-    geometry: { zones: {}, connections: {} },
+    geometry: { pages: defaultPages(), zones: {}, connections: {} },
     occupancy: {},
     enchantment: null,
     reveal: {
@@ -22,6 +25,7 @@ export function emptyMapInstance(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    lastMovedTokenKey: null,
   }
 }
 

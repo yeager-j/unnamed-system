@@ -22,11 +22,20 @@ import {
   type Viewport,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useRef, useState, type MouseEvent, type ReactNode } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react"
 
 import {
   disconnectedZoneIds,
   duplicateZoneNames,
+  firstPageId,
+  orderedPages,
+  pageDeleteImpact,
   reduceMapGeometry,
   type ConnectionFlag,
   type MapGeometry,
@@ -55,9 +64,11 @@ import {
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
 import { footprintOf, overlappingZonePairs } from "@/domain/map/view/footprints"
+import { groupZonesByPage } from "@/domain/map/view/page-groups"
 import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 import { CanvasCartouche } from "./canvas-cartouche"
+import { CanvasPageTabs } from "./canvas-page-tabs"
 import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
 import { FloatingConnectionLine } from "./floating-connection-line"
@@ -76,6 +87,7 @@ import { MapCanvasProvider, type ZoneIdentityPatch } from "./map-canvas-context"
 import type { ToolMode } from "./tool-mode"
 import { useCanvasTier } from "./use-canvas-tier"
 import { useCoarsePointer } from "./use-coarse-pointer"
+import { ZoneConnectCommand } from "./zone-connect-command"
 import { ZoneDetailsSheet } from "./zone-details-sheet"
 import { ZoneNode } from "./zone-node"
 
@@ -131,6 +143,19 @@ export function MapCanvas(props: {
   /** The map/dungeon name — the top-center cartouche title (§D8). Absent ⇒ no
    *  cartouche (a readonly embed). */
   cartoucheTitle?: string
+  /**
+   * The page to show (UNN-586) — React Flow only ever holds one page's nodes and
+   * edges. Pass it to control paging from outside (the console's Pages sidebar);
+   * omit it and the canvas pages itself (the Map editor's tabs), starting on the
+   * first page in canonical order. Either way, page switches announce through
+   * `onActivePageChange`.
+   */
+  activePageId?: string
+  onActivePageChange?: (pageId: string) => void
+  /** Mounts the floating page-tab strip (the Map editor). The console keeps this
+   *  off — its Pages sidebar is the switcher (D3: the console's page switcher
+   *  arrives deliberately, not by leak). */
+  showPageTabs?: boolean
 }) {
   return (
     <ReactFlowProvider>
@@ -152,6 +177,9 @@ function MapCanvasInner({
   onMoveEnd,
   bottomBarLeading,
   cartoucheTitle,
+  activePageId: activePageIdProp,
+  onActivePageChange,
+  showPageTabs,
 }: {
   geometry: MapGeometry
   onGeometryChange?: (geometry: MapGeometry) => void
@@ -163,17 +191,35 @@ function MapCanvasInner({
   onMoveEnd?: OnMove
   bottomBarLeading?: ReactNode
   cartoucheTitle?: string
+  activePageId?: string
+  onActivePageChange?: (pageId: string) => void
+  showPageTabs?: boolean
 }) {
   const editable = interactivity === "edit"
   const { resolvedTheme } = useTheme()
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, setCenter, getZoom } = useReactFlow()
   const tier = useCanvasTier()
   const coarsePointer = useCoarsePointer()
   const { setHovered } = useHoveredConnection()
 
+  const [geometry, setGeometry] = useState(initialGeometry)
+
+  // One page at a time (UNN-586): the host's prop wins when present (the console
+  // pages from its sidebar); otherwise the canvas's own choice (the editor's
+  // tabs). Either way an id that no longer exists (page deleted, possibly by a
+  // remote edit) falls back to the first page in canonical order.
+  const [internalPageId, setInternalPageId] = useState<string | null>(null)
+  const requestedPageId = activePageIdProp ?? internalPageId
+  const activePageId =
+    requestedPageId !== null && geometry.pages[requestedPageId] !== undefined
+      ? requestedPageId
+      : firstPageId(geometry)
+
   // Seed React Flow's interactive state once; the canvas owns it thereafter, with
   // `geometryRef` as the data source-of-truth the edit helpers transform.
-  const [initialFlow] = useState(() => geometryToFlow(initialGeometry))
+  const [initialFlow] = useState(() =>
+    geometryToFlow(initialGeometry, activePageId)
+  )
   const geometryRef = useRef(initialGeometry)
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowZoneNode>(
     initialFlow.nodes
@@ -183,12 +229,56 @@ function MapCanvasInner({
   )
   const edgeFocusPairing = useEdgeFocusPairing(edges)
 
-  const [geometry, setGeometry] = useState(initialGeometry)
   const [mode, setMode] = useState<ToolMode>("select")
   const [detailsZoneId, setDetailsZoneId] = useState<string | null>(null)
   const [pendingDeleteZoneId, setPendingDeleteZoneId] = useState<string | null>(
     null
   )
+  const [pendingDeletePageId, setPendingDeletePageId] = useState<string | null>(
+    null
+  )
+  const [connectSourceId, setConnectSourceId] = useState<string | null>(null)
+  const pendingFocusZoneIdRef = useRef<string | null>(null)
+
+  /** Rebuild React Flow's nodes+edges from the live geometry — the reset every
+   *  page switch and cross-page-affecting edit (picker connect, page CRUD) runs;
+   *  hot-path zone/connection edits keep their incremental patches. */
+  function reseedFlow(pageId: string = activePageId) {
+    const flow = geometryToFlow(geometryRef.current, pageId)
+    setNodes(flow.nodes)
+    setEdges(flow.edges)
+  }
+
+  // Render-phase reset on page change (React's "adjusting state when props
+  // change" pattern): React Flow must never hold two pages' coordinate spaces,
+  // so the refilter happens before anything else renders against the new page.
+  const [lastPageId, setLastPageId] = useState(activePageId)
+  if (activePageId !== lastPageId) {
+    setLastPageId(activePageId)
+    reseedFlow(activePageId)
+  }
+
+  /** Switch pages (chip click, tabs, host) and optionally center a zone there. */
+  function navigateToPage(pageId: string, focusZoneId?: string) {
+    pendingFocusZoneIdRef.current = focusZoneId ?? null
+    setInternalPageId(pageId)
+    if (pageId !== activePageId) onActivePageChange?.(pageId)
+  }
+
+  // Center the chip-focused zone once its page's nodes are in. Reading the node
+  // from state (not geometry) keeps the math on what React Flow actually holds.
+  useEffect(() => {
+    const focusZoneId = pendingFocusZoneIdRef.current
+    if (focusZoneId === null) return
+    const node = nodes.find((candidate) => candidate.id === focusZoneId)
+    if (!node) return
+    pendingFocusZoneIdRef.current = null
+    void setCenter(
+      node.position.x + (node.width ?? 0) / 2,
+      node.position.y + (node.height ?? 0) / 2,
+      { zoom: getZoom(), duration: 400 }
+    )
+  }, [nodes, setCenter, getZoom])
 
   function applyGeometry(next: MapGeometry): MapGeometry {
     if (next === geometryRef.current) return next
@@ -211,7 +301,12 @@ function MapCanvasInner({
   function addZoneAt(position: { x: number; y: number }) {
     if (!editable) return
     const id = crypto.randomUUID()
-    const next = dispatchGeometry({ kind: "addZone", id, position })
+    const next = dispatchGeometry({
+      kind: "addZone",
+      id,
+      position,
+      pageId: activePageId,
+    })
     const zone = next.zones[id]
     if (!zone) return
     const node: FlowZoneNode = {
@@ -219,7 +314,7 @@ function MapCanvasInner({
       type: "zone",
       position,
       ...footprintFields(zone),
-      data: { zone },
+      data: { zone, crossPageLinks: [] },
     }
     setNodes((current) => [...current, node])
   }
@@ -286,6 +381,8 @@ function MapCanvasInner({
       sourceId: zoneId,
       newId: id,
       position,
+      // The copy lands beside its source, so it belongs to the source's page.
+      pageId: source.pageId,
     })
     const zone = next.zones[id]
     if (!zone) return
@@ -294,7 +391,8 @@ function MapCanvasInner({
       type: "zone",
       position,
       ...footprintFields(zone),
-      data: { zone },
+      // A duplicate copies no connections, so it starts with no chips.
+      data: { zone, crossPageLinks: [] },
     }
     setNodes((current) => [...current, node])
   }
@@ -314,7 +412,12 @@ function MapCanvasInner({
     setNodes((current) =>
       current.map((node) =>
         node.id === zoneId
-          ? { ...node, ...footprintFields(zone), data: { zone } }
+          ? {
+              ...node,
+              ...footprintFields(zone),
+              // Preserve the chips — text/identity edits don't change links.
+              data: { zone, crossPageLinks: node.data.crossPageLinks },
+            }
           : node
       )
     )
@@ -370,6 +473,15 @@ function MapCanvasInner({
     })
     const connection = next.connections[connectionId]
     if (!connection) return
+    // A cross-page connection has no edge to patch — its flag state lives in
+    // the endpoint's chip data, so rebuild the nodes instead.
+    if (
+      next.zones[connection.fromZoneId]?.pageId !==
+      next.zones[connection.toZoneId]?.pageId
+    ) {
+      reseedFlow()
+      return
+    }
     setEdges((current) =>
       current.map((edge) =>
         edge.id === connectionId
@@ -394,12 +506,117 @@ function MapCanvasInner({
   function handleDeleteConnection(connectionId: string) {
     dispatchGeometry({ kind: "deleteConnection", connectionId })
     setEdges((current) => current.filter((edge) => edge.id !== connectionId))
+    // A cross-page connection has no edge — its presence is chip data.
+    reseedFlow()
+  }
+
+  function handleAddPage() {
+    const id = crypto.randomUUID()
+    const next = dispatchGeometry({ kind: "addPage", id })
+    if (next.pages[id]) navigateToPage(id)
+  }
+
+  function handleRenamePage(pageId: string, name: string) {
+    const before = geometryRef.current
+    const next = dispatchGeometry({ kind: "renamePage", pageId, name })
+    // Chips label their far page by name; a rename must reach them.
+    if (next !== before) reseedFlow()
+  }
+
+  function handleDuplicatePage(sourcePageId: string) {
+    const source = geometryRef.current
+    const newPageId = crypto.randomUUID()
+    // Caller-minted id maps (deterministic replay — the Instance re-reduces the
+    // same event server-side, so the reducer must never mint).
+    const zoneIdMap = Object.fromEntries(
+      Object.values(source.zones)
+        .filter((zone) => zone.pageId === sourcePageId)
+        .map((zone) => [zone.id, crypto.randomUUID()])
+    )
+    const connectionIdMap = Object.fromEntries(
+      Object.values(source.connections)
+        .filter(
+          (conn) =>
+            source.zones[conn.fromZoneId]?.pageId === sourcePageId &&
+            source.zones[conn.toZoneId]?.pageId === sourcePageId
+        )
+        .map((conn) => [conn.id, crypto.randomUUID()])
+    )
+    const next = dispatchGeometry({
+      kind: "duplicatePage",
+      sourcePageId,
+      newPageId,
+      zoneIdMap,
+      connectionIdMap,
+    })
+    if (next.pages[newPageId]) navigateToPage(newPageId)
+  }
+
+  function handleDeletePage(pageId: string) {
+    const before = geometryRef.current
+    const next = dispatchGeometry({ kind: "deletePage", pageId })
+    if (next === before) return
+    if (pageId === activePageId) navigateToPage(firstPageId(next))
+    // Chips pointing into the deleted page died with their connections.
+    else reseedFlow()
+  }
+
+  function handleMoveZoneToPage(zoneId: string, pageId: string) {
+    const before = geometryRef.current
+    const next = dispatchGeometry({ kind: "moveZoneToPage", zoneId, pageId })
+    // The zone left this page (or gained/lost cross-page links) — refilter.
+    if (next !== before) reseedFlow()
+  }
+
+  function handlePickerConnect(sourceZoneId: string, targetZoneId: string) {
+    const before = geometryRef.current
+    const next = dispatchGeometry({
+      kind: "addConnection",
+      id: crypto.randomUUID(),
+      fromZoneId: sourceZoneId,
+      toZoneId: targetZoneId,
+    })
+    // Same-page pick ⇒ a new edge; cross-page pick ⇒ chips. Reseed covers both.
+    if (next !== before) reseedFlow()
   }
 
   const detailsZone = detailsZoneId
     ? (geometry.zones[detailsZoneId] ?? null)
     : null
   const isEmpty = Object.keys(geometry.zones).length === 0
+  const pages = orderedPages(geometry)
+
+  const connectSource = connectSourceId
+    ? (geometry.zones[connectSourceId] ?? null)
+    : null
+  // The picker offers every zone except the source and its current partners.
+  const connectedToSource = new Set(
+    connectSource
+      ? Object.values(geometry.connections).flatMap((conn) =>
+          conn.fromZoneId === connectSource.id
+            ? [conn.toZoneId]
+            : conn.toZoneId === connectSource.id
+              ? [conn.fromZoneId]
+              : []
+        )
+      : []
+  )
+  const connectGroups = connectSource
+    ? groupZonesByPage(geometry).map((group) => ({
+        ...group,
+        zones: group.zones.filter(
+          (zone) =>
+            zone.id !== connectSource.id && !connectedToSource.has(zone.id)
+        ),
+      }))
+    : []
+
+  const pendingDeletePage = pendingDeletePageId
+    ? (geometry.pages[pendingDeletePageId] ?? null)
+    : null
+  const deleteImpact = pendingDeletePageId
+    ? pageDeleteImpact(geometry, pendingDeletePageId)
+    : null
 
   return (
     <MapCanvasProvider
@@ -411,6 +628,11 @@ function MapCanvasInner({
         deleteZone: setPendingDeleteZoneId,
         setConnectionFlag: handleSetConnectionFlag,
         deleteConnection: handleDeleteConnection,
+        activePageId,
+        pages,
+        navigateToPage,
+        openConnectPicker: setConnectSourceId,
+        moveZoneToPage: handleMoveZoneToPage,
         lockedZoneIds,
         zoneOccupants,
       }}
@@ -477,6 +699,17 @@ function MapCanvasInner({
               leading={bottomBarLeading}
             />
           )}
+          {editable && showPageTabs && (
+            <CanvasPageTabs
+              pages={pages}
+              activePageId={activePageId}
+              onSelect={navigateToPage}
+              onAddPage={handleAddPage}
+              onRenamePage={handleRenamePage}
+              onDuplicatePage={handleDuplicatePage}
+              onRequestDelete={setPendingDeletePageId}
+            />
+          )}
           <WarningsBanner geometry={geometry} />
           {cartoucheTitle ? (
             <CanvasCartouche
@@ -498,6 +731,57 @@ function MapCanvasInner({
             onSetText={handleSetZoneText}
             onSetIdentity={handleSetZoneIdentity}
           />
+        )}
+
+        {editable && connectSource && (
+          <ZoneConnectCommand
+            open
+            sourceZoneName={connectSource.name}
+            groups={connectGroups}
+            onSelect={(zoneId) => handlePickerConnect(connectSource.id, zoneId)}
+            onClose={() => setConnectSourceId(null)}
+          />
+        )}
+
+        {editable && (
+          <AlertDialog
+            open={pendingDeletePageId !== null}
+            onOpenChange={(open) => {
+              if (!open) setPendingDeletePageId(null)
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Delete{" "}
+                  {pendingDeletePage
+                    ? `“${pendingDeletePage.name}”`
+                    : "this page"}
+                  ?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {deleteImpact
+                    ? deletePageSummary(deleteImpact)
+                    : "This removes the page."}{" "}
+                  This can&apos;t be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => {
+                    if (pendingDeletePageId) {
+                      handleDeletePage(pendingDeletePageId)
+                    }
+                    setPendingDeletePageId(null)
+                  }}
+                >
+                  Delete page
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
 
         {editable && (
@@ -535,6 +819,27 @@ function MapCanvasInner({
       </div>
     </MapCanvasProvider>
   )
+}
+
+/** The cascade counts the delete-page confirm reads out, from `pageDeleteImpact`. */
+function deletePageSummary(impact: {
+  zoneCount: number
+  intraConnectionCount: number
+  severedCrossPageCount: number
+}): string {
+  const parts = [
+    `${impact.zoneCount} ${impact.zoneCount === 1 ? "zone" : "zones"}`,
+    `${impact.intraConnectionCount} ${
+      impact.intraConnectionCount === 1 ? "connection" : "connections"
+    }`,
+  ]
+  const severed =
+    impact.severedCrossPageCount > 0
+      ? ` (${impact.severedCrossPageCount} cross-page ${
+          impact.severedCrossPageCount === 1 ? "link" : "links"
+        } from other pages will also be removed)`
+      : ""
+  return `This removes the page with its ${parts.join(" and ")}${severed}.`
 }
 
 function EmptyState() {

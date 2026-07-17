@@ -11,6 +11,7 @@ import {
   reduceInstance,
 } from "./__fixtures__/spatial"
 import type { MapGeometryEvent } from "./geometry-event"
+import { DEFAULT_PAGE_ID } from "./geometry.schema"
 import type { MapInstanceState } from "./map-instance.schema"
 import { reduceMapGeometry } from "./reduce-map-geometry"
 
@@ -548,6 +549,7 @@ describe("reduceMapInstance — zone graph", () => {
       description: "",
       dmNotes: "fountain",
       position: { x: 0, y: 0 },
+      pageId: DEFAULT_PAGE_ID,
     })
   })
 
@@ -564,6 +566,7 @@ describe("reduceMapInstance — zone graph", () => {
       description: "",
       dmNotes: "",
       position: { x: 0, y: 0 },
+      pageId: DEFAULT_PAGE_ID,
     })
   })
 
@@ -847,7 +850,12 @@ describe("reduceMapInstance — editGeometry (delegation)", () => {
   const base = () => makeMapInstanceState(twoZones())
 
   const parityCases: MapGeometryEvent[] = [
-    { kind: "addZone", id: "zone-c", position: { x: 40, y: 80 } },
+    {
+      kind: "addZone",
+      id: "zone-c",
+      position: { x: 40, y: 80 },
+      pageId: "default",
+    },
     { kind: "renameZone", zoneId: "zone-a", name: "Atrium" },
     {
       kind: "setZoneText",
@@ -1007,5 +1015,112 @@ describe("reduceMapInstance — editGeometry (Instance-only cascades)", () => {
     expect(next.reveal.revealedConnectionIds).toEqual([])
     expect(next.reveal.unlockedConnectionIds).toEqual([])
     expect(next.reveal.revealedZoneIds).toEqual(["zone-a", "zone-b"])
+  })
+})
+
+describe("reduceMapInstance — editGeometry (deletePage, UNN-586)", () => {
+  const edit = (event: MapGeometryEvent) =>
+    ({ kind: "editGeometry", event }) as const
+
+  /** twoZones (a–b on the default page) plus zone-c on page p2, connected b–c. */
+  const pagedState = (occupancy: MapInstanceState["occupancy"] = {}) =>
+    makeMapInstanceState({
+      geometry: makeGeometry(
+        [
+          makeZone("zone-a", { name: "Courtyard" }),
+          makeZone("zone-b", { name: "Hall" }),
+          makeZone("zone-c", { name: "Ossuary", pageId: "p2" }),
+        ],
+        [
+          makeConnection("conn-ab", "zone-a", "zone-b"),
+          makeConnection("conn-bc", "zone-b", "zone-c"),
+        ]
+      ),
+      occupancy,
+    })
+
+  it("blocks deleting a page while any of its Zones is occupied (no-op, same ref)", () => {
+    const state = pagedState({ c0: free("zone-b") })
+    expect(
+      reduceInstance(
+        state,
+        edit({ kind: "deletePage", pageId: DEFAULT_PAGE_ID })
+      )
+    ).toBe(state)
+  })
+
+  it("deletes an unoccupied page, cascading zones + connections and pruning reveal", () => {
+    const state = makeMapInstanceState({
+      ...pagedState({ c0: free("zone-c") }),
+      reveal: {
+        revealedZoneIds: ["zone-a", "zone-c"],
+        revealedConnectionIds: ["conn-ab", "conn-bc"],
+        unlockedConnectionIds: ["conn-ab"],
+      },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deletePage", pageId: DEFAULT_PAGE_ID })
+    )
+
+    expect(Object.keys(next.geometry.pages)).toEqual(["p2"])
+    expect(Object.keys(next.geometry.zones)).toEqual(["zone-c"])
+    expect(next.geometry.connections).toEqual({})
+    expect(next.reveal.revealedZoneIds).toEqual(["zone-c"])
+    expect(next.reveal.revealedConnectionIds).toEqual([])
+    expect(next.reveal.unlockedConnectionIds).toEqual([])
+  })
+
+  it("clears an Enchantment whose Zone died with the page", () => {
+    const state = makeMapInstanceState({
+      ...pagedState(),
+      enchantment: { zoneId: "zone-a", type: "toccata", forte: 1 },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deletePage", pageId: DEFAULT_PAGE_ID })
+    )
+    expect(next.enchantment).toBeNull()
+  })
+})
+
+describe("reduceMapInstance — lastMovedTokenKey (UNN-586)", () => {
+  const placed = () =>
+    makeMapInstanceState({ ...twoZones(), occupancy: { c0: free("zone-a") } })
+
+  it("is written by a real move", () => {
+    const next = reduceInstance(placed(), {
+      kind: "moveCombatant",
+      tokenKey: "c0",
+      toZoneId: "zone-b",
+    })
+    expect(next.lastMovedTokenKey).toBe("c0")
+  })
+
+  it("is NOT written by a same-zone no-op move (same ref)", () => {
+    const state = placed()
+    expect(
+      reduceInstance(state, {
+        kind: "moveCombatant",
+        tokenKey: "c0",
+        toZoneId: "zone-a",
+      })
+    ).toBe(state)
+  })
+
+  it("is written by a token-minting place and by a place-as-move", () => {
+    const minted = reduceInstance(placed(), {
+      kind: "placeCombatant",
+      tokenKey: "c1",
+      zoneId: "zone-b",
+    })
+    expect(minted.lastMovedTokenKey).toBe("c1")
+
+    const moved = reduceInstance(minted, {
+      kind: "placeCombatant",
+      tokenKey: "c0",
+      zoneId: "zone-b",
+    })
+    expect(moved.lastMovedTokenKey).toBe("c0")
   })
 })

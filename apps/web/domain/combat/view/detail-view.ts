@@ -73,13 +73,22 @@ export interface CombatantEngagementView {
   candidates: EngageableTarget[]
 }
 
+/** One zone the combatant may move into. `pageLabel` names the target's page
+ *  when it differs from the combatant's current page (a cross-page move,
+ *  UNN-586) — or for every target while unplaced on a multi-page map. */
+export interface CombatantMoveTarget {
+  id: string
+  name: string
+  pageLabel: string | null
+}
+
 /** The move control's feed: the occupied zone (`null` when unplaced) and the
  *  zones it may move to — adjacent when placed, every zone when unplaced (the
  *  mid-combat joiner placement affordance). `null` when the encounter defines
  *  no zones at all. */
 export interface CombatantPosition {
   current: MapZone | null
-  targets: MapZone[]
+  targets: CombatantMoveTarget[]
 }
 
 /** The drawer's header + footer display, every part pre-resolved. */
@@ -236,9 +245,17 @@ function combatantPosition(
   if (Object.keys(zones).length === 0) return null
   const zoneId = zoneOf(instanceState, participantId)
   const current = zoneId !== undefined ? (zones[zoneId] ?? null) : null
-  const targets = current
+  const targetZones = current
     ? adjacentZones(instanceState.geometry, current.id)
     : Object.values(zones)
+  const targets = targetZones.map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+    pageLabel:
+      zone.pageId === (current?.pageId ?? zone.pageId)
+        ? null
+        : (instanceState.geometry.pages[zone.pageId]?.name ?? zone.pageId),
+  }))
   return { current, targets }
 }
 

@@ -25,7 +25,11 @@ function goblinEntity(): Entity {
 
 function emptyInstance(): MapInstanceState {
   return {
-    geometry: { zones: {}, connections: {} },
+    geometry: {
+      pages: { default: { id: "default", name: "Page 1" } },
+      zones: {},
+      connections: {},
+    },
     occupancy: {},
     enchantment: null,
     reveal: {
@@ -33,6 +37,7 @@ function emptyInstance(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    lastMovedTokenKey: null,
   }
 }
 
