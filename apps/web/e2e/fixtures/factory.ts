@@ -6,6 +6,10 @@ import {
   storedSessionSchema,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
+import {
+  templateSetContentSchema,
+  type TemplateSetContent,
+} from "@workspace/game-v2/generation"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import {
   createDungeonState,
@@ -29,6 +33,7 @@ import {
   mapInstances,
   maps,
   playerCharacter,
+  templateSets,
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
@@ -38,6 +43,7 @@ import {
   dungeonWatchPath,
   encounterConsolePath,
   stageMapPath,
+  stageSetPath,
 } from "@/lib/paths"
 
 /**
@@ -62,6 +68,7 @@ export interface CleanupTracker {
   dungeonIds: string[]
   mapInstanceIds: string[]
   mapIds: string[]
+  templateSetIds: string[]
 }
 
 export function createTracker(): CleanupTracker {
@@ -72,6 +79,7 @@ export function createTracker(): CleanupTracker {
     dungeonIds: [],
     mapInstanceIds: [],
     mapIds: [],
+    templateSetIds: [],
   }
 }
 
@@ -265,6 +273,42 @@ export async function createTestMap(
     id: row.id,
     shortId: row.shortId,
     url: stageMapPath(row.shortId),
+    name: row.name,
+  }
+}
+
+export interface TestTemplateSet {
+  id: string
+  shortId: string
+  url: string
+  name: string
+}
+
+/** Mints a user-owned Template Set (UNN-588) with unique id / shortId. Content
+ *  defaults to the parsed empty set; pass one to seed authored templates. */
+export async function createTestTemplateSet(
+  tracker: CleanupTracker,
+  opts: {
+    userId?: string
+    name?: string
+    content?: TemplateSetContent
+  } = {}
+): Promise<TestTemplateSet> {
+  const { userId = DEV_USER_ID, name, content } = opts
+  const suffix = uniqueSuffix()
+  const row = {
+    id: `e2e-set-${suffix}`,
+    shortId: `e2e-set-${suffix}`,
+    userId,
+    name: name ?? `E2E Set ${suffix}`,
+    content: content ?? templateSetContentSchema.parse({}),
+  }
+  await getDb().insert(templateSets).values(row)
+  tracker.templateSetIds.push(row.id)
+  return {
+    id: row.id,
+    shortId: row.shortId,
+    url: stageSetPath(row.shortId),
     name: row.name,
   }
 }
@@ -490,6 +534,11 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
   }
   if (tracker.mapIds.length > 0) {
     await db.delete(maps).where(inArray(maps.id, tracker.mapIds))
+  }
+  if (tracker.templateSetIds.length > 0) {
+    await db
+      .delete(templateSets)
+      .where(inArray(templateSets.id, tracker.templateSetIds))
   }
   tracker.encounterIds.length = 0
   tracker.dungeonIds.length = 0

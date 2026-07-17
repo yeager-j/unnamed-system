@@ -1,7 +1,7 @@
 "use client"
 
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -12,13 +12,13 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
-import { cn } from "@workspace/ui/lib/utils"
 
 import type { MapSaveStatus } from "@/app/stage/_hooks/use-map-autosave"
 import { CanvasPanel } from "@/components/shared/canvas/canvas-panel"
 import { stageMapsPath } from "@/lib/paths"
 
 import { DeleteMapButton } from "./delete-map-button"
+import { SaveStatus } from "./save-status"
 
 /**
  * The Map editor's floating top-left control card (UNN-460 chrome pass) — replaces
@@ -115,67 +115,4 @@ export function MapSettingsPanel({
       </CanvasPanel>
     </Collapsible>
   )
-}
-
-const STATUS_DOT: Record<MapSaveStatus, string> = {
-  saved: "bg-emerald-500",
-  saving: "bg-amber-500",
-  error: "bg-destructive",
-}
-
-function SaveStatus({
-  save,
-}: {
-  save: { status: MapSaveStatus; lastSavedAt: number | null }
-}) {
-  const relative = useRelativeTime(save.lastSavedAt)
-
-  const label =
-    save.status === "saving"
-      ? "Saving…"
-      : save.status === "error"
-        ? "Couldn't save"
-        : save.lastSavedAt && relative
-          ? `Saved · ${relative}`
-          : "Saved"
-
-  return (
-    <span className="flex items-center gap-1.5">
-      <span
-        className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[save.status])}
-        aria-hidden
-      />
-      {label}
-    </span>
-  )
-}
-
-/** A coarse "x ago" string for a past timestamp relative to `now`. */
-function formatRelative(now: number, timestamp: number): string {
-  const seconds = Math.max(0, Math.round((now - timestamp) / 1000))
-  if (seconds < 45) return "just now"
-  const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  return `${hours}h ago`
-}
-
-/**
- * A relative "x ago" label for a past timestamp, recomputed on a 30s tick so "just
- * now" ages into "1m ago" without another save. Null until there's a timestamp.
- * `now` advances only from the interval callback (never a synchronous setState in
- * render or effect); it's seeded behind the first timestamp so the diff clamps to
- * "just now" until the first tick reads the real clock.
- */
-function useRelativeTime(timestamp: number | null): string | null {
-  const [now, setNow] = useState(0)
-
-  useEffect(() => {
-    if (timestamp === null) return
-    const interval = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(interval)
-  }, [timestamp])
-
-  if (timestamp === null) return null
-  return formatRelative(now, timestamp)
 }

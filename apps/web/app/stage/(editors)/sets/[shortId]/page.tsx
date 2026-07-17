@@ -1,13 +1,12 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import { DeleteSetButton } from "@/app/stage/_components/delete-set-button"
+import { SetEditor } from "@/app/stage/_components/set-editor/set-editor"
 import { auth } from "@/lib/auth"
+import { loadMapsByUserId } from "@/lib/db/queries/load-map"
 import { loadTemplateSetByShortId } from "@/lib/db/queries/load-template-set"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
-import { stageSetsPath } from "@/lib/paths"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
@@ -36,9 +35,9 @@ export async function generateMetadata({
  * non-owner (signed out, or signed in as someone else) gets `notFound()` — same
  * as the Map editor, so a stranger with the URL can't tell the Set exists.
  *
- * **P1a shell**: the create flow needs this route to land on (create → redirect),
- * so it renders the set header + delete; the master-detail editor (templates |
- * tables | lint rail) replaces this body in P1b.
+ * The page also loads the owner's Maps as `{ id, name }` options — the portal
+ * picker binds them, and their ids feed the lint's `mapIds` vocab (an
+ * unresolvable `portalMapId` is a finding, not a crash).
  */
 export default async function SetEditorPage({ params }: PageProps) {
   const { shortId } = await params
@@ -48,21 +47,12 @@ export default async function SetEditorPage({ params }: PageProps) {
   const session = await auth()
   if (session?.user?.id !== set.userId) notFound()
 
+  const maps = await loadMapsByUserId(set.userId)
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
-      <Link
-        href={stageSetsPath()}
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        &larr; Template Sets
-      </Link>
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-3xl font-bold">{set.name}</h1>
-        <DeleteSetButton templateSetId={set.id} setName={set.name} />
-      </header>
-      <p className="text-sm text-muted-foreground">
-        The set editor — templates, tables, and the live lint — lands with P1b.
-      </p>
-    </div>
+    <SetEditor
+      set={set}
+      mapOptions={maps.map((map) => ({ id: map.id, name: map.name }))}
+    />
   )
 }
