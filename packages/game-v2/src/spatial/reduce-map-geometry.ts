@@ -2,6 +2,7 @@ import { produce } from "immer"
 
 import type { MapGeometryEvent } from "./geometry-event"
 import type { MapGeometry } from "./geometry.schema"
+import { doomedZoneIdsFor } from "./pages"
 
 /**
  * The pure Map-**template** geometry reducer (S2; ports v1 `engine/map/
@@ -265,11 +266,7 @@ function reducePageEvent(
         if (geometry.pages[event.pageId] === undefined) return
         if (Object.keys(geometry.pages).length <= 1) return
         delete draft.pages[event.pageId]
-        const doomedZoneIds = new Set(
-          Object.values(geometry.zones)
-            .filter((zone) => zone.pageId === event.pageId)
-            .map((zone) => zone.id)
-        )
+        const doomedZoneIds = doomedZoneIdsFor(geometry, event.pageId)
         for (const zoneId of doomedZoneIds) delete draft.zones[zoneId]
         for (const [connId, conn] of Object.entries(geometry.connections)) {
           if (

@@ -140,7 +140,10 @@ export function CanvasPageTabs({
 }
 
 /** The one rename-page prompt — shared by the editor's tab menu and the console's
- *  Pages sidebar (a controlled dialog around a single name field). */
+ *  Pages sidebar (a controlled dialog around a single name field). Mounts only
+ *  while open: an SSR'd **closed** Base UI Dialog still consumes a useId slot
+ *  server-side and desyncs every downstream Base UI id
+ *  ([[2026-07-11-ssr-closed-overlay-desyncs-ids]] — the console sidebar is SSR'd). */
 export function RenamePageDialog({
   page,
   onClose,
@@ -150,8 +153,22 @@ export function RenamePageDialog({
   onClose: () => void
   onRename: (pageId: string, name: string) => void
 }) {
+  if (page === null) return null
+  return (
+    <RenamePageDialogOpen page={page} onClose={onClose} onRename={onRename} />
+  )
+}
+
+function RenamePageDialogOpen({
+  page,
+  onClose,
+  onRename,
+}: {
+  page: PageTabItem
+  onClose: () => void
+  onRename: (pageId: string, name: string) => void
+}) {
   function handleSubmit(formData: FormData) {
-    if (!page) return
     const name = formData.get("name")
     if (typeof name === "string" && name.trim().length > 0) {
       onRename(page.id, name)
@@ -160,7 +177,7 @@ export function RenamePageDialog({
   }
 
   return (
-    <Dialog open={page !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Rename page</DialogTitle>
@@ -171,9 +188,9 @@ export function RenamePageDialog({
         <form action={handleSubmit} className="flex flex-col gap-4">
           {/* key remounts the input per page so defaultValue re-seeds */}
           <Input
-            key={page?.id}
+            key={page.id}
             name="name"
-            defaultValue={page?.name}
+            defaultValue={page.name}
             autoFocus
             aria-label="Page name"
           />

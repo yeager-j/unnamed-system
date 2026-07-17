@@ -28,11 +28,19 @@ export interface CrossPageLink {
   farPageName: string
 }
 
+/** A total, environment-independent code-unit order — this sort feeds
+ *  `firstPageId` (a behavioral default) and the snapshot's wire order, not just
+ *  rendered lists, so collation (`localeCompare`) is off the table: it varies by
+ *  environment and can return 0 for distinct strings
+ *  ([[2026-07-11-comparator-is-part-of-the-contract]]). */
+const byCodeUnit = (a: string, b: string): number =>
+  a < b ? -1 : a > b ? 1 : 0
+
 /** Every page in canonical display order — sorted by (name, id); reordering is a
  *  deliberate exclusion (D3), so the order is stable and derived, never authored. */
 export function orderedPages(geometry: MapGeometry): MapPage[] {
   return Object.values(geometry.pages).sort(
-    (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+    (a, b) => byCodeUnit(a.name, b.name) || byCodeUnit(a.id, b.id)
   )
 }
 
@@ -94,9 +102,23 @@ export function crossPageLinksForPage(
   return links
 }
 
+/** The Zone ids `deletePage` destroys — the one authority for the cascade's
+ *  blast radius, consumed by both the reducer (deletes them) and
+ *  {@link pageDeleteImpact} (counts them), so the two can't drift. */
+export function doomedZoneIdsFor(
+  geometry: MapGeometry,
+  pageId: string
+): Set<string> {
+  return new Set(
+    Object.values(geometry.zones)
+      .filter((zone) => zone.pageId === pageId)
+      .map((zone) => zone.id)
+  )
+}
+
 /** What `deletePage` would destroy — the summary the cascade-confirm dialog shows.
- *  Must agree exactly with `reduceMapGeometry`'s `deletePage` cascade (pinned by
- *  test): `intraConnectionCount` are connections wholly on the page,
+ *  Derived from the same {@link doomedZoneIdsFor} the reducer cascades (and
+ *  pinned by test): `intraConnectionCount` are connections wholly on the page,
  *  `severedCrossPageCount` are cross-page links the cascade also removes. */
 export function pageDeleteImpact(
   geometry: MapGeometry,
@@ -106,11 +128,7 @@ export function pageDeleteImpact(
   intraConnectionCount: number
   severedCrossPageCount: number
 } {
-  const doomed = new Set(
-    Object.values(geometry.zones)
-      .filter((zone) => zone.pageId === pageId)
-      .map((zone) => zone.id)
-  )
+  const doomed = doomedZoneIdsFor(geometry, pageId)
   let intraConnectionCount = 0
   let severedCrossPageCount = 0
   for (const connection of Object.values(geometry.connections)) {

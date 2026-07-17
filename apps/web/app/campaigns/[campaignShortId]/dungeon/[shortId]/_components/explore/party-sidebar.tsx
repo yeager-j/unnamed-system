@@ -357,57 +357,63 @@ function PagesTab({
         }
       />
 
-      <AlertDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {pendingDelete ? `“${pendingDelete.name}”` : "this page"}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteImpact
-                ? `This removes the page with its ${deleteImpact.zoneCount} ${
-                    deleteImpact.zoneCount === 1 ? "zone" : "zones"
-                  } and ${deleteImpact.intraConnectionCount} ${
-                    deleteImpact.intraConnectionCount === 1
-                      ? "connection"
-                      : "connections"
-                  }${
-                    deleteImpact.severedCrossPageCount > 0
-                      ? ` (${deleteImpact.severedCrossPageCount} cross-page ${
-                          deleteImpact.severedCrossPageCount === 1
-                            ? "link"
-                            : "links"
-                        } from other pages will also be removed)`
-                      : ""
-                  }.`
-                : "This removes the page."}{" "}
-              This can&apos;t be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                if (pendingDelete) {
-                  onGeometryEvent({
-                    kind: "deletePage",
-                    pageId: pendingDelete.id,
-                  })
-                }
-                setPendingDelete(null)
-              }}
-            >
-              Delete page
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Mount-on-open: this sidebar is SSR'd, and a closed Base UI overlay
+          still consumes a useId slot server-side
+          ([[2026-07-11-ssr-closed-overlay-desyncs-ids]]). */}
+      {pendingDelete !== null && (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Delete {pendingDelete ? `“${pendingDelete.name}”` : "this page"}
+                ?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteImpact
+                  ? `This removes the page with its ${deleteImpact.zoneCount} ${
+                      deleteImpact.zoneCount === 1 ? "zone" : "zones"
+                    } and ${deleteImpact.intraConnectionCount} ${
+                      deleteImpact.intraConnectionCount === 1
+                        ? "connection"
+                        : "connections"
+                    }${
+                      deleteImpact.severedCrossPageCount > 0
+                        ? ` (${deleteImpact.severedCrossPageCount} cross-page ${
+                            deleteImpact.severedCrossPageCount === 1
+                              ? "link"
+                              : "links"
+                          } from other pages will also be removed)`
+                        : ""
+                    }.`
+                  : "This removes the page."}{" "}
+                This can&apos;t be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  if (pendingDelete) {
+                    onGeometryEvent({
+                      kind: "deletePage",
+                      pageId: pendingDelete.id,
+                    })
+                  }
+                  setPendingDelete(null)
+                }}
+              >
+                Delete page
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </SidebarContent>
   )
 }
