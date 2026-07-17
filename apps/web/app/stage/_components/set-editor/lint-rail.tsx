@@ -35,12 +35,13 @@ const RULE_HEADINGS: Record<LintRule, string> = {
 const RULE_ORDER = Object.keys(RULE_HEADINGS) as LintRule[]
 
 /**
- * The persistent advisory rail (D9): `lintTemplateSet` re-runs on every content
- * change and renders here — grouped by rule, each finding a button that selects
- * the offending item. **Advisory only, never save-blocking** — the autosave has
- * already persisted whatever the findings describe; expedition start (P2) is
- * the gate that refuses on errors. Collapsible to a slim toggle, open by
- * default.
+ * The floating advisory card (D9), overlaid top-right in the editor inset
+ * (CanvasPanel's visual language; the host owns the absolute positioning):
+ * `lintTemplateSet` re-runs on every content change and renders here — grouped
+ * by rule, each finding a button that selects the offending item. **Advisory
+ * only, never save-blocking** — the autosave has already persisted whatever
+ * the findings describe; expedition start (P2) is the gate that refuses on
+ * errors. Collapses to a status chip, open by default.
  */
 export function LintRail({
   findings,
@@ -55,7 +56,7 @@ export function LintRail({
 
   if (!open) {
     return (
-      <div className="flex shrink-0 flex-col items-center border-l px-1.5 py-3">
+      <div className="rounded-xl border bg-popover p-0.5 shadow-lg">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -80,7 +81,7 @@ export function LintRail({
   return (
     <aside
       aria-label="Set lint"
-      className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-l p-4"
+      className="flex max-h-full w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 overflow-y-auto rounded-xl border bg-popover p-4 shadow-lg"
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Lint</h3>

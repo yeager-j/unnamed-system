@@ -120,8 +120,11 @@ export function SetEditor({
       />
 
       <SidebarInset className="min-w-0">
-        <div className="flex min-h-0 flex-1">
-          <main className="min-w-0 flex-1 overflow-y-auto">
+        <div className="relative flex min-h-0 flex-1">
+          {/* lg:pr-80 keeps the centered form column clear of the floating
+              lint card (w-72 + gutter); below lg the card overlays and the
+              collapse chip is the escape hatch. */}
+          <main className="min-w-0 flex-1 overflow-y-auto lg:pr-80">
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
               {selection.kind === "settings" ? (
                 <SetSettingsForm
@@ -153,7 +156,17 @@ export function SetEditor({
             </div>
           </main>
 
-          <LintRail findings={findings} content={content} onSelect={select} />
+          {/* The floating advisory card — the Map editor's overlay pattern
+              (pointer-events gate so the layer never blocks the form). */}
+          <div className="pointer-events-none absolute inset-4 z-10 flex justify-end">
+            <div className="pointer-events-auto max-h-full">
+              <LintRail
+                findings={findings}
+                content={content}
+                onSelect={select}
+              />
+            </div>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
