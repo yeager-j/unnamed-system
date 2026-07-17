@@ -19,7 +19,6 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -27,7 +26,7 @@ import {
   SidebarTrigger,
 } from "@workspace/ui/components/sidebar"
 
-import { stageMapsPath } from "@/lib/paths"
+import { stageMapsPath, stageSetsPath } from "@/lib/paths"
 
 /**
  * The Stage's shared authoring-library shell (UNN-587). Authored Maps and Sets
@@ -38,6 +37,7 @@ import { stageMapsPath } from "@/lib/paths"
 export function StageLibraryShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const mapsPath = stageMapsPath()
+  const setsPath = stageSetsPath()
 
   return (
     <SidebarProvider
@@ -75,11 +75,14 @@ export function StageLibraryShell({ children }: { children: ReactNode }) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton disabled>
+                    <SidebarMenuButton
+                      render={<Link href={setsPath} />}
+                      isActive={pathname === setsPath}
+                      aria-current={pathname === setsPath ? "page" : undefined}
+                    >
                       <StackIcon />
                       <span>Sets</span>
                     </SidebarMenuButton>
-                    <SidebarMenuBadge>Soon</SidebarMenuBadge>
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>

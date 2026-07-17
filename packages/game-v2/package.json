@@ -41,6 +41,8 @@
     "./visibility/*": "./src/visibility/*.ts",
     "./spatial": "./src/spatial/index.ts",
     "./spatial/*": "./src/spatial/*.ts",
+    "./generation": "./src/generation/index.ts",
+    "./generation/*": "./src/generation/*.ts",
     "./items": "./src/items/index.ts",
     "./items/*": "./src/items/*.ts",
     "./skills": "./src/skills/index.ts",

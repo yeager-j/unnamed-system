@@ -35,6 +35,10 @@ export const stageMapsPath = () => `${stagePath()}/maps`
 
 export const stageMapPath = (shortId: string) => `${stageMapsPath()}/${shortId}`
 
+export const stageSetsPath = () => `${stagePath()}/sets`
+
+export const stageSetPath = (shortId: string) => `${stageSetsPath()}/${shortId}`
+
 // Campaign Planner surfaces (UNN-574 D10): the campaign root is the Day Runner
 // for the DM (members keep their overview — the fork is per-viewer, not per-URL);
 // the nested planner routes are DM-only.
