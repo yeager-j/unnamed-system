@@ -1,8 +1,8 @@
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Lineage } from "@workspace/game-v2/kernel/vocab"
 import { initialStateFor } from "@workspace/game-v2/mechanics"
+import { err, ok, type Result } from "@workspace/result"
 
 import {
   findStepGateFailures,

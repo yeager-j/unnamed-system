@@ -1,8 +1,8 @@
 import { isNonNegativeInteger } from "@workspace/game-v2/kernel/amount"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { ResolvedVitals } from "@workspace/game-v2/vitals/resolved"
 import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The pure pool operations over the **authored** depletion fields (D9/D10), re-homed

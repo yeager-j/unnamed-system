@@ -1,6 +1,6 @@
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * Victory + level-up transitions (rulebook 1.1, 1.6), component-native on the

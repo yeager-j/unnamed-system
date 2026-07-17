@@ -2,7 +2,7 @@
 
 import { z } from "zod/v4"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { PARTICIPANT_KINDS } from "@/domain/planner/participant"
 import type { ParticipantRefCounts } from "@/domain/planner/view/world-detail"

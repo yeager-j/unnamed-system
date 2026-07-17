@@ -1,4 +1,4 @@
-import { err, type Result } from "@workspace/game-v2/kernel/result"
+import { err, type Result } from "@workspace/result"
 
 import { db, type WriteExecutor } from "@/lib/db/client"
 

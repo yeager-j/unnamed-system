@@ -5,7 +5,7 @@ import { hasUnlockedRank } from "@workspace/game-v2/archetypes/rank"
 import type { ResolvedArchetypeSkill } from "@workspace/game-v2/archetypes/resolved-skill"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * Inheritance Slot resolution (PRD §7.8, ported from v1 `engine/archetypes/

@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"

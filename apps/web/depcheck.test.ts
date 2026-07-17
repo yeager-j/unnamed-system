@@ -50,6 +50,7 @@ describe("web dependency check", () => {
       `// import { Entity } from "${GAME}/kernel/entity"`,
       `/** import("${GAME}/spatial") */`,
       'import { Button } from "@workspace/ui/components/button"',
+      'import { type Result } from "@workspace/result"',
     ].join("\n")
 
     expect(scanSource("components/example.tsx", source)).toEqual([])

@@ -197,7 +197,8 @@ Treat these as triggers to investigate, not automatic verdicts:
 ### General Guidance
 
 - When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/<my-feature>`.
-- Reuse existing `Result` utility where appropriate.
+- Use `Result` from the dependency-free `@workspace/result` package for expected,
+  typed failures; unexpected failures and framework control flow still throw.
 - Avoid prop-drilling. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
 - Never put game logic in the UI layer. The UI should simply render what the game engine provides it.
 

@@ -13,7 +13,9 @@ reversals, D1–D45), the [requirements inventory](../../docs/engine-v2/requirem
 audit of the design against its own principles).
 
 This package is **independent**: it imports **nothing** from `@workspace/game`
-(D32), enforced by `npm run depcheck`. It runs in parallel with v1 until cutover.
+(D32), enforced by `npm run depcheck`. Expected failures use the neutral
+`Result` authority from `@workspace/result`; do not define or re-export an
+engine-owned Result. It runs in parallel with v1 until cutover.
 
 ## The model — an ECS, applied with judgment
 
@@ -109,7 +111,7 @@ Load-bearing rules a new slice must preserve (ADR §-refs + D-numbers for the wh
 packages/game-v2/
 └── src/
     ├── kernel/                  Component substrate: entity.ts, component.ts, component-registry.ts,
-    │                            ports.ts, result.ts, effects/identity/participant-id schemas, load-seam, vocab/
+    │                            ports.ts, effects/identity/participant-id schemas, load-seam, vocab/
     ├── catalog/                 Authored content behind the GameData port
     │   ├── archetypes/          Per-Archetype definitions
     │   ├── enemies/             Enemy definitions

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { ParticipantRef } from "@/domain/planner/participant"
 import { db, type WriteExecutor } from "@/lib/db/client"

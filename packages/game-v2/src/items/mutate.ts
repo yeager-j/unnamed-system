@@ -1,7 +1,7 @@
 import type { InventoryItemState } from "@workspace/game-v2/items/equipment.schema"
 import type { InventoryMutation } from "@workspace/game-v2/items/item.schema"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The pure item-mutation engine, ported as-is from v1 `engine/items/utils.ts` +

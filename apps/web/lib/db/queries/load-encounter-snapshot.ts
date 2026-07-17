@@ -6,12 +6,12 @@ import {
   spatialReadsFor,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 import {
   projectSpatialEncounterSnapshot,
   type SpatialEncounterSnapshot,
 } from "@workspace/game-v2/visibility"
+import { err, ok, type Result } from "@workspace/result"
 
 import {
   toCharacterProfile,

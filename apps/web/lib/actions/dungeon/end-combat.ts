@@ -1,8 +1,8 @@
 "use server"
 
 import { saveSession, sweepOverlay } from "@workspace/game-v2/encounter"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { pruneCombat, reduceDungeon } from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"

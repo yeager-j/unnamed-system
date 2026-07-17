@@ -9,7 +9,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 /**
  * Debounced auto-save lifecycle for a free-text owner-mode field. Every

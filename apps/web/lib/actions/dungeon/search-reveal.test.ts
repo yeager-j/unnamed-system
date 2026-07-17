@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game-v2/kernel/result"
 import {
   createDungeonState,
   type DungeonState,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
+import { err, ok } from "@workspace/result"
 
 import { searchRevealAction } from "./search-reveal"
 

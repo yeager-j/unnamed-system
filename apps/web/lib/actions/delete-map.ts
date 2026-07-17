@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { requireMapOwner } from "@/lib/auth/map-access"
 import { deleteMap } from "@/lib/db/writes/map"

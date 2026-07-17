@@ -4,7 +4,7 @@ import {
   loadEntity,
   type ComponentLoadIssue,
 } from "@workspace/game-v2/kernel/load-seam"
-import type { Result } from "@workspace/game-v2/kernel/result"
+import type { Result } from "@workspace/result"
 
 import type { EntityRow } from "@/lib/db/schema/entity"
 

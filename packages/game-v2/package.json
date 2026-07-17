@@ -58,6 +58,7 @@
     "./resolve/*": "./src/resolve/*.ts"
   },
   "dependencies": {
+    "@workspace/result": "*",
     "immer": "^11.1.8",
     "zod": "^3.25.76"
   },

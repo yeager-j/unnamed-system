@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityWritePatch } from "@/domain/entity/commit/writers"
 import { db } from "@/lib/db/client"

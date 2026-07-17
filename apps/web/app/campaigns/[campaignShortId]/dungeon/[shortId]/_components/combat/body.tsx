@@ -3,13 +3,13 @@
 import { useState } from "react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err } from "@workspace/game-v2/kernel/result"
 import {
   firstPageId,
   pageOfZone,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 import { adjacentZones } from "@workspace/game-v2/spatial/selectors"
+import { err } from "@workspace/result"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { rowsByZone } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"

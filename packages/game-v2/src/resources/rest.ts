@@ -1,11 +1,11 @@
 import { isNonNegativeInteger } from "@workspace/game-v2/kernel/amount"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   computeMaxHitDice,
   computeMaxSkillDice,
 } from "@workspace/game-v2/resources/derive"
 import { applyHeal, applyRecoverSP } from "@workspace/game-v2/vitals/operations"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The three rest transitions — Full, Partial, Respite — that recover a

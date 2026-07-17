@@ -1,5 +1,4 @@
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { getMechanic } from "@workspace/game-v2/mechanics"
 import { emptyNarrative } from "@workspace/game-v2/narrative"
 import {
@@ -27,6 +26,7 @@ import {
   applyRecoverSP,
   applySpendSP,
 } from "@workspace/game-v2/vitals/operations"
+import { err, ok, type Result } from "@workspace/result"
 
 import {
   applySetInheritanceSlot,

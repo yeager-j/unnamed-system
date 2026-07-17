@@ -1,6 +1,6 @@
 "use server"
 
-import { ok, type Result } from "@workspace/game-v2/kernel/result"
+import { ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { clearPeriod, setPeriod } from "@/lib/db/writes/campaign-clock"

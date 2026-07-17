@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { ok } from "@workspace/game-v2/kernel/result"
 import {
   applyDamage,
   applyHeal,
@@ -10,6 +9,7 @@ import {
 } from "@workspace/game-v2/vitals/operations"
 import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
+import { ok } from "@workspace/result"
 
 /**
  * Unit tests for the signed-depletion pool operations (UNN-501, D9/D10). The

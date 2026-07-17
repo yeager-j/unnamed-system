@@ -12,7 +12,7 @@ import {
   asParticipantId,
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { createSession, instantiateEnemy } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"

@@ -2,7 +2,7 @@
 
 import { unauthorized } from "next/navigation"
 
-import { ok, type Result } from "@workspace/game-v2/kernel/result"
+import { ok, type Result } from "@workspace/result"
 
 import { auth } from "@/lib/auth"
 import { createMap } from "@/lib/db/writes/map"

@@ -1,6 +1,6 @@
 import { put } from "@vercel/blob"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The set of image mime types the portrait uploader accepts. Kept narrow

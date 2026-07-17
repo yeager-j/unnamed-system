@@ -6,7 +6,7 @@ import {
   type ComponentLoadIssue,
 } from "@workspace/game-v2/kernel/load-seam"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import {
   type StoredEntity,

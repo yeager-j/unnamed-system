@@ -1,6 +1,6 @@
 "use server"
 
-import { err, type Result } from "@workspace/game-v2/kernel/result"
+import { err, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { validateParticipantRefs } from "@/lib/db/queries/load-participants"
