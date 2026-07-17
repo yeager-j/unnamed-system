@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { setLineageGating } from "@/lib/db/writes/campaign"

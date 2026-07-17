@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game-v2/kernel/result"
+import { err, ok } from "@workspace/result"
 
 // A minimal fake of the drizzle call chains these writes use, recording each
 // statement so the tests can pin *what ran, against which table, in what

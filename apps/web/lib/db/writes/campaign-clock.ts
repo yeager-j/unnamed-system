@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { isFrozenDay } from "@/domain/planner/clock"
 import {

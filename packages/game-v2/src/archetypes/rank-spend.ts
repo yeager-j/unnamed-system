@@ -2,7 +2,7 @@ import { MASTERY_RANK } from "@workspace/game-v2/archetypes/archetype"
 import { unmetPrerequisites } from "@workspace/game-v2/archetypes/atlas"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * Spending a banked Saved Archetype Rank (the Lineage Atlas growth loop, rulebook

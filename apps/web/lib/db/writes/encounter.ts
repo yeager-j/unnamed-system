@@ -1,5 +1,5 @@
 import type { StoredSession } from "@workspace/game-v2/encounter"
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 import { db, type WriteExecutor } from "@/lib/db/client"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"

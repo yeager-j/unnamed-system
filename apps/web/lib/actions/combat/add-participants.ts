@@ -6,7 +6,7 @@ import {
   type Session,
 } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { instantiateEnemy } from "@/domain/game-engine-v2"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"

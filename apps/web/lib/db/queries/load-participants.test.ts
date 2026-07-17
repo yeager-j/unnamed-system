@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game-v2/kernel/result"
+import { err, ok } from "@workspace/result"
 
 // Fake the drizzle read chains with per-table row scripts: what the DB would
 // have returned for each kind's (already campaign-scoped) lookup. A

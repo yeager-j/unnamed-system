@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { extractChipRefs } from "@/domain/planner/chip"
 import { isFrozenDay } from "@/domain/planner/clock"

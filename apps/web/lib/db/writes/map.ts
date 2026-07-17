@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 
-import { type Result } from "@workspace/game-v2/kernel/result"
 import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
+import { type Result } from "@workspace/result"
 
 import { db } from "@/lib/db/client"
 import { maps } from "@/lib/db/schema/map"

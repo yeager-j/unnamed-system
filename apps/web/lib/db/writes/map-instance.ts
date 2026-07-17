@@ -1,5 +1,5 @@
-import { type Result } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { type Result } from "@workspace/result"
 
 import { type WriteExecutor } from "@/lib/db/client"
 import { mapInstances } from "@/lib/db/schema/map-instance"

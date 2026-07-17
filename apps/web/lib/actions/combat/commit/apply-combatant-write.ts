@@ -2,7 +2,7 @@
 
 import type { StoredEntityLocator } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import {
   loadEncounterForWrite,

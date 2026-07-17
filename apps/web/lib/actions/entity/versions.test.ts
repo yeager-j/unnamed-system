@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { ok } from "@workspace/game-v2/kernel/result"
+import { ok } from "@workspace/result"
 
 import type { EntityRow } from "@/lib/db/schema/entity"
 

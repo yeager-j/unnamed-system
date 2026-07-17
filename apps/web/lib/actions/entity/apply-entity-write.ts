@@ -3,7 +3,7 @@
 import { forbidden } from "next/navigation"
 
 import { isNarrativelyLocked } from "@workspace/game-v2/archetypes/atlas"
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
 import { getArchetype } from "@/domain/game-engine-v2"

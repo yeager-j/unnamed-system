@@ -1,10 +1,10 @@
 "use server"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   reduceMapInstance as createReduceMapInstance,
   reduceDungeon,
 } from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"

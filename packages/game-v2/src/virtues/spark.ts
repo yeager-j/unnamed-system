@@ -1,4 +1,3 @@
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { VIRTUE_KEYS, type VirtueKey } from "@workspace/game-v2/kernel/vocab"
 import {
   MAX_VIRTUE_RANK,
@@ -6,6 +5,7 @@ import {
   type SparkLog,
   type Virtues,
 } from "@workspace/game-v2/virtues/virtues.schema"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * Spark resolution, re-homed from v1 (`engine/character/leveling.ts`): earning a

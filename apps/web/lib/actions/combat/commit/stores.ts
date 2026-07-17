@@ -10,7 +10,7 @@ import {
   type SessionEvent,
 } from "@workspace/game-v2/encounter/session-event"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 import { applyEntityWrite } from "@/domain/entity/commit/writers"

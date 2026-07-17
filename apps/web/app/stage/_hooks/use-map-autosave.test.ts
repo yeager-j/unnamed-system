@@ -3,8 +3,8 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { MapGeometry } from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { SaveMapError, SaveMapInput } from "@/lib/actions/save-map.schema"
 

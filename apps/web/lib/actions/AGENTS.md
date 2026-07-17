@@ -2,8 +2,8 @@
 
 > **Actions are the write-side seam; they stay in `lib/actions/` (UNN-610).** The
 > feature-first reorg colocated every feature's components/hooks into its route
-> subtree, but Server Actions did **not** move: nearly all of them import the engine
-> (`Result`, engine types, spatial/encounter helpers), and the `app/` tier is
+> subtree, but Server Actions did **not** move: many import the engine
+> (engine types and spatial/encounter helpers), and the `app/` tier is
 > hard-gated against `@workspace/game*`. `lib` (ungated) is their principled home —
 > a route's client component imports the action across the `app → lib` boundary
 > (downward, legal).
@@ -89,7 +89,7 @@ pre-validates imports the schema file directly). The skeleton:
 // lib/actions/<aggregate>/<slice>.ts
 "use server"
 
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/viewer-role"
 import { dbWrite } from "@/lib/db/writes/<aggregate>"
@@ -115,8 +115,12 @@ export async function someWriteAction(
 }
 ```
 
-`Result` comes from `@workspace/game-v2/kernel/result`. The per-aggregate
-envelopes and gates are the table above.
+`Result` comes from the neutral `@workspace/result` package. Its plain envelope is
+safe for a Server Action boundary when the success value or error payload is also
+serializable; payload serializability remains the action's responsibility.
+Expected domain refusals return `Result.err`, while authorization/navigation
+interrupts, framework control flow, and unexpected failures continue to throw.
+The per-aggregate envelopes and gates are the table above.
 
 ## Concurrency
 

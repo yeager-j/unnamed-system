@@ -8,7 +8,6 @@ import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-regi
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
 import { presentationSchema } from "@workspace/game-v2/kernel/presentation.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { mechanicsSchema } from "@workspace/game-v2/mechanics/mechanics.schema"
 import { narrativeSchema } from "@workspace/game-v2/narrative/narrative.schema"
 import { levelSchema } from "@workspace/game-v2/progression/level.schema"
@@ -21,6 +20,7 @@ import { talentsSchema } from "@workspace/game-v2/talents/talents.schema"
 import { virtuesSchema } from "@workspace/game-v2/virtues/virtues.schema"
 import { skillPoolSchema } from "@workspace/game-v2/vitals/skill-pool.schema"
 import { vitalsSchema } from "@workspace/game-v2/vitals/vitals.schema"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The **load seam** (F6). Entities arrive from persistence as opaque jsonb; their

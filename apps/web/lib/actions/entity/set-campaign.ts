@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { forbidden } from "next/navigation"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"

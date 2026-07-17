@@ -1,7 +1,7 @@
 "use client"
 
-import { ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { NarrativeTextField } from "@workspace/game-v2/narrative"
+import { ok, type Result } from "@workspace/result"
 
 import {
   useDebouncedAutoSave,

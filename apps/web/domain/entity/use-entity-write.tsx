@@ -12,8 +12,8 @@ import {
 import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import type { Result } from "@workspace/game-v2/kernel/result"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
+import type { Result } from "@workspace/result"
 
 import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
 import { mergeComponentPatch } from "@/domain/entity/commit/merge-patch"

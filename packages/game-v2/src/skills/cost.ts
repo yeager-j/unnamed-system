@@ -1,10 +1,10 @@
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   isCastable,
   type ResolvedSkillCost,
   type Skill,
   type SkillCost,
 } from "@workspace/game-v2/skills/skill.schema"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * Skill **cost & cast** primitives, ported from v1 `engine/skills/utils.ts`. The

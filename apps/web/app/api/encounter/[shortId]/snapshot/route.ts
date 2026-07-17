@@ -1,3 +1,5 @@
+import { match } from "@workspace/result"
+
 import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot"
 
 /**
@@ -19,12 +21,11 @@ export async function GET(
   const { shortId } = await params
   const result = await getEncounterSnapshot(shortId)
 
-  if (!result.ok) {
-    if (result.error === "encounter-not-found") {
-      return Response.json({ error: "Encounter not found" }, { status: 404 })
-    }
-    return Response.json({ error: result.error }, { status: 500 })
-  }
-
-  return Response.json(result.value)
+  return match(result, {
+    ok: (value) => Response.json(value),
+    err: (error) =>
+      error === "encounter-not-found"
+        ? Response.json({ error: "Encounter not found" }, { status: 404 })
+        : Response.json({ error }, { status: 500 }),
+  })
 }

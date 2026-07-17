@@ -71,7 +71,7 @@ async function readPool(
 }
 
 test(
-  "renders the sheet and round-trips an HP adjustment",
+  "round-trips an HP write and returns a domain refusal",
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto(target.url)
@@ -98,6 +98,22 @@ test(
         `${before.current - 5} / ${before.max}`
       )
     }).toPass()
+
+    // The same deployed entity Server Action also carries an expected domain
+    // refusal back through the Result envelope.
+    await page.getByRole("button", { name: "Rest" }).click()
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: "Respite" }).first().click()
+    await page.getByLabel("Hit Dice to spend").fill("99")
+    await page.getByLabel("HP rolled").fill("4")
+    await dialog.getByRole("button", { name: "Respite" }).last().click()
+
+    await expect(page.getByRole("alert")).toContainText(
+      "Not enough unspent Hit Dice"
+    )
+    await expect(poolValue(page, "HP")).toHaveText(
+      `${before.current - 5} / ${before.max}`
+    )
   }
 )
 

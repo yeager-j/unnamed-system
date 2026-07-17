@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityColumnPatch } from "@/lib/actions/entity/version-guard"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"

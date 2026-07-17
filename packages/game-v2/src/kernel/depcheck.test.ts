@@ -44,7 +44,10 @@ describe("depcheck gate (scanSource)", () => {
   })
 
   it("ignores the package's own @workspace/game-v2 imports", () => {
-    const source = `import { Entity } from "@workspace/game-v2/kernel/entity"\n`
+    const source = [
+      `import { Entity } from "@workspace/game-v2/kernel/entity"`,
+      `import { type Result } from "@workspace/result"`,
+    ].join("\n")
     expect(scanSource("vitals/x.ts", source)).toHaveLength(0)
   })
 

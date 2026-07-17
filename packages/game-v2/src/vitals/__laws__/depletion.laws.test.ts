@@ -2,7 +2,6 @@ import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
 import { record } from "@workspace/game-v2/__fixtures__/arbitraries/record"
-import type { Result } from "@workspace/game-v2/kernel/result"
 import { PRISMA_BASE_CHARGES } from "@workspace/game-v2/resources/derive"
 import { applyUsePrisma } from "@workspace/game-v2/resources/operations"
 import type { Resources } from "@workspace/game-v2/resources/resources.schema"
@@ -25,6 +24,7 @@ import {
   vitalsSchema,
   type Vitals,
 } from "@workspace/game-v2/vitals/vitals.schema"
+import type { Result } from "@workspace/result"
 
 /**
  * **The depletion algebra.** Vitals are stored as signed depletion and current is

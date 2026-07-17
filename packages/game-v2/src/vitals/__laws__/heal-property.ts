@@ -1,7 +1,7 @@
 import fc from "fast-check"
 
-import type { Result } from "@workspace/game-v2/kernel/result"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
+import type { Result } from "@workspace/result"
 
 /** The shape of `applyHeal` — the operation the clamp law is stated over. */
 export type HealOperation = (

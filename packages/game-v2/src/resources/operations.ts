@@ -1,5 +1,5 @@
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Resources } from "@workspace/game-v2/resources/resources.schema"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The Prisma pool operation (D26), re-homed from v1's `adjust-pools.ts`. It is

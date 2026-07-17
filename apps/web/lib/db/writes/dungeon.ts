@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { DungeonState, DungeonStatus } from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/result"
 
 import { isFrozenDay } from "@/domain/planner/clock"
 import { db, type WriteExecutor } from "@/lib/db/client"

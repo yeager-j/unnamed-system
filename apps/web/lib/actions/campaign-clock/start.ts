@@ -1,6 +1,6 @@
 "use server"
 
-import { ok, type Result } from "@workspace/game-v2/kernel/result"
+import { ok, type Result } from "@workspace/result"
 
 import { DEFAULT_SLOT_TEMPLATE } from "@/domain/planner/slot-template"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"

@@ -1,8 +1,8 @@
-import { type Result } from "@workspace/game-v2/kernel/result"
 import {
   type DungeonEvent,
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
+import { type Result } from "@workspace/result"
 
 import type { DungeonConsoleAction } from "@/domain/dungeon/console-optimistic"
 import { applyDungeonEvent } from "@/lib/actions/dungeon/events"

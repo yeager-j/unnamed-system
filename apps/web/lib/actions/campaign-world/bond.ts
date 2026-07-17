@@ -1,6 +1,6 @@
 "use server"
 
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { casNpcBondTier } from "@/lib/db/writes/campaign-world"

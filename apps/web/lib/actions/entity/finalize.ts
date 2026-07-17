@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { buildFinalizePatch } from "@/domain/entity/finalize"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"

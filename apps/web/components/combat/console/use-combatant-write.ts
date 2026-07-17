@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, type Result } from "@workspace/game-v2/kernel/result"
+import { err, type Result } from "@workspace/result"
 
 import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"

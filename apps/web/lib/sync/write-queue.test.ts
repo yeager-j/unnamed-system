@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import {
   createWriteQueue,

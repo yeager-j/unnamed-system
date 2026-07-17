@@ -1,13 +1,13 @@
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
-import { ok } from "@workspace/game-v2/kernel/result"
 import {
   healNeverLowersCurrentHP,
   type HealOperation,
 } from "@workspace/game-v2/vitals/__laws__/heal-property"
 import { applyHeal } from "@workspace/game-v2/vitals/operations"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
+import { ok } from "@workspace/result"
 
 /**
  * **The negative control** — a test of the test.

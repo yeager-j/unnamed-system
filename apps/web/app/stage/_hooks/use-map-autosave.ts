@@ -3,8 +3,8 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { ok } from "@workspace/game-v2/kernel/result"
 import type { MapGeometry } from "@workspace/game-v2/spatial"
+import { ok } from "@workspace/result"
 
 import { saveMapAction } from "@/lib/actions/save-map"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"

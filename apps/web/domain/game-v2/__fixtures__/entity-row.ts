@@ -1,6 +1,6 @@
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
-import type { Result } from "@workspace/game-v2/kernel/result"
+import type { Result } from "@workspace/result"
 
 import type { EntityWritePatch } from "@/domain/entity/commit/writers"
 import {

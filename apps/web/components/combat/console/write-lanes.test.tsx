@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok } from "@workspace/game-v2/kernel/result"
+import { err, ok } from "@workspace/result"
 
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"

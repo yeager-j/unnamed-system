@@ -9,8 +9,8 @@ import { unstable_rethrow } from "next/navigation"
  * catches it so the surface can surface its own retry toast instead; the
  * optimistic frame reverts on its own when the transition settles, so `onReject`
  * only needs to toast. Expected, domain-meaningful failures still resolve as
- * `Result.err` and never reach here (see `kernel/result`'s docstring: expected
- * failures return, programmer errors throw).
+ * `Result.err` and never reach here (the `@workspace/result` contract reserves
+ * returned failures for expected outcomes; programmer errors still throw).
  *
  * Next's navigation control-flow — `redirect` / `notFound` / `forbidden` /
  * `unauthorized`, which all navigate by **throwing** a framework signal — is

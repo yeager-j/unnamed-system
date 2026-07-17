@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import {

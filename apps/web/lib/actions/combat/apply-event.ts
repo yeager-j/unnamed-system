@@ -13,12 +13,12 @@ import {
 } from "@workspace/game-v2/encounter"
 import { loadEntity, type Entity } from "@workspace/game-v2/kernel"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   reduceMapInstance as createReduceMapInstance,
   mapInstanceEventSchema,
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/result"
 
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"

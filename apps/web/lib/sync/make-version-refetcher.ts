@@ -1,6 +1,6 @@
 "use client"
 
-import { type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/result"
 
 /**
  * Builds a `refetchVersion` adapter for

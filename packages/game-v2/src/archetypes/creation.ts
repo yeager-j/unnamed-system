@@ -4,7 +4,7 @@ import type {
 } from "@workspace/game-v2/archetypes/archetype"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The tier a character selects their Origin Archetype from at creation (rulebook

@@ -1,12 +1,12 @@
 import { and, eq, or, sql } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Lineage } from "@workspace/game-v2/kernel/vocab"
 import {
   emptyNarrative,
   NARRATIVE_TEXT_FIELDS,
   type NarrativeTextField,
 } from "@workspace/game-v2/narrative"
+import { err, ok, type Result } from "@workspace/result"
 
 import type {
   ParticipantKind,

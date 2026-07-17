@@ -1,6 +1,6 @@
 "use server"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { loadInstanceVersionByEncounterShortId } from "@/lib/db/queries/load-encounter"
 

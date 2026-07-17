@@ -15,7 +15,7 @@ import {
   setItemQuantity,
   unequipItem,
 } from "@workspace/game-v2/items/mutate"
-import type { Result } from "@workspace/game-v2/kernel/result"
+import type { Result } from "@workspace/result"
 
 function unwrap<T>(result: Result<T, string>): T {
   if (!result.ok) throw new Error(`expected ok, got ${result.error}`)
