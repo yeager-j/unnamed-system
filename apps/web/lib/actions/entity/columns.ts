@@ -18,14 +18,9 @@ import {
   UpdateEntityNotesSchema,
   UpdateEntityPronounsSchema,
   type EntityColumnActionError,
-  type RemoveEntityPortraitInput,
-  type SetEntityBuilderStepError,
-  type SetEntityBuilderStepInput,
-  type UpdateEntityNameInput,
-  type UpdateEntityNotesInput,
-  type UpdateEntityPronounsInput,
   type UploadEntityPortraitError,
 } from "./columns.schema"
+import { makeOwnerFieldAction } from "./owner-field-action"
 import { revalidateCharacterList, revalidateEntity } from "./revalidate"
 import { bumpEntityVersionGuarded } from "./version-guard"
 
@@ -63,31 +58,24 @@ async function commitColumnPatch(
   return ok({ version: result.value.version })
 }
 
-export async function updateEntityNameAction(
-  input: UpdateEntityNameInput
-): Promise<Result<EntityColumnCommit, EntityColumnActionError>> {
-  const parsed = UpdateEntityNameSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
+export const updateEntityNameAction = makeOwnerFieldAction(
+  UpdateEntityNameSchema,
+  async (row, input) => {
+    const result = await commitColumnPatch(row, input.expectedVersion, {
+      name: input.name,
+    })
+    if (result.ok) revalidateCharacterList()
+    return result
+  }
+)
 
-  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
-  const result = await commitColumnPatch(row, parsed.data.expectedVersion, {
-    name: parsed.data.name,
-  })
-  if (result.ok) revalidateCharacterList()
-  return result
-}
-
-export async function updateEntityPronounsAction(
-  input: UpdateEntityPronounsInput
-): Promise<Result<EntityColumnCommit, EntityColumnActionError>> {
-  const parsed = UpdateEntityPronounsSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-
-  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
-  return commitColumnPatch(row, parsed.data.expectedVersion, {
-    pronouns: parsed.data.pronouns.trim() || null,
-  })
-}
+export const updateEntityPronounsAction = makeOwnerFieldAction(
+  UpdateEntityPronounsSchema,
+  (row, input) =>
+    commitColumnPatch(row, input.expectedVersion, {
+      pronouns: input.pronouns.trim() || null,
+    })
+)
 
 /**
  * The free-form Notes column. Owner-gated like every other column action, but
@@ -95,17 +83,13 @@ export async function updateEntityPronounsAction(
  * `null` (mirroring the narrative prose fields' empty→null rule) rather than
  * being rejected.
  */
-export async function updateEntityNotesAction(
-  input: UpdateEntityNotesInput
-): Promise<Result<EntityColumnCommit, EntityColumnActionError>> {
-  const parsed = UpdateEntityNotesSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-
-  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
-  return commitColumnPatch(row, parsed.data.expectedVersion, {
-    notes: parsed.data.notes === "" ? null : parsed.data.notes,
-  })
-}
+export const updateEntityNotesAction = makeOwnerFieldAction(
+  UpdateEntityNotesSchema,
+  (row, input) =>
+    commitColumnPatch(row, input.expectedVersion, {
+      notes: input.notes === "" ? null : input.notes,
+    })
+)
 
 /**
  * Advances (or rewinds) the builder step — an **unguarded** write to the PC
@@ -115,39 +99,32 @@ export async function updateEntityNotesAction(
  * it off the identity class means a step advance can't falsely stale an in-flight
  * name autosave.
  */
-export async function setEntityBuilderStepAction(
-  input: SetEntityBuilderStepInput
-): Promise<Result<void, SetEntityBuilderStepError>> {
-  const parsed = SetEntityBuilderStepSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
+export const setEntityBuilderStepAction = makeOwnerFieldAction(
+  SetEntityBuilderStepSchema,
+  async (row, input) => {
+    const updated = await db
+      .update(playerCharacter)
+      .set({ builderStep: input.step })
+      .where(eq(playerCharacter.entityId, row.id))
+      .returning({ id: playerCharacter.entityId })
+    if (updated.length === 0) return err("entity-not-found")
 
-  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
+    revalidateEntity(row)
+    revalidateCharacterList()
+    return ok(undefined)
+  }
+)
 
-  const updated = await db
-    .update(playerCharacter)
-    .set({ builderStep: parsed.data.step })
-    .where(eq(playerCharacter.entityId, row.id))
-    .returning({ id: playerCharacter.entityId })
-  if (updated.length === 0) return err("entity-not-found")
-
-  revalidateEntity(row)
-  revalidateCharacterList()
-  return ok(undefined)
-}
-
-export async function removeEntityPortraitAction(
-  input: RemoveEntityPortraitInput
-): Promise<Result<EntityColumnCommit, EntityColumnActionError>> {
-  const parsed = RemoveEntityPortraitSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-
-  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
-  const result = await commitColumnPatch(row, parsed.data.expectedVersion, {
-    portraitUrl: null,
-  })
-  if (result.ok) revalidateCharacterList()
-  return result
-}
+export const removeEntityPortraitAction = makeOwnerFieldAction(
+  RemoveEntityPortraitSchema,
+  async (row, input) => {
+    const result = await commitColumnPatch(row, input.expectedVersion, {
+      portraitUrl: null,
+    })
+    if (result.ok) revalidateCharacterList()
+    return result
+  }
+)
 
 /**
  * Portrait upload is a two-stage action (v1 parity): validate-and-store the
