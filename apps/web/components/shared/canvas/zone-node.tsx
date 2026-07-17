@@ -1,15 +1,23 @@
 "use client"
 
 import {
+  ArrowsLeftRightIcon,
   CaretLeftIcon,
   CaretRightIcon,
   CopyIcon,
   PencilSimpleIcon,
+  StackIcon,
   TrashIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 
 import { Button } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { Separator } from "@workspace/ui/components/separator"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 import { cn } from "@workspace/ui/lib/utils"
@@ -22,6 +30,7 @@ import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
 import { useConnectionHighlight } from "./hovered-connection-context"
 import { useMapCanvas } from "./map-canvas-context"
 import { OccupantToken } from "./set-piece/occupant-chips"
+import { PageLinkChips } from "./set-piece/page-link-chip"
 import { ZoneSetPiece } from "./set-piece/zone-set-piece"
 
 const SIZE_LADDER: ZoneSize[] = ["S", "M", "L", "XL"]
@@ -60,15 +69,20 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
     setZoneIdentity,
     duplicateZone,
     deleteZone,
+    pages,
+    navigateToPage,
+    openConnectPicker,
+    moveZoneToPage,
     lockedZoneIds,
     zoneOccupants,
   } = useMapCanvas()
   const editable = interactivity === "edit"
-  const { zone } = data
+  const { zone, crossPageLinks } = data
   const locked = lockedZoneIds?.has(zone.id) ?? false
   const occupants = zoneOccupants?.(zone.id) ?? []
   const view = editorZoneView(zone, occupants)
   const partnerHighlighted = useConnectionHighlight(zone.id)
+  const otherPages = pages.filter((page) => page.id !== zone.pageId)
 
   const toolbar = (
     <NodeToolbar
@@ -119,6 +133,39 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
       <Button
         size="icon-sm"
         variant="ghost"
+        aria-label={`Connect ${zone.name} to another zone`}
+        onClick={() => openConnectPicker(zone.id)}
+      >
+        <ArrowsLeftRightIcon />
+      </Button>
+      {otherPages.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={`Move ${zone.name} to another page`}
+              />
+            }
+          >
+            <StackIcon />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {otherPages.map((page) => (
+              <DropdownMenuItem
+                key={page.id}
+                onClick={() => moveZoneToPage(zone.id, page.id)}
+              >
+                Move to {page.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      <Button
+        size="icon-sm"
+        variant="ghost"
         aria-label={`Duplicate ${zone.name}`}
         onClick={() => duplicateZone(zone.id)}
       >
@@ -159,6 +206,11 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
       partnerHighlighted={partnerHighlighted}
       toolbar={toolbar}
       handles={handles}
+      pageLinks={
+        crossPageLinks.length > 0 ? (
+          <PageLinkChips links={crossPageLinks} onNavigate={navigateToPage} />
+        ) : undefined
+      }
       closeupRoster={
         occupants.length > 0 ? (
           <ul className="flex flex-wrap gap-1.5">

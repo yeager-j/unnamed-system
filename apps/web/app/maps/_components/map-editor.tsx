@@ -57,6 +57,9 @@ export function MapEditor({ map }: { map: MapRow }) {
           geometry={map.geometry}
           onGeometryChange={handleGeometryChange}
           cartoucheTitle={name.value}
+          // The editor pages itself — the canvas owns activePageId and the
+          // floating tab strip (UNN-586); pages ride the whole-blob autosave.
+          showPageTabs
         />
       </div>
 
