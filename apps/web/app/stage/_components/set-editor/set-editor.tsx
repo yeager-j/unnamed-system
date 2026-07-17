@@ -103,11 +103,15 @@ export function SetEditor({
 
   return (
     // Fixed height (not min-h): the editor is viewport-locked like the Map
-    // canvas — only the form column scrolls, never the document.
+    // canvas — only the form column scrolls, never the document, which is what
+    // keeps the floating lint card on screen. No flex-1: the body is a flex
+    // column, and flex-basis 0% would let the flex algorithm size this by
+    // content, silently overriding the explicit height (basis auto defers to
+    // it).
     <SidebarProvider
       open
       onOpenChange={() => {}}
-      className="h-[calc(100svh-3.5rem)] min-h-0 flex-1 overflow-hidden"
+      className="h-[calc(100svh-3.5rem)] min-h-0 overflow-hidden"
     >
       <SetEditorSidebar
         content={content}
