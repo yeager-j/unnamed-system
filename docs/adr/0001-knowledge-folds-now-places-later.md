@@ -31,8 +31,10 @@ runs); (3) flip the default — stop wiping, `mapInstance` → `place`, reveal m
 
 ## Escrow contracts on the shipping feature
 
-- **`staticReveal` is a chart in escrow.** Only `fold.ts` (single call sites in
-  start/finish-expedition) may touch it; retirement = seed the chart from it.
+- **`staticReveal` is a chart in escrow.** `fold.ts` is its only touchpoint: the write
+  folds at expedition finish; the applies happen at expedition start (seed Map) **and at
+  portal graft** (static Maps), both routed through the same module. Retirement = seed
+  the chart from it.
 - **Closure provenance rider (P3):** `closeLoop` must stamp its connection into a
   generated-connections record from day one — a closure between two *authored* zones has no
   generated endpoint, and the future Haze world-event can't otherwise identify it for deletion.
