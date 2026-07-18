@@ -118,14 +118,13 @@ describe("pushEnvelope error mapping", () => {
     }
   )
 
-  it("classifies a Next navigation throw as a terminal forbidden rejection", async () => {
-    pushEntityMutationAction.mockRejectedValue(
-      Object.assign(new Error("forbidden"), {
-        digest: "NEXT_HTTP_ERROR_FALLBACK;403",
-      })
-    )
+  it("classifies a Next navigation throw as retryable — nothing was recorded (Codex P2, PR #385)", async () => {
+    const sentinel = Object.assign(new Error("forbidden"), {
+      digest: "NEXT_HTTP_ERROR_FALLBACK;403",
+    })
+    pushEntityMutationAction.mockRejectedValue(sentinel)
     const result = await build().pushEnvelope(envelope(), signal())
-    expect(result).toEqual(err({ kind: "rejected", error: "forbidden" }))
+    expect(result).toEqual(err({ kind: "retryable", cause: sentinel }))
   })
 
   it("classifies an ordinary throw as retryable", async () => {

@@ -31,16 +31,18 @@ export interface EntityReplicaSourceOptions {
  * The production `EntityReplicaSource` (UNN-645): the two replica-door
  * Server Actions behind the transport seam.
  *
- * `pushEnvelope` owns two obligations the seam doc pins on it:
+ * `pushEnvelope` owns two obligations:
  *
- * - **Navigation-throw classification** (the guard-write lesson, 2026-07-11):
- *   the delivery loop is a detached chain, so `unstable_rethrow` is inert
- *   and a generic catch would turn Next's `redirect`/`forbidden` sentinels
- *   into infinite retryable redelivery. They are classified here — by their
- *   `NEXT_`-prefixed digest, the stable-ish shape Next gives framework
- *   signals — as terminal `forbidden` rejections. The push door itself never
- *   throws them by design; this guards the session/middleware layer around
- *   the action call.
+ * - **Every throw is `retryable` — including Next navigation sentinels**
+ *   (Codex P2, PR #385, correcting the seam doc's original instruction): a
+ *   throw from the session/middleware layer means the processor recorded
+ *   NOTHING and the watermark did not advance, so reporting `rejected`
+ *   would advance the replica past an unrecorded ID and wedge the stream
+ *   into `unknown-client`. `retryable` is honest — the retry budget bounds
+ *   it, the replica parks, and after the user re-authenticates the same ID
+ *   redelivers, which is exactly the recovery an expired session wants. The
+ *   push door itself never throws navigation signals by design (auth
+ *   refusals are typed, recorded rejections).
  * - **Push pacing** (open decision 3): the replica retries within an epoch
  *   with no delay of its own, so the backoff between attempts lives here —
  *   exponential per consecutive retryable failure of the same mutation,
@@ -83,10 +85,9 @@ export function createEntityReplicaSource(
       try {
         result = await pushEntityMutationAction({ entityId, envelope })
       } catch (error) {
-        if (isNavigationSignal(error)) {
-          failures.delete(envelope.mutationId)
-          return err({ kind: "rejected", error: "forbidden" })
-        }
+        // Includes Next navigation sentinels: nothing was recorded, so the
+        // only honest classification is ambiguous-retryable (see the module
+        // doc). Never map an unrecorded failure to `rejected`.
         failures.set(envelope.mutationId, priorFailures + 1)
         return err({ kind: "retryable", cause: error })
       }
@@ -117,19 +118,6 @@ function mapPushRefusal(
     case "outcome-unavailable":
       return { kind: "unknown-client" }
   }
-}
-
-/**
- * `NEXT_REDIRECT` / `NEXT_HTTP_ERROR_FALLBACK;403` and kin. Next has no
- * public predicate for "is this a framework navigation signal", and
- * `unstable_rethrow` only helps inside a transition; the digest prefix is
- * the seam Next itself dispatches on. If this ever stops matching, the
- * failure mode is the loud one (retry → park), not a silent wrong turn.
- */
-function isNavigationSignal(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false
-  const digest = (error as { digest?: unknown }).digest
-  return typeof digest === "string" && digest.startsWith("NEXT_")
 }
 
 /** Abortable exponential delay; resolves false when aborted mid-wait. */

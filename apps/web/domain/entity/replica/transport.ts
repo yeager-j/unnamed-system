@@ -20,14 +20,19 @@ import type { EntityReplicaRejection } from "./rejection"
  * fake. Keeping the seam as plain functions keeps this module pure — the
  * imperative shell (auth, fetch, Ably client) stays outside `domain/`.
  *
- * `pushEnvelope` contract (the guard-write lesson, 2026-07-11): a throw
- * reaching the transport is classified ambiguous-retryable and REDELIVERED.
- * The production source must therefore classify Next navigation signals
- * (`redirect`/`forbidden`/`unauthorized` throw sentinels) itself — the
- * delivery loop is a detached chain, so an `unstable_rethrow` here would be
- * inert, and letting the generic catch see them means an infinite retry
- * instead of a 403. Auth refusals are terminal `rejected` results, not
- * throws.
+ * `pushEnvelope` contract: a throw reaching the transport is classified
+ * ambiguous-retryable and REDELIVERED — and that includes Next navigation
+ * sentinels (`redirect`/`forbidden`/`unauthorized`), deliberately. A throw
+ * from the layers around the action means the authority recorded nothing;
+ * mapping it to `rejected` would advance the replica past an unrecorded ID
+ * and wedge the stream (Codex P2, PR #385, which corrected this doc's
+ * original instruction to classify them as terminal). The retry budget
+ * bounds the redelivery and parks the replica; re-authentication then
+ * resumes the SAME id via liveness. Auth refusals proper are terminal
+ * `rejected` results typed by the door, never throws. (The 2026-07-11
+ * guard-write lesson still applies in its original home — transition-bound
+ * catches — but a detached delivery loop with park semantics wants the
+ * opposite move.)
  */
 export interface EntityReplicaSource<Remote = void> {
   fetchAccepted(
