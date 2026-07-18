@@ -8,6 +8,8 @@ import {
 } from "@workspace/game-v2/encounter"
 import {
   templateSetContentSchema,
+  type RegionSettings,
+  type StaticReveal,
   type TemplateSetContent,
 } from "@workspace/game-v2/generation"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -33,15 +35,18 @@ import {
   mapInstances,
   maps,
   playerCharacter,
+  regions,
   templateSets,
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
 import {
+  campaignRegionPath,
   characterPath,
   dungeonConsolePath,
   dungeonWatchPath,
   encounterConsolePath,
+  regionWatchPath,
   stageMapPath,
   stageSetPath,
 } from "@/lib/paths"
@@ -69,6 +74,7 @@ export interface CleanupTracker {
   mapInstanceIds: string[]
   mapIds: string[]
   templateSetIds: string[]
+  regionIds: string[]
 }
 
 export function createTracker(): CleanupTracker {
@@ -80,6 +86,7 @@ export function createTracker(): CleanupTracker {
     mapInstanceIds: [],
     mapIds: [],
     templateSetIds: [],
+    regionIds: [],
   }
 }
 
@@ -418,6 +425,59 @@ export async function createLiveEncounter(
   }
 }
 
+export interface TestRegion {
+  id: string
+  shortId: string
+  /** The DM detail page (`/campaigns/{c}/regions/{r}`). */
+  url: string
+  /** The Region-stable player watch link (`/campaigns/{c}/region/{r}/watch`). */
+  watchUrl: string
+}
+
+/**
+ * Mints a Region (UNN-589) bound to an existing seed Map + Template Set (both
+ * `restrict` FKs — mint them first via {@link createTestMap} /
+ * {@link createTestTemplateSet}). The fold columns start empty (knowledge is
+ * earned by finishing expeditions); pass `staticReveal` to seed a prior
+ * expedition's chart directly.
+ */
+export async function createTestRegion(
+  tracker: CleanupTracker,
+  opts: {
+    campaignId: string
+    /** The campaign's public shortId — the `/campaigns/{c}/…` URL segment. */
+    campaignShortId: string
+    seedMapId: string
+    templateSetId: string
+    name?: string
+    settings?: RegionSettings
+    staticReveal?: StaticReveal
+  }
+): Promise<TestRegion> {
+  const suffix = uniqueSuffix()
+  const id = `e2e-region-${suffix}`
+  await getDb()
+    .insert(regions)
+    .values({
+      id,
+      shortId: id,
+      campaignId: opts.campaignId,
+      name: opts.name ?? `E2E Region ${suffix}`,
+      seedMapId: opts.seedMapId,
+      templateSetId: opts.templateSetId,
+      settings: opts.settings ?? {},
+      staticReveal: opts.staticReveal ?? {},
+      version: 0,
+    })
+  tracker.regionIds.push(id)
+  return {
+    id,
+    shortId: id,
+    url: campaignRegionPath(opts.campaignShortId, id),
+    watchUrl: regionWatchPath(opts.campaignShortId, id),
+  }
+}
+
 export interface TestDungeon {
   id: string
   shortId: string
@@ -493,6 +553,31 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
   if (tracker.dungeonIds.length > 0) {
     await db.delete(dungeons).where(inArray(dungeons.id, tracker.dungeonIds))
   }
+  // App-created expeditions on a tracked Region (minted through the UI's "New
+  // expedition") aren't in `dungeonIds`, but `dungeon.regionId` would block the
+  // region delete below — sweep them (and their untracked Instances +
+  // encounters) by Region so cleanup stays FK-safe, mirroring the
+  // encounters-by-Instance sweep.
+  if (tracker.regionIds.length > 0) {
+    const expeditionRows = await db
+      .select({ id: dungeons.id, mapInstanceId: dungeons.mapInstanceId })
+      .from(dungeons)
+      .where(inArray(dungeons.regionId, tracker.regionIds))
+    if (expeditionRows.length > 0) {
+      const instanceIds = expeditionRows.map((row) => row.mapInstanceId)
+      await db
+        .delete(encounters)
+        .where(inArray(encounters.mapInstanceId, instanceIds))
+      await db.delete(dungeons).where(
+        inArray(
+          dungeons.id,
+          expeditionRows.map((row) => row.id)
+        )
+      )
+      await db.delete(mapInstances).where(inArray(mapInstances.id, instanceIds))
+    }
+    await db.delete(regions).where(inArray(regions.id, tracker.regionIds))
+  }
   // App-created encounters on a tracked Instance (a delve fight the spec started
   // through the UI) aren't in `encounterIds`, but their `restrict` FK would block
   // the Instance delete below — sweep them by Instance so cleanup stays FK-safe.
@@ -546,4 +631,6 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
   tracker.characterIds.length = 0
   tracker.campaignIds.length = 0
   tracker.mapIds.length = 0
+  tracker.templateSetIds.length = 0
+  tracker.regionIds.length = 0
 }

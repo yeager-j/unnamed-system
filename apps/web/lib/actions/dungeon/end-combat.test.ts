@@ -32,6 +32,7 @@ const saveEncounterSession = vi.fn()
 const setEncounterStatus = vi.fn()
 const saveMapInstanceState = vi.fn()
 const saveDungeonState = vi.fn()
+const lockDungeonRowForLifecycle = vi.fn()
 const revalidateDungeon = vi.fn()
 const publishEncounterPing = vi.fn()
 const publishDungeonInstancePing = vi.fn()
@@ -70,6 +71,8 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
 vi.mock("@/lib/db/writes/dungeon", () => ({
   saveDungeonState: (id: string, state: DungeonState, v: number, tx: unknown) =>
     saveDungeonState(id, state, v, tx),
+  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
+    lockDungeonRowForLifecycle(tx, id, v),
 }))
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
@@ -166,6 +169,7 @@ function makeInstanceState(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   }
 }
@@ -187,7 +191,7 @@ function makeLoaded(status: EncounterRow["status"]): LoadedEncounterForWrite {
   }
 }
 
-function makeDungeonRow(): DungeonRow {
+function makeDungeonRow(turnCounter = 4): DungeonRow {
   return {
     id: DUNGEON_ID,
     campaignId: CAMPAIGN_ID,
@@ -195,14 +199,20 @@ function makeDungeonRow(): DungeonRow {
     mapInstanceId: MAP_INSTANCE_ID,
     name: "Delve",
     status: "active",
-    state: { ...createDungeonState(), turnCounter: 4 },
+    state: { ...createDungeonState(), turnCounter },
     version: 2,
   } as DungeonRow
 }
 
 beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
-  loadDungeonRowById.mockReset().mockResolvedValue(makeDungeonRow())
+  // The pre-transaction read is deliberately STALE (turnCounter 99): the
+  // `advanceTurn` must reduce from the LOCKED row's state (turnCounter 4), not
+  // this one — proving the D11 lock-first ordering, not the pre-read.
+  loadDungeonRowById.mockReset().mockResolvedValue(makeDungeonRow(99))
+  lockDungeonRowForLifecycle
+    .mockReset()
+    .mockResolvedValue(ok(makeDungeonRow(4)))
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded("live")))
   loadMapInstanceById.mockReset().mockResolvedValue({
     id: MAP_INSTANCE_ID,
@@ -246,9 +256,10 @@ describe("endDungeonCombatAction — three-row composed combat-end (PR11c)", () 
     expect(pruned.enchantment).toBeNull()
   })
 
-  it("advances the dungeon turn inside the same transaction", async () => {
+  it("advances the dungeon turn from the LOCKED row's state, in the same transaction", async () => {
     await endDungeonCombatAction(INPUT)
 
+    // Locked row was turnCounter 4 → 5; the stale pre-read (99) is never reduced.
     const nextState = saveDungeonState.mock.calls[0]![1] as DungeonState
     expect(nextState.turnCounter).toBe(5)
     expect(saveDungeonState).toHaveBeenCalledWith(
@@ -257,6 +268,15 @@ describe("endDungeonCombatAction — three-row composed combat-end (PR11c)", () 
       2,
       "tx"
     )
+  })
+
+  it("propagates a stale lock (lost the dungeon version race) without writing", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(err("stale"))
+    const result = await endDungeonCombatAction(INPUT)
+    expect(result).toEqual(err("stale"))
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
+    expect(publishEncounterPing).not.toHaveBeenCalled()
   })
 
   it("chains the encounter version: status flip guards on the bumped session version", async () => {

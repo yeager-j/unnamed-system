@@ -5,11 +5,17 @@ import { revalidatePath } from "next/cache"
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
+import { type WriteExecutor } from "@/lib/db/client"
 import {
   loadActiveDungeonForCampaign,
-  loadDungeonRowById,
+  loadDungeonVariantForWrite,
 } from "@/lib/db/queries/load-dungeon"
-import { setDungeonStatus } from "@/lib/db/writes/dungeon"
+import {
+  lockDungeonRowForLifecycle,
+  mapActivationRaceToActiveDelve,
+  setDungeonStatus,
+} from "@/lib/db/writes/dungeon"
+import { guardMany } from "@/lib/db/writes/guard-many"
 import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import { revalidateDungeon } from "./revalidate"
@@ -20,24 +26,30 @@ import {
 } from "./status.schema"
 
 /**
- * Advances a dungeon's lifecycle `status` (`draft` → `active` → `done`) in a single
- * version-guarded write — the exploration-time peer of
- * {@link import("../encounter/end").endEncounterAction} plus the `startCombat`
- * status flip.
+ * Advances a dungeon's lifecycle `status` (`draft` → `active` → `done`) — the
+ * exploration-time peer of {@link import("../encounter/end").endEncounterAction}
+ * plus the `startCombat` status flip. Ordinary delves only: a Region
+ * **expedition** is refused (UNN-589 D11's variant sealing —
+ * `startExpeditionAction` / `finishExpeditionAction` own that lifecycle, which
+ * carries folds and the instance freeze this generic flip must not bypass).
  *
- * Enforces **one active delve per campaign** server-side (UNN-465 AC), mirroring the
- * one-live-encounter guard ({@link import("../encounter/events").applyCombatEvent}):
- * a `draft → active` transition is rejected when another delve in the same campaign
- * already holds the active slot. (`active → done` has no such guard.)
+ * Concurrency (D11): the flip runs as a {@link guardMany} whose body opens with
+ * the dungeon-row lifecycle lock and checks the **legal transition on the locked
+ * row** (`draft → active`, `active → done`) — closing the old gap where
+ * `active → done` checked no status at all. The one-active rule keeps its
+ * friendly pre-read and is DB-enforced by the partial unique index (a
+ * fully-concurrent second activation loses at the index and maps back to the
+ * same error). Then revalidates the campaign overview (its dungeons list +
+ * live-delve banner) **and** the DM console route (UNN-464). The
+ * `draft → active` start is normally driven by
+ * {@link import("./delve-start").startDelveAction} (which also snapshots
+ * geometry + places tokens); this action backs the `active → done` finish.
  *
- * Flow mirrors the encounter writes: load the dungeon row, authorize the caller
- * against its campaign (`requireCampaignDM` trips `forbidden()` for a non-DM), run
- * the guard, flip the status guarded on `expectedVersion`, then revalidate the
- * campaign overview (its dungeons list + live-delve banner) **and** the DM console
- * route (UNN-464). The `draft → active` start is normally driven by
- * {@link import("./delve-start").startDelveAction} (which also snapshots geometry +
- * places tokens); this action backs the `active → done` finish and the
- * server-enforced one-active-delve guard.
+ * Known residual (accepted): an ordinary finish carries no instance token, so a
+ * spatial write already in flight across it can still land after `done` — the
+ * DM is the sole writer today and the window is one round trip. Expeditions
+ * close it with `freezeMapInstance`; extending the freeze here would change
+ * this action's envelope for a pre-existing, low-stakes window.
  */
 export async function setDungeonStatusAction(
   input: SetDungeonStatusInput
@@ -47,8 +59,10 @@ export async function setDungeonStatusAction(
 
   const { dungeonId, status, expectedVersion } = parsed.data
 
-  const dungeon = await loadDungeonRowById(dungeonId)
-  if (dungeon === null) return err("dungeon-not-found")
+  const variant = await loadDungeonVariantForWrite(dungeonId)
+  if (variant === null) return err("dungeon-not-found")
+  if (variant.kind === "expedition") return err("delve-is-expedition")
+  const dungeon = variant.row
   const campaign = await requireCampaignDM(dungeon.campaignId)
 
   if (status === "active") {
@@ -58,7 +72,26 @@ export async function setDungeonStatusAction(
     }
   }
 
-  const result = await setDungeonStatus(dungeonId, status, expectedVersion)
+  const result = await mapActivationRaceToActiveDelve(
+    guardMany<{ version: number }, SetDungeonStatusError>(
+      async (tx: WriteExecutor) => {
+        const locked = await lockDungeonRowForLifecycle(
+          tx,
+          dungeonId,
+          expectedVersion
+        )
+        if (!locked.ok) return locked
+        if (status === "active" && locked.value.status !== "draft") {
+          return err("delve-not-draft")
+        }
+        if (status === "done" && locked.value.status !== "active") {
+          return err("delve-not-active")
+        }
+
+        return setDungeonStatus(dungeonId, status, expectedVersion, tx)
+      }
+    )
+  )
   if (!result.ok) return result
 
   publishDungeonPing(dungeon.shortId, { version: result.value.version, status })

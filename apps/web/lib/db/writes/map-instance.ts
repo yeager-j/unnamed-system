@@ -67,6 +67,29 @@ export async function saveMapInstanceState(
   )
 }
 
+/**
+ * The **freeze** (UNN-589 D5/D11): a version-guarded bump with no state change,
+ * taken by `finishExpeditionAction` inside its transaction. The bump — not a
+ * read-compare — is load-bearing: it makes every in-flight instance token stale
+ * by construction, so a spatial write racing the finish loses on one side or
+ * the other. Whichever commits second fails its own guard; the spatial retry's
+ * status read then sees `done` and refuses, and the finish retry re-folds the
+ * post-reveal state. A committed `done` expedition's instance is never written
+ * again — that is what makes frozen campaign history true rather than assumed.
+ */
+export async function freezeMapInstance(
+  executor: WriteExecutor,
+  mapInstanceId: string,
+  expectedVersion: number
+): Promise<Result<{ version: number }, MapInstanceWriteError>> {
+  return bumpMapInstanceVersionGuarded(
+    executor,
+    mapInstanceId,
+    expectedVersion,
+    {}
+  )
+}
+
 /** The shared single-version guard, bound to this aggregate's table + error. */
 async function bumpMapInstanceVersionGuarded(
   executor: WriteExecutor,

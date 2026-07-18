@@ -37,6 +37,7 @@ function emptyInstance(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   }
 }

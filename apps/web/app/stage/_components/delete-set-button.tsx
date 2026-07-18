@@ -49,7 +49,11 @@ export function DeleteSetButton({
             router.push(stageSetsPath())
             return
           }
-          toast.error("Couldn't delete the set. Try again.")
+          toast.error(
+            result.error === "template-set-in-use"
+              ? "A Region rolls from this set — archive or delete that Region first."
+              : "Couldn't delete the set. Try again."
+          )
         },
         () => toast.error("Couldn't delete the set. Try again.")
       )

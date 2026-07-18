@@ -39,6 +39,9 @@ export interface DungeonCanvasContextValue {
   advanceTurn: () => void
   /** Ends the delve (`active → done`) after a confirm. */
   finishDelve: () => void
+  /** True for a Region expedition (UNN-589) — the bar's finish confirm names
+   *  the variant ("expedition" folds the Region's chart; a "delve" just ends). */
+  isExpedition: boolean
   /** Opens the pre-combat staging dialog to begin an encounter (UNN-536). */
   onStartEncounter: () => void
   /** The current Edit ⇄ Play mode (the bar's toggle read-out). */

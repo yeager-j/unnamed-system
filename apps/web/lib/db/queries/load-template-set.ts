@@ -66,3 +66,31 @@ export async function loadTemplateSetsByUserId(
 
   return rows.map(withParsedContent)
 }
+
+/**
+ * A Set flattened for the Region wandering-table picker (UNN-589): the Set's
+ * public `shortId` + `name`, and its content tables projected to `{ key, name }`
+ * in authored order (`tableOrder`). The Region UI lives in the app tier, which is
+ * gated against `@workspace/game*`, so the picker can't reach into `content` itself
+ * — this loader-adjacent projection does the game-v2 read on its behalf and hands
+ * back the plain shape both the create dialog and the settings form pass as props.
+ */
+export interface PickableSet {
+  shortId: string
+  name: string
+  tables: { key: string; name: string }[]
+}
+
+/** Projects a parsed {@link TemplateSetRow} to the {@link PickableSet} the
+ *  wandering-table picker renders. Walks `tableOrder` (already reconciled against
+ *  `tables` on parse) so the options follow the authored sequence. */
+export function projectSetForPicker(row: TemplateSetRow): PickableSet {
+  return {
+    shortId: row.shortId,
+    name: row.name,
+    tables: row.content.tableOrder.map((key) => ({
+      key,
+      name: row.content.tables[key]!.name,
+    })),
+  }
+}

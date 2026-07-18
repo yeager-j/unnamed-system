@@ -30,6 +30,7 @@ export type StartDelveError =
   | "invalid-input"
   | "dungeon-not-found"
   | "delve-not-draft"
+  | "delve-is-expedition"
   | "campaign-already-has-active-delve"
   | "map-not-found"
   | DungeonWriteError

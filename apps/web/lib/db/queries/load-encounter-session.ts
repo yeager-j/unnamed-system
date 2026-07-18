@@ -10,7 +10,7 @@ import {
 import { err, ok, type Result } from "@workspace/result"
 
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadPlayerCharacterRowsByIds } from "@/lib/db/queries/load-player-character"
 import {
@@ -172,12 +172,15 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 /**
  * The campaign's single `live` encounter **id**, or `null` — the blob-agnostic
  * read behind the single-live guard. Selects two columns; never reads
- * `session`.
+ * `session`. Takes an optional `executor` so a lifecycle transaction can
+ * re-check it **after** taking the dungeon-row lock (UNN-589 D11) — the
+ * default-`db` call remains the friendly pre-check.
  */
 export async function loadLiveEncounterIdForCampaign(
-  campaignId: string
+  campaignId: string,
+  executor: WriteExecutor = db
 ): Promise<string | null> {
-  const [row] = await db
+  const [row] = await executor
     .select({ id: encounters.id })
     .from(encounters)
     .where(
@@ -195,12 +198,16 @@ export async function loadLiveEncounterIdForCampaign(
  * hold a live standalone encounter on a *different* Instance, which is not this
  * delve's fight. Selects three envelope columns; never reads or parses `session`, so
  * the page loader can decide the mode cheaply before committing to the heavier
- * `EncounterForDM` / snapshot load.
+ * `EncounterForDM` / snapshot load. Takes an optional `executor` for the same
+ * in-transaction re-check `loadLiveEncounterIdForCampaign` documents (UNN-589
+ * D11: expedition finish refuses under a live encounter on *this* instance,
+ * read after the dungeon-row lock).
  */
 export async function loadLiveEncounterForMapInstance(
-  mapInstanceId: string
+  mapInstanceId: string,
+  executor: WriteExecutor = db
 ): Promise<{ id: string; shortId: string; status: EncounterStatus } | null> {
-  const [row] = await db
+  const [row] = await executor
     .select({
       id: encounters.id,
       shortId: encounters.shortId,
