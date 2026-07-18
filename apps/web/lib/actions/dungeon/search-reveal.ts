@@ -54,6 +54,10 @@ export async function searchRevealAction(
   if (dungeon === null) return err("dungeon-not-found")
   await requireCampaignDM(dungeon.campaignId)
 
+  // D11 (UNN-589): searches write only running delves — same status seal (and
+  // the same finish-freeze closure of the read's race window) as the event path.
+  if (dungeon.status !== "active") return err("delve-not-active")
+
   const instance = await loadMapInstanceById(dungeon.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 

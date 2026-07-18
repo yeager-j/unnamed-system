@@ -67,6 +67,7 @@ export function instanceWith(parts: {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   }
 }

@@ -20,6 +20,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { startDelveAction } from "@/lib/actions/dungeon/delve-start"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
+import { startExpeditionAction } from "@/lib/actions/dungeon/expedition-start"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -58,6 +59,7 @@ export function DungeonPrep({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [placements, setPlacements] = useState<Record<string, string>>({})
+  const runNoun = dungeon.regionId !== null ? "expedition" : "delve"
 
   function start() {
     startTransition(() =>
@@ -66,19 +68,28 @@ export function DungeonPrep({
           const list = Object.entries(placements)
             .filter(([, zoneId]) => zoneId !== "")
             .map(([characterId, zoneId]) => ({ characterId, zoneId }))
-          const result = await startDelveAction({
+          // Same wire, different lifecycle action per variant (D11's sealing
+          // means the server refuses a cross-routed call; this fork is UX, not
+          // the invariant): an expedition start additionally snapshots the LIVE
+          // seed Map, stamps authored provenance, and re-applies the Region's
+          // charted reveal.
+          const input = {
             dungeonId: dungeon.id,
             expectedVersion: dungeon.version,
             expectedInstanceVersion: instance.version,
             placements: list,
-          })
+          }
+          const result =
+            dungeon.regionId !== null
+              ? await startExpeditionAction(input)
+              : await startDelveAction(input)
           if (!result.ok) {
             toast.error(dungeonErrorMessage(result.error))
             return
           }
           router.refresh()
         },
-        () => toast.error("Couldn't start the delve. Try again.")
+        () => toast.error(`Couldn't start the ${runNoun}. Try again.`)
       )
     )
   }
@@ -90,7 +101,9 @@ export function DungeonPrep({
       ) : null}
       <header>
         <h1 className="font-heading text-lg font-medium">{dungeon.name}</h1>
-        <p className="text-sm text-muted-foreground">Delve · prep</p>
+        <p className="text-sm text-muted-foreground">
+          {runNoun === "expedition" ? "Expedition" : "Delve"} · prep
+        </p>
       </header>
 
       {zones.length === 0 ? (
@@ -102,7 +115,7 @@ export function DungeonPrep({
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            Place the party&apos;s starting zones, then start the delve. A
+            Place the party&apos;s starting zones, then start the {runNoun}. A
             partial party is fine — leave anyone out you don&apos;t need yet.
           </p>
 
@@ -176,7 +189,7 @@ export function DungeonPrep({
 
           <Button onClick={start} disabled={isPending} className="self-start">
             {isPending && <Spinner />}
-            Start delve
+            Start {runNoun}
           </Button>
         </>
       )}

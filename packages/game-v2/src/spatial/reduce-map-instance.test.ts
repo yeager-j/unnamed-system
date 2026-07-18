@@ -1124,3 +1124,172 @@ describe("reduceMapInstance — lastMovedTokenKey (UNN-586)", () => {
     expect(moved.lastMovedTokenKey).toBe("c0")
   })
 })
+
+describe("reduceMapInstance — generation provenance (UNN-589)", () => {
+  const edit = (event: MapGeometryEvent) =>
+    ({ kind: "editGeometry", event }) as const
+
+  it("stamps a directly-added Zone as manual", () => {
+    const next = reduceInstance(
+      makeMapInstanceState(),
+      { kind: "addZone", name: "Ambush" },
+      () => "fresh-zone"
+    )
+
+    expect(next.generation.zones["fresh-zone"]).toEqual({ source: "manual" })
+  })
+
+  it("drops the provenance entry when a Zone is removed", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      generation: {
+        zones: {
+          "zone-a": { source: "authored" },
+          "zone-b": { source: "manual" },
+        },
+        grafts: {},
+      },
+    })
+
+    const next = reduceInstance(state, { kind: "removeZone", zoneId: "zone-a" })
+
+    expect(next.generation.zones["zone-a"]).toBeUndefined()
+    expect(next.generation.zones["zone-b"]).toEqual({ source: "manual" })
+  })
+
+  it("stamps an editGeometry addZone as manual", () => {
+    const next = reduceInstance(
+      makeMapInstanceState(twoZones()),
+      edit({
+        kind: "addZone",
+        id: "zone-c",
+        position: { x: 10, y: 20 },
+        pageId: DEFAULT_PAGE_ID,
+      })
+    )
+
+    expect(next.generation.zones["zone-c"]).toEqual({ source: "manual" })
+  })
+
+  it("stamps an editGeometry duplicateZone copy as manual", () => {
+    const next = reduceInstance(
+      makeMapInstanceState(twoZones()),
+      edit({
+        kind: "duplicateZone",
+        sourceId: "zone-a",
+        newId: "zone-a-copy",
+        position: { x: 30, y: 40 },
+        pageId: DEFAULT_PAGE_ID,
+      })
+    )
+
+    expect(next.generation.zones["zone-a-copy"]).toEqual({ source: "manual" })
+  })
+
+  it("stamps every duplicatePage copy as manual", () => {
+    const state = makeMapInstanceState(twoZones())
+    const next = reduceInstance(
+      state,
+      edit({
+        kind: "duplicatePage",
+        sourcePageId: DEFAULT_PAGE_ID,
+        newPageId: "p2",
+        zoneIdMap: { "zone-a": "zone-a2", "zone-b": "zone-b2" },
+        connectionIdMap: { "conn-ab": "conn-ab2" },
+      })
+    )
+
+    expect(next.generation.zones["zone-a2"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["zone-b2"]).toEqual({ source: "manual" })
+  })
+
+  it("leaves existing authored provenance untouched when adding a Zone", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      generation: {
+        zones: {
+          "zone-a": { source: "authored" },
+          "zone-b": { source: "authored" },
+        },
+        grafts: {},
+      },
+    })
+
+    const next = reduceInstance(
+      state,
+      edit({
+        kind: "addZone",
+        id: "zone-c",
+        position: { x: 10, y: 20 },
+        pageId: DEFAULT_PAGE_ID,
+      })
+    )
+
+    expect(next.generation.zones["zone-a"]).toEqual({ source: "authored" })
+    expect(next.generation.zones["zone-b"]).toEqual({ source: "authored" })
+    expect(next.generation.zones["zone-c"]).toEqual({ source: "manual" })
+  })
+
+  it("prunes provenance for a Zone deleted via editGeometry deleteZone", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: { c0: free("zone-b") },
+      generation: {
+        zones: {
+          "zone-a": { source: "authored" },
+          "zone-b": { source: "authored" },
+        },
+        grafts: {},
+      },
+    })
+
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteZone", zoneId: "zone-a" })
+    )
+
+    expect(next.generation.zones["zone-a"]).toBeUndefined()
+    expect(next.generation.zones["zone-b"]).toEqual({ source: "authored" })
+  })
+
+  it("prunes provenance for every Zone a deletePage cascade destroys", () => {
+    const state = makeMapInstanceState({
+      geometry: makeGeometry([
+        makeZone("zone-a", { name: "A" }),
+        makeZone("zone-b", { name: "B", pageId: "p2" }),
+      ]),
+      generation: {
+        zones: {
+          "zone-a": { source: "authored" },
+          "zone-b": { source: "manual" },
+        },
+        grafts: {},
+      },
+    })
+
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deletePage", pageId: "p2" })
+    )
+
+    expect(next.generation.zones["zone-b"]).toBeUndefined()
+    expect(next.generation.zones["zone-a"]).toEqual({ source: "authored" })
+  })
+
+  it("preserves the no-op (same ref) contract for a no-op editGeometry", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      generation: {
+        zones: { "zone-a": { source: "authored" } },
+        grafts: {},
+      },
+    })
+
+    expect(
+      reduceInstance(
+        state,
+        edit({ kind: "renameZone", zoneId: "ghost", name: "Nowhere" })
+      )
+    ).toBe(state)
+  })
+})

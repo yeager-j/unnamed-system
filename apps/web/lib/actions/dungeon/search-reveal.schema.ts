@@ -40,5 +40,6 @@ export type SearchRevealInput = z.input<typeof SearchRevealSchema>
 export type SearchRevealError =
   | "invalid-input"
   | "dungeon-not-found"
+  | "delve-not-active"
   | DungeonWriteError
   | MapInstanceWriteError

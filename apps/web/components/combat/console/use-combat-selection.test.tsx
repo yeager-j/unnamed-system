@@ -48,6 +48,7 @@ const instance: MapInstanceState = {
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
+  generation: { zones: {}, grafts: {} },
   lastMovedTokenKey: null,
 }
 

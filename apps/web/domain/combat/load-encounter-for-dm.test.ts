@@ -85,6 +85,7 @@ const instanceRow: MapInstanceRow = {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   },
   version: 0,

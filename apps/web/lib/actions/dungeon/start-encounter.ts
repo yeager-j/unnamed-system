@@ -22,11 +22,16 @@ import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-session"
 import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
+import {
+  lockDungeonRowForLifecycle,
+  touchDungeonLifecycle,
+} from "@/lib/db/writes/dungeon"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import {
   publishDungeonInstancePing,
+  publishDungeonPing,
   publishEncounterPing,
 } from "@/lib/realtime/publish"
 
@@ -65,6 +70,7 @@ export async function startDungeonEncounterAction(
 
   const {
     dungeonId,
+    expectedVersion,
     expectedInstanceVersion,
     name,
     advantage,
@@ -144,10 +150,30 @@ export async function startDungeonEncounterAction(
   const stored = saveSession(session, locators)
   if (!stored.ok) return err("locator-missing")
 
+  // Combat start is a lifecycle action (D11, UNN-589): the transaction opens
+  // with the dungeon-row lock (dungeon-first per the lock-order discipline) and
+  // re-establishes the friendly pre-checks on the locked row — the status read
+  // and the live-encounter read above stay for error copy, but the ones that
+  // count happen after the lock, where no competing lifecycle action (a racing
+  // finish, a second combat start) can commit under them.
   const result = await guardMany<
-    { shortId: string; instanceVersion: number },
+    { shortId: string; instanceVersion: number; version: number },
     StartDungeonEncounterError
   >(async (tx: WriteExecutor) => {
+    const locked = await lockDungeonRowForLifecycle(
+      tx,
+      dungeon.id,
+      expectedVersion
+    )
+    if (!locked.ok) return locked
+    if (locked.value.status !== "active") return err("delve-not-active")
+
+    const liveInTx = await loadLiveEncounterIdForCampaign(
+      dungeon.campaignId,
+      tx
+    )
+    if (liveInTx !== null) return err("campaign-already-has-live-encounter")
+
     const inst = await saveMapInstanceState(
       tx,
       dungeon.mapInstanceId,
@@ -166,12 +192,28 @@ export async function startDungeonEncounterAction(
       },
       tx
     )
-    return ok({ shortId: created.shortId, instanceVersion: inst.value.version })
+
+    // Combat start changes no dungeon column, but the version bump is what
+    // makes it visible to every other lifecycle actor's guard — a finish racing
+    // this start conflicts on the dungeon version instead of folding over a
+    // live encounter it never saw.
+    const touched = await touchDungeonLifecycle(tx, dungeon.id, expectedVersion)
+    if (!touched.ok) return touched
+
+    return ok({
+      shortId: created.shortId,
+      instanceVersion: inst.value.version,
+      version: touched.value.version,
+    })
   })
   if (!result.ok) return result
 
   publishEncounterPing(result.value.shortId, { version: 0, status: "live" })
   publishDungeonInstancePing(dungeon.shortId, result.value.instanceVersion)
+  publishDungeonPing(dungeon.shortId, {
+    version: result.value.version,
+    status: dungeon.status,
+  })
   revalidateDungeon(dungeon)
   return ok({ shortId: result.value.shortId })
 }

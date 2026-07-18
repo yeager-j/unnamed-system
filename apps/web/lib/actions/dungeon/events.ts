@@ -72,6 +72,13 @@ export async function applyDungeonEvent(
   const dungeon = await loadDungeonRowById(dungeonId)
   if (dungeon === null) return err("dungeon-not-found")
 
+  // D11 (UNN-589): the event vocabulary writes only running delves — a draft or
+  // done dungeon's rows are immutable through it (frozen history is structural,
+  // not assumed). This plain read alone can't beat a racing finish; the race is
+  // closed by finish's instance freeze — whichever write commits second fails
+  // its version guard, and the retry re-reads the status here and refuses.
+  if (dungeon.status !== "active") return err("delve-not-active")
+
   if (isDungeonEvent(event)) {
     const next = reduceDungeon(dungeon.state, event)
     const saved = await saveDungeonState(dungeonId, next, expectedVersion)

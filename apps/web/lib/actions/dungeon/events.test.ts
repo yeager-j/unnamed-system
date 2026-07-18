@@ -108,6 +108,7 @@ function instanceRow(): {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      generation: { zones: {}, grafts: {} },
       lastMovedTokenKey: null,
     },
     version: 0,
@@ -162,6 +163,23 @@ describe("applyDungeonEvent — auth + validation", () => {
       })
     ).rejects.toBe(forbidden)
     expect(saveDungeonState).not.toHaveBeenCalled()
+  })
+
+  it("refuses to write a non-active delve (frozen history is structural, D11)", async () => {
+    loadDungeonRowById.mockResolvedValue({
+      ...dungeonRow(),
+      status: "done" as const,
+    })
+
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      expectedVersion: 0,
+      event: { kind: "advanceTurn" },
+    })
+
+    expect(result).toEqual({ ok: false, error: "delve-not-active" })
+    expect(saveDungeonState).not.toHaveBeenCalled()
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
   })
 })
 

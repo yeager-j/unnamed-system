@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { CharacterPlacementSection } from "@/app/campaigns/_components/character-placement-section"
 import { CreateDungeonButton } from "@/app/campaigns/_components/create-dungeon-button"
 import { CreateEncounterButton } from "@/app/campaigns/_components/create-encounter-button"
+import { CreateRegionButton } from "@/app/campaigns/_components/create-region-button"
 import { DeleteCampaignButton } from "@/app/campaigns/_components/delete-campaign-button"
 import { DungeonList } from "@/app/campaigns/_components/dungeon-list"
 import { EncounterList } from "@/app/campaigns/_components/encounter-list"
@@ -11,6 +12,7 @@ import { EncounterStatusListener } from "@/app/campaigns/_components/encounter-s
 import { JoinLinkCard } from "@/app/campaigns/_components/join-link-card"
 import { LiveDelveBanner } from "@/app/campaigns/_components/live-delve-banner"
 import { LiveEncounterBanner } from "@/app/campaigns/_components/live-encounter-banner"
+import { RegionList } from "@/app/campaigns/_components/region-list"
 import { RosterList } from "@/app/campaigns/_components/roster-list"
 import { activeEncounters } from "@/app/campaigns/[campaignShortId]/_components/active-encounters"
 import { DayStructureCard } from "@/app/campaigns/[campaignShortId]/_components/planner/day-structure-card"
@@ -26,6 +28,11 @@ import {
   loadLiveEncounterSummaryForCampaign,
 } from "@/lib/db/queries/load-encounter"
 import { loadMapsByUserId } from "@/lib/db/queries/load-map"
+import { loadRegionsForCampaign } from "@/lib/db/queries/load-region"
+import {
+  loadTemplateSetsByUserId,
+  projectSetForPicker,
+} from "@/lib/db/queries/load-template-set"
 
 import { getCampaignForDM } from "../planner-access"
 
@@ -66,6 +73,8 @@ export default async function ManageCampaignPage({ params }: PageProps) {
     activeDungeon,
     maps,
     clock,
+    regions,
+    templateSets,
   ] = await Promise.all([
     loadCampaignRoster(campaign.id),
     loadEncountersForCampaign(campaign.id),
@@ -74,9 +83,12 @@ export default async function ManageCampaignPage({ params }: PageProps) {
     loadActiveDungeonForCampaign(campaign.id),
     loadMapsByUserId(campaign.dmUserId),
     loadCampaignClock(campaign.id),
+    loadRegionsForCampaign(campaign.id),
+    loadTemplateSetsByUserId(campaign.dmUserId),
   ])
 
   const pickableMaps = maps.map(({ shortId, name }) => ({ shortId, name }))
+  const pickableSets = templateSets.map(projectSetForPicker)
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 p-6">
@@ -162,6 +174,19 @@ export default async function ManageCampaignPage({ params }: PageProps) {
           />
         </div>
         <DungeonList campaignShortId={campaign.shortId} dungeons={dungeons} />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground">Regions</h2>
+          <CreateRegionButton
+            campaignId={campaign.id}
+            campaignShortId={campaign.shortId}
+            maps={pickableMaps}
+            sets={pickableSets}
+          />
+        </div>
+        <RegionList campaignShortId={campaign.shortId} regions={regions} />
       </section>
 
       <CharacterPlacementSection

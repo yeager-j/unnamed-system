@@ -94,6 +94,7 @@ function instanceRow() {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      generation: { zones: {}, grafts: {} },
       lastMovedTokenKey: null,
     } satisfies MapInstanceState,
     version: 0,
@@ -161,5 +162,18 @@ describe("searchRevealAction", () => {
 
     expect(result).toEqual({ ok: false, error: "stale" })
     expect(revalidateDungeon).not.toHaveBeenCalled()
+  })
+
+  it("refuses to search a non-active delve (same D11 status seal as the event path)", async () => {
+    loadDungeonRowById.mockResolvedValue({
+      ...dungeonRow(),
+      status: "done" as const,
+    })
+
+    const result = await searchRevealAction(searchInput)
+
+    expect(result).toEqual({ ok: false, error: "delve-not-active" })
+    expect(saveDungeonState).not.toHaveBeenCalled()
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
   })
 })

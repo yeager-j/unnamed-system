@@ -51,10 +51,60 @@ export const revealStateSchema = z.object({
 export type RevealState = z.infer<typeof revealStateSchema>
 
 /**
+ * One Zone's **provenance** — where the Zone came from, which decides two predicates
+ * an expedition needs (procedural-dungeons tech design D4/D5):
+ *
+ * - **`authored`** — snapshotted from the seed (or a grafted static) Map. Only an
+ *   authored Zone's reveal **folds** back to the Region's `staticReveal` at
+ *   expedition finish (knowledge about a stable place is worth carrying forward);
+ *   generated and manual space dies with the run. Stamped once at expedition start
+ *   by `withAuthoredProvenance` over the fresh snapshot.
+ * - **`generated`** — minted mid-run by the procedural roller (P3). The only source
+ *   `retractZone` (P3) may target — an authored or manual Zone is never retracted.
+ * - **`manual`** — DM hand-added mid-run via `editGeometry` (or the direct `addZone`
+ *   event); stamped in the reducer at that boundary. Visit-scoped like generated:
+ *   permanent space is authored on the seed Map, not on the run.
+ *
+ * **Missing provenance ⇒ treated as non-authored** — the fold fails safe (an
+ * under-fold, never an over-fold: an unstamped Zone never leaks into the Region's
+ * chart). P3 extends this row with `templateKey?`, `depth`, and a DM-only
+ * `manifest?` (staged content); the enum is the stable core P1 needs.
+ */
+export const zoneProvenanceSchema = z.object({
+  source: z.enum(["authored", "generated", "manual"]),
+})
+export type ZoneProvenance = z.infer<typeof zoneProvenanceSchema>
+
+/**
+ * The Instance's **generation** slice (procedural-dungeons tech design D4) — a
+ * sibling of `occupancy`/`reveal`, carrying the per-run generation bookkeeping the
+ * expedition lifecycle reads:
+ *
+ * - **`zones`** — provenance keyed by Zone id (the {@link ZoneProvenance} above).
+ * - **`grafts`** — keyed by *source* mapId, the pages each grafted static Map
+ *   contributed (P6 portal grafting). It is **empty until P6**, but present now so
+ *   the `staticReveal` fold's zone→source-Map attribution signature is stable: the
+ *   fold reads `grafts` to decide which Map a folded Zone attributes to, and seed
+ *   pages (claimed by no graft) attribute to the seed Map.
+ *
+ * Both fields `.default()` empty so an old stored blob (no `generation` key) heals
+ * on read — the file's own graceful-boundary doctrine. P3 adds `stubs` (open
+ * generated exits) here as a third sibling.
+ */
+export const generationStateSchema = z.object({
+  zones: z.record(z.string(), zoneProvenanceSchema).default({}),
+  grafts: z
+    .record(z.string(), z.object({ pageIds: z.array(z.string()).default([]) }))
+    .default({}),
+})
+export type GenerationState = z.infer<typeof generationStateSchema>
+
+/**
  * The Map-Instance's jsonb `state`. `geometry` is the snapshot of the Map's authored
  * geometry; `occupancy` maps a token key to its {@link MapToken}; `reveal` is the
  * runtime fog overlay; `enchantment` is the Bard's single active Zone Enchantment (a
- * nullable singleton — a second Enchant overwrites). `lastMovedTokenKey` is the
+ * nullable singleton — a second Enchant overwrites); `generation` is the per-run
+ * provenance/graft bookkeeping ({@link GenerationState}). `lastMovedTokenKey` is the
  * token that most recently moved or was placed (UNN-586) — the watch's
  * follow-the-party page hint (D3); an opaque dual-lifecycle key that may dangle
  * after a combat prune, so readers resolve it defensively and never trust it raw.
@@ -69,6 +119,7 @@ export const mapInstanceStateSchema = z.object({
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   }),
+  generation: generationStateSchema.default({ zones: {}, grafts: {} }),
   lastMovedTokenKey: z.string().nullable().default(null),
 })
 export type MapInstanceState = z.infer<typeof mapInstanceStateSchema>

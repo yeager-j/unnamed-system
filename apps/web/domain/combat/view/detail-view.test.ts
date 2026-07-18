@@ -26,6 +26,7 @@ const mapless: MapInstanceState = {
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
+  generation: { zones: {}, grafts: {} },
   lastMovedTokenKey: null,
 }
 

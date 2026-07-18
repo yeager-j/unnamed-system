@@ -39,6 +39,7 @@ export const makeMapInstanceState = (
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
+  generation: { zones: {}, grafts: {} },
   lastMovedTokenKey: null,
   ...overrides,
 })
