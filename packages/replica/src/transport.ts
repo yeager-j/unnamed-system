@@ -1,12 +1,7 @@
 import type { Result } from "@workspace/result"
 
 import type { MutationInvocation } from "./mutations"
-import type {
-  Accepted,
-  ConnectionStatus,
-  MutationEnvelope,
-  PushError,
-} from "./protocol"
+import type { Accepted, MutationEnvelope, PushError } from "./protocol"
 
 export type {
   Accepted,

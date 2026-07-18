@@ -1,5 +1,5 @@
 import type { MutationInvocation } from "../mutations"
-import type { Accepted, ConnectionStatus, MutationEnvelope } from "../protocol"
+import type { Accepted, MutationEnvelope } from "../protocol"
 import type { ReplicaTransport } from "../transport"
 import {
   deepEqual,
