@@ -3,6 +3,7 @@
 import { UserPlusIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Dialog,
   DialogContent,
@@ -12,15 +13,6 @@ import {
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
 import { Label } from "@workspace/ui/components/label"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import {
   SidebarMenuButton,
   SidebarMenuItem,
@@ -54,7 +46,6 @@ export function AddToDelveDialog({
   onPlace: (characterId: string, zoneId: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const showPageLabels = zoneGroups.length > 1
 
   return (
     <SidebarMenuItem>
@@ -95,35 +86,30 @@ export function AddToDelveDialog({
                   <Label className="sr-only" htmlFor={`place-${character.id}`}>
                     Zone for {character.name}
                   </Label>
-                  <Select
+                  <DataSelect
+                    size="sm"
+                    id={`place-${character.id}`}
+                    className="w-48"
+                    placeholder="Choose a zone"
+                    disabled={disabled}
+                    options={zoneGroups.flatMap((group) =>
+                      group.zones.map((zone) => ({
+                        zone,
+                        pageId: group.pageId,
+                        pageName: group.pageName,
+                      }))
+                    )}
+                    optionValue={({ zone }) => zone.id}
+                    optionLabel={({ zone }) => zone.name}
+                    optionGroup={({ pageId, pageName }) => ({
+                      key: pageId,
+                      label: pageName,
+                    })}
                     value=""
                     onValueChange={(zoneId) => {
                       if (zoneId) onPlace(character.id, zoneId)
                     }}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      id={`place-${character.id}`}
-                      className="w-48"
-                    >
-                      <SelectValue placeholder="Choose a zone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {zoneGroups.map((group) => (
-                        <SelectGroup key={group.pageId}>
-                          {showPageLabels && group.zones.length > 0 && (
-                            <SelectLabel>{group.pageName}</SelectLabel>
-                          )}
-                          {group.zones.map((zone) => (
-                            <SelectItem key={zone.id} value={zone.id}>
-                              {zone.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </li>
               ))}
             </ul>

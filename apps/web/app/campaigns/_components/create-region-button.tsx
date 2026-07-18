@@ -6,6 +6,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Dialog,
   DialogContent,
@@ -16,13 +17,6 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { WANDERING_INTERVAL_OPTIONS } from "@/domain/labels"
@@ -153,28 +147,15 @@ export function CreateRegionButton({
             <Field>
               <FieldLabel htmlFor="region-map">Seed map</FieldLabel>
               {maps.length > 0 ? (
-                <Select
+                <DataSelect
+                  id="region-map"
+                  placeholder="Choose a map…"
+                  options={maps}
+                  optionValue={(map) => map.shortId}
+                  optionLabel={(map) => map.name}
                   value={selectedMapShortId}
-                  onValueChange={(value) => setSelectedMapShortId(value ?? "")}
-                >
-                  <SelectTrigger id="region-map">
-                    <SelectValue>
-                      {maps.find((map) => map.shortId === selectedMapShortId)
-                        ?.name ?? (
-                        <span className="text-muted-foreground">
-                          Choose a map…
-                        </span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {maps.map((map) => (
-                      <SelectItem key={map.shortId} value={map.shortId}>
-                        {map.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onValueChange={setSelectedMapShortId}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Author a Map on the Stage first.
@@ -185,27 +166,15 @@ export function CreateRegionButton({
             <Field>
               <FieldLabel htmlFor="region-set">Template set</FieldLabel>
               {sets.length > 0 ? (
-                <Select
+                <DataSelect
+                  id="region-set"
+                  placeholder="Choose a set…"
+                  options={sets}
+                  optionValue={(set) => set.shortId}
+                  optionLabel={(set) => set.name}
                   value={selectedSetShortId}
-                  onValueChange={(value) => onSelectSet(value ?? "")}
-                >
-                  <SelectTrigger id="region-set">
-                    <SelectValue>
-                      {selectedSet?.name ?? (
-                        <span className="text-muted-foreground">
-                          Choose a set…
-                        </span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sets.map((set) => (
-                      <SelectItem key={set.shortId} value={set.shortId}>
-                        {set.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onValueChange={onSelectSet}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Author a Template Set on the Stage first.
@@ -220,60 +189,39 @@ export function CreateRegionButton({
                   (optional)
                 </span>
               </FieldLabel>
-              <Select
+              <DataSelect
+                id="region-table"
+                disabled={tables.length === 0}
+                options={[{ key: NO_TABLE, name: "None" }, ...tables]}
+                optionValue={(table) => table.key}
+                optionLabel={(table) => table.name}
                 value={wanderingTableKey}
                 onValueChange={(value) =>
-                  setWanderingTableKey(value ?? NO_TABLE)
+                  setWanderingTableKey(value || NO_TABLE)
                 }
-              >
-                <SelectTrigger id="region-table" disabled={tables.length === 0}>
-                  <SelectValue>
-                    {tables.find((table) => table.key === wanderingTableKey)
-                      ?.name ?? (
-                      <span className="text-muted-foreground">None</span>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_TABLE}>None</SelectItem>
-                  {tables.map((table) => (
-                    <SelectItem key={table.key} value={table.key}>
-                      {table.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                selectTriggerLabel={(table) =>
+                  table && table.key !== NO_TABLE ? (
+                    table.name
+                  ) : (
+                    <span className="text-muted-foreground">None</span>
+                  )
+                }
+              />
             </Field>
 
             {wanderingTableKey !== NO_TABLE ? (
               <Field>
                 <FieldLabel htmlFor="region-interval">Fires</FieldLabel>
-                <Select
+                <DataSelect
+                  id="region-interval"
+                  options={WANDERING_INTERVAL_OPTIONS}
+                  optionValue={(option) => String(option.turns)}
+                  optionLabel={(option) => option.label}
                   value={String(intervalTurns)}
                   onValueChange={(value) =>
                     setIntervalTurns(Number(value) as 1 | 2 | 3 | 6)
                   }
-                >
-                  <SelectTrigger id="region-interval">
-                    <SelectValue>
-                      {
-                        WANDERING_INTERVAL_OPTIONS.find(
-                          (option) => option.turns === intervalTurns
-                        )?.label
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WANDERING_INTERVAL_OPTIONS.map((option) => (
-                      <SelectItem
-                        key={option.turns}
-                        value={String(option.turns)}
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </Field>
             ) : null}
           </div>

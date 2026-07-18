@@ -22,6 +22,7 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import { Label } from "@workspace/ui/components/label"
 import {
   ResponsiveDialog,
@@ -30,13 +31,6 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 
 import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
@@ -292,22 +286,19 @@ function ZoneSheetBody({
           {pending?.kind === "reveal-connection" && rosterIds.length > 0 && (
             <Label className="flex flex-col gap-1.5 text-sm">
               Searched by (optional)
-              <Select
-                value={searcherId}
-                onValueChange={(value) => setSearcherId(value ?? "")}
+              <DataSelect
+                size="sm"
+                aria-label="Searched by"
+                placeholder="No one — just reveal"
                 disabled={disabled}
-              >
-                <SelectTrigger size="sm" aria-label="Searched by">
-                  <SelectValue placeholder="No one — just reveal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rosterIds.map((characterId) => (
-                    <SelectItem key={characterId} value={characterId}>
-                      {roster[characterId]?.name ?? "Unknown"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={rosterIds}
+                optionValue={(characterId) => characterId}
+                optionLabel={(characterId) =>
+                  roster[characterId]?.name ?? "Unknown"
+                }
+                value={searcherId}
+                onValueChange={setSearcherId}
+              />
             </Label>
           )}
 

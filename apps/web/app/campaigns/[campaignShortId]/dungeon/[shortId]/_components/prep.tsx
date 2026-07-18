@@ -5,16 +5,8 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import { Label } from "@workspace/ui/components/label"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
@@ -136,52 +128,27 @@ export function DungeonPrep({
                   <Label className="sr-only" htmlFor={`zone-${character.id}`}>
                     Starting zone for {character.name}
                   </Label>
-                  <Select
+                  <DataSelect
+                    size="sm"
+                    id={`zone-${character.id}`}
+                    className="w-48"
+                    placeholder="Not in this delve"
+                    disabled={isPending}
+                    options={zones}
+                    optionValue={(zone) => zone.id}
+                    optionLabel={(zone) => zone.name}
+                    optionGroup={(zone) => ({
+                      key: zone.pageId,
+                      label: zone.pageName,
+                    })}
                     value={placements[character.id] ?? ""}
                     onValueChange={(value) =>
                       setPlacements((current) => ({
                         ...current,
-                        [character.id]: value ?? "",
+                        [character.id]: value,
                       }))
                     }
-                    disabled={isPending}
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      id={`zone-${character.id}`}
-                      className="w-48"
-                    >
-                      <SelectValue placeholder="Not in this delve">
-                        {zones.find(
-                          (zone) => zone.id === placements[character.id]
-                        )?.name ?? "Not in this delve"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[...new Set(zones.map((zone) => zone.pageId))].map(
-                        (pageId) => {
-                          const pageZones = zones.filter(
-                            (zone) => zone.pageId === pageId
-                          )
-                          return (
-                            <SelectGroup key={pageId}>
-                              {new Set(zones.map((zone) => zone.pageId)).size >
-                                1 && (
-                                <SelectLabel>
-                                  {pageZones[0]?.pageName}
-                                </SelectLabel>
-                              )}
-                              {pageZones.map((zone) => (
-                                <SelectItem key={zone.id} value={zone.id}>
-                                  {zone.name}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          )
-                        }
-                      )}
-                    </SelectContent>
-                  </Select>
+                  />
                 </li>
               ))}
             </ul>

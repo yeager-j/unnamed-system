@@ -1,18 +1,12 @@
 "use client"
 
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Field,
   FieldDescription,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { DeleteSetButton } from "@/app/stage/_components/delete-set-button"
@@ -98,35 +92,28 @@ export function SetSettingsForm({
 
       <Field>
         <FieldLabel>Connector template</FieldLabel>
-        <Select
+        <DataSelect
+          className="w-full max-w-sm"
+          placeholder="Missing template"
+          options={[
+            { key: NO_CONNECTOR, label: "No connector" },
+            ...connectorOptions.map(({ key, template }) => ({
+              key,
+              label: template.name.trim() || "Untitled template",
+            })),
+          ]}
+          optionValue={(option) => option.key}
+          optionLabel={(option) => option.label}
           value={content.connectorTemplateKey ?? NO_CONNECTOR}
           onValueChange={(value) =>
             onApplyContent(
               setConnectorTemplateKey(
                 content,
-                value === NO_CONNECTOR ? undefined : (value as string)
+                value === NO_CONNECTOR ? undefined : value
               )
             )
           }
-        >
-          <SelectTrigger className="w-full max-w-sm">
-            <SelectValue>
-              {content.connectorTemplateKey
-                ? (content.templates[
-                    content.connectorTemplateKey
-                  ]?.name.trim() ?? "Missing template")
-                : "No connector"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_CONNECTOR}>No connector</SelectItem>
-            {connectorOptions.map(({ key, template }) => (
-              <SelectItem key={key} value={key}>
-                {template.name.trim() || "Untitled template"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <FieldDescription>
           The always-legal fallback (a hallway, an alley) minted when a socket
           has no legal candidates. Without one, an empty pool becomes a narrated

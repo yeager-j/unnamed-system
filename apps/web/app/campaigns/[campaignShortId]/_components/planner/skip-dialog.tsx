@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Dialog,
   DialogContent,
@@ -15,13 +16,6 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 
 import { ACTIVITY_CATEGORY_LABELS } from "@/domain/labels"
 import {
@@ -188,29 +182,22 @@ export function SkipDialog({
                     <span className="w-24 shrink-0 truncate text-sm font-medium">
                       {character.name}
                     </span>
-                    <Select
+                    <DataSelect
+                      size="sm"
+                      className="w-32 shrink-0"
+                      aria-label={`${character.name}'s montage category`}
+                      options={MONTAGE_CATEGORIES}
+                      optionValue={(category) => category}
+                      optionLabel={(category) =>
+                        ACTIVITY_CATEGORY_LABELS[category]
+                      }
                       value={draft.category}
                       onValueChange={(category) =>
                         patchDraft(character.id, {
                           category: category as MontageCategory,
                         })
                       }
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="w-32 shrink-0"
-                        aria-label={`${character.name}'s montage category`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MONTAGE_CATEGORIES.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {ACTIVITY_CATEGORY_LABELS[category]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <Input
                       value={draft.body}
                       placeholder="Kept watch on the road north…"
