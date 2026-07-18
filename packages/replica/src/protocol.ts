@@ -54,8 +54,13 @@ export type ConnectionStatus = "connected" | "disconnected"
 /**
  * `retryable` means the authority outcome is unknown — not that the authority
  * is known to have skipped the mutation. Only `rejected` is a trusted terminal
- * refusal.
+ * refusal of THIS mutation. `unknown-client` is a trusted terminal refusal of
+ * the whole client identity: the authority holds no history for it (dedup
+ * retention expired, or the identity never existed), so no mutation from this
+ * ordered stream can ever be processed again — the replica expires and the
+ * application must rebuild it under a fresh identity (UNN-645).
  */
 export type PushError<Error> =
   | { readonly kind: "retryable"; readonly cause: unknown }
   | { readonly kind: "rejected"; readonly error: Error }
+  | { readonly kind: "unknown-client" }

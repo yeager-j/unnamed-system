@@ -87,6 +87,7 @@ function createContext(): Context {
       pause: authority.pause,
       flush: authority.flush,
       resume: authority.resume,
+      forgetClient: () => authority.forgetClient(identity),
     },
   }
 }
@@ -167,6 +168,7 @@ describe("replica contract — recorded remote mode", () => {
         pause: authority.pause,
         flush: authority.flush,
         resume: authority.resume,
+        forgetClient: () => authority.forgetClient(identity),
       },
     }
   }
@@ -269,6 +271,7 @@ describe("replica contract — negative controls", () => {
             pause: authority.pause,
             flush: authority.flush,
             resume: authority.resume,
+            forgetClient: () => authority.forgetClient(identity),
           },
         }
       },

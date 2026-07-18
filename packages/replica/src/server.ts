@@ -31,6 +31,21 @@ export type ProcessRefusal<Error> =
     }
   | {
       /**
+       * A gap from a client the ledger holds NO history for (`expected === 1`
+       * — the dedup row is absent or fresh-seeded): the authority cannot ever
+       * accept this stream, so the client must rebuild under a fresh
+       * identity. Decided here, once, so every transport inherits the
+       * distinction instead of re-deriving it from `expected` (UNN-645; the
+       * dedup-retention sweep is what makes this reachable by a correct
+       * client). A fresh client whose runtime skips IDs lands here too — the
+       * same reset recovery converges, and the authority-side event keeps
+       * the anomaly observable.
+       */
+      readonly kind: "unknown-client"
+      readonly received: MutationId
+    }
+  | {
+      /**
        * The ID was already processed but its recorded outcome has aged out of
        * the adapter's retention window, so the original result cannot be
        * reproduced. Serial delivery makes this unreachable while retention
@@ -58,6 +73,11 @@ export type ProcessorEvent =
       readonly kind: "duplicate"
       readonly client: ClientIdentity
       readonly mutationId: MutationId
+    }
+  | {
+      readonly kind: "unknown-client"
+      readonly client: ClientIdentity
+      readonly received: MutationId
     }
   | {
       readonly kind: "outcome-unavailable"
@@ -195,6 +215,17 @@ export function createMutationProcessor<
       }
 
       if (envelope.mutationId > lastMutationId + 1) {
+        if (lastMutationId === 0) {
+          event = {
+            kind: "unknown-client",
+            client,
+            received: envelope.mutationId,
+          }
+          return err({
+            kind: "unknown-client",
+            received: envelope.mutationId,
+          })
+        }
         event = {
           kind: "gap",
           client,

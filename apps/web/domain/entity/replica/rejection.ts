@@ -13,9 +13,15 @@ import type { EntityWriteRefusal } from "../commit/writers"
  * viewer-identity gate refusal (typed, never a `forbidden()` throw — a throw
  * would abort the transaction without advancing the watermark and strand the
  * client in ambiguous redelivery), and `"entity-load-failed"` mirrors the
- * entity door's assemble failure.
+ * entity door's assemble failure. `"invalid-write"` is the client-facing
+ * collapse of the authority's recorded decode refusals (`invalid` /
+ * `unknown-mutation` — deploy skew between this client and the server) and
+ * of a malformed transport envelope: in every case this build of the client
+ * produced a write the authority cannot understand, and retrying the same
+ * bytes cannot help.
  */
 export type EntityReplicaRejection =
   | EntityWriteRefusal
   | "forbidden"
   | "entity-load-failed"
+  | "invalid-write"

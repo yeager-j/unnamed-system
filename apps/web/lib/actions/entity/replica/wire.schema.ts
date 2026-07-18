@@ -34,9 +34,10 @@ export type EntityPushInput = z.input<typeof EntityPushSchema>
 /**
  * The push action's error side: transport-shape refusal, or the processor's
  * refusal taxonomy verbatim. `rejected`/`invalid`/`unknown-mutation` are the
- * mutation's terminal outcome (recorded, watermark advanced); `gap` and
- * `outcome-unavailable` are protocol refusals — nothing recorded — and mean
- * the client must rebootstrap from a fresh accepted snapshot.
+ * mutation's terminal outcome (recorded, watermark advanced);
+ * `unknown-client`, `gap`, and `outcome-unavailable` are protocol refusals —
+ * nothing recorded — and the source collapses all three to the transport's
+ * `unknown-client`, expiring the replica for an application rebuild.
  */
 export type EntityPushError =
   | "invalid-input"

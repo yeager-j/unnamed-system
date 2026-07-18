@@ -57,6 +57,12 @@ export interface ReplicaContractControls<
   pause(): void
   flush(count?: number): Promise<void>
   resume(): Promise<void>
+  /**
+   * Erase the authority's history for THIS replica's client identity — the
+   * retention-sweep simulation behind the expiry law. The next out-of-order
+   * delivery from the replica must be refused `unknown-client`.
+   */
+  forgetClient(): void
 }
 
 /**
@@ -136,6 +142,7 @@ export const REPLICA_CONTRACT_LAW_NAMES = [
   "reconnect obtains accepted state and redelivers the same envelope",
   "incorporation may prune prediction before the lost remote outcome is recovered",
   "disposal unsubscribes and cancels outstanding waits",
+  "an unknown client expires the replica: predictions drop, waits settle expired, delivery never resumes",
 ] as const
 
 export const REPLICA_CONTRACT_RECORDED_LAW_NAME =
@@ -680,9 +687,61 @@ export function verifyReplicaContract<
       )
       await controls.resume()
     }),
+
+    law(REPLICA_CONTRACT_LAW_NAMES[18], async (ctx) => {
+      const { replica, fixtures, controls } = ctx
+      // Establish history so the client's next ID is well past 1 — the
+      // authority's forgotten ledger then reads the next delivery as a
+      // no-history gap, not a first contact.
+      const seed = replica.mutate(fixtures.writes[0])
+      invariant((await seed.remote).ok, "seed mutation must succeed")
+      await controls.publish()
+      const accepted = replica.getSnapshot().value
+
+      controls.forgetClient()
+      const stranded = replica.mutate(fixtures.writes[1])
+      const remote = await stranded.remote
+      const failure = remoteError(remote, "stranded wait")
+      invariant(
+        failure.kind === "expired",
+        "a stranded remote must settle expired — its true outcome is unknowable"
+      )
+
+      const snapshot = replica.getSnapshot()
+      invariant(snapshot.expired, "the snapshot must report expiry")
+      invariant(snapshot.pending === 0, "predictions must be dropped")
+      assertDeepEqual(
+        snapshot.value,
+        accepted,
+        "the projection must fall back to accepted state"
+      )
+
+      const deliveriesBefore = controls.deliveries().length
+      const refused = replica.mutate(fixtures.writes[0])
+      invariant(
+        refused.id === null,
+        "an expired replica must not consume mutation identity"
+      )
+      const refusedLocal = await refused.local
+      invariant(
+        !refusedLocal.ok && refusedLocal.error.kind === "expired",
+        "mutations after expiry must fail locally with the expired error"
+      )
+
+      await controls.recover()
+      await settle()
+      invariant(
+        controls.deliveries().length === deliveriesBefore,
+        "liveness evidence must not resurrect an expired identity's delivery"
+      )
+      invariant(
+        replica.getSnapshot().expired,
+        "expiry is terminal until the application rebuilds the replica"
+      )
+    }),
   ]
 
-  // The eighteen names above map to laws[0..17]; keep them aligned.
+  // The names above map to laws by position; keep them aligned.
   const named = new Map(laws.map((l) => [l.name, l]))
   const ordered = REPLICA_CONTRACT_LAW_NAMES.map((name) => {
     const found = named.get(name)

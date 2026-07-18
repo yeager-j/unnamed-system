@@ -8,9 +8,9 @@ import {
 } from "@workspace/replica/transport"
 import { err, type Result } from "@workspace/result"
 
-import type { EntityWriteRefusal } from "../commit/writers"
 import { compareEntityVersionVectors, type EntityVersionVector } from "./cursor"
 import type { EntityComponents, EntityReplicaInvocation } from "./mutations"
+import type { EntityReplicaRejection } from "./rejection"
 
 /**
  * The IO seam the entity replica transport is composed over. Production wires
@@ -36,7 +36,7 @@ export interface EntityReplicaSource<Remote = void> {
   pushEnvelope(
     envelope: MutationEnvelope<EntityReplicaInvocation>,
     signal: AbortSignal
-  ): Promise<Result<Remote, PushError<EntityWriteRefusal>>>
+  ): Promise<Result<Remote, PushError<EntityReplicaRejection>>>
   subscribe(events: { onPing(): void; onReconnect(): void }): () => void
 }
 
@@ -59,7 +59,7 @@ export function createEntityReplicaTransport<Remote = void>(
 ): ReplicaTransport<
   EntityComponents,
   EntityReplicaInvocation,
-  EntityWriteRefusal,
+  EntityReplicaRejection,
   Remote,
   EntityVersionVector
 > {
