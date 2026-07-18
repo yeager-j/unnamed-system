@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import {
   createContext,
   useContext,
-  useOptimistic,
+  useMemo,
   useRef,
   useTransition,
   type RefObject,
@@ -13,26 +13,18 @@ import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
-import type { Result } from "@workspace/result"
+import type { MutationError } from "@workspace/replica"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
-import { mergeComponentPatch } from "@/domain/entity/commit/merge-patch"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import {
-  applyEntityWrite,
-  ENTITY_WRITERS,
-} from "@/domain/entity/commit/writers"
 import { resolveEntity } from "@/domain/game-engine-v2"
-import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
-import type { ApplyEntityWriteError } from "@/lib/actions/entity/apply-entity-write.schema"
-import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 import type { VersionClass } from "@/lib/db/version-classes"
 import {
   forwardPingedVersions,
   parseCharacterPing,
 } from "@/lib/sync/character-version-sync"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useMonotonicVersionRef } from "@/lib/sync/use-monotonic-version-ref"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
 import {
@@ -41,6 +33,11 @@ import {
   type WriteQueueTokenPort,
 } from "@/lib/sync/write-queue"
 
+import type { EntityReplicaRejection } from "./replica/rejection"
+import {
+  useEntityReplica,
+  type EntityWriteReceipt,
+} from "./replica/use-entity-replica"
 import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveArgs,
@@ -48,44 +45,35 @@ import {
 } from "./use-debounced-auto-save"
 
 /**
- * The character surfaces' write provider (ADR §2.4/CH18; UNN-556) — the
- * durable-route sibling of `useCombatantWrite`. The builder mounts it today;
- * the S2 sheet shell reuses it. It owns the three things every entity-backed
- * surface needs:
+ * The character surfaces' write provider (ADR §2.4/CH18; UNN-556 → UNN-645) —
+ * the durable-route sibling of `useCombatantWrite`. As of UNN-645 the
+ * component-write transport is the **predicted replica**
+ * ({@link useEntityReplica}): the frame is the replica's projection —
+ * accepted base + pending predictions, each applied by the *same pure
+ * Writer* the server commits with and re-folded through `resolveEntity`
+ * with the mount's `resolveContext` (the CH18 re-fold; the cheap-algebra
+ * shortcut stays rejected). Call sites no longer know about version classes,
+ * expected versions, queues, or stale retry — ordering, dedup, rebase, and
+ * conflict surfacing are the replica protocol's. Before the replica's
+ * bootstrap read resolves (and on read-only mounts) the frame is the
+ * RSC-loaded one.
  *
- * - **The optimistic frame** — one reducer-form `useOptimistic` holding
- *   `{ entity, resolved }`. A dispatch applies the *same pure Writer* the
- *   server commits with ({@link applyEntityWrite}), merges the patch, and
- *   re-runs `resolveEntity` client-side **through the same `resolveContext`
- *   the server resolved the base frame with**, so **derived** values (a max
- *   under depletion, a party-scaled skill preview) move in the same frame (the
- *   CH18 re-fold; the cheap-algebra shortcut is rejected). A Writer refusal
- *   returns the previous frame — no optimistic lie. The server stays the sole
- *   resolver of the base: when the *context* changes (a Zone Enchantment
- *   raised under an owned combatant), it is the **route's** job to re-pull, not
- *   this provider's to re-derive.
- * - **Per-class version tokens + write queues** (UNN-140/UNN-274; UNN-568):
- *   a write reads the token of *its Writer's* declared class and serializes on
- *   that class's spine — the shared `write-queue` core, so ortus writing
- *   `talents` (identity) and `virtues` (progression) in one sitting can never
- *   collide or misfile a token, and a genuine cross-writer `"stale"` (the DM
- *   console writing this PC's vitals mid-combat) **silently one-shot-retries**
- *   with a refetched class token ({@link getEntityClassVersionAction}) — the
- *   same policy the console's durable lanes run, decided once in the core. A
- *   stale that survives the retry is a real conflict: toast +
- *   `router.refresh()`.
- * - **The door** — every write goes to `applyEntityWriteAction` (the entity
- *   door). Column actions (name, portrait — the app-column species) stay
- *   classic per-field leaves via {@link useEntityColumnSave}.
+ * Still on the classic guarded path in this increment (UNN-645 expand
+ * phase): **column actions** (name, portrait, pronouns, notes — the
+ * app-column species) and the **identity-queue lifecycle writes** (portrait
+ * upload, finalize, builder step), which keep the identity-class token +
+ * queue machinery below.
  *
- * It also mounts the **cross-writer reconcile channel** (UNN-569): the
- * `character` realtime listener whose pings forward the class tokens and
- * `router.refresh()` only when genuinely fresher — see
- * {@link forwardPingedVersions}.
+ * The provider stays the single Ably subscriber (the cross-writer reconcile
+ * channel, UNN-569): each ping is fanned into the replica transport (its
+ * causal gate decides whether to accept the refetch) AND into the classic
+ * forward-only token compare + `router.refresh()` — the RSC payload still
+ * feeds the profile and every non-replica reader during the migration
+ * window; the contract step deletes the refresh half when nothing reads it.
  *
  * Widget blindness: components receive {@link useEntityWrite}'s `dispatch` /
  * {@link useEntityAutoSave} from this provider and never import the Server
- * Action.
+ * Action or the replica.
  */
 
 interface EntityFrame {
@@ -113,9 +101,10 @@ interface EntityWriteApi {
   entityId: string
   versionRefs: Record<VersionClass, RefObject<number>>
   queueRefs: Record<VersionClass, RefObject<Promise<void>>>
-  applyLocal: (write: EntityWrite) => void
-  /** Serialized dispatch on the class's spine + one-shot stale-retry — the
-   *  click-write path. */
+  /** The replica dispatch — every component write's transport (UNN-645). */
+  mutate: (write: EntityWrite) => EntityWriteReceipt
+  /** Serialized dispatch on the identity spine + one-shot stale-retry — the
+   *  classic path the column/lifecycle writes still ride. */
   enqueue: ClassWriteRun
   /** Serialized dispatch with token accounting but no stale retry. */
   enqueueOnce: ClassWriteRun
@@ -130,9 +119,12 @@ interface EntityWriteApi {
 const EntityFrameContext = createContext<LoadedFrame | null>(null)
 const EntityWriteContext = createContext<EntityWriteApi | null>(null)
 
+const INERT_RESOLVE_CONTEXT: ResolveContext = {}
+
 export function EntityWriteProvider({
   loaded,
-  resolveContext = {},
+  resolveContext = INERT_RESOLVE_CONTEXT,
+  writable = true,
   children,
 }: {
   loaded: LoadedCharacter
@@ -141,6 +133,11 @@ export function EntityWriteProvider({
    *  the watch's own-sheet column passes its combatant's zone effects + party
    *  composition (UNN-566). */
   resolveContext?: ResolveContext
+  /** False for non-owner mounts of the public routes (sheet/atlas viewers):
+   *  the replica bootstrap is strict-owner, so a read-only mount skips it and
+   *  renders the RSC frame; ping-driven `router.refresh()` remains its
+   *  liveness. */
+  writable?: boolean
   children: React.ReactNode
 }) {
   const { profile } = loaded
@@ -218,42 +215,49 @@ export function EntityWriteProvider({
   const runVersioned: ClassWriteRun = (versionClass, action) =>
     runVersionedWrite(tokenFor(versionClass), refetchFor(versionClass), action)
 
-  // The cross-writer reconcile channel (UNN-569): every guarded entity commit
-  // pings `character:{shortId}` with its class's new version, so a genuinely
-  // fresher ping — the DM console damaging this PC mid-combat, a sibling tab —
-  // forwards the tokens and refreshes; echoes of this tab's own writes are
-  // already absorbed and no-op. Only "entity"-kind pings feed the compare — the
-  // ping tag guards against a differently-shaped ping carrying the *other*
-  // family's counters (the Atlas write moved onto this same entity door in S3,
-  // so it now pings "entity" too). Inert without ABLY_API_KEY, like every listener.
+  const { snapshot, mutate, notifyPing, notifyReconnect } = useEntityReplica({
+    entityId: profile.id,
+    enabled: writable,
+  })
+
+  // The cross-writer reconcile channel (UNN-569 → UNN-645): every guarded
+  // entity commit pings `character:{shortId}` with its class's new version.
+  // Each ping fans BOTH ways during the migration window: into the replica
+  // transport (whose causal gate decides whether the refetch is fresh) and
+  // into the classic forward-only token compare + `router.refresh()`, which
+  // still feeds the profile and every non-replica reader. Echoes of this
+  // tab's own writes are absorbed by the gate on one side and the monotonic
+  // refs on the other. Inert without ABLY_API_KEY, like every listener.
   const router = useRouter()
   useRealtimeChannel({
     domain: "character",
     shortId: profile.shortId,
     onPing: (data) => {
+      notifyPing()
       const versions = parseCharacterPing(data, "entity")
       if (versions && forwardPingedVersions(versionRefs, versions)) {
         router.refresh()
       }
     },
-    onReconnect: () => router.refresh(),
+    onReconnect: () => {
+      notifyReconnect()
+      router.refresh()
+    },
   })
 
-  const [frame, applyLocal] = useOptimistic(
-    { entity: loaded.entity, resolved: loaded.resolved },
-    (prev: EntityFrame, write: EntityWrite): EntityFrame => {
-      const predicted = applyEntityWrite(prev.entity.components, write)
-      if (!predicted.ok) return prev
-      const entity = mergeComponentPatch(prev.entity, predicted.value)
-      return { entity, resolved: resolveEntity(entity, resolveContext) }
-    }
-  )
+  // The replica projection re-folded through the mount's resolve context —
+  // or the RSC frame until the bootstrap resolves (and on read-only mounts).
+  const frame = useMemo((): EntityFrame => {
+    if (!snapshot) return { entity: loaded.entity, resolved: loaded.resolved }
+    const entity: Entity = { ...loaded.entity, components: snapshot.value }
+    return { entity, resolved: resolveEntity(entity, resolveContext) }
+  }, [snapshot, loaded.entity, loaded.resolved, resolveContext])
 
   const write: EntityWriteApi = {
     entityId: profile.id,
     versionRefs,
     queueRefs,
-    applyLocal,
+    mutate,
     enqueue,
     enqueueOnce,
     enqueueStep,
@@ -293,79 +297,84 @@ function useWriteApi(caller: string): EntityWriteApi {
 }
 
 export interface EntityDispatchOptions {
-  /** Runs on a successful commit — e.g. selecting a just-added Knife. */
-  onSuccess?: (value: EntityCommit) => void
+  /** Runs on a successful commit — e.g. selecting a just-added Knife. (No
+   *  payload since UNN-645: no consumer read the commit, and the replica's
+   *  accepted stream is the authority on post-write state.) */
+  onSuccess?: () => void
   /** First crack at a failure: return `true` to suppress the default toast. */
-  onError?: (error: ApplyEntityWriteError | "stale") => boolean
+  onError?: (error: EntityReplicaRejection) => boolean
   /** Toast copy overrides. */
-  messages?: { stale?: string; error?: string }
+  messages?: { error?: string }
 }
 
 /**
- * The click-write primitive: optimistic frame + descriptor dispatch through
- * the entity door, serialized on the Writer's class queue with the shared
- * one-shot stale-retry (UNN-568). A `"stale"` that reaches the failure branch
- * survived the retry — a real conflict, so it toasts and refreshes. Each
- * consumer gets its own `pending` (local `useTransition` — no global lock).
+ * The click-write primitive (UNN-645): descriptor dispatch through the
+ * replica. The prediction lands synchronously in the frame; `pending` tracks
+ * the delivery to the authority's terminal outcome. A local Writer refusal
+ * or a trusted remote rejection routes through `onError` → toast; there is
+ * no `"stale"` arm anymore — concurrent writers are rebased by the replica,
+ * and only a genuine replay refusal surfaces (as a `conflict` on the
+ * snapshot plus the rejection here). Each consumer gets its own `pending`
+ * (local `useTransition` — no global lock).
  */
 export function useEntityWrite() {
-  const { entityId, applyLocal, enqueue } = useWriteApi("useEntityWrite")
-  const { entity } = useLoadedCharacter()
-  const router = useRouter()
+  const { mutate } = useWriteApi("useEntityWrite")
   const [pending, startTransition] = useTransition()
 
   function dispatch(write: EntityWrite, opts?: EntityDispatchOptions) {
-    const predicted = applyEntityWrite(entity.components, write)
-    if (!predicted.ok) {
-      if (opts?.onError?.(predicted.error)) return
-      toast.error(
-        opts?.messages?.error ??
-          "That change can't apply to this character. Reload and try again."
-      )
-      return
-    }
+    const receipt = mutate(write)
 
-    const durableClass = ENTITY_WRITERS[write.component].durableClass
-
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          applyLocal(write)
-
-          const result = await enqueue(durableClass, (expectedVersion) =>
-            applyEntityWriteAction({ entityId, expectedVersion, write })
-          )
-          if (result.ok) {
-            opts?.onSuccess?.(result.value)
-            return
-          }
-          if (opts?.onError?.(result.error)) return
+    startTransition(async () => {
+      const local = await receipt.local
+      if (!local.ok) {
+        if (local.error.kind === "refused") {
+          if (opts?.onError?.(local.error.error)) return
           toast.error(
-            result.error === "stale"
-              ? (opts?.messages?.stale ??
-                  "This character changed elsewhere — refreshing.")
-              : (opts?.messages?.error ?? "Couldn't save. Try again.")
+            opts?.messages?.error ??
+              "That change can't apply to this character. Reload and try again."
           )
-          if (result.error === "stale") router.refresh()
-        },
-        () => toast.error(opts?.messages?.error ?? "Couldn't save. Try again.")
-      )
-    )
+        } else if (local.error.kind === "invalid") {
+          toast.error(opts?.messages?.error ?? "Couldn't save. Try again.")
+        }
+        // `disposed`/`expired`: the surface unmounted or the session-expiry
+        // toast already fired — nothing useful to add here.
+        return
+      }
+
+      const remote = await receipt.remote
+      if (remote.ok) {
+        opts?.onSuccess?.()
+        return
+      }
+      if (remote.error.kind === "rejected") {
+        if (opts?.onError?.(remote.error.error)) return
+        toast.error(opts?.messages?.error ?? "Couldn't save. Try again.")
+      }
+    })
   }
 
   return { pending, dispatch }
 }
 
+/** The auto-save failure vocabulary over the replica: the door's rejections
+ *  plus the two receipt-lifecycle strandings (both toast generically). */
+export type EntityAutoSaveError =
+  | EntityReplicaRejection
+  | "expired"
+  | "disposed"
+
 /**
  * Debounced descriptor auto-save for free-text component fields (narrative
- * prose): the `useDebouncedAutoSave` lifecycle over the entity door, with the
- * token + queue resolved from the Writer's class. The leaf owns the draft
- * display, so no optimistic frame ride-along — the route revalidation catches
- * the base up.
+ * prose): the `useDebouncedAutoSave` lifecycle over the replica (UNN-645).
+ * The hook keeps owning draft/debounce/flush; each save is one replica
+ * mutation, so cross-field ordering and redelivery are the protocol's job —
+ * the version token in the shared hook's signature is vestigial here (always
+ * 0) until the classic column path migrates too. The leaf owns the draft
+ * display, so no optimistic frame ride-along.
  */
 export function useEntityAutoSave(
   args: Omit<
-    UseDebouncedAutoSaveArgs<string, ApplyEntityWriteError>,
+    UseDebouncedAutoSaveArgs<string, EntityAutoSaveError>,
     "saveQueueRef" | "dispatchWrite" | "save"
   > & {
     /** Builds the descriptor persisting `value` — e.g.
@@ -373,28 +382,37 @@ export function useEntityAutoSave(
     makeWrite: (value: string) => EntityWrite
   }
 ): UseDebouncedAutoSaveReturn<string> {
-  const { entityId, queueRefs } = useWriteApi("useEntityAutoSave")
-  const dispatchWithRetry = useRetryingDispatch("useEntityAutoSave")
+  const { mutate } = useWriteApi("useEntityAutoSave")
   const { makeWrite, ...rest } = args
 
-  const durableClass =
-    ENTITY_WRITERS[makeWrite(rest.serverValue).component].durableClass
-
-  return useDebouncedAutoSave<string, ApplyEntityWriteError>({
+  return useDebouncedAutoSave<string, EntityAutoSaveError>({
     ...rest,
-    saveQueueRef: queueRefs[durableClass],
-    save: async (value, expectedVersion) => {
-      const result = await applyEntityWriteAction({
-        entityId,
-        expectedVersion,
-        write: makeWrite(value),
-      })
-      return result.ok
-        ? { ok: true, value: { value, version: result.value.version } }
-        : result
+    save: async (value) => {
+      const receipt = mutate(makeWrite(value))
+      const local = await receipt.local
+      if (!local.ok) return err(autoSaveError(local.error))
+      const remote = await receipt.remote
+      if (!remote.ok) return err(autoSaveError(remote.error))
+      return ok({ value, version: 0 })
     },
-    dispatchWrite: (action) => dispatchWithRetry(durableClass, action),
+    dispatchWrite: (action) => action(0),
   })
+}
+
+function autoSaveError(
+  failure: MutationError<EntityReplicaRejection>
+): EntityAutoSaveError {
+  switch (failure.kind) {
+    case "refused":
+    case "rejected":
+      return failure.error
+    case "invalid":
+      return "invalid-write"
+    case "expired":
+      return "expired"
+    case "disposed":
+      return "disposed"
+  }
 }
 
 /**

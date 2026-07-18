@@ -96,7 +96,7 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
     dispatch(
       { component: "narrative", op: "addListEntry", list: kind },
       {
-        messages: { stale: message, error: message },
+        messages: { error: message },
         onSuccess: () =>
           selectDocument({
             kind: kind === "knives" ? "knife" : "chain",
@@ -126,7 +126,7 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
         index: removedIndex,
       },
       {
-        messages: { stale: message, error: message },
+        messages: { error: message },
         onSuccess: () => {
           if (activeRef.kind !== ref.kind) return
           const activeIndex = Number(activeRef.id)

@@ -69,6 +69,7 @@ export default async function LineageAtlasPage({ params }: PageProps) {
     <ViewerRoleProvider role={role}>
       <EntityWriteProvider
         loaded={redactLoadedCharacterForViewer(loaded, role)}
+        writable={role === "owner"}
       >
         <LineageAtlas
           hiddenArchetypeKeys={hiddenArchetypeKeys}

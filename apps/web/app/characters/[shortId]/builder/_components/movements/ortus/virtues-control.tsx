@@ -72,8 +72,6 @@ export function VirtuesControl() {
       { component: "virtues", op: "setAllocation", ranks: next },
       {
         messages: {
-          stale:
-            "Someone else updated this character — refresh to see the latest.",
           error: "Couldn't save your Virtues. Try again.",
         },
         onError: (error) => {
