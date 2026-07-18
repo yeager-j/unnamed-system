@@ -9,12 +9,11 @@ import { loadEntityAcceptedAction } from "./snapshot"
  * against Postgres); the real assemble seam runs, so a malformed stored bag
  * still fails loudly here.
  */
-const requireOwnerOrCampaignDMForEntity = vi.fn()
+const requireEntityOwner = vi.fn()
 let rows: unknown[] = []
 
 vi.mock("@/lib/auth/campaign-access", () => ({
-  requireOwnerOrCampaignDMForEntity: (id: string) =>
-    requireOwnerOrCampaignDMForEntity(id),
+  requireEntityOwner: (id: string) => requireEntityOwner(id),
 }))
 vi.mock("@/lib/db/client", () => ({
   db: {
@@ -54,7 +53,7 @@ const request = {
 }
 
 beforeEach(() => {
-  requireOwnerOrCampaignDMForEntity.mockReset().mockResolvedValue({})
+  requireEntityOwner.mockReset().mockResolvedValue({})
   rows = []
 })
 
@@ -86,10 +85,10 @@ describe("loadEntityAcceptedAction", () => {
     if (result.ok) expect(result.value.through).toBe(0)
   })
 
-  it("gates the read before touching the row", async () => {
+  it("gates the read strict-owner — the full bag includes unredacted Secrets", async () => {
     rows = [joinedRow(null)]
     await loadEntityAcceptedAction(request)
-    expect(requireOwnerOrCampaignDMForEntity).toHaveBeenCalledWith("e1")
+    expect(requireEntityOwner).toHaveBeenCalledWith("e1")
   })
 
   it("errs entity-load-failed for a missing entity", async () => {
