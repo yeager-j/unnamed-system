@@ -78,6 +78,9 @@ jobs:
         working-directory: apps/web
         run: npm run db:seed
 
+      - name: Verify replica transport against Postgres
+        run: npm run test:replica-db
+
       - name: Build
         run: npm run build
 

@@ -15,12 +15,18 @@ lib/db/
 └── writes/          Per-concern persistence wrappers for the **non-character** aggregates — campaign, dungeon, encounter, map, map-instance — over the shared `guarded-update` (`guardedVersionUpdate`, the single-`version` optimistic-concurrency guard) plus the `guard-many` cross-row transaction helper
 ```
 
-**Durable character writes do not live here** — they go through the **entity
-door**: `domain/entity/commit` (the serializable write descriptor + `ENTITY_WRITERS`
-pure predictors) dispatched through `lib/actions/entity/` (`commitEntityWrite` +
-`bumpEntityVersionGuarded`, version-guarded on the `entity` row's per-write-class
-columns). `lib/actions/CLAUDE.md` documents that pattern. The v1 per-concern
-character wrappers + `version-guard` primitive retired with the v1 sheet (UNN-562).
+**Durable character write coordination does not live under `lib/db/writes/`.**
+The serializable descriptor + `ENTITY_WRITERS` predictors live in
+`domain/entity/commit`; the owner replica processor and combat's classic durable
+arm compose them under `lib/actions/entity/`. `lib/actions/AGENTS.md` documents
+those doors. The v1 per-concern character wrappers + `version-guard` primitive
+retired with the v1 sheet (UNN-562).
+
+Owner character surfaces use `lib/actions/entity/replica/`: its processor locks
+`replicaClient` then `entity`, commits the domain patch and dedup outcome in one
+transaction, and serves value/watermark/cursor through one joined snapshot read.
+`domain/entity/replica/real-door-transport.db.test.ts` runs the transport laws and
+duplicate-delivery serialization against the ephemeral Neon CI branch.
 
 **Wrapper naming rule** (still holds for the surviving aggregates): files in
 `queries/`/`writes/` are named for the slice or operation they touch, with **no

@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useTransition,
-  type RefObject,
 } from "react"
 import { toast } from "sonner"
 
@@ -20,12 +19,6 @@ import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
-import type { VersionClass } from "@/lib/db/version-classes"
-import {
-  forwardPingedVersions,
-  parseCharacterPing,
-} from "@/lib/sync/character-version-sync"
-import { useMonotonicVersionRef } from "@/lib/sync/use-monotonic-version-ref"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
 
 import {
@@ -67,11 +60,10 @@ import {
  * action and needs no identity serialization.
  *
  * The provider stays the single Ably subscriber (the cross-writer reconcile
- * channel, UNN-569): each ping is fanned into the replica transport (its
- * causal gate decides whether to accept the refetch) AND into the classic
- * forward-only token compare + `router.refresh()` — the RSC payload still
- * feeds the profile and every non-replica reader during the migration
- * window; the contract step deletes the refresh half when nothing reads it.
+ * channel, UNN-569). Writable owner mounts forward pings only to the replica
+ * transport, whose causal gate decides whether to accept the refetch. A
+ * read-only mount has no replica and refreshes its RSC frame instead; that is
+ * its sole cross-writer liveness path.
  *
  * Widget blindness: components receive {@link useEntityWrite}'s `dispatch` /
  * {@link useEntityAutoSave} from this provider and never import the Server
@@ -127,22 +119,7 @@ export function EntityWriteProvider({
 }) {
   const { profile } = loaded
 
-  // One call per class at the top level — hooks inside an object literal trip
-  // the React Compiler's transform (a hook-order crash at runtime).
-  const identityVersionRef = useMonotonicVersionRef(profile.versions.identity)
-  const vitalsVersionRef = useMonotonicVersionRef(profile.versions.vitals)
-  const inventoryVersionRef = useMonotonicVersionRef(profile.versions.inventory)
-  const progressionVersionRef = useMonotonicVersionRef(
-    profile.versions.progression
-  )
   const identityLifecycleRef = useRef<Promise<void>>(Promise.resolve())
-
-  const versionRefs: Record<VersionClass, RefObject<number>> = {
-    identity: identityVersionRef,
-    vitals: vitalsVersionRef,
-    inventory: inventoryVersionRef,
-    progression: progressionVersionRef,
-  }
   const { snapshot, mutate, settleMutations, notifyPing, notifyReconnect } =
     useEntityReplica({ entityId: profile.id, enabled: writable })
 
@@ -166,28 +143,23 @@ export function EntityWriteProvider({
     return run
   }
 
-  // The cross-writer reconcile channel (UNN-569 → UNN-645): every guarded
-  // entity commit pings `character:{shortId}` with its class's new version.
-  // Each ping fans BOTH ways during the migration window: into the replica
-  // transport (whose causal gate decides whether the refetch is fresh) and
-  // into the classic forward-only token compare + `router.refresh()`, which
-  // still feeds the profile and every non-replica reader. Echoes of this
-  // tab's own writes are absorbed by the gate on one side and the monotonic
-  // refs on the other. Inert without ABLY_API_KEY, like every listener.
+  // The cross-writer reconcile channel (UNN-569 → UNN-649): every guarded
+  // entity commit pings `character:{shortId}`. Owner mounts feed only the
+  // replica transport; its causal gate suppresses echoes and stale reads.
+  // Read-only mounts cannot bootstrap the strict-owner replica, so their RSC
+  // frame refresh is the deliberately separate liveness arm. Inert without
+  // ABLY_API_KEY, like every listener.
   const router = useRouter()
   useRealtimeChannel({
     domain: "character",
     shortId: profile.shortId,
-    onPing: (data) => {
-      notifyPing()
-      const versions = parseCharacterPing(data, "entity")
-      if (versions && forwardPingedVersions(versionRefs, versions)) {
-        router.refresh()
-      }
+    onPing: () => {
+      if (writable) notifyPing()
+      else router.refresh()
     },
     onReconnect: () => {
-      notifyReconnect()
-      router.refresh()
+      if (writable) notifyReconnect()
+      else router.refresh()
     },
   })
 

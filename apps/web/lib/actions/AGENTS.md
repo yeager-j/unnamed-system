@@ -37,22 +37,22 @@ folder already says it (same rule as `lib/db/writes/`): `encounter/create.ts`,
 not `encounter/encounter-create.ts`. Each aggregate brings its own auth gate,
 concurrency token, and envelope:
 
-| Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
-| ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
-| `entity/`    | `requireOwnerOrCampaignDMForEntity` / `requireEntityOwner` (in the Store) | `{ entityId, expectedVersion, write }` (the descriptor router — UNN-551) | per-write-class on the `entity` row (`bumpEntityVersionGuarded`) |
-| `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
-| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
+| Aggregate/seam          | Auth gate                                                                                 | Envelope                                                                                                                                                                                                                                  | Concurrency                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `entity/replica/`       | strict owner, recorded as a typed rejection                                               | `{ entityId, envelope: { clientGroupId, clientId, mutationId, invocation } }`                                                                                                                                                             | ordered dedup-row lock, then entity-row lock                                                    |
+| `entity/` classic seams | strict owner for lifecycle; owner-or-campaign-DM inside the combat Store                  | explicit identity precondition for lifecycle; `{ entityId, expectedVersion, write }` inside combat                                                                                                                                        | per-write-class guard (`bumpEntityVersionGuarded`)                                              |
+| `encounter/`            | `requireCampaignDM`                                                                       | `encounterMutationBase` (`{ encounterId, expectedVersion }`)                                                                                                                                                                              | single `version` per encounter                                                                  |
+| `combat/`               | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; durable arm forwards to the entity Store and guards `entity.vitalsVersion` |
 
-> **The `entity/` aggregate (UNN-551)** is the descriptor → Writer → Store pipeline
-> for durable component writes: `commitEntityWrite` (auth + assemble + pure Writer
-> + guarded column commit) and `bumpEntityVersionGuarded`. The neutral vocabulary
-> (schema, `ENTITY_WRITERS`) lives in `domain/entity/commit/`. It is the shared engine
-> both the character surfaces (the entity door, `applyEntityWriteAction`) and
-> combat's durable arm (the encounter door forwards here) commit through — one
-> write architecture, two doors.
+> **The `entity/` aggregate (UNN-551/649)** is the descriptor → Writer → Store
+> pipeline for durable component writes. The neutral vocabulary (schema,
+> `ENTITY_WRITERS`) lives in `domain/entity/commit/` and is shared by the owner
+> replica processor (row-locked commit) and combat's durable arm
+> (`commitEntityWrite` + `bumpEntityVersionGuarded`). One write vocabulary, two
+> concurrency strategies at their respective doors.
 
-> **The `entity/replica/` door (UNN-645/648)** is the replica-protocol sibling of the
-> entity door: `pushEntityMutationAction` delivers `entity.write` component
+> **The `entity/replica/` door (UNN-645/648/649)** is the owner-character door:
+> `pushEntityMutationAction` delivers `entity.write` component
 > intent or `entity.setColumn` app-column intent
 > through `createEntityPushProcessor` (`@workspace/replica`'s authority processor
 > over one Drizzle transaction: `replicaClient` dedup row locked → duplicate/gap
@@ -67,8 +67,8 @@ concurrency token, and envelope:
 > class version still bumps as the snapshot cursor and ping payload.
 
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
-> writes now go exclusively through the `entity/` door (the descriptor → Writer →
-> Store pipeline above); there is no `requireOwner` / `characterMutationBase` /
+> writes now go exclusively through the `entity/` aggregate's replica/combat
+> doors described above; there is no `requireOwner` / `characterMutationBase` /
 > `EDIT_SURFACE_CLASS` / `bumpCharacterVersionGuarded` path anymore. The remaining
 > flat `lib/actions/*.ts` files (create-campaign, delete-map, join-campaign, …)
 > are **campaign/map** actions predating the aggregate-folder convention; they
@@ -78,19 +78,18 @@ concurrency token, and envelope:
 ## The pattern — two doors, one engine
 
 Durable **character/entity** writes and the other aggregates take different doors,
-but the shape rhymes: parse the wire, authorize, persist version-guarded,
-revalidate.
+but the shape rhymes: parse the wire, authorize, persist atomically under the
+door's declared concurrency strategy, then revalidate.
 
-**Durable character writes go through the entity door** (`lib/actions/entity/`,
-ADR §2.4). Owner character surfaces dispatch component descriptors and replayable
-name/pronouns/notes/portrait-removal intent through the replica door; the processor
-owns row locking, Writer/column application, version bumps, and dedup recording.
-The classic component and column actions remain temporarily for expand/rollback
-compatibility and contract in UNN-649. PC lifecycle state (`builderStep`, `status`)
-lives on the unversioned `playerCharacter` subtype; `finalize` spans the guarded
-entity and subtype halves, while portrait upload retains its single-attempt Blob
-stage. Both capture an explicit identity-version precondition after replica writes
-settle and execute once. The neutral descriptor +
+**Durable owner-character writes go through the replica door**
+(`lib/actions/entity/replica/`, ADR §2.4). Owner character surfaces dispatch
+component descriptors and replayable name/pronouns/notes/portrait-removal intent;
+the processor owns row locking, Writer/column application, version bumps, and
+dedup recording. PC lifecycle state (`builderStep`, `status`) lives on the
+unversioned `playerCharacter` subtype; `finalize` spans the guarded entity and
+subtype halves, while portrait upload retains its single-attempt Blob stage. Both
+capture an explicit identity-version precondition after replica writes settle and
+execute once. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 
@@ -138,8 +137,9 @@ The per-aggregate envelopes and gates are the table above.
 
 ## Concurrency
 
-Every door is built on **per-write-class optimistic concurrency**. The durable
-`entity` row carries four class tokens — `identityVersion`, `vitalsVersion`,
+Classic aggregate doors use **optimistic concurrency**; the owner entity replica
+uses an entity-row lock plus its ordered per-client dedup ledger. The durable
+`entity` row still carries four class tokens — `identityVersion`, `vitalsVersion`,
 `inventoryVersion`, `progressionVersion` (`VersionClass`,
 [`lib/db/version-classes.ts`](../db/version-classes.ts)) — and a guarded write
 bumps exactly one while conditioning on `(id, <class>Version === expectedVersion)`:
@@ -217,12 +217,12 @@ optimistic state when the transition resolves. (Encounters use the sibling
 
 ## Failure modes the UI must handle
 
-| Error code                                   | Surface                                                                                             |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                    |
-| `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                   |
-| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback.              |
-| Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered).   |
+| Error code                                   | Surface                                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                  |
+| `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                 |
+| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback.             |
+| Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered). |
 
 Auth-gate failures throw via Next's `forbidden()` and never return — the client
 sees a 403, not an error code. Do not try to handle this in the UI: the affordance

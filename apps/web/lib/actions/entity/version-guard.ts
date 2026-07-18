@@ -36,10 +36,10 @@ import { publishCharacterPing } from "@/lib/realtime/publish"
 export type EntityGuardError = "entity-not-found" | "stale"
 
 /**
- * The app-owned column half of a guarded write. UNN-648's replica processor
- * uses the same patch vocabulary under a row lock; legacy classic actions keep
- * composing this guard until UNN-649 contracts them. PC-lifecycle columns live
- * on the `playerCharacter` subtype.
+ * The app-owned column half of an entity-row write. The replica processor uses
+ * this patch vocabulary under a row lock; finalize and portrait upload compose
+ * it with an explicit identity precondition. PC-lifecycle columns live on the
+ * `playerCharacter` subtype.
  */
 export type EntityColumnPatch = Partial<
   Pick<EntityRow, "name" | "portraitUrl" | "pronouns" | "notes">

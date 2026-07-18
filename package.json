@@ -10,6 +10,7 @@
     "format": "turbo format",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:replica-db": "npm run test:replica-db --workspace web",
     "test:e2e": "turbo test:e2e",
     "prepare": "husky"
   },

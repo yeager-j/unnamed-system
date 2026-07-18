@@ -2,6 +2,8 @@ import { resolve } from "node:path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
+const databaseTests = process.env.REPLICA_DB_TESTS === "1"
+
 export default defineConfig({
   // The app's tsconfig sets `jsx: preserve` (Next compiles JSX); plugin-react
   // gives the test transform a real JSX → JS step, so a test can import a `.tsx`
@@ -31,8 +33,14 @@ export default defineConfig({
     // `hooks/`) opt in via `// @vitest-environment jsdom` at the top of the
     // file — `environmentMatchGlobs` was removed in Vitest 4.
     environment: "node",
-    include: ["**/*.test.ts", "**/*.test.tsx"],
-    exclude: ["e2e/**", "node_modules/**"],
+    include: databaseTests
+      ? ["**/*.db.test.ts"]
+      : ["**/*.test.ts", "**/*.test.tsx"],
+    exclude: databaseTests
+      ? ["e2e/**", "node_modules/**"]
+      : ["e2e/**", "node_modules/**", "**/*.db.test.ts"],
+    testTimeout: databaseTests ? 20_000 : undefined,
+    hookTimeout: databaseTests ? 30_000 : undefined,
     setupFiles: ["./vitest.setup.ts"],
     coverage: {
       // Coverage here is a GAP-FINDER for the pure game engine, not a quality
