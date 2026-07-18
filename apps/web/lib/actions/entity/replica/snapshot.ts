@@ -35,8 +35,16 @@ export type EntityAcceptedError = "invalid-input" | "entity-load-failed"
  * snapshot. Two statements — even inside a transaction — would not give that
  * under READ COMMITTED, where each statement sees its own snapshot.
  *
- * A client with no dedup row yet reads `through: 0` (nothing of theirs
- * incorporated — the LEFT JOIN's honest null).
+ * **This read REGISTERS the client** (idempotent insert, Codex P2 on PR
+ * #385): the personalized snapshot is a replica's mandatory bootstrap —
+ * `initial` and the ID floor come from it — so minting the dedup row here is
+ * what licenses the push door's reading of an absent row as "swept or never
+ * bootstrapped" (→ `unknown-client`) rather than "new", closing the
+ * redelivered-first-mutation double-apply. A read-only action taking one
+ * idempotent bootstrap write is the sanctioned deviation, documented here.
+ *
+ * A freshly registered client reads `through: 0` — nothing of theirs
+ * incorporated yet.
  *
  * **The gate is strict-owner** (Codex review, PR #384): this read returns the
  * FULL component bag — including `narrative`, which every character route
@@ -56,6 +64,21 @@ export async function loadEntityAcceptedAction(
   const { entityId, clientGroupId, clientId } = parsed.data
 
   await requireEntityOwner(entityId)
+
+  // Bootstrap registration (see the module doc): a client identity exists at
+  // the push door only if it passed through here first. A re-fetch refreshes
+  // `updatedAt`, so a living tab's registration never ages into the TTL
+  // sweep no matter how long it goes without writing; only tabs that stop
+  // fetching are reaped. An identity recycled against a different entity
+  // keeps its original row (`entityId` is not in the update set) and is
+  // caught by the push door's pinned-entity check.
+  await db
+    .insert(replicaClient)
+    .values({ clientGroupId, clientId, entityId, lastMutationId: 0 })
+    .onConflictDoUpdate({
+      target: [replicaClient.clientGroupId, replicaClient.clientId],
+      set: { updatedAt: new Date() },
+    })
 
   const [row] = await db
     .select({ entity, lastMutationId: replicaClient.lastMutationId })

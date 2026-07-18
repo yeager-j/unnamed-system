@@ -31,6 +31,21 @@ export type ProcessRefusal<Error> =
     }
   | {
       /**
+       * A gap from a client the ledger holds NO history for (`expected === 1`
+       * — the dedup row is absent or fresh-seeded): the authority cannot ever
+       * accept this stream, so the client must rebuild under a fresh
+       * identity. Decided here, once, so every transport inherits the
+       * distinction instead of re-deriving it from `expected` (UNN-645; the
+       * dedup-retention sweep is what makes this reachable by a correct
+       * client). A fresh client whose runtime skips IDs lands here too — the
+       * same reset recovery converges, and the authority-side event keeps
+       * the anomaly observable.
+       */
+      readonly kind: "unknown-client"
+      readonly received: MutationId
+    }
+  | {
+      /**
        * The ID was already processed but its recorded outcome has aged out of
        * the adapter's retention window, so the original result cannot be
        * reproduced. Serial delivery makes this unreachable while retention
@@ -60,6 +75,11 @@ export type ProcessorEvent =
       readonly mutationId: MutationId
     }
   | {
+      readonly kind: "unknown-client"
+      readonly client: ClientIdentity
+      readonly received: MutationId
+    }
+  | {
       readonly kind: "outcome-unavailable"
       readonly client: ClientIdentity
       readonly mutationId: MutationId
@@ -85,13 +105,24 @@ export type ProcessorEvent =
  * cannot interleave.
  */
 export interface MutationDedupAdapter<Transaction, Remote, Error> {
+  /**
+   * Returns `null` when the adapter holds NO record for the client and its
+   * retention policy cannot rule out a swept ledger: the processor then
+   * refuses `unknown-client` without executing — a redelivered first
+   * mutation may have committed before the sweep, so treating no-record as
+   * "genuinely new" would double-apply it (Codex P2, PR #385). An adapter
+   * that evicts records must therefore mint the record at the client's
+   * bootstrap (the personalized snapshot read), making an absent row mean
+   * "swept", never "new". Adapters whose records are never evicted may
+   * return `{ lastMutationId: 0 }` for a first contact instead.
+   */
   acquire(
     tx: Transaction,
     client: ClientIdentity
   ): Promise<{
     lastMutationId: MutationId
     lastOutcome?: RecordedOutcome<Remote, Error>
-  }>
+  } | null>
   record(
     tx: Transaction,
     client: ClientIdentity,
@@ -173,10 +204,16 @@ export function createMutationProcessor<
     const result = await options.transact<
       Result<Remote, ProcessRefusal<Error>>
     >(async (tx) => {
-      const { lastMutationId, lastOutcome } = await options.dedup.acquire(
-        tx,
-        client
-      )
+      const acquired = await options.dedup.acquire(tx, client)
+      if (acquired === null) {
+        event = {
+          kind: "unknown-client",
+          client,
+          received: envelope.mutationId,
+        }
+        return err({ kind: "unknown-client", received: envelope.mutationId })
+      }
+      const { lastMutationId, lastOutcome } = acquired
 
       if (envelope.mutationId <= lastMutationId) {
         if (envelope.mutationId === lastMutationId && lastOutcome) {
@@ -195,6 +232,17 @@ export function createMutationProcessor<
       }
 
       if (envelope.mutationId > lastMutationId + 1) {
+        if (lastMutationId === 0) {
+          event = {
+            kind: "unknown-client",
+            client,
+            received: envelope.mutationId,
+          }
+          return err({
+            kind: "unknown-client",
+            received: envelope.mutationId,
+          })
+        }
         event = {
           kind: "gap",
           client,

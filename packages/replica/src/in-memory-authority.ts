@@ -89,6 +89,12 @@ export interface InMemoryAuthority<
   executions(): ReadonlyArray<MutationEnvelope<Invocation>>
   /** The application handler terminally rejects its next execution. */
   vetoNext(error: ApplyError): void
+  /**
+   * Deletes the client's dedup record — the in-memory analogue of a
+   * retention sweep. The client's next out-of-order delivery is refused
+   * `unknown-client` (its next `mutationId` is well past the reset ledger).
+   */
+  forgetClient(client: ClientIdentity): void
   /** The next `count` pushes fail ambiguously WITHOUT reaching the authority. */
   failNextPush(count?: number): void
   /** The next `count` pushes process fully but lose their response. */
@@ -309,6 +315,9 @@ export function createInMemoryAuthority<
               if (refusal.kind === "rejected") {
                 return err({ kind: "rejected", error: refusal.error })
               }
+              if (refusal.kind === "unknown-client") {
+                return err({ kind: "unknown-client" })
+              }
               // A gap, invalid decode, or aged-out duplicate through push
               // means the client runtime broke the protocol — surface it
               // loudly in tests instead of inventing a domain error.
@@ -365,6 +374,9 @@ export function createInMemoryAuthority<
     executions: () => [...executionsLog],
     vetoNext: (error) => {
       vetoes.push(error)
+    },
+    forgetClient: (client) => {
+      clients.delete(clientKey(client))
     },
     failNextPush: (count = 1) => {
       failNext += count

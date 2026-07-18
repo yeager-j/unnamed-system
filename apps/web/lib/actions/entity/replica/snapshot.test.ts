@@ -10,6 +10,7 @@ import { loadEntityAcceptedAction } from "./snapshot"
  * still fails loudly here.
  */
 const requireEntityOwner = vi.fn()
+const registered = vi.fn()
 let rows: unknown[] = []
 
 vi.mock("@/lib/auth/campaign-access", () => ({
@@ -17,6 +18,14 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 }))
 vi.mock("@/lib/db/client", () => ({
   db: {
+    insert: () => ({
+      values: (row: unknown) => ({
+        onConflictDoUpdate: () => {
+          registered(row)
+          return Promise.resolve()
+        },
+      }),
+    }),
     select: () => ({
       from: () => ({
         leftJoin: () => ({
@@ -54,6 +63,7 @@ const request = {
 
 beforeEach(() => {
   requireEntityOwner.mockReset().mockResolvedValue({})
+  registered.mockReset()
   rows = []
 })
 
@@ -89,6 +99,17 @@ describe("loadEntityAcceptedAction", () => {
     rows = [joinedRow(null)]
     await loadEntityAcceptedAction(request)
     expect(requireEntityOwner).toHaveBeenCalledWith("e1")
+  })
+
+  it("registers the client — the bootstrap that licenses absent-row ⇒ unknown-client at the push door", async () => {
+    rows = [joinedRow(null)]
+    await loadEntityAcceptedAction(request)
+    expect(registered).toHaveBeenCalledWith({
+      clientGroupId: "entity-e1",
+      clientId: "tab-1",
+      entityId: "e1",
+      lastMutationId: 0,
+    })
   })
 
   it("errs entity-load-failed for a missing entity", async () => {

@@ -40,10 +40,16 @@ export type { StandardSchemaV1 } from "./standard-schema"
  * The caller-visible failure taxonomy. `refused` is a local prediction refusal
  * (the mutation never entered the pending log); `rejected` is the authority's
  * trusted terminal refusal; `invalid` is a schema refusal; `disposed` marks a
- * wait aborted by replica disposal.
+ * wait aborted by replica disposal. `expired` marks a mutation stranded by
+ * client-identity expiry (the authority reported `unknown-client`): its true
+ * outcome is unknowable — it may have committed before the authority's
+ * retention lapsed — so the replica refuses to guess, drops the prediction,
+ * and the application decides whether the intent is worth re-issuing through
+ * a fresh replica.
  */
 export type MutationError<ApplyError> =
   | { readonly kind: "disposed" }
+  | { readonly kind: "expired" }
   | {
       readonly kind: "invalid"
       readonly issues: ReadonlyArray<StandardSchemaV1.Issue>
@@ -63,6 +69,16 @@ export interface ReplicaSnapshot<State, ApplyError> {
   readonly pending: number
   readonly connection: ConnectionStatus
   readonly conflicts: ReadonlyArray<MutationConflict<ApplyError>>
+  /**
+   * True once the authority reported `unknown-client`: this identity's
+   * ordered stream can never be accepted again. The replica has dropped its
+   * predictions, settled every waiting `remote` with `expired`, and refuses
+   * new mutations; it supersedes `connection` (an expired replica delivers
+   * nothing regardless). Terminal — recovery is dispose + recreate with a
+   * fresh `clientId`, which is the application's move because only it can
+   * judge whether dropped intent is safe to re-issue.
+   */
+  readonly expired: boolean
 }
 
 /**
@@ -151,6 +167,7 @@ export type ReplicaEvent =
       readonly status: "disconnected"
       readonly cause: "transport-down" | "retry-exhausted"
     }
+  | { readonly kind: "expired"; readonly dropped: number }
   | { readonly kind: "disposed"; readonly pending: number }
 
 export interface CreateReplicaOptions<
@@ -244,6 +261,10 @@ export function createReplica<
   }
 
   let disposed = false
+  // Terminal: set once when the transport reports `unknown-client`. Nothing
+  // clears it — the identity itself is dead at the authority, so liveness
+  // evidence must not resume delivery.
+  let expired = false
   let base: Accepted<State, Cursor> = options.initial
   let nextMutationId: MutationId = options.initial.through + 1
   // Delivery pauses while either holds: the transport reported the source
@@ -268,6 +289,7 @@ export function createReplica<
     pending: 0,
     connection: connection(),
     conflicts,
+    expired,
   }
 
   let delivering = false
@@ -279,7 +301,8 @@ export function createReplica<
       previous.value === projectedValue &&
       previous.pending === pending.length &&
       previous.connection === connection() &&
-      previous.conflicts === conflicts
+      previous.conflicts === conflicts &&
+      previous.expired === expired
     ) {
       return
     }
@@ -288,6 +311,7 @@ export function createReplica<
       pending: pending.length,
       connection: connection(),
       conflicts,
+      expired,
     }
     for (const listener of [...listeners]) listener()
   }
@@ -353,11 +377,36 @@ export function createReplica<
     })
   }
 
+  /**
+   * The `unknown-client` reaction: the authority holds no history for this
+   * identity, so every queued delivery is undeliverable and every waiting
+   * outcome is unknowable (the head may have committed before retention
+   * lapsed — settling it `rejected` would lie, and re-identifying
+   * automatically could double-apply it). Drop the predictions, settle every
+   * waiting `remote` with `expired`, and go terminal; the application
+   * disposes and rebuilds under a fresh `clientId`, re-issuing only the
+   * intent it judges safe.
+   */
+  function expire(): void {
+    expired = true
+    const dropped = pending.length
+    for (const entry of [...ledger]) {
+      entry.settled = true
+      entry.remote.resolve(err({ kind: "expired" }))
+    }
+    ledger.length = 0
+    pending = []
+    conflicts = []
+    rebase()
+    emit({ kind: "expired", dropped })
+    publish()
+  }
+
   async function deliver(): Promise<void> {
     if (delivering) return
     delivering = true
     try {
-      while (!disposed && !transportDown && !parked) {
+      while (!disposed && !expired && !transportDown && !parked) {
         const head = ledger[0]
         if (!head) break
 
@@ -401,6 +450,11 @@ export function createReplica<
           continue
         }
 
+        if (outcome.error.kind === "unknown-client") {
+          expire()
+          break
+        }
+
         // Ambiguous: the authority may already have committed. Never resolve
         // `remote`, never re-identify, never advance past the head.
         if (epochBudget > 0) {
@@ -435,8 +489,10 @@ export function createReplica<
     void deliver()
   }
 
-  /** Delivery resumes from any outage with a fresh retry epoch. */
+  /** Delivery resumes from any outage with a fresh retry epoch — except
+   *  expiry, which is not an outage: the identity is dead, not the link. */
   function liveness(): void {
+    if (expired) return
     if (!transportDown && !parked) return
     transportDown = false
     parked = false
@@ -519,6 +575,7 @@ export function createReplica<
 
     mutate(invocation) {
       if (disposed) return settledReceipt({ kind: "disposed" })
+      if (expired) return settledReceipt({ kind: "expired" })
 
       const definition = mutations.get(invocation.name)
       if (!definition) {

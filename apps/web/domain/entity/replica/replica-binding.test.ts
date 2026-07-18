@@ -20,11 +20,7 @@ import type { VersionClass } from "@/lib/db/version-classes"
 
 import { mergeComponents } from "../commit/merge-patch"
 import type { EntityWrite } from "../commit/write.schema"
-import {
-  applyEntityWrite,
-  ENTITY_WRITERS,
-  type EntityWriteRefusal,
-} from "../commit/writers"
+import { applyEntityWrite, ENTITY_WRITERS } from "../commit/writers"
 import type { EntityVersionVector } from "./cursor"
 import {
   entityReplicaMutations,
@@ -32,6 +28,7 @@ import {
   type EntityComponents,
   type EntityReplicaInvocation,
 } from "./mutations"
+import type { EntityReplicaRejection } from "./rejection"
 import { createEntityReplicaTransport } from "./transport"
 
 const identity = { clientGroupId: "entity-e1", clientId: "tab-1" }
@@ -75,7 +72,7 @@ function createEntityWorld() {
   const authority = createInMemoryAuthority<
     EntityComponents,
     EntityReplicaInvocation,
-    EntityWriteRefusal
+    EntityReplicaRejection
   >({ mutations: entityReplicaMutations, initial: initialComponents })
   const handle = authority.transport(identity)
 
@@ -230,7 +227,7 @@ function createEntityWorld() {
 type EntityScenario = TransportContractScenario<
   EntityComponents,
   EntityReplicaInvocation,
-  EntityWriteRefusal,
+  EntityReplicaRejection,
   void,
   EntityVersionVector
 >
@@ -294,7 +291,7 @@ describe("replica contract — Showtime entity binding", () => {
   function createContext(): ReplicaContractContext<
     EntityComponents,
     EntityReplicaInvocation,
-    EntityWriteRefusal,
+    EntityReplicaRejection,
     unknown
   > {
     const world = createEntityWorld()
@@ -351,6 +348,7 @@ describe("replica contract — Showtime entity binding", () => {
         pause: world.authority.pause,
         flush: world.authority.flush,
         resume: world.authority.resume,
+        forgetClient: () => world.authority.forgetClient(identity),
       },
     }
   }

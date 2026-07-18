@@ -336,6 +336,7 @@ describe("replica contract — alien polling binding", () => {
         pause: world.authority.pause,
         flush: world.authority.flush,
         resume: world.authority.resume,
+        forgetClient: () => world.authority.forgetClient(identity),
       },
     }
   }

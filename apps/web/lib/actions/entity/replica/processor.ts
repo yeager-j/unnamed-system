@@ -115,20 +115,13 @@ function createDedupAdapter(
 ): MutationDedupAdapter<WriteExecutor, void, EntityReplicaRejection> {
   return {
     async acquire(tx, client) {
-      // Insert-if-absent first so `FOR UPDATE` has a row to lock even on the
-      // client's first delivery — otherwise two racing first-pushes would
-      // both read "absent" and collide on the PK later. A gap-refused
-      // delivery commits the seeded row (lastMutationId 0, no outcome):
-      // harmless "client known, nothing processed" state the sweep reclaims.
-      await tx
-        .insert(replicaClient)
-        .values({
-          clientGroupId: client.clientGroupId,
-          clientId: client.clientId,
-          entityId,
-          lastMutationId: 0,
-        })
-        .onConflictDoNothing()
+      // The row is minted at the client's BOOTSTRAP — the personalized
+      // snapshot read — never here (Codex P2, PR #385): with an evicting
+      // sweep, an absent row must mean "swept or never bootstrapped", so a
+      // redelivered first mutation that may have committed before the sweep
+      // is refused `unknown-client` instead of silently re-executed. The
+      // bootstrap-minted row is also what `FOR UPDATE` serializes on for a
+      // client's first delivery.
       const [row] = await tx
         .select()
         .from(replicaClient)
@@ -139,9 +132,7 @@ function createDedupAdapter(
           )
         )
         .for("update")
-      if (!row) {
-        throw new Error("replica dedup row vanished under its own lock")
-      }
+      if (!row) return null
       if (row.entityId !== entityId) {
         // A client identity is one ordered stream against ONE entity; reuse
         // across entities is a client bug. Throwing aborts the transaction
