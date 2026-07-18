@@ -11,6 +11,7 @@ import {
   type MapZoneSize,
 } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import {
@@ -25,6 +26,8 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
+import { Separator } from "@workspace/ui/components/separator"
+import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import {
   ToggleGroup,
@@ -39,7 +42,11 @@ import {
   ZONE_SIZE_LABELS,
 } from "@/domain/labels"
 
-import type { ZoneIdentityPatch } from "./map-canvas-context"
+import type {
+  MapAuthoringOptions,
+  ZoneBindingPatch,
+  ZoneIdentityPatch,
+} from "./map-canvas-context"
 import { MotifGlyph } from "./set-piece/motif-icons"
 
 const SIZES: MapZoneSize[] = ["S", "M", "L", "XL"]
@@ -59,6 +66,10 @@ export function ZoneDetailsSheet({
   onRename,
   onSetText,
   onSetIdentity,
+  authoring,
+  entryZoneId,
+  onSetBinding,
+  onSetEntryZone,
 }: {
   zone: MapZone | null
   onClose: () => void
@@ -68,6 +79,13 @@ export function ZoneDetailsSheet({
     patch: Partial<Pick<MapZone, "description" | "dmNotes">>
   ) => void
   onSetIdentity: (zoneId: string, identity: ZoneIdentityPatch) => void
+  /** The generation-binding pickers' options (UNN-590) — present only on the
+   *  `/stage` Map editor; absent hides the whole Generation section (the
+   *  dungeon console's Edit board must never author bindings). */
+  authoring?: MapAuthoringOptions
+  entryZoneId?: string
+  onSetBinding?: (zoneId: string, binding: ZoneBindingPatch) => void
+  onSetEntryZone?: (zoneId: string | null) => void
 }) {
   const present = useLastPresent(zone)
 
@@ -94,6 +112,10 @@ export function ZoneDetailsSheet({
             onRename={onRename}
             onSetText={onSetText}
             onSetIdentity={onSetIdentity}
+            authoring={authoring}
+            entryZoneId={entryZoneId}
+            onSetBinding={onSetBinding}
+            onSetEntryZone={onSetEntryZone}
           />
         )}
       </ResponsiveDialogContent>
@@ -106,6 +128,10 @@ function ZoneDetailsForm({
   onRename,
   onSetText,
   onSetIdentity,
+  authoring,
+  entryZoneId,
+  onSetBinding,
+  onSetEntryZone,
 }: {
   zone: MapZone
   onRename: (zoneId: string, name: string) => void
@@ -114,6 +140,10 @@ function ZoneDetailsForm({
     patch: Partial<Pick<MapZone, "description" | "dmNotes">>
   ) => void
   onSetIdentity: (zoneId: string, identity: ZoneIdentityPatch) => void
+  authoring?: MapAuthoringOptions
+  entryZoneId?: string
+  onSetBinding?: (zoneId: string, binding: ZoneBindingPatch) => void
+  onSetEntryZone?: (zoneId: string | null) => void
 }) {
   const [name, setName] = useState(zone.name)
   const [description, setDescription] = useState(zone.description)
@@ -122,6 +152,11 @@ function ZoneDetailsForm({
   const [motif, setMotif] = useState(zone.motif)
   const [motifOpen, setMotifOpen] = useState(false)
   const [mood, setMood] = useState<MapZoneMood | undefined>(zone.mood)
+  const [templateKey, setTemplateKey] = useState(zone.templateKey ?? "")
+  const [portalMapId, setPortalMapId] = useState(zone.portalMapId ?? "")
+  const [rollAtStart, setRollAtStart] = useState(
+    zone.rollContentsAtStart === true
+  )
 
   function pickMotif(next: MapZoneMotif | undefined) {
     setMotif(next)
@@ -264,6 +299,99 @@ function ZoneDetailsForm({
           ))}
         </ToggleGroup>
       </div>
+
+      {authoring && onSetBinding && onSetEntryZone && (
+        <>
+          <Separator />
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Template</Label>
+            <DataSelect
+              size="sm"
+              aria-label="Template binding"
+              options={authoring.templateKeys}
+              optionValue={(option) => option.key}
+              optionLabel={(option) => option.label}
+              optionGroup={(option) => ({
+                key: option.setName,
+                label: option.setName,
+              })}
+              nullOption={{ label: "None" }}
+              value={templateKey}
+              onValueChange={(next) => {
+                setTemplateKey(next)
+                onSetBinding(zone.id, { templateKey: next || null })
+              }}
+              placeholder="None"
+              selectTriggerLabel={(option, value) =>
+                option?.label ?? (value ? value : "None")
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Binds this zone to a Template Set template — bound zones sprout
+              unexplored passages when an expedition starts. Checked against the
+              Region&apos;s Set at start.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Portal to Map</Label>
+            <DataSelect
+              size="sm"
+              aria-label="Portal target Map"
+              options={authoring.maps}
+              optionValue={(option) => option.id}
+              optionLabel={(option) => option.name}
+              nullOption={{ label: "None" }}
+              value={portalMapId}
+              onValueChange={(next) => {
+                setPortalMapId(next)
+                onSetBinding(zone.id, { portalMapId: next || null })
+              }}
+              placeholder="None"
+              selectTriggerLabel={(option, value) =>
+                option?.name ?? (value ? "Deleted Map" : "None")
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Crossing this zone grafts the target Map into the expedition.
+            </p>
+          </div>
+
+          <Label className="flex items-center justify-between gap-2 text-sm">
+            <span className="flex flex-col gap-0.5">
+              Roll contents at start
+              <span className="text-xs font-normal text-muted-foreground">
+                Roll this zone&apos;s contents when the expedition starts.
+              </span>
+            </span>
+            <Switch
+              checked={rollAtStart}
+              onCheckedChange={(checked) => {
+                setRollAtStart(checked)
+                onSetBinding(zone.id, {
+                  rollContentsAtStart: checked ? true : null,
+                })
+              }}
+            />
+          </Label>
+
+          <Label className="flex items-center justify-between gap-2 text-sm">
+            <span className="flex flex-col gap-0.5">
+              Entry zone
+              <span className="text-xs font-normal text-muted-foreground">
+                Portal entry — where a graft places the party on this Map.
+              </span>
+            </span>
+            <Switch
+              checked={entryZoneId === zone.id}
+              onCheckedChange={(checked) =>
+                onSetEntryZone(checked ? zone.id : null)
+              }
+            />
+          </Label>
+        </>
+      )}
     </div>
   )
 }

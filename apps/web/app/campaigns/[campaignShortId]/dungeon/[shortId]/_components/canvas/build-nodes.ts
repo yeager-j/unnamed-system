@@ -9,6 +9,7 @@ import {
 } from "@workspace/game-v2/spatial"
 
 import { type DungeonConnectionEdge as DungeonConnectionEdgeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/connection-edge"
+import { GHOST_SIZE } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/stub-ghost-node"
 import { type DungeonZoneToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node"
 import {
   type CanvasNode,
@@ -82,13 +83,13 @@ function buildPlayNodes(
 ): CanvasNode[] {
   const byZone = tokensByZone(instance, roster)
   const links = crossPageLinksForPage(instance.geometry, pageId)
-  return Object.values(instance.geometry.zones)
+  const zoneNodes: CanvasNode[] = Object.values(instance.geometry.zones)
     .filter((zone) => zone.pageId === pageId)
     .map((zone) => {
       const { w, h } = footprintOf(zone.size)
       return {
         id: zone.id,
-        type: "dungeonZone",
+        type: "dungeonZone" as const,
         position: zone.position,
         draggable: false,
         width: w,
@@ -106,6 +107,53 @@ function buildPlayNodes(
         },
       }
     })
+  return [...zoneNodes, ...buildStubGhostNodes(instance, pageId)]
+}
+
+/** How far past the parent's rim a ghost sits — render-only (the real mint
+ *  layout distance is the engine's spacing; this just floats the frontier
+ *  legibly off the wall). */
+const GHOST_DISTANCE = 80
+
+/**
+ * The exploration board's **stub ghosts** (UNN-590, D8): one inert dashed node
+ * per generation stub whose parent Zone sits on the active page, floated off
+ * the parent's rim along the stub's bearing. Derived at render — a stub stores
+ * bearing + anchor, never a position. Combat and Edit boards deliberately skip
+ * ghosts (P3a); the expand gesture arrives P3b.
+ */
+function buildStubGhostNodes(
+  instance: MapInstanceState,
+  pageId: string
+): CanvasNode[] {
+  return Object.values(instance.generation.stubs).flatMap((stub) => {
+    const parent = instance.geometry.zones[stub.zoneId]
+    if (parent === undefined || parent.pageId !== pageId) return []
+    const { w, h } = footprintOf(parent.size)
+    const center = {
+      x: parent.position.x + w / 2,
+      y: parent.position.y + h / 2,
+    }
+    // Rim exit point along the bearing, pushed out by the ghost distance.
+    const rim = Math.min(w, h) / 2
+    const distance = rim + GHOST_DISTANCE
+    return [
+      {
+        id: `stub-ghost-${stub.id}`,
+        type: "stubGhost" as const,
+        position: {
+          x: center.x + Math.cos(stub.bearing) * distance - GHOST_SIZE.w / 2,
+          y: center.y + Math.sin(stub.bearing) * distance - GHOST_SIZE.h / 2,
+        },
+        draggable: false,
+        selectable: false,
+        width: GHOST_SIZE.w,
+        height: GHOST_SIZE.h,
+        style: { width: GHOST_SIZE.w, height: GHOST_SIZE.h },
+        data: { stubId: stub.id, parentZoneName: parent.name },
+      },
+    ]
+  })
 }
 
 /** The combatants standing in each Zone (combat mode), keyed by Zone id — grouped

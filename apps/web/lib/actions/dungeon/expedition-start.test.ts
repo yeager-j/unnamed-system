@@ -1,25 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { MapGeometry, MapInstanceState } from "@workspace/game-v2/spatial"
-import { err, ok } from "@workspace/result"
+import { templateSetContentSchema } from "@workspace/game-v2/generation"
+import {
+  createDungeonState,
+  type DungeonState,
+  type MapGeometry,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
+import { ok } from "@workspace/result"
 
 import { startExpeditionAction } from "./expedition-start"
 
 // Stub the DB seams; the engine (`mapInstanceFromGeometry` → `withAuthoredProvenance`
-// → `applyStaticReveal` → `placeRoster`) runs for real, so this asserts the
-// expedition-start pipeline end to end: the LIVE seed Map is snapshotted, every
-// snapshot Zone is stamped authored, the Region's escrowed chart is re-applied
-// (stale ids filtered), and the roster's placement reveals union in — all flipped
-// `draft → active` behind the D11 lifecycle lock. `mapActivationRaceToActiveDelve`
-// is a passthrough (its index-loss mapping is unit-tested in dungeon.ts).
+// → `applyStaticReveal` → `seedMintedUniqueKeys`/`sproutStartStubs` → `placeRoster`)
+// runs for real, so this asserts the expedition-start pipeline end to end: the LIVE
+// seed Map is snapshotted, every snapshot Zone is stamped authored **with its
+// multi-source depth**, the Region's escrowed chart is re-applied (stale ids
+// filtered), bound authored Zones sprout stubs off the expedition seed, authored
+// uniques seed the ledger, and the roster's placement reveals union in — all
+// flipped `draft → active` **with the initial ledger** behind the D11 lifecycle
+// lock. `mapActivationRaceToActiveDelve` is a passthrough (its index-loss mapping
+// is unit-tested in dungeon.ts).
 const requireCampaignDM = vi.fn()
 const loadDungeonVariantForWrite = vi.fn()
 const loadActiveDungeonForCampaign = vi.fn()
 const loadRegionRowById = vi.fn()
 const loadMapRowById = vi.fn()
+const loadTemplateSetRowById = vi.fn()
 const loadLiveEncounterForMapInstance = vi.fn()
 const lockDungeonRowForLifecycle = vi.fn()
-const setDungeonStatus = vi.fn()
+const activateDungeonWithState = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
 const publishDungeonPing = vi.fn()
@@ -38,6 +48,9 @@ vi.mock("@/lib/db/queries/load-region", () => ({
 vi.mock("@/lib/db/queries/load-map", () => ({
   loadMapRowById: (id: string) => loadMapRowById(id),
 }))
+vi.mock("@/lib/db/queries/load-template-set", () => ({
+  loadTemplateSetRowById: (id: string) => loadTemplateSetRowById(id),
+}))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadLiveEncounterForMapInstance: (id: string, tx: unknown) =>
     loadLiveEncounterForMapInstance(id, tx),
@@ -45,8 +58,12 @@ vi.mock("@/lib/db/queries/load-encounter-session", () => ({
 vi.mock("@/lib/db/writes/dungeon", () => ({
   lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
     lockDungeonRowForLifecycle(tx, id, v),
-  setDungeonStatus: (id: string, status: string, v: number, tx: unknown) =>
-    setDungeonStatus(id, status, v, tx),
+  activateDungeonWithState: (
+    tx: unknown,
+    id: string,
+    state: DungeonState,
+    v: number
+  ) => activateDungeonWithState(tx, id, state, v),
   mapActivationRaceToActiveDelve: async (p: unknown) => p,
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
@@ -75,6 +92,9 @@ const MAP_INSTANCE_ID = "mi-1"
 const REGION_ID = "region-1"
 const SEED_MAP_ID = "seed-map-1"
 
+// z1 (the entrance) is bound to the unique 3-exit castle-entrance; z2 to the
+// 2-exit hall (one exit optional); z3 is unbound. z1—z2 are connected (that
+// authored connection consumes exit budget on both) and z3 hangs off z2.
 const GEOMETRY: MapGeometry = {
   pages: { default: { id: "default", name: "Page 1" } },
   zones: {
@@ -85,18 +105,57 @@ const GEOMETRY: MapGeometry = {
       dmNotes: "",
       position: { x: 0, y: 0 },
       pageId: "default",
+      templateKey: "castle-entrance",
     },
     z2: {
       id: "z2",
       name: "Charted Vault",
       description: "",
       dmNotes: "",
-      position: { x: 1, y: 0 },
+      position: { x: 600, y: 0 },
+      pageId: "default",
+      templateKey: "hall",
+    },
+    z3: {
+      id: "z3",
+      name: "Far Cell",
+      description: "",
+      dmNotes: "",
+      position: { x: 1200, y: 0 },
       pageId: "default",
     },
   },
-  connections: {},
+  connections: {
+    c12: {
+      id: "c12",
+      fromZoneId: "z1",
+      toZoneId: "z2",
+      hidden: false,
+      locked: false,
+    },
+    c23: {
+      id: "c23",
+      fromZoneId: "z2",
+      toZoneId: "z3",
+      hidden: false,
+      locked: false,
+    },
+  },
 }
+
+const TEMPLATE_SET_CONTENT = templateSetContentSchema.parse({
+  templates: {
+    "castle-entrance": {
+      key: "castle-entrance",
+      unique: true,
+      exits: [{ optional: false }, { optional: false }, { optional: false }],
+    },
+    hall: {
+      key: "hall",
+      exits: [{ optional: false }, { optional: true }],
+    },
+  },
+})
 
 function draftExpedition() {
   return {
@@ -106,6 +165,7 @@ function draftExpedition() {
     shortId: "exp-short",
     status: "draft" as const,
     version: 0,
+    state: createDungeonState(),
   }
 }
 
@@ -138,8 +198,19 @@ const startInput = {
   placements: [{ characterId: "char-1", zoneId: "z1" }],
 }
 
+/** Deterministic uuid spy: `uuid-0`, `uuid-1`, … per test. */
+function spyDeterministicUuids() {
+  let n = 0
+  return vi
+    .spyOn(crypto, "randomUUID")
+    .mockImplementation(
+      () => `uuid-${n++}` as unknown as ReturnType<typeof crypto.randomUUID>
+    )
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.restoreAllMocks()
   loadDungeonVariantForWrite.mockResolvedValue({
     kind: "expedition",
     row: draftExpedition(),
@@ -149,9 +220,13 @@ beforeEach(() => {
   loadActiveDungeonForCampaign.mockResolvedValue(null)
   loadRegionRowById.mockResolvedValue(makeRegion())
   loadMapRowById.mockResolvedValue({ id: SEED_MAP_ID, geometry: GEOMETRY })
+  loadTemplateSetRowById.mockResolvedValue({
+    id: "set-1",
+    content: TEMPLATE_SET_CONTENT,
+  })
   loadLiveEncounterForMapInstance.mockResolvedValue(null)
   lockDungeonRowForLifecycle.mockResolvedValue(ok(draftExpedition()))
-  setDungeonStatus.mockResolvedValue(ok({ version: 1 }))
+  activateDungeonWithState.mockResolvedValue(ok({ version: 1 }))
   saveMapInstanceState.mockResolvedValue(ok({ version: 5 }))
 })
 
@@ -212,7 +287,16 @@ describe("startExpeditionAction", () => {
     expect(saveMapInstanceState).not.toHaveBeenCalled()
   })
 
-  it("snapshots the live seed, stamps authored provenance, re-applies the chart (stale filtered), unions placement reveals, and flips active", async () => {
+  it("returns template-set-not-found when the Region's Set is gone (UNN-590)", async () => {
+    loadTemplateSetRowById.mockResolvedValue(null)
+
+    const result = await startExpeditionAction(startInput)
+
+    expect(result).toEqual({ ok: false, error: "template-set-not-found" })
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
+  })
+
+  it("snapshots the live seed, stamps authored depths, re-applies the chart, sprouts stubs, unions placement reveals, and flips active with the ledger", async () => {
     const result = await startExpeditionAction(startInput)
 
     expect(result).toEqual({
@@ -223,11 +307,24 @@ describe("startExpeditionAction", () => {
     const next = saveMapInstanceState.mock.calls[0]![2] as MapInstanceState
 
     // Geometry snapshotted from the LIVE seed Map.
-    expect(Object.keys(next.geometry.zones).sort()).toEqual(["z1", "z2"])
+    expect(Object.keys(next.geometry.zones).sort()).toEqual(["z1", "z2", "z3"])
 
-    // Every snapshot Zone stamped authored (the provenance the fold later gates on).
-    expect(next.generation.zones.z1).toEqual({ source: "authored" })
-    expect(next.generation.zones.z2).toEqual({ source: "authored" })
+    // Every snapshot Zone stamped authored with its BFS depth from the starting
+    // Zone (the provenance the fold later gates on; depths gate P4's draws).
+    expect(next.generation.zones.z1).toEqual({ source: "authored", depth: 0 })
+    expect(next.generation.zones.z2).toEqual({ source: "authored", depth: 1 })
+    expect(next.generation.zones.z3).toEqual({ source: "authored", depth: 2 })
+
+    // Stub sprouting (D5 step 6): the entrance's 3 required exits minus its one
+    // authored connection → 2 stubs on z1; hall's ≤2 exits minus its two
+    // authored connections → none; unbound z3 → none.
+    const stubs = Object.values(next.generation.stubs)
+    expect(stubs.filter((stub) => stub.zoneId === "z1")).toHaveLength(2)
+    expect(stubs.filter((stub) => stub.zoneId !== "z1")).toHaveLength(0)
+    for (const stub of stubs) {
+      expect(stub.anchor.offset).toBeGreaterThanOrEqual(0.05)
+      expect(stub.anchor.offset).toBeLessThanOrEqual(0.95)
+    }
 
     // The charted z2 re-applied and the placement's z1 unioned in; the deleted
     // `ghost-zone` filtered out silently (absent from the fresh geometry).
@@ -242,12 +339,78 @@ describe("startExpeditionAction", () => {
       engagement: { status: "free" },
     })
 
-    expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "active", 0, "tx")
+    // The activation writes the initial ledger in the same guarded bump: the
+    // minted seed, the authored unique seeded (the ledger law's delve-start
+    // case), and the cull draws' cursor (hall's one optional exit = one
+    // templates draw, consumed kept-or-culled).
+    const dungeonState = activateDungeonWithState.mock
+      .calls[0]![2] as DungeonState
+    expect(activateDungeonWithState).toHaveBeenCalledWith(
+      "tx",
+      DUNGEON_ID,
+      expect.anything(),
+      0
+    )
+    expect(dungeonState.generation.seed).not.toBe("")
+    expect(dungeonState.generation.mintedUniqueKeys).toEqual([
+      "castle-entrance",
+    ])
+    expect(dungeonState.generation.streamCursors).toEqual({ templates: 1 })
+    expect(dungeonState.generation.declarations).toEqual([])
+    expect(dungeonState.generation.mints).toEqual({})
+
     expect(publishDungeonPing).toHaveBeenCalledExactlyOnceWith("exp-short", {
       version: 1,
       status: "active",
     })
     expect(revalidateDungeon).toHaveBeenCalled()
+  })
+
+  it("a split start is legal: each placement zone is depth 0", async () => {
+    const result = await startExpeditionAction({
+      ...startInput,
+      placements: [
+        { characterId: "char-1", zoneId: "z1" },
+        { characterId: "char-2", zoneId: "z3" },
+      ],
+    })
+    expect(result.ok).toBe(true)
+
+    const next = saveMapInstanceState.mock.calls[0]![2] as MapInstanceState
+    expect(next.generation.zones.z1).toEqual({ source: "authored", depth: 0 })
+    expect(next.generation.zones.z3).toEqual({ source: "authored", depth: 0 })
+    // z2 sits one step from either starting zone.
+    expect(next.generation.zones.z2).toEqual({ source: "authored", depth: 1 })
+  })
+
+  it("is deterministic under a pinned seed: two runs sprout identical stubs", async () => {
+    spyDeterministicUuids()
+    await startExpeditionAction(startInput)
+    const first = saveMapInstanceState.mock.calls[0]![2] as MapInstanceState
+
+    vi.clearAllMocks()
+    spyDeterministicUuids()
+    loadDungeonVariantForWrite.mockResolvedValue({
+      kind: "expedition",
+      row: draftExpedition(),
+      regionId: REGION_ID,
+    })
+    requireCampaignDM.mockResolvedValue({ id: CAMPAIGN_ID })
+    loadActiveDungeonForCampaign.mockResolvedValue(null)
+    loadRegionRowById.mockResolvedValue(makeRegion())
+    loadMapRowById.mockResolvedValue({ id: SEED_MAP_ID, geometry: GEOMETRY })
+    loadTemplateSetRowById.mockResolvedValue({
+      id: "set-1",
+      content: TEMPLATE_SET_CONTENT,
+    })
+    loadLiveEncounterForMapInstance.mockResolvedValue(null)
+    lockDungeonRowForLifecycle.mockResolvedValue(ok(draftExpedition()))
+    activateDungeonWithState.mockResolvedValue(ok({ version: 1 }))
+    saveMapInstanceState.mockResolvedValue(ok({ version: 5 }))
+    await startExpeditionAction(startInput)
+    const second = saveMapInstanceState.mock.calls[0]![2] as MapInstanceState
+
+    expect(second.generation.stubs).toStrictEqual(first.generation.stubs)
   })
 
   it("refuses when the locked row is no longer draft (a racing start won)", async () => {
@@ -273,7 +436,7 @@ describe("startExpeditionAction", () => {
 
     expect(result).toEqual({ ok: false, error: "delve-has-live-encounter" })
     expect(saveMapInstanceState).not.toHaveBeenCalled()
-    expect(setDungeonStatus).not.toHaveBeenCalled()
+    expect(activateDungeonWithState).not.toHaveBeenCalled()
     expect(revalidateDungeon).not.toHaveBeenCalled()
   })
 })

@@ -29,5 +29,6 @@ export type StartExpeditionError =
   | "delve-has-live-encounter"
   | "campaign-already-has-active-delve"
   | "map-not-found"
+  | "template-set-not-found"
   | DungeonWriteError
   | MapInstanceWriteError

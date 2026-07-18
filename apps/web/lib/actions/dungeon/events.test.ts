@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   createDungeonState,
+  dungeonEventSchema,
+  GENERATION_DUNGEON_EVENT_KINDS,
+  GENERATION_INSTANCE_EVENT_KINDS,
+  mapInstanceEventSchema,
   type DungeonState,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
@@ -108,7 +112,7 @@ function instanceRow(): {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: { zones: {}, grafts: {} },
+      generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
       lastMovedTokenKey: null,
     },
     version: 0,
@@ -281,5 +285,127 @@ describe("applyDungeonEvent — placeCombatant identity gate (UNN-487)", () => {
     expect(result).toEqual({ ok: false, error: "character-not-in-campaign" })
     expect(saveMapInstanceState).not.toHaveBeenCalled()
     expect(publishDungeonInstancePing).not.toHaveBeenCalled()
+  })
+})
+
+describe("applyDungeonEvent — generation-family rejection (UNN-590)", () => {
+  const generationEvents = [
+    {
+      kind: "mintZone" as const,
+      stubId: "stub-1",
+      zone: {
+        id: "zx",
+        name: "Minted",
+        description: "",
+        dmNotes: "",
+        position: { x: 0, y: 0 },
+        pageId: "default",
+      },
+      connectionId: "stub-1",
+      stubs: [],
+      provenance: { source: "generated" as const, depth: 1 },
+    },
+    {
+      kind: "closeLoop" as const,
+      stubId: "stub-1",
+      connectionId: "stub-1",
+      toZoneId: "z1",
+    },
+    {
+      kind: "retractZone" as const,
+      zoneId: "zx",
+      restoredStub: {
+        id: "stub-1",
+        zoneId: "z1",
+        bearing: 0,
+        anchor: { side: "e" as const, offset: 0.5 },
+      },
+    },
+    { kind: "resolveDeadEnd" as const, stubId: "stub-1" },
+    {
+      kind: "declareSite" as const,
+      declaration: {
+        id: "d1",
+        sequence: 0,
+        templateKey: "vault",
+        minDepth: 0,
+        k: 6,
+        secretIndex: 2,
+        qualifyingCount: 0,
+      },
+    },
+    {
+      kind: "recordMint" as const,
+      zoneId: "zx",
+      record: { sequence: 0, templateKey: "vault", unique: false, effects: [] },
+    },
+    { kind: "revertMint" as const, zoneId: "zx" },
+    { kind: "advanceCursors" as const, consumed: { templates: 1 } },
+  ]
+
+  it.each(generationEvents)(
+    "refuses $kind before any load — generation events only travel their paired two-row actions",
+    async (event) => {
+      const result = await applyDungeonEvent({
+        dungeonId: DUNGEON_ID,
+        expectedVersion: 0,
+        expectedInstanceVersion: 0,
+        event,
+      })
+
+      expect(result).toEqual({
+        ok: false,
+        error: "generation-event-not-supported",
+      })
+      expect(loadDungeonCampaignId).not.toHaveBeenCalled()
+      expect(saveDungeonState).not.toHaveBeenCalled()
+      expect(saveMapInstanceState).not.toHaveBeenCalled()
+    }
+  )
+
+  it("classifies every event kind in both unions exactly once (drift gate)", () => {
+    // Every kind is exactly one of: turn-loop, spatial, or generation. A kind
+    // added to an engine union without joining a classification would silently
+    // route down the generic path — this pins the partition.
+    const turnLoop = new Set(["markActed", "advanceTurn"])
+    const spatial = new Set([
+      "addZone",
+      "removeZone",
+      "setZoneAdjacency",
+      "renameZone",
+      "moveCombatant",
+      "placeCombatant",
+      "setEngagement",
+      "clearEngagement",
+      "applyEnchantment",
+      "clearEnchantment",
+      "revealZone",
+      "hideZone",
+      "revealConnection",
+      "hideConnection",
+      "unlockConnection",
+      "lockConnection",
+      "editGeometry",
+    ])
+    const generation = new Set<string>([
+      ...GENERATION_INSTANCE_EVENT_KINDS,
+      ...GENERATION_DUNGEON_EVENT_KINDS,
+    ])
+
+    const allKinds = [
+      ...dungeonEventSchema.options,
+      ...mapInstanceEventSchema.options,
+    ].map((option) => option.shape.kind.value)
+
+    for (const kind of allKinds) {
+      const memberships = [turnLoop, spatial, generation].filter((set) =>
+        set.has(kind)
+      )
+      expect(
+        memberships,
+        `kind ${kind} must belong to exactly one family`
+      ).toHaveLength(1)
+    }
+    expect(new Set(allKinds).size).toBe(allKinds.length)
   })
 })

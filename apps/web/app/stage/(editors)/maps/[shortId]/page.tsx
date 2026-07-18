@@ -3,8 +3,13 @@ import { notFound } from "next/navigation"
 import { cache } from "react"
 
 import { MapEditor } from "@/app/stage/_components/map-editor"
+import type { MapAuthoringOptions } from "@/components/shared/canvas/map-canvas-context"
 import { auth } from "@/lib/auth"
-import { loadMapByShortId } from "@/lib/db/queries/load-map"
+import {
+  loadMapByShortId,
+  loadMapOptionsByUserId,
+} from "@/lib/db/queries/load-map"
+import { loadTemplateSetsByUserId } from "@/lib/db/queries/load-template-set"
 import type { MapRow } from "@/lib/db/schema/map"
 
 interface PageProps {
@@ -43,5 +48,33 @@ export default async function MapEditorPage({ params }: PageProps) {
   const session = await auth()
   if (session?.user?.id !== map.userId) notFound()
 
-  return <MapEditor map={map} />
+  // The generation-binding picker options (UNN-590): the union of template keys
+  // across the owner's Sets (grouped by set; identical keys dedupe — the key is
+  // the fact, the picker is typo-prevention) and the owner's other Maps as
+  // portal targets. No referential integrity — the Region binds Map + Set, and
+  // expedition start + set lint are the enforcement points.
+  const [templateSets, mapOptions] = await Promise.all([
+    loadTemplateSetsByUserId(map.userId),
+    loadMapOptionsByUserId(map.userId),
+  ])
+  const seenKeys = new Set<string>()
+  const templateKeys: MapAuthoringOptions["templateKeys"] = []
+  for (const set of templateSets) {
+    for (const templateKey of set.content.templateOrder) {
+      const template = set.content.templates[templateKey]
+      if (template === undefined || seenKeys.has(templateKey)) continue
+      seenKeys.add(templateKey)
+      templateKeys.push({
+        key: templateKey,
+        label: template.name.trim().length > 0 ? template.name : templateKey,
+        setName: set.name,
+      })
+    }
+  }
+  const authoring: MapAuthoringOptions = {
+    templateKeys,
+    maps: mapOptions.filter((option) => option.id !== map.id),
+  }
+
+  return <MapEditor map={map} authoring={authoring} />
 }

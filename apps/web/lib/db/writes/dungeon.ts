@@ -107,6 +107,27 @@ export async function saveDungeonState(
 }
 
 /**
+ * Flips `draft → active` **and** persists the start-composed
+ * {@link DungeonState} in one guarded bump (UNN-590): expedition start now
+ * writes the initial draw ledger (seed, post-start `streamCursors`, seeded
+ * `mintedUniqueKeys`) alongside the status flip, and two back-to-back guarded
+ * bumps on the same version token cannot both condition on `expectedVersion` —
+ * one UPDATE keeps the activation atomic and the one-active partial index
+ * firing on the same statement `mapActivationRaceToActiveDelve` maps.
+ */
+export async function activateDungeonWithState(
+  executor: WriteExecutor,
+  dungeonId: string,
+  state: DungeonState,
+  expectedVersion: number
+): Promise<Result<{ version: number }, DungeonWriteError>> {
+  return bumpDungeonVersionGuarded(executor, dungeonId, expectedVersion, {
+    status: "active",
+    state,
+  })
+}
+
+/**
  * The lifecycle-serialization read (D11, UNN-589): `SELECT … FOR UPDATE` on the
  * dungeon row + a version compare, as the **first statement** of every lifecycle
  * `guardMany` body (expedition start/finish, combat start/end, the generic

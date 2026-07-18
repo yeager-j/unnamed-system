@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  emptyGenerationLedger,
   activeActedCharacterIds as v2ActiveActed,
   connectionFogState as v2Fog,
   isFogActive as v2FogActive,
@@ -67,6 +68,9 @@ const dungeonState = (
   reminderSettings: overrides.reminderSettings ?? {
     randomEncounters: { enabled: false as boolean, intervalTurns: 6 as const },
   },
+  // Not part of the pinned v1-parity surface — the ledger (UNN-590) postdates
+  // the oracle; the turn-loop reducers pass it through untouched.
+  generation: emptyGenerationLedger(),
 })
 
 const mapInstanceWith = (occupancy: Record<string, { zoneId: string }>) => ({
@@ -83,7 +87,7 @@ const mapInstanceWith = (occupancy: Record<string, { zoneId: string }>) => ({
   ),
   enchantment: null,
   reveal: reveal(),
-  generation: { zones: {}, grafts: {} },
+  generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
   lastMovedTokenKey: null,
 })
 
@@ -161,21 +165,25 @@ describe("golden-master: reduceDungeon (the turn loop)", () => {
         turnCounter: 3,
         actedCharacterIds: ["c1"],
         reminderSettings: settings,
+        generation: emptyGenerationLedger(),
       },
       {
         turnCounter: 3,
         actedCharacterIds: ["c1"],
         reminderSettings: settings,
+        generation: emptyGenerationLedger(),
       },
       {
         turnCounter: 3,
         actedCharacterIds: ["c1", "c2"],
         reminderSettings: settings,
+        generation: emptyGenerationLedger(),
       },
       {
         turnCounter: 4,
         actedCharacterIds: [],
         reminderSettings: settings,
+        generation: emptyGenerationLedger(),
       },
     ]
 

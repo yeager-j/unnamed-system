@@ -117,3 +117,17 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
 ])
 
 export type MapInstanceEvent = z.infer<typeof mapInstanceEventSchema>
+
+/**
+ * The instance-side **generation family** (UNN-590). Exported so the app's
+ * generic single-row event path can refuse them without a hand-maintained list:
+ * a generation event is only sound inside its paired two-row transaction (a
+ * `mintZone` without its `recordMint`/`advanceCursors` breaks D4's pairing
+ * invariants), so P3b gives them dedicated actions and the generic path rejects.
+ */
+export const GENERATION_INSTANCE_EVENT_KINDS = [
+  "mintZone",
+  "closeLoop",
+  "retractZone",
+  "resolveDeadEnd",
+] as const satisfies readonly MapInstanceEvent["kind"][]

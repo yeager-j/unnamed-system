@@ -37,3 +37,17 @@ export const dungeonEventSchema = z.discriminatedUnion("kind", [
 ])
 
 export type DungeonEvent = z.infer<typeof dungeonEventSchema>
+
+/**
+ * The dungeon-side **ledger family** (UNN-590). Exported for the same reason as
+ * `GENERATION_INSTANCE_EVENT_KINDS`: the app's generic event path refuses these
+ * — a lone `revertMint` without its `retractZone` (or vice versa) breaks D4's
+ * pairing invariants, so they only travel inside P3b's dedicated two-row
+ * actions.
+ */
+export const GENERATION_DUNGEON_EVENT_KINDS = [
+  "declareSite",
+  "recordMint",
+  "revertMint",
+  "advanceCursors",
+] as const satisfies readonly DungeonEvent["kind"][]

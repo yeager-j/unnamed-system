@@ -7,6 +7,7 @@ import type { MapGeometry } from "@workspace/game-v2/spatial"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { useMapAutoSave } from "@/app/stage/_hooks/use-map-autosave"
+import type { MapAuthoringOptions } from "@/components/shared/canvas/map-canvas-context"
 import type { MapRow } from "@/lib/db/schema/map"
 
 import { MapSettingsPanel } from "./map-settings-panel"
@@ -36,7 +37,13 @@ const MapCanvas = dynamic(
   }
 )
 
-export function MapEditor({ map }: { map: MapRow }) {
+export function MapEditor({
+  map,
+  authoring,
+}: {
+  map: MapRow
+  authoring: MapAuthoringOptions
+}) {
   const { name, saveGeometry, save } = useMapAutoSave({
     mapId: map.id,
     serverName: map.name,
@@ -60,6 +67,9 @@ export function MapEditor({ map }: { map: MapRow }) {
           // The editor pages itself — the canvas owns activePageId and the
           // floating tab strip (UNN-586); pages ride the whole-blob autosave.
           showPageTabs
+          // The generation-binding pickers (UNN-590) — /stage is the one
+          // authoring surface, so only this host passes options.
+          authoring={authoring}
         />
       </div>
 

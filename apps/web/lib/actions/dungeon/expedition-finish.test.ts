@@ -118,7 +118,12 @@ function instanceState(): MapInstanceState {
       unlockedConnectionIds: [],
     },
     generation: {
-      zones: { z1: { source: "authored" }, z2: { source: "manual" } },
+      zones: {
+        z1: { source: "authored", depth: 0 },
+        z2: { source: "manual", depth: 0 },
+      },
+      stubs: {},
+      connections: {},
       grafts: {},
     },
     lastMovedTokenKey: null,

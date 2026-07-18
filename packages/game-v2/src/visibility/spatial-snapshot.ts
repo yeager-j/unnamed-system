@@ -215,6 +215,16 @@ function visibleEnchantment(
  * `known-exit` connections surface as far-zone-stripped silhouettes, `revealed`
  * connections draw fully. Without fog (a standalone map), every connection is a full
  * edge and nothing is an exit.
+ *
+ * **Stubs project as exits** (UNN-590, D10): a generation stub whose parent Zone
+ * is revealed emits a {@link SnapshotExit} **byte-shape-identical** to an
+ * authored unexplored exit — same interface, same field set — using its
+ * **stored** anchor (a stub has no far Zone, so the loader's two-rect derivation
+ * cannot cover it; falling back to `{side:"n", offset:0.5}` here would be
+ * exactly the tell D10 forbids). `locked` is `false` structurally: a stub is an
+ * open frontier. A loader-supplied anchor (keyed by stub id — the coincidence
+ * nudge treats stubs and authored exits uniformly) wins over the stored one.
+ * The stub's `bearing` and everything else in `generation` never serialize.
  */
 function projectConnections(
   mapInstance: MapInstanceState,
@@ -257,6 +267,19 @@ function projectConnections(
           connection.toZoneId
         ),
         locked,
+        side: anchor.side,
+        offset: anchor.offset,
+      })
+    }
+  }
+  if (fog) {
+    for (const stub of Object.values(mapInstance.generation.stubs)) {
+      if (!isZoneRevealed(mapInstance.reveal, stub.zoneId)) continue
+      const anchor = exitAnchors[stub.id] ?? stub.anchor
+      exits.push({
+        id: stub.id,
+        zoneId: stub.zoneId,
+        locked: false,
         side: anchor.side,
         offset: anchor.offset,
       })
