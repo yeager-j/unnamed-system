@@ -11,14 +11,17 @@ import { commitEntityWrite } from "./entity-row-store"
  * → guarded patch with **v2 semantics** (signed depletion, no v1 clamp), and that a
  * refusal short-circuits before the guard.
  */
-const requireOwnerOrCampaignDMForEntity = vi.fn()
-const requireEntityOwner = vi.fn()
+const authorizeEntityWriteForClass = vi.fn()
 const bumpEntityVersionGuarded = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
-  requireOwnerOrCampaignDMForEntity: (id: string) =>
-    requireOwnerOrCampaignDMForEntity(id),
-  requireEntityOwner: (id: string) => requireEntityOwner(id),
+  authorizeEntityWriteForClass: (id: string, durableClass: string) =>
+    authorizeEntityWriteForClass(id, durableClass),
+}))
+vi.mock("next/navigation", () => ({
+  forbidden: () => {
+    throw new Error("forbidden()")
+  },
 }))
 vi.mock("./version-guard", () => ({
   bumpEntityVersionGuarded: (
@@ -49,15 +52,14 @@ function loaded(overrides: Record<string, unknown>) {
 }
 
 beforeEach(() => {
-  requireOwnerOrCampaignDMForEntity.mockReset()
-  requireEntityOwner.mockReset()
+  authorizeEntityWriteForClass.mockReset()
   bumpEntityVersionGuarded.mockReset().mockResolvedValue(ok({ version: 8 }))
 })
 
 describe("commitEntityWrite — native durable component writes", () => {
   it("commits a vitals damage patch on the vitals class, keyed to the entity", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: 0 } })
+    authorizeEntityWriteForClass.mockResolvedValue(
+      ok(loaded({ vitals: { base: 20, damage: 0 } }))
     )
 
     const result = await commitEntityWrite(
@@ -75,8 +77,8 @@ describe("commitEntityWrite — native durable component writes", () => {
   })
 
   it("over-max HP works on a durable row (heal preserves negative depletion — no v1 clamp)", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: -3 } })
+    authorizeEntityWriteForClass.mockResolvedValue(
+      ok(loaded({ vitals: { base: 20, damage: -3 } }))
     )
 
     await commitEntityWrite(
@@ -93,8 +95,8 @@ describe("commitEntityWrite — native durable component writes", () => {
   })
 
   it("setMax is a real write on a durable row now (no `unsupported-durable-write`)", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: 4 } })
+    authorizeEntityWriteForClass.mockResolvedValue(
+      ok(loaded({ vitals: { base: 20, damage: 4 } }))
     )
 
     const result = await commitEntityWrite(
@@ -110,8 +112,8 @@ describe("commitEntityWrite — native durable component writes", () => {
   })
 
   it("refuses a write against an absent component before the guard", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: 0 } })
+    authorizeEntityWriteForClass.mockResolvedValue(
+      ok(loaded({ vitals: { base: 20, damage: 0 } }))
     )
 
     const result = await commitEntityWrite(
@@ -124,9 +126,9 @@ describe("commitEntityWrite — native durable component writes", () => {
     expect(bumpEntityVersionGuarded).not.toHaveBeenCalled()
   })
 
-  it("gates a vitals-class write owner-or-campaign-DM, never the strict-owner gate", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: 0 } })
+  it("authorizes on the Writer's own class — vitals rides the DM-admitting posture", async () => {
+    authorizeEntityWriteForClass.mockResolvedValue(
+      ok(loaded({ vitals: { base: 20, damage: 0 } }))
     )
 
     await commitEntityWrite(
@@ -135,12 +137,11 @@ describe("commitEntityWrite — native durable component writes", () => {
       3
     )
 
-    expect(requireOwnerOrCampaignDMForEntity).toHaveBeenCalledWith("e1")
-    expect(requireEntityOwner).not.toHaveBeenCalled()
+    expect(authorizeEntityWriteForClass).toHaveBeenCalledWith("e1", "vitals")
   })
 
-  it("gates a non-vitals-class write strict-owner — a campaign DM cannot rewrite creation/identity state", async () => {
-    requireEntityOwner.mockResolvedValue(loaded({}))
+  it("authorizes a narrative write on the identity class — the strict-owner posture (Secrets!)", async () => {
+    authorizeEntityWriteForClass.mockResolvedValue(ok(loaded({})))
 
     const result = await commitEntityWrite(
       "e1",
@@ -153,14 +154,29 @@ describe("commitEntityWrite — native durable component writes", () => {
       3
     )
 
-    expect(requireEntityOwner).toHaveBeenCalledWith("e1")
-    expect(requireOwnerOrCampaignDMForEntity).not.toHaveBeenCalled()
+    expect(authorizeEntityWriteForClass).toHaveBeenCalledWith("e1", "identity")
     expect(result.ok).toBe(true)
   })
 
+  it("throws the 403 contract when authorization refuses", async () => {
+    authorizeEntityWriteForClass.mockResolvedValue({
+      ok: false,
+      error: "forbidden",
+    })
+
+    await expect(
+      commitEntityWrite(
+        "e1",
+        { component: "vitals", op: "damage", amount: 1 },
+        3
+      )
+    ).rejects.toThrow("forbidden()")
+    expect(bumpEntityVersionGuarded).not.toHaveBeenCalled()
+  })
+
   it("errs `entity-load-failed` when the stored components are malformed", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: "not-a-number" } })
+    authorizeEntityWriteForClass.mockResolvedValue(
+      ok(loaded({ vitals: { base: "not-a-number" } }))
     )
 
     const result = await commitEntityWrite(

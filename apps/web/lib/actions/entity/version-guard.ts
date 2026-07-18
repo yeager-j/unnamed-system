@@ -55,14 +55,17 @@ export type EntityColumnPatch = Partial<
  */
 export type EntityRowPatch = EntityWritePatch & EntityColumnPatch
 
-const VERSION_COLUMNS = {
+/** The class → `entity` version-column map — one authority for which column a
+ *  write class reads and bumps, shared with the replica push door (UNN-645). */
+export const VERSION_COLUMNS = {
   identity: entity.identityVersion,
   vitals: entity.vitalsVersion,
   inventory: entity.inventoryVersion,
   progression: entity.progressionVersion,
 } as const satisfies Record<VersionClass, unknown>
 
-function entityVersionIncrement(
+/** The one-class `SET` increment for a guarded (or row-locked) entity UPDATE. */
+export function entityVersionIncrement(
   versionClass: VersionClass
 ): PgUpdateSetSource<typeof entity> {
   switch (versionClass) {

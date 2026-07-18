@@ -1,11 +1,14 @@
 import { forbidden } from "next/navigation"
 
+import { err, ok, type Result } from "@workspace/result"
+
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
   loadPlayerCharacterById,
   type LoadedPlayerCharacter,
 } from "@/lib/db/queries/load-player-character"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
+import type { VersionClass } from "@/lib/db/version-classes"
 
 import { auth } from "./index"
 
@@ -105,4 +108,35 @@ export async function requireEntityOwner(
   if (!pc || pc.userId !== viewerId) forbidden()
 
   return pc
+}
+
+/**
+ * The **class → auth posture** policy for durable component writes, decided
+ * once (UNN-556, restated for two doors in UNN-645): a `vitals`-class write
+ * admits owner-or-campaign-DM (the DM console's sanctioned in-play access);
+ * every other class requires the strict owner — a DM must not rewrite a placed
+ * player's Origin, Virtues, or narrative through any door.
+ *
+ * Result-shaped rather than throwing because the replica push door records a
+ * refusal as the mutation's terminal outcome (advancing the client's
+ * watermark); a `forbidden()` throw there would abort the processor's
+ * transaction and strand the client in ambiguous redelivery. The classic
+ * entity door composes this and rethrows via `forbidden()`.
+ */
+export async function authorizeEntityWriteForClass(
+  entityId: string,
+  durableClass: VersionClass
+): Promise<Result<LoadedPlayerCharacter, "forbidden">> {
+  const session = await auth()
+  const viewerId = session?.user?.id
+  if (!viewerId) return err("forbidden")
+
+  const pc = await loadPlayerCharacterById(entityId)
+  if (!pc) return err("forbidden")
+
+  const allowed =
+    durableClass === "vitals"
+      ? await isOwnerOrCampaignDM(viewerId, pc)
+      : pc.userId === viewerId
+  return allowed ? ok(pc) : err("forbidden")
 }

@@ -5,7 +5,10 @@ import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { EntityRow } from "@/lib/db/schema/entity"
 import type { PlayerCharacterRow } from "@/lib/db/schema/player-character"
 
-import { requireOwnerOrCampaignDMForEntity } from "./campaign-access"
+import {
+  authorizeEntityWriteForClass,
+  requireOwnerOrCampaignDMForEntity,
+} from "./campaign-access"
 
 // The gate touches three seams: the session (`auth` from ./index), the PC loader
 // (entity ⋈ subtype), and the campaign loader. Stub all three so this stays a pure
@@ -124,5 +127,57 @@ describe("requireOwnerOrCampaignDMForEntity", () => {
     await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).rejects.toThrow(
       "forbidden"
     )
+  })
+})
+
+describe("authorizeEntityWriteForClass — the class → posture policy (UNN-645)", () => {
+  beforeEach(() => {
+    auth.mockReset()
+    loadPlayerCharacterById.mockReset()
+    loadCampaignRowById.mockReset()
+  })
+
+  it("refuses (typed, no throw) without a session", async () => {
+    auth.mockResolvedValue(null)
+    await expect(
+      authorizeEntityWriteForClass(ENTITY_ID, "vitals")
+    ).resolves.toEqual({ ok: false, error: "forbidden" })
+  })
+
+  it("admits the owner on every class without loading the campaign", async () => {
+    signedInAs(OWNER_ID)
+    const pc = makePc({ userId: OWNER_ID, campaignId: CAMPAIGN_ID })
+    loadPlayerCharacterById.mockResolvedValue(pc)
+
+    const result = await authorizeEntityWriteForClass(ENTITY_ID, "identity")
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value).toBe(pc)
+    expect(loadCampaignRowById).not.toHaveBeenCalled()
+  })
+
+  it("admits the placed campaign's DM on the vitals class only", async () => {
+    signedInAs(DM_ID)
+    loadPlayerCharacterById.mockResolvedValue(
+      makePc({ userId: OWNER_ID, campaignId: CAMPAIGN_ID })
+    )
+    loadCampaignRowById.mockResolvedValue(makeCampaign({ dmUserId: DM_ID }))
+
+    const vitals = await authorizeEntityWriteForClass(ENTITY_ID, "vitals")
+    expect(vitals.ok).toBe(true)
+
+    const identity = await authorizeEntityWriteForClass(ENTITY_ID, "identity")
+    expect(identity).toEqual({ ok: false, error: "forbidden" })
+  })
+
+  it("refuses a stranger even on vitals", async () => {
+    signedInAs(OTHER_ID)
+    loadPlayerCharacterById.mockResolvedValue(
+      makePc({ userId: OWNER_ID, campaignId: CAMPAIGN_ID })
+    )
+    loadCampaignRowById.mockResolvedValue(makeCampaign({ dmUserId: DM_ID }))
+
+    await expect(
+      authorizeEntityWriteForClass(ENTITY_ID, "vitals")
+    ).resolves.toEqual({ ok: false, error: "forbidden" })
   })
 })

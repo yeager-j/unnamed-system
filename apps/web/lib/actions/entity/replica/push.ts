@@ -1,0 +1,84 @@
+"use server"
+
+import { err, ok, type Result } from "@workspace/result"
+
+import { entityWriteSchema } from "@/domain/entity/commit/write.schema"
+import { ENTITY_WRITERS } from "@/domain/entity/commit/writers"
+import type { EntityReplicaRejection } from "@/domain/entity/replica/rejection"
+import { authorizeEntityWriteForClass } from "@/lib/auth/campaign-access"
+import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
+import { publishCharacterPing } from "@/lib/realtime/publish"
+
+import { checkArchetypeUnlockGates } from "../archetype-unlock-gate"
+import { revalidateCharacterList, revalidateEntity } from "../revalidate"
+import { createEntityPushProcessor, type EntityPushContext } from "./processor"
+import {
+  EntityPushSchema,
+  type EntityPushError,
+  type EntityPushInput,
+} from "./wire.schema"
+
+/**
+ * The replica push door (UNN-645): one delivery of one `entity.write`
+ * envelope. Parse the transport shape, compute the viewer's authorization
+ * verdict outside the transaction, then hand the envelope to the processor —
+ * which owns ordering, dedup, the recorded outcome, and the atomic domain
+ * write. Unlike every other action in `lib/actions`, an auth refusal here is
+ * a **typed rejection**, not a `forbidden()` throw: the refusal must be
+ * recorded against the client's watermark, or the client's ordered queue
+ * wedges into a gap on its next mutation.
+ *
+ * On an actually-executed commit (never a deduplicated replay — the
+ * processor's context back-channel distinguishes them) it fires the same
+ * realtime ping + route revalidation the classic door fires, so every other
+ * watcher's catch-up path is identical during the migration window.
+ */
+export async function pushEntityMutationAction(
+  input: EntityPushInput
+): Promise<Result<void, EntityPushError>> {
+  const parsed = EntityPushSchema.safeParse(input)
+  if (!parsed.success) return err("invalid-input")
+  const { entityId, envelope } = parsed.data
+
+  const context: EntityPushContext = {
+    entityId,
+    authorization: await authorizeEnvelope(entityId, envelope.invocation.args),
+  }
+  const processor = createEntityPushProcessor(entityId)
+  const result = await processor(envelope, context)
+
+  if (context.committed) {
+    const { shortId, component, durableClass, version } = context.committed
+    publishCharacterPing(shortId, "entity", { [durableClass]: version })
+    revalidateEntity({ shortId })
+    if (component === "level" || component === "archetypes") {
+      revalidateCharacterList()
+    }
+  }
+
+  return result.ok ? ok(undefined) : err(result.error)
+}
+
+/**
+ * The viewer's verdict for this delivery, computed before the transaction:
+ * the class → posture gate plus the archetype unlock gates, all Result-shaped
+ * so the processor can record a refusal. When the args don't parse, the
+ * verdict is moot — the processor's decode fails first and records `invalid`;
+ * the `forbidden` here is the fail-closed default for that unreachable arm.
+ */
+async function authorizeEnvelope(
+  entityId: string,
+  args: unknown
+): Promise<Result<LoadedPlayerCharacter, EntityReplicaRejection>> {
+  const write = entityWriteSchema.safeParse(args)
+  if (!write.success) return err("forbidden")
+
+  const { durableClass } = ENTITY_WRITERS[write.data.component]
+  const authorized = await authorizeEntityWriteForClass(entityId, durableClass)
+  if (!authorized.ok) return authorized
+
+  const gated = await checkArchetypeUnlockGates(entityId, write.data)
+  if (!gated.ok) return err("forbidden")
+
+  return authorized
+}
