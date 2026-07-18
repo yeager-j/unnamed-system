@@ -6,6 +6,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Dialog,
   DialogContent,
@@ -16,13 +17,6 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { createMapAction } from "@/lib/actions/create-map"
@@ -185,31 +179,15 @@ export function CreateDungeonButton({
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <Select
+                  <DataSelect
+                    id="dungeon-map"
+                    options={localMaps}
+                    optionValue={(map) => map.shortId}
+                    optionLabel={(map) => map.name}
                     value={selectedMapShortId}
-                    onValueChange={(value) =>
-                      setSelectedMapShortId(value ?? "")
-                    }
-                  >
-                    <SelectTrigger id="dungeon-map">
-                      <SelectValue>
-                        {localMaps.find(
-                          (map) => map.shortId === selectedMapShortId
-                        )?.name ?? (
-                          <span className="text-muted-foreground">
-                            Choose a map…
-                          </span>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {localMaps.map((map) => (
-                        <SelectItem key={map.shortId} value={map.shortId}>
-                          {map.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={setSelectedMapShortId}
+                    placeholder="Choose a map…"
+                  />
                   <button
                     type="button"
                     className="self-start text-sm text-muted-foreground underline-offset-4 hover:underline"

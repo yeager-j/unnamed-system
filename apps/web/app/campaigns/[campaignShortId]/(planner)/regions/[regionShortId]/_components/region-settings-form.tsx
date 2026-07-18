@@ -5,25 +5,15 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { WANDERING_INTERVAL_OPTIONS } from "@/domain/labels"
 import { regionErrorMessage } from "@/lib/actions/region/error-message"
 import { updateRegionSettingsAction } from "@/lib/actions/region/update-settings"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
-
-/** The table Select's "no wandering table" sentinel — Base UI `SelectItem` values
- *  can't be empty, so absent `settings.wanderingTableKey` shows as this value. */
-const NO_TABLE = "none"
 
 /** The authored settings this form edits — the plain projection of the Region's
  *  `settings` blob (the app tier is gated against engine types). */
@@ -62,13 +52,13 @@ export function RegionSettingsForm({
 
   const [name, setName] = useState(initialName)
   const [wanderingTableKey, setWanderingTableKey] = useState(
-    settings.wanderingTableKey ?? NO_TABLE
+    settings.wanderingTableKey ?? ""
   )
   const [intervalTurns, setIntervalTurns] = useState<1 | 2 | 3 | 6>(
     settings.wanderingIntervalTurns ?? 6
   )
 
-  const hasTable = wanderingTableKey !== NO_TABLE
+  const hasTable = wanderingTableKey !== ""
 
   function onSave() {
     const trimmed = name.trim()
@@ -112,70 +102,48 @@ export function RegionSettingsForm({
 
       <Field>
         <FieldLabel htmlFor="region-settings-table">Wandering table</FieldLabel>
-        <Select
+        {/* Disabled only when there is nothing to choose AND nothing to clear:
+            a designation whose table the author has since deleted must keep this
+            control (and its "None") reachable, or the stale key becomes
+            unsaveable with no UI path out. `selectTriggerLabel` names the missing
+            table honestly rather than falling back to "None" while the form would
+            still submit the stale key. */}
+        <DataSelect
+          id="region-settings-table"
+          disabled={tables.length === 0 && !hasTable}
+          nullOption={{ label: "None" }}
+          options={tables}
+          optionValue={(table) => table.key}
+          optionLabel={(table) => table.name}
           value={wanderingTableKey}
-          onValueChange={(value) => setWanderingTableKey(value ?? NO_TABLE)}
-        >
-          {/* Disabled only when there is nothing to choose AND nothing to
-              clear: a designation whose table the author has since deleted
-              must keep this control (and its "None") reachable, or the stale
-              key becomes unsaveable with no UI path out. The trigger names the
-              missing table honestly rather than falling back to "None" while
-              the form would still submit the stale key. */}
-          <SelectTrigger
-            id="region-settings-table"
-            disabled={tables.length === 0 && !hasTable}
-          >
-            <SelectValue>
-              {hasTable ? (
-                (tables.find((table) => table.key === wanderingTableKey)
-                  ?.name ?? (
-                  <span className="text-destructive">
-                    {wanderingTableKey} (missing from the set)
-                  </span>
-                ))
-              ) : (
-                <span className="text-muted-foreground">None</span>
-              )}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_TABLE}>None</SelectItem>
-            {tables.map((table) => (
-              <SelectItem key={table.key} value={table.key}>
-                {table.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onValueChange={setWanderingTableKey}
+          selectTriggerLabel={(table, value) =>
+            value === "" ? (
+              <span className="text-muted-foreground">None</span>
+            ) : table ? (
+              table.name
+            ) : (
+              <span className="text-destructive">
+                {value} (missing from the set)
+              </span>
+            )
+          }
+        />
       </Field>
 
       {hasTable ? (
         <Field>
           <FieldLabel htmlFor="region-settings-interval">Fires</FieldLabel>
-          <Select
+          <DataSelect
+            id="region-settings-interval"
+            options={WANDERING_INTERVAL_OPTIONS}
+            optionValue={(option) => String(option.turns)}
+            optionLabel={(option) => option.label}
             value={String(intervalTurns)}
             onValueChange={(value) =>
               setIntervalTurns(Number(value) as 1 | 2 | 3 | 6)
             }
-          >
-            <SelectTrigger id="region-settings-interval">
-              <SelectValue>
-                {
-                  WANDERING_INTERVAL_OPTIONS.find(
-                    (option) => option.turns === intervalTurns
-                  )?.label
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {WANDERING_INTERVAL_OPTIONS.map((option) => (
-                <SelectItem key={option.turns} value={String(option.turns)}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </Field>
       ) : null}
 

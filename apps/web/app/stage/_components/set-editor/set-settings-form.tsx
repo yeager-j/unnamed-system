@@ -1,18 +1,12 @@
 "use client"
 
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Field,
   FieldDescription,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { DeleteSetButton } from "@/app/stage/_components/delete-set-button"
@@ -22,8 +16,6 @@ import {
   setConnectorTemplateKey,
 } from "@/domain/template-set/edit"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
-
-const NO_CONNECTOR = "none"
 
 /**
  * The Set settings view — the two set-level knobs plus the delete control. The
@@ -98,35 +90,20 @@ export function SetSettingsForm({
 
       <Field>
         <FieldLabel>Connector template</FieldLabel>
-        <Select
-          value={content.connectorTemplateKey ?? NO_CONNECTOR}
-          onValueChange={(value) =>
-            onApplyContent(
-              setConnectorTemplateKey(
-                content,
-                value === NO_CONNECTOR ? undefined : (value as string)
-              )
-            )
+        <DataSelect
+          className="w-full max-w-sm"
+          placeholder="Missing template"
+          nullOption={{ label: "No connector" }}
+          options={connectorOptions}
+          optionValue={({ key }) => key}
+          optionLabel={({ template }) =>
+            template.name.trim() || "Untitled template"
           }
-        >
-          <SelectTrigger className="w-full max-w-sm">
-            <SelectValue>
-              {content.connectorTemplateKey
-                ? (content.templates[
-                    content.connectorTemplateKey
-                  ]?.name.trim() ?? "Missing template")
-                : "No connector"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_CONNECTOR}>No connector</SelectItem>
-            {connectorOptions.map(({ key, template }) => (
-              <SelectItem key={key} value={key}>
-                {template.name.trim() || "Untitled template"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          value={content.connectorTemplateKey ?? ""}
+          onValueChange={(value) =>
+            onApplyContent(setConnectorTemplateKey(content, value || undefined))
+          }
+        />
         <FieldDescription>
           The always-legal fallback (a hallway, an alley) minted when a socket
           has no legal candidates. Without one, an empty pool becomes a narrated

@@ -8,13 +8,7 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { Badge } from "@workspace/ui/components/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
+import { DataSelect } from "@workspace/ui/components/data-select"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import type { CombatantPosition } from "@/domain/combat/view/detail-view"
@@ -66,38 +60,31 @@ export function CombatantPositionSection({
         </Badge>
 
         {position.targets.length > 0 ? (
-          <Select
+          <DataSelect
+            size="sm"
+            aria-label="Move to zone"
+            className="w-auto gap-1.5"
+            align="start"
+            icon={<ArrowsOutCardinalIcon aria-hidden />}
+            placeholder={placed ? "Move to…" : "Place in…"}
+            options={position.targets}
+            optionValue={(target) => target.id}
+            optionLabel={(target) => (
+              <>
+                {target.name}
+                {target.pageLabel ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {target.pageLabel}
+                  </span>
+                ) : null}
+              </>
+            )}
             value=""
             onValueChange={(value) => {
               if (value) move(value)
             }}
-          >
-            <SelectTrigger
-              size="sm"
-              aria-label="Move to zone"
-              className="w-auto gap-1.5"
-            >
-              <ArrowsOutCardinalIcon aria-hidden />
-              <SelectValue>
-                <span className="text-muted-foreground">
-                  {placed ? "Move to…" : "Place in…"}
-                </span>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent align="start">
-              {position.targets.map((target) => (
-                <SelectItem key={target.id} value={target.id}>
-                  {target.name}
-                  {target.pageLabel ? (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {target.pageLabel}
-                    </span>
-                  ) : null}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         ) : (
           <span className="text-sm text-muted-foreground">
             No adjacent zones

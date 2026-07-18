@@ -6,13 +6,7 @@ import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { MapGeometry } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
+import { DataSelect } from "@workspace/ui/components/data-select"
 
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { SideToggle } from "@/components/combat/controls/side-toggle"
@@ -61,30 +55,21 @@ export function CombatantSetupRow({
       </span>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {zoneList.length > 0 ? (
-          <Select
+          <DataSelect
+            size="sm"
+            aria-label="Zone"
+            className={placed ? undefined : "text-muted-foreground"}
+            align="end"
+            placeholder="Choose zone"
+            options={zoneList}
+            optionValue={(zone) => zone.id}
+            optionLabel={(zone) => zone.name}
             value={zoneId}
             onValueChange={(value) => {
               if (value) onZoneChange(value)
             }}
             disabled={disabled}
-          >
-            <SelectTrigger
-              size="sm"
-              aria-label="Zone"
-              className={placed ? undefined : "text-muted-foreground"}
-            >
-              <SelectValue>
-                {placed ? zones[zoneId]!.name : "Choose zone"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent align="end">
-              {zoneList.map((zone) => (
-                <SelectItem key={zone.id} value={zone.id}>
-                  {zone.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         ) : null}
         <EngagementControl
           value={engagement}

@@ -7,13 +7,7 @@ import { useState } from "react"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
+import { DataSelect } from "@workspace/ui/components/data-select"
 
 import { useEncounterEnemyQueue } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_hooks/use-encounter-enemy-queue"
 import { useCombatConsole } from "@/components/combat/console/use-combat-console"
@@ -191,35 +185,19 @@ export function CombatConsole({
           zoneLayout.hasZones ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Arrive in</span>
-              <Select
-                value={arrivalZoneId}
+              <DataSelect
+                size="sm"
+                className="flex-1"
+                aria-label="Arrival zone"
+                placeholder="Zone"
+                options={zoneLayout.zones}
+                optionValue={(zone) => zone.id}
+                optionLabel={(zone) => zone.name}
+                value={arrivalZoneId ?? ""}
                 onValueChange={(next) =>
-                  setArrivalZoneId(next ?? arrivalZoneId)
+                  setArrivalZoneId(next || arrivalZoneId)
                 }
-              >
-                <SelectTrigger
-                  size="sm"
-                  className="flex-1"
-                  aria-label="Arrival zone"
-                >
-                  <SelectValue>
-                    {(selected) =>
-                      selected
-                        ? (zoneLayout.zones.find(
-                            (zone) => zone.id === String(selected)
-                          )?.name ?? "Zone")
-                        : "Zone"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {zoneLayout.zones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id}>
-                      {zone.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
           ) : undefined
         }

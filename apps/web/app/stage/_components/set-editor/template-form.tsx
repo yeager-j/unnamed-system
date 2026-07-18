@@ -5,6 +5,7 @@ import { useMemo } from "react"
 
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Field,
   FieldDescription,
@@ -12,13 +13,6 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Separator } from "@workspace/ui/components/separator"
 import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
@@ -37,8 +31,6 @@ import {
 import type { SetEditorSelection } from "./selection"
 import type { PortalMapOption } from "./set-editor"
 import { TokenCombobox } from "./token-combobox"
-
-const NO_PORTAL = "none"
 
 /**
  * One zone template's form — "a small form, not a canvas" (PRD). Every change
@@ -261,32 +253,16 @@ export function TemplateForm({
 
       <Field>
         <FieldLabel>Portal</FieldLabel>
-        <Select
-          value={template.portalMapId ?? NO_PORTAL}
-          onValueChange={(value) =>
-            patch({
-              portalMapId: value === NO_PORTAL ? undefined : (value as string),
-            })
-          }
-        >
-          <SelectTrigger className="w-full max-w-sm">
-            <SelectValue>
-              {template.portalMapId
-                ? (mapOptions.find(
-                    (option) => option.id === template.portalMapId
-                  )?.name ?? "Missing map")
-                : "Not a portal"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_PORTAL}>Not a portal</SelectItem>
-            {mapOptions.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <DataSelect
+          className="w-full max-w-sm"
+          placeholder="Missing map"
+          nullOption={{ label: "Not a portal" }}
+          options={mapOptions}
+          optionValue={(option) => option.id}
+          optionLabel={(option) => option.name}
+          value={template.portalMapId ?? ""}
+          onValueChange={(value) => patch({ portalMapId: value || undefined })}
+        />
         <FieldDescription>
           A portal template grafts the targeted static Map when the party enters
           (P6 wires the traversal).
@@ -306,7 +282,6 @@ export function TemplateForm({
         ) : (
           <ul className="flex flex-col gap-1.5">
             {template.contentRolls.map((roll, index) => {
-              const tableExists = content.tables[roll.tableKey] !== undefined
               return (
                 <li
                   key={index}
@@ -337,34 +312,23 @@ export function TemplateForm({
                     className="w-20 tabular-nums"
                   />
                   <span className="text-muted-foreground">% chance on</span>
-                  <Select
-                    value={tableExists ? roll.tableKey : undefined}
+                  <DataSelect
+                    className="w-44"
+                    placeholder="Missing table"
+                    options={tableOptions}
+                    optionValue={({ tableKey }) => tableKey}
+                    optionLabel={({ table }) =>
+                      table!.name.trim() || "Untitled table"
+                    }
+                    value={roll.tableKey}
                     onValueChange={(tableKey) =>
                       patch({
                         contentRolls: template.contentRolls.map((r, i) =>
-                          i === index
-                            ? { ...r, tableKey: tableKey as string }
-                            : r
+                          i === index ? { ...r, tableKey } : r
                         ),
                       })
                     }
-                  >
-                    <SelectTrigger className="w-44">
-                      <SelectValue>
-                        {tableExists
-                          ? content.tables[roll.tableKey]!.name.trim() ||
-                            "Untitled table"
-                          : "Missing table"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tableOptions.map(({ tableKey, table }) => (
-                        <SelectItem key={tableKey} value={tableKey}>
-                          {table!.name.trim() || "Untitled table"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -525,7 +489,13 @@ function SiteSection({
           </Field>
           <Field>
             <FieldLabel>Urgency</FieldLabel>
-            <Select
+            <DataSelect
+              options={[
+                { value: "session", label: "This session" },
+                { value: "eventually", label: "Eventually" },
+              ]}
+              optionValue={(option) => option.value}
+              optionLabel={(option) => option.label}
               value={site.defaultUrgency}
               onValueChange={(defaultUrgency) =>
                 onPatch({
@@ -535,19 +505,7 @@ function SiteSection({
                   },
                 })
               }
-            >
-              <SelectTrigger>
-                <SelectValue>
-                  {site.defaultUrgency === "session"
-                    ? "This session"
-                    : "Eventually"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="session">This session</SelectItem>
-                <SelectItem value="eventually">Eventually</SelectItem>
-              </SelectContent>
-            </Select>
+            />
           </Field>
         </div>
       )}

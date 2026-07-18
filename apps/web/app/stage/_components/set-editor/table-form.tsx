@@ -13,6 +13,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import {
   Field,
   FieldDescription,
@@ -24,13 +25,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { Separator } from "@workspace/ui/components/separator"
 
 import {
@@ -350,20 +344,14 @@ function AddEntryControl({ onAdd }: { onAdd: (entry: TableEntry) => void }) {
         <PlusIcon className="size-3" /> Add entry
       </PopoverTrigger>
       <PopoverContent className="flex w-72 flex-col gap-3" align="start">
-        <Select
+        <DataSelect
+          className="w-full"
+          options={Object.entries(ENTRY_KIND_LABELS)}
+          optionValue={([key]) => key}
+          optionLabel={([, label]) => label}
           value={kind}
           onValueChange={(next) => setKind(next as EntryKind)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue>{ENTRY_KIND_LABELS[kind]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="enemy">Enemy</SelectItem>
-            <SelectItem value="item">Item</SelectItem>
-            <SelectItem value="currency">Currency</SelectItem>
-            <SelectItem value="text">Free text</SelectItem>
-          </SelectContent>
-        </Select>
+        />
 
         {kind === "enemy" && (
           <div className="flex items-center gap-2">

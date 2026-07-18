@@ -12,15 +12,7 @@ import type {
   CombatAdvantage,
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
+import { DataSelect } from "@workspace/ui/components/data-select"
 import { Separator } from "@workspace/ui/components/separator"
 import {
   ToggleGroup,
@@ -263,42 +255,25 @@ function ZoneSelect({
   prefix?: string
   onChange: (zoneId: string) => void
 }) {
-  const zoneNameById = new Map(zones.map((zone) => [zone.id, zone.name]))
-  // Zones grouped by page (UNN-586); headings only when the map has >1 page.
-  const pageIds = [...new Set(zones.map((zone) => zone.pageId))]
-  const showPageLabels = pageIds.length > 1
-
   return (
     <div className="flex items-center gap-2">
       {prefix ? (
         <span className="text-xs text-muted-foreground">{prefix}</span>
       ) : null}
-      <Select value={value} onValueChange={(next) => onChange(next ?? value)}>
-        <SelectTrigger size="sm" className="flex-1" aria-label={label}>
-          <SelectValue>
-            {(selected) =>
-              selected ? (zoneNameById.get(String(selected)) ?? "Zone") : "Zone"
-            }
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {pageIds.map((pageId) => {
-            const pageZones = zones.filter((zone) => zone.pageId === pageId)
-            return (
-              <SelectGroup key={pageId}>
-                {showPageLabels && (
-                  <SelectLabel>{pageZones[0]?.pageName}</SelectLabel>
-                )}
-                {pageZones.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )
-          })}
-        </SelectContent>
-      </Select>
+      {/* Zones grouped by page (UNN-586); DataSelect shows headings only when
+          the map has >1 page. */}
+      <DataSelect
+        size="sm"
+        className="flex-1"
+        aria-label={label}
+        placeholder="Zone"
+        options={zones}
+        optionValue={(zone) => zone.id}
+        optionLabel={(zone) => zone.name}
+        optionGroup={(zone) => ({ key: zone.pageId, label: zone.pageName })}
+        value={value}
+        onValueChange={(next) => onChange(next || value)}
+      />
     </div>
   )
 }
