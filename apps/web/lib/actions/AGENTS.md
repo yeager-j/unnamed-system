@@ -51,6 +51,20 @@ concurrency token, and envelope:
 > combat's durable arm (the encounter door forwards here) commit through — one
 > write architecture, two doors.
 
+> **The `entity/replica/` door (UNN-645)** is the replica-protocol sibling of the
+> entity door: `pushEntityMutationAction` delivers one `entity.write` envelope
+> through `createEntityPushProcessor` (`@workspace/replica`'s authority processor
+> over one Drizzle transaction: `replicaClient` dedup row locked → duplicate/gap
+> handled → domain write + recorded outcome commit atomically), and
+> `loadEntityAcceptedAction` serves the personalized accepted snapshot as ONE
+> joined statement (value/watermark/cursor, a single consistent observation).
+> Two sanctioned deviations from the table above, both load-bearing: **auth
+> refusals are typed rejections, not `forbidden()` throws** (a throw aborts the
+> processor's transaction without advancing the client's watermark and wedges
+> the client into gap refusals), and **there is no client `expectedVersion`** —
+> the entity row lock inside the transaction is the concurrency strategy; the
+> class version still bumps as the snapshot cursor and ping payload.
+
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` door (the descriptor → Writer →
 > Store pipeline above); there is no `requireOwner` / `characterMutationBase` /

@@ -1,3 +1,5 @@
+import { forbidden } from "next/navigation"
+
 import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
@@ -7,10 +9,7 @@ import {
   type EntityWriteRefusal,
 } from "@/domain/entity/commit/writers"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
-import {
-  requireEntityOwner,
-  requireOwnerOrCampaignDMForEntity,
-} from "@/lib/auth/campaign-access"
+import { authorizeEntityWriteForClass } from "@/lib/auth/campaign-access"
 import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 
 import {
@@ -58,10 +57,12 @@ export async function commitEntityWrite(
   expectedVersion: number
 ): Promise<Result<EntityCommit, EntityWriteError>> {
   const { durableClass } = ENTITY_WRITERS[write.component]
-  const pc =
-    durableClass === "vitals"
-      ? await requireOwnerOrCampaignDMForEntity(entityId)
-      : await requireEntityOwner(entityId)
+  // The class → posture policy is decided once in `authorizeEntityWriteForClass`
+  // (shared with the replica push door, which records the refusal instead);
+  // this classic door keeps its throwing 403 contract.
+  const authorized = await authorizeEntityWriteForClass(entityId, durableClass)
+  if (!authorized.ok) forbidden()
+  const pc = authorized.value
 
   const loaded = loadEntityRow(pc.entity)
   if (!loaded.ok) return err("entity-load-failed")
