@@ -9,15 +9,15 @@ import {
 } from "@workspace/replica/server"
 import { err, ok, type Result } from "@workspace/result"
 
-import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import {
   applyEntityWrite,
   ENTITY_WRITERS,
 } from "@/domain/entity/commit/writers"
 import {
+  entityColumnPatch,
   entityReplicaMutations,
-  type EntityComponents,
   type EntityReplicaInvocation,
+  type EntityReplicaState,
 } from "@/domain/entity/replica/mutations"
 import type { EntityReplicaRejection } from "@/domain/entity/replica/rejection"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
@@ -27,7 +27,11 @@ import { entity } from "@/lib/db/schema/entity"
 import { replicaClient } from "@/lib/db/schema/replica-client"
 import type { VersionClass } from "@/lib/db/version-classes"
 
-import { entityVersionIncrement, VERSION_COLUMNS } from "../version-guard"
+import {
+  entityVersionIncrement,
+  VERSION_COLUMNS,
+  type EntityRowPatch,
+} from "../version-guard"
 
 /**
  * Dedup rows idle past this window are swept opportunistically inside the
@@ -57,9 +61,9 @@ export interface EntityPushContext {
  *  and the written component (its list-revalidation discriminant). */
 export interface EntityPushCommit {
   readonly shortId: string
-  readonly component: EntityWrite["component"]
   readonly durableClass: VersionClass
   readonly version: number
+  readonly revalidateList: boolean
 }
 
 export type EntityPushProcessor = MutationProcessor<
@@ -69,7 +73,8 @@ export type EntityPushProcessor = MutationProcessor<
 >
 
 /**
- * The production authority for `entity.write` (UNN-645; design §Authority-side
+ * The production authority for the entity replica mutations (UNN-645/648;
+ * design §Authority-side
  * processing): `createMutationProcessor` over one Drizzle transaction per
  * delivery. Inside the transaction it locks the client's dedup row (insert-
  * if-absent, then `FOR UPDATE` — the lock exists even for a first delivery),
@@ -95,7 +100,7 @@ export function createEntityPushProcessor(
   entityId: string
 ): EntityPushProcessor {
   return createMutationProcessor<
-    EntityComponents,
+    EntityReplicaState,
     EntityReplicaInvocation,
     WriteExecutor,
     EntityPushContext,
@@ -105,7 +110,7 @@ export function createEntityPushProcessor(
     mutations: entityReplicaMutations,
     transact: (work) => db.transaction(work),
     dedup: createDedupAdapter(entityId),
-    execute: executeEntityWrite,
+    execute: executeEntityMutation,
     onEvent: logProcessorEvent,
   })
 }
@@ -180,15 +185,12 @@ function createDedupAdapter(
   }
 }
 
-async function executeEntityWrite(
+async function executeEntityMutation(
   tx: WriteExecutor,
   invocation: EntityReplicaInvocation,
   context: EntityPushContext
 ): Promise<Result<void, EntityReplicaRejection>> {
   if (!context.authorization.ok) return context.authorization
-
-  const write = invocation.args
-  const { durableClass } = ENTITY_WRITERS[write.component]
 
   const [row] = await tx
     .select()
@@ -197,15 +199,38 @@ async function executeEntityWrite(
     .for("update")
   if (!row) return err("entity-not-found")
 
-  const loaded = loadEntityRow(row)
-  if (!loaded.ok) return err("entity-load-failed")
+  let patch: EntityRowPatch
+  let durableClass: VersionClass
+  let revalidateList: boolean
 
-  const predicted = applyEntityWrite(loaded.value.components, write)
-  if (!predicted.ok) return predicted
+  switch (invocation.name) {
+    case "entity.write": {
+      const write = invocation.args
+      durableClass = ENTITY_WRITERS[write.component].durableClass
+
+      const loaded = loadEntityRow(row)
+      if (!loaded.ok) return err("entity-load-failed")
+
+      const predicted = applyEntityWrite(loaded.value.components, write)
+      if (!predicted.ok) return predicted
+
+      patch = predicted.value
+      revalidateList =
+        write.component === "level" || write.component === "archetypes"
+      break
+    }
+    case "entity.setColumn":
+      durableClass = "identity"
+      patch = entityColumnPatch(invocation.args)
+      revalidateList =
+        invocation.args.column === "name" ||
+        invocation.args.column === "portraitUrl"
+      break
+  }
 
   const [updated] = await tx
     .update(entity)
-    .set({ ...predicted.value, ...entityVersionIncrement(durableClass) })
+    .set({ ...patch, ...entityVersionIncrement(durableClass) })
     .where(eq(entity.id, context.entityId))
     .returning({
       version: VERSION_COLUMNS[durableClass],
@@ -219,9 +244,9 @@ async function executeEntityWrite(
 
   context.committed = {
     shortId: updated.shortId,
-    component: write.component,
     durableClass,
     version: updated.version,
+    revalidateList,
   }
   return ok(undefined)
 }

@@ -30,8 +30,10 @@ import { bumpEntityVersionGuarded } from "./version-guard"
  * the two-statement finalize keeps the "sanctioned one-shot" spirit across the
  * substrate/subtype split.
  *
- * Success returns the `shortId` plus the bumped identity token; the client
- * queue absorbs the token before routing to My Characters (`/`).
+ * `expectedVersion` is the command's semantic precondition (UNN-648),
+ * captured only after this tab's replayable replica writes settle. The
+ * action runs once: a later `stale` is a genuine external conflict and is
+ * never silently retried against a different draft.
  */
 export async function finalizeEntityAction(
   input: FinalizeEntityInput

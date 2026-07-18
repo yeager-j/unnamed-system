@@ -33,9 +33,11 @@ explicit-`undefined` deletion, the exact edge the negative control proves.
 - **Engine-component state** (vitals, rest, level, narrative, …) rides the
   descriptor router here: server reads the row, applies the pure op, merges —
   per-field discipline is structural (UNN-226 unrepresentable).
-- **App-owned columns** (name, portrait, pronouns, notes, builderStep, status,
-  campaignId) stay classic per-field Server Actions composing
-  `bumpEntityVersionGuarded` with their declared class.
+- **App-owned columns** (name, portrait, pronouns, notes) use the owner entity
+  replica's `entity.setColumn` desired-value mutation. Builder step is an
+  unversioned subtype LWW action; finalize and Blob upload are single-attempt,
+  identity-preconditioned lifecycle actions. Classic column actions remain only
+  for expand/rollback compatibility until UNN-649.
 
 Both are the same D35 storage projection surfacing at the write layer; do not
 route one through the other.
@@ -58,12 +60,7 @@ the console pushes the patch into its session-frame reducer and reconciles via
 the pc-ping refetch. That **container** split stays deliberate (the reconcile
 channels genuinely differ); converge only if one channel wins.
 
-The **stale-policy** split ended with UNN-567/568: both doors now run the same
-`lib/sync/write-queue.ts` protocol core — serialized per-token spine + one-shot
-stale-retry through `getEntityClassVersionAction` — so a cross-writer stale on
-the one genuinely multi-writer row (player on sheet + DM on console) self-heals
-from either side. A stale that survives the retry is a real conflict: the
-entity door toasts + `router.refresh()`; the console toasts and lets the
-optimistic frame revert. The debounced auto-save species runs the exported
-single-pass `runVersionedWrite` (never `enqueue` — it is already chained on
-the class spine; enqueueing from inside a chained step would wait on itself).
+The owner entity door now coordinates through the predicted replica: ordered
+delivery, rebase, and typed conflicts replace its token/queue stale policy. The
+combat console still uses `lib/sync/write-queue.ts` until the Phase-4 binding;
+that shared module must not be deleted during entity contraction.

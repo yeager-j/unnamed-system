@@ -652,14 +652,16 @@ correct lifetime.
 
 ## Showtime binding
 
-The first production binding uses one `entity.write` mutation whose arguments contain
-Showtime's existing `EntityWrite`. It preserves the current domain vocabulary rather
-than creating one transport method per Writer arm.
+The first production binding uses `entity.write` for Showtime's existing `EntityWrite`
+vocabulary and, as classified in UNN-648, one `entity.setColumn` desired-value mutation
+for the app-owned name/pronouns/notes/portrait-removal species. The second name records
+a real semantic distinction—component Writer intent versus app-column intent—without
+creating one transport method per Writer or storage field.
 
 ```ts
 const entityReplica = createReplica({
   initial: acceptedEntity,
-  mutations: defineMutations([writeEntity]),
+  mutations: defineMutations([writeEntity, setEntityColumn]),
   transport: createShowtimeEntityTransport({ entityId }),
 })
 
@@ -667,7 +669,10 @@ const receipt = entityReplica.mutate(writeEntity({ entityId, write }))
 ```
 
 The call site does not know about `VersionClass`, expected row versions, queue lanes,
-mutation identity, stale retry, Ably, or route refresh.
+mutation identity, stale retry, Ably, or route refresh. Finalize and portrait upload are
+deliberately outside the mutation registry: the application waits for current replica
+writes, captures an identity-version precondition, and invokes each lifecycle action
+once. Builder step is an unversioned subtype LWW action.
 
 ### Extraction map
 
@@ -698,7 +703,10 @@ place through the decisions it hides.
 ### Replica roots
 
 A replica root must contain every fact needed to project one mutation deterministically.
-The initial Showtime root is the loaded entity used by `applyEntityWrite`.
+The Showtime owner root contains the loaded components used by `applyEntityWrite` plus
+the four owner-visible app columns. Name and portrait are synchronized with their lifted
+`identity`/`presentation` components by the column mutation and by the snapshot assembly
+seam; pronouns and notes remain profile-only columns.
 
 Combat presents two different persistence homes: durable PC state and inline encounter
 state. The app must decide that distinction once and return the appropriate replica.
@@ -800,12 +808,15 @@ freeze the previous implementation shape.
 ### Phase 3 — Showtime entity coordination
 
 - Register `entity.write` around the existing `EntityWrite` schema and Writer reducer.
+- Register `entity.setColumn` for replayable owner-column desired-value intent and widen
+  the accepted root to include those columns.
 - Add the authority dedup schema and transaction adapter.
 - Extend accepted entity snapshots with the current replica's watermark and causal
   cursor.
 - Bind current Server Actions and accepted-state delivery behind the transport port.
 - Move remaining replayable entity writes onto the replica.
-- Classify current `enqueueOnce` callers and encode their preconditions in intent.
+- Keep finalize and portrait upload single-attempt with an identity-version precondition
+  captured after current replica writes settle; keep builder step as subtype LWW.
 - Remove superseded per-class queues, token refs, stale retry, and implementation tests.
 - Retain gated lifecycle and destructive UI behavior even when their transport uses the
   replica.

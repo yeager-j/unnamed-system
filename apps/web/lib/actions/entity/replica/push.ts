@@ -2,8 +2,8 @@
 
 import { err, ok, type Result } from "@workspace/result"
 
-import { entityWriteSchema } from "@/domain/entity/commit/write.schema"
 import { ENTITY_WRITERS } from "@/domain/entity/commit/writers"
+import { entityReplicaMutations } from "@/domain/entity/replica/mutations"
 import type { EntityReplicaRejection } from "@/domain/entity/replica/rejection"
 import { authorizeEntityWriteForClass } from "@/lib/auth/campaign-access"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
@@ -19,8 +19,8 @@ import {
 } from "./wire.schema"
 
 /**
- * The replica push door (UNN-645): one delivery of one `entity.write`
- * envelope. Parse the transport shape, compute the viewer's authorization
+ * The replica push door (UNN-645/648): one delivery of a registered entity
+ * mutation envelope. Parse the transport shape, compute the viewer's authorization
  * verdict outside the transaction, then hand the envelope to the processor —
  * which owns ordering, dedup, the recorded outcome, and the atomic domain
  * write. Unlike every other action in `lib/actions`, an auth refusal here is
@@ -42,18 +42,16 @@ export async function pushEntityMutationAction(
 
   const context: EntityPushContext = {
     entityId,
-    authorization: await authorizeEnvelope(entityId, envelope.invocation.args),
+    authorization: await authorizeEnvelope(entityId, envelope.invocation),
   }
   const processor = createEntityPushProcessor(entityId)
   const result = await processor(envelope, context)
 
   if (context.committed) {
-    const { shortId, component, durableClass, version } = context.committed
+    const { shortId, durableClass, version, revalidateList } = context.committed
     publishCharacterPing(shortId, "entity", { [durableClass]: version })
     revalidateEntity({ shortId })
-    if (component === "level" || component === "archetypes") {
-      revalidateCharacterList()
-    }
+    if (revalidateList) revalidateCharacterList()
   }
 
   return result.ok ? ok(undefined) : err(result.error)
@@ -68,16 +66,21 @@ export async function pushEntityMutationAction(
  */
 async function authorizeEnvelope(
   entityId: string,
-  args: unknown
+  invocation: { readonly name: string; readonly args: unknown }
 ): Promise<Result<LoadedPlayerCharacter, EntityReplicaRejection>> {
-  const write = entityWriteSchema.safeParse(args)
-  if (!write.success) return err("forbidden")
+  const decoded = entityReplicaMutations.decode(invocation)
+  if (!decoded.ok) return err("forbidden")
 
-  const { durableClass } = ENTITY_WRITERS[write.data.component]
+  if (decoded.value.name === "entity.setColumn") {
+    return authorizeEntityWriteForClass(entityId, "identity")
+  }
+
+  const write = decoded.value.args
+  const { durableClass } = ENTITY_WRITERS[write.component]
   const authorized = await authorizeEntityWriteForClass(entityId, durableClass)
   if (!authorized.ok) return authorized
 
-  const gated = await checkArchetypeUnlockGates(entityId, write.data)
+  const gated = await checkArchetypeUnlockGates(entityId, write)
   if (!gated.ok) return err("forbidden")
 
   return authorized

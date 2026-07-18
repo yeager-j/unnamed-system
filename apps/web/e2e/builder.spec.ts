@@ -619,10 +619,25 @@ test.describe("movement 4 — persona", () => {
 
     await page.goto(`/characters/${shortId}/builder/persona`)
 
+    let delayedSave = false
+    await page.route("**/*", async (route) => {
+      const request = route.request()
+      if (
+        !delayedSave &&
+        request.method() === "POST" &&
+        request.postData()?.includes("entity.setColumn")
+      ) {
+        delayedSave = true
+        await new Promise((resolve) => setTimeout(resolve, 400))
+      }
+      await route.continue()
+    })
+
     const nameInput = page.getByRole("textbox", { name: "Character name" })
     await nameInput.fill("Garron Vey")
-    // Blur and click immediately: Finalize must queue behind the identity
-    // auto-save rather than racing it with the pre-blur version token.
+    // Blur and click immediately while the column mutation is forced in
+    // flight: Finalize must settle replica intent before it captures its
+    // single-attempt identity precondition.
     await nameInput.blur()
     await page.getByRole("button", { name: "Finalize character" }).click()
 
@@ -630,6 +645,12 @@ test.describe("movement 4 — persona", () => {
     // and the new card renders from the repointed entity list query.
     await expect(page).toHaveURL(/\/(\?.*)?$/)
     await expect(page.getByText("Garron Vey")).toBeVisible()
+    expect(delayedSave).toBe(true)
+    expect(
+      await page
+        .getByText("This draft is out of sync. Refresh and try again.")
+        .count()
+    ).toBe(0)
 
     const row = await readEntityRow(shortId)
     expect(row.status).toBe("finalized")

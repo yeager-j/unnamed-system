@@ -5,35 +5,38 @@ import { toast } from "sonner"
 
 import {
   createReplica,
+  type MutationError,
   type MutationReceipt,
   type Replica,
   type ReplicaSnapshot,
 } from "@workspace/replica"
-import { err, type Result } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { loadEntityAcceptedAction } from "@/lib/actions/entity/replica/snapshot"
 import { createEntityReplicaSource } from "@/lib/sync/entity-replica-source"
 
-import type { EntityWrite } from "../commit/write.schema"
 import { mintEntityClientIdentity } from "./identity"
 import {
   entityReplicaMutations,
-  writeEntity,
-  type EntityComponents,
+  type EntityReplicaInvocation,
+  type EntityReplicaState,
 } from "./mutations"
 import type { EntityReplicaRejection } from "./rejection"
 import { createEntityReplicaTransport } from "./transport"
 
 export type EntityReplicaSnapshot = ReplicaSnapshot<
-  EntityComponents,
+  EntityReplicaState,
   EntityReplicaRejection
 >
 
-export type EntityWriteReceipt = MutationReceipt<EntityReplicaRejection, void>
+export type EntityMutationReceipt = MutationReceipt<
+  EntityReplicaRejection,
+  void
+>
 
 type EntityReplica = Replica<
-  EntityComponents,
-  ReturnType<typeof writeEntity>,
+  EntityReplicaState,
+  EntityReplicaInvocation,
   EntityReplicaRejection,
   void
 >
@@ -63,8 +66,8 @@ function createRealtimeBridge(): RealtimeBridge {
 }
 
 interface BufferedMutation {
-  readonly write: EntityWrite
-  readonly resolve: (receipt: EntityWriteReceipt) => void
+  readonly invocation: EntityReplicaInvocation
+  readonly resolve: (receipt: EntityMutationReceipt) => void
 }
 
 export interface UseEntityReplicaArgs {
@@ -81,7 +84,12 @@ export interface UseEntityReplicaReturn {
   /** Predicts + delivers one entity write. Mutations dispatched before the
    *  bootstrap resolves are buffered in order and replayed through the
    *  replica — the receipt settles once the real one exists. */
-  readonly mutate: (write: EntityWrite) => EntityWriteReceipt
+  readonly mutate: (
+    invocation: EntityReplicaInvocation
+  ) => EntityMutationReceipt
+  /** Waits for current replica writes to reach trusted remote outcomes before
+   *  a lifecycle action captures its semantic precondition. */
+  readonly settleMutations: () => Promise<Result<void, "pending-write-failed">>
   /** Forward the provider's realtime channel events into the transport. */
   readonly notifyPing: () => void
   readonly notifyReconnect: () => void
@@ -113,6 +121,10 @@ export function useEntityReplica({
   const [bridge] = useState(createRealtimeBridge)
   const replicaRef = useRef<EntityReplica | null>(null)
   const bufferRef = useRef<BufferedMutation[]>([])
+  const unsettledRef = useRef(
+    new Set<Promise<Result<void, MutationError<EntityReplicaRejection>>>>()
+  )
+  const settlementFailedRef = useRef(false)
 
   useEffect(() => {
     if (!enabled) return
@@ -123,7 +135,7 @@ export function useEntityReplica({
       const buffered = bufferRef.current
       bufferRef.current = []
       for (const entry of buffered)
-        entry.resolve(target.mutate(writeEntity(entry.write)))
+        entry.resolve(target.mutate(entry.invocation))
     }
 
     const identity = mintEntityClientIdentity(entityId)
@@ -193,36 +205,65 @@ export function useEntityReplica({
     () => null
   )
 
-  function mutate(write: EntityWrite): EntityWriteReceipt {
+  function trackReceipt(receipt: EntityMutationReceipt): EntityMutationReceipt {
+    const remote = receipt.remote
+    unsettledRef.current.add(remote)
+    void remote.then(
+      (result) => {
+        if (!result.ok) settlementFailedRef.current = true
+        unsettledRef.current.delete(remote)
+      },
+      () => {
+        settlementFailedRef.current = true
+        unsettledRef.current.delete(remote)
+      }
+    )
+    return receipt
+  }
+
+  function mutate(invocation: EntityReplicaInvocation): EntityMutationReceipt {
     const current = replicaRef.current
-    if (current) return current.mutate(writeEntity(write))
+    if (current) return trackReceipt(current.mutate(invocation))
     if (!enabled) {
       const refused: Result<never, { kind: "disposed" }> = err({
         kind: "disposed",
       })
-      return {
+      return trackReceipt({
         id: null,
         local: Promise.resolve(refused),
         remote: Promise.resolve(refused),
-      }
+      })
     }
     // Bootstrap window: hold the intent, replay in order once the replica
     // exists. The proxied receipt settles from the real one.
-    let resolveReceipt!: (receipt: EntityWriteReceipt) => void
-    const receiptPromise = new Promise<EntityWriteReceipt>((resolve) => {
+    let resolveReceipt!: (receipt: EntityMutationReceipt) => void
+    const receiptPromise = new Promise<EntityMutationReceipt>((resolve) => {
       resolveReceipt = resolve
     })
-    bufferRef.current.push({ write, resolve: resolveReceipt })
-    return {
+    bufferRef.current.push({ invocation, resolve: resolveReceipt })
+    return trackReceipt({
       id: null,
       local: receiptPromise.then((receipt) => receipt.local),
       remote: receiptPromise.then((receipt) => receipt.remote),
+    })
+  }
+
+  async function settleMutations(): Promise<
+    Result<void, "pending-write-failed">
+  > {
+    while (unsettledRef.current.size > 0) {
+      await Promise.allSettled([...unsettledRef.current])
     }
+    const failed = settlementFailedRef.current
+    settlementFailedRef.current = false
+    if (failed) return err("pending-write-failed")
+    return ok(undefined)
   }
 
   return {
     snapshot,
     mutate,
+    settleMutations,
     notifyPing: () => bridge.notifyPing(),
     notifyReconnect: () => bridge.notifyReconnect(),
   }

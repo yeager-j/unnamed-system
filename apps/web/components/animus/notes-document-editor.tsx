@@ -10,14 +10,13 @@ import {
   useEntityColumnSave,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { updateEntityNotesAction } from "@/lib/actions/entity/columns"
 
 /**
  * The Notes document surface: the shared {@link DocumentEditor} shell bound to
  * the **column door**, not the entity descriptor router. Notes lives on the
  * `profile.notes` app column (table-facing, visible to every viewer — unlike
- * the narrative Secrets), so it saves through {@link useEntityColumnSave} +
- * `updateEntityNotesAction` rather than a `narrative` descriptor. That one
+ * the narrative Secrets), so it saves through {@link useEntityColumnSave}'s
+ * replayable `entity.setColumn` intent rather than a `narrative` descriptor. That one
  * storage difference is the reason the writer pane forks Notes to this editor
  * instead of {@link AnimusDocumentEditor}.
  *
@@ -37,20 +36,7 @@ export function NotesDocumentEditor() {
     serverValue: profile.notes ?? "",
     isEqual: (a, b) => a.trim() === b.trim(),
     onError: () => toast.error("Couldn't save your Notes. Try again."),
-    save: async (next, { entityId, expectedVersion }) => {
-      const result = await updateEntityNotesAction({
-        entityId,
-        notes: next,
-        expectedVersion,
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next, version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => ({ column: "notes", value: next }),
   })
 
   return (

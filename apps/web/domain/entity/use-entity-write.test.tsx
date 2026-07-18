@@ -4,17 +4,19 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
-import { err, ok } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { pushEntityMutationAction } from "@/lib/actions/entity/replica/push"
 import { loadEntityAcceptedAction } from "@/lib/actions/entity/replica/snapshot"
+import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 
 import {
   EntityWriteProvider,
-  useEntityIdentityQueue,
+  useEntityColumnWrite,
+  useEntityIdentityAction,
   useEntityWrite,
   useLoadedCharacter,
 } from "./use-entity-write"
@@ -59,6 +61,7 @@ vi.mock("next/navigation", () => ({
 
 const pushAction = vi.mocked(pushEntityMutationAction)
 const acceptedAction = vi.mocked(loadEntityAcceptedAction)
+const versionAction = vi.mocked(getEntityClassVersionAction)
 const { toast } = await import("sonner")
 
 const baseComponents = { vitals: { base: 10, damage: 0 } }
@@ -91,7 +94,15 @@ const loaded: LoadedCharacter = {
 /** The authority's accepted tuple as the snapshot action would serve it. */
 function accepted(components: Record<string, unknown>, through = 0) {
   return ok({
-    value: components,
+    value: {
+      components,
+      columns: {
+        name: profile.name,
+        portraitUrl: profile.portraitUrl,
+        pronouns: profile.pronouns,
+        notes: profile.notes,
+      },
+    },
     through,
     cursor: { identity: 1, vitals: 1, inventory: 1, progression: 1 },
   })
@@ -109,6 +120,7 @@ const flush = () => act(async () => {})
 beforeEach(() => {
   pushAction.mockReset().mockResolvedValue(ok(undefined))
   acceptedAction.mockReset().mockResolvedValue(accepted(baseComponents))
+  versionAction.mockReset().mockResolvedValue(ok({ version: 7 }))
   routerRefresh.mockReset()
   vi.mocked(toast.error).mockReset()
   capturedChannel.current = null
@@ -244,6 +256,35 @@ describe("useEntityWrite — replica dispatch (UNN-645)", () => {
   })
 })
 
+describe("useEntityColumnWrite — replayable column intent (UNN-648)", () => {
+  it("projects name into the profile and lifted identity component", async () => {
+    const { result } = renderHook(
+      () => ({ write: useEntityColumnWrite(), frame: useLoadedCharacter() }),
+      { wrapper }
+    )
+    await flush()
+
+    await act(async () => {
+      result.current.write.dispatch({ column: "name", value: "  New Name  " })
+    })
+    await flush()
+
+    expect(result.current.frame.profile.name).toBe("New Name")
+    expect(result.current.frame.entity.components.identity).toEqual({
+      name: "New Name",
+    })
+    const invocation = (
+      pushAction.mock.calls[0]![0] as {
+        envelope: { invocation: { name: string; args: unknown } }
+      }
+    ).envelope.invocation
+    expect(invocation).toEqual({
+      name: "entity.setColumn",
+      args: { column: "name", value: "New Name" },
+    })
+  })
+})
+
 describe("EntityWriteProvider — unmount saves outlive provider cleanup (Codex P1, PR #386)", () => {
   it("delivers a mutate fired after cleanup in the same commit — teardown yields a macrotask", async () => {
     const { result, unmount } = renderHook(() => useEntityWrite(), { wrapper })
@@ -358,35 +399,117 @@ describe("EntityWriteProvider — read-only mounts", () => {
   })
 })
 
-describe("useEntityIdentityQueue — the classic lifecycle path (unchanged this increment)", () => {
-  it("keeps the identity queue serialized with token accounting", async () => {
-    const first = vi.fn(
-      (
-        expectedVersion: number
-      ): Promise<
-        import("@workspace/result").Result<{ version: number }, never>
-      > => Promise.resolve(ok({ version: expectedVersion + 1 }))
+describe("useEntityIdentityAction — preconditioned lifecycle seam (UNN-648)", () => {
+  it("waits for replica writes, captures a fresh version, and executes once", async () => {
+    let releasePush!: () => void
+    pushAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releasePush = () => resolve(ok(undefined))
+        })
     )
-    const second = vi.fn(
-      (
-        expectedVersion: number
-      ): Promise<
-        import("@workspace/result").Result<{ version: number }, never>
-      > => Promise.resolve(ok({ version: expectedVersion + 1 }))
+    const action = vi.fn((expectedVersion: number) =>
+      Promise.resolve(ok({ version: expectedVersion + 1 }))
     )
-
-    const { result } = renderHook(() => useEntityIdentityQueue(), { wrapper })
+    const { result } = renderHook(
+      () => ({ write: useEntityWrite(), lifecycle: useEntityIdentityAction() }),
+      { wrapper }
+    )
     await flush()
 
-    await act(async () => {
-      await Promise.all([
-        result.current.enqueueOnce(first),
-        result.current.enqueueOnce(second),
-      ])
-    })
+    result.current.write.dispatch(damage)
+    const lifecycleResult = result.current.lifecycle.runOnce(action)
+    await flush()
+    expect(action).not.toHaveBeenCalled()
 
-    // Serialized: the second read the token the first bumped.
-    expect(first).toHaveBeenCalledWith(1)
-    expect(second).toHaveBeenCalledWith(2)
+    releasePush()
+    await expect(lifecycleResult).resolves.toEqual(ok({ version: 8 }))
+    expect(versionAction).toHaveBeenCalledWith({
+      entityId: "char-1",
+      versionClass: "identity",
+    })
+    expect(action).toHaveBeenCalledTimes(1)
+    expect(action).toHaveBeenCalledWith(7)
+  })
+
+  it("does not execute when a pending replica write failed", async () => {
+    pushAction.mockResolvedValueOnce(
+      err({ kind: "rejected", error: "capability-missing" })
+    )
+    const action = vi.fn(() => Promise.resolve(ok(undefined)))
+    const { result } = renderHook(
+      () => ({ write: useEntityWrite(), lifecycle: useEntityIdentityAction() }),
+      { wrapper }
+    )
+    await flush()
+
+    result.current.write.dispatch(damage)
+    await flush()
+    await expect(result.current.lifecycle.runOnce(action)).resolves.toEqual(
+      err("identity-precondition-unavailable")
+    )
+    expect(versionAction).not.toHaveBeenCalled()
+    expect(action).not.toHaveBeenCalled()
+  })
+
+  it("does not poison a later lifecycle attempt after reporting the failure", async () => {
+    pushAction.mockResolvedValueOnce(
+      err({ kind: "rejected", error: "capability-missing" })
+    )
+    const action = vi.fn(() => Promise.resolve(ok(undefined)))
+    const { result } = renderHook(
+      () => ({ write: useEntityWrite(), lifecycle: useEntityIdentityAction() }),
+      { wrapper }
+    )
+    await flush()
+
+    result.current.write.dispatch(damage)
+    await flush()
+    await expect(result.current.lifecycle.runOnce(action)).resolves.toEqual(
+      err("identity-precondition-unavailable")
+    )
+    await expect(result.current.lifecycle.runOnce(action)).resolves.toEqual(
+      ok(undefined)
+    )
+
+    expect(versionAction).toHaveBeenCalledTimes(1)
+    expect(action).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not execute when the identity precondition cannot be captured", async () => {
+    versionAction.mockResolvedValueOnce(err("invalid-input"))
+    const action = vi.fn(() => Promise.resolve(ok(undefined)))
+    const { result } = renderHook(() => useEntityIdentityAction(), { wrapper })
+    await flush()
+
+    await expect(result.current.runOnce(action)).resolves.toEqual(
+      err("identity-precondition-unavailable")
+    )
+    expect(action).not.toHaveBeenCalled()
+  })
+
+  it("serializes lifecycle actions without retrying either one", async () => {
+    let releaseFirst!: () => void
+    const first = vi.fn(
+      () =>
+        new Promise<Result<void, never>>((resolve) => {
+          releaseFirst = () => resolve(ok(undefined))
+        })
+    )
+    const second = vi.fn(() => Promise.resolve(ok(undefined)))
+    const { result } = renderHook(() => useEntityIdentityAction(), { wrapper })
+    await flush()
+
+    const firstResult = result.current.runOnce(first)
+    const secondResult = result.current.runOnce(second)
+    await flush()
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(second).not.toHaveBeenCalled()
+
+    releaseFirst()
+    await expect(firstResult).resolves.toEqual(ok(undefined))
+    await expect(secondResult).resolves.toEqual(ok(undefined))
+    expect(second).toHaveBeenCalledTimes(1)
+    expect(versionAction).toHaveBeenCalledTimes(2)
   })
 })

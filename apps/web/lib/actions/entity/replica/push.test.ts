@@ -42,13 +42,13 @@ vi.mock("../revalidate", () => ({
 
 const pc = { userId: "owner", entity: { id: "e1" } }
 
-const envelopeFor = (args: unknown, mutationId = 1) => ({
+const envelopeFor = (args: unknown, mutationId = 1, name = "entity.write") => ({
   entityId: "e1",
   envelope: {
     clientGroupId: "entity-e1",
     clientId: "tab-1",
     mutationId,
-    invocation: { name: "entity.write", args },
+    invocation: { name, args },
   },
 })
 
@@ -90,9 +90,9 @@ describe("pushEntityMutationAction", () => {
       (_envelope: unknown, context: EntityPushContext) => {
         context.committed = {
           shortId: "s1",
-          component: "vitals",
           durableClass: "vitals",
           version: 9,
+          revalidateList: false,
         }
         return Promise.resolve(ok(undefined))
       }
@@ -113,9 +113,9 @@ describe("pushEntityMutationAction", () => {
       (_envelope: unknown, context: EntityPushContext) => {
         context.committed = {
           shortId: "s1",
-          component: "archetypes",
           durableClass: "progression",
           version: 2,
+          revalidateList: true,
         }
         return Promise.resolve(ok(undefined))
       }
@@ -165,5 +165,38 @@ describe("pushEntityMutationAction", () => {
     expect(authorizeEntityWriteForClass).not.toHaveBeenCalled()
     const [, context] = processor.mock.calls[0] as [unknown, EntityPushContext]
     expect(context.authorization).toEqual(err("forbidden"))
+  })
+
+  it("authorizes a column mutation as strict-owner identity intent", async () => {
+    await pushEntityMutationAction(
+      envelopeFor({ column: "name", value: "Momo" }, 1, "entity.setColumn")
+    )
+
+    expect(authorizeEntityWriteForClass).toHaveBeenCalledWith("e1", "identity")
+    expect(checkArchetypeUnlockGates).not.toHaveBeenCalled()
+  })
+
+  it("revalidates the character list for a committed name column", async () => {
+    processor.mockImplementation(
+      (_envelope: unknown, context: EntityPushContext) => {
+        context.committed = {
+          shortId: "s1",
+          durableClass: "identity",
+          version: 4,
+          revalidateList: true,
+        }
+        return Promise.resolve(ok(undefined))
+      }
+    )
+
+    await pushEntityMutationAction(
+      envelopeFor({ column: "name", value: "Momo" }, 1, "entity.setColumn")
+    )
+
+    expect(publishCharacterPing).toHaveBeenCalledWith("s1", "entity", {
+      identity: 4,
+    })
+    expect(revalidateEntity).toHaveBeenCalledWith({ shortId: "s1" })
+    expect(revalidateCharacterList).toHaveBeenCalled()
   })
 })

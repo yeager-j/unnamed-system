@@ -45,6 +45,7 @@ function joinedRow(lastMutationId: number | null) {
       name: "Momo",
       portraitUrl: null,
       pronouns: null,
+      notes: "Remember",
       vitals: { base: 20, damage: 4 },
       identityVersion: 3,
       vitalsVersion: 7,
@@ -82,9 +83,20 @@ describe("loadEntityAcceptedAction", () => {
       inventory: 1,
       progression: 2,
     })
-    expect(result.value.value.vitals).toEqual({ base: 20, damage: 4 })
+    expect(result.value.value.components.vitals).toEqual({
+      base: 20,
+      damage: 4,
+    })
     // The lifted metadata components arrive like any other component.
-    expect(result.value.value.identity).toMatchObject({ name: "Momo" })
+    expect(result.value.value.components.identity).toMatchObject({
+      name: "Momo",
+    })
+    expect(result.value.value.columns).toEqual({
+      name: "Momo",
+      portraitUrl: null,
+      pronouns: null,
+      notes: "Remember",
+    })
   })
 
   it("reads `through: 0` for a client with no dedup row yet", async () => {

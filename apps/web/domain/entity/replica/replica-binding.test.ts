@@ -24,9 +24,11 @@ import { applyEntityWrite, ENTITY_WRITERS } from "../commit/writers"
 import type { EntityVersionVector } from "./cursor"
 import {
   entityReplicaMutations,
+  setEntityColumn,
   writeEntity,
   type EntityComponents,
   type EntityReplicaInvocation,
+  type EntityReplicaState,
 } from "./mutations"
 import type { EntityReplicaRejection } from "./rejection"
 import { createEntityReplicaTransport } from "./transport"
@@ -69,11 +71,20 @@ function seedInitialComponents(): {
 function createEntityWorld() {
   const { components: initialComponents, seededItemId } =
     seedInitialComponents()
+  const initialState: EntityReplicaState = {
+    components: initialComponents,
+    columns: {
+      name: "Replica Fixture",
+      portraitUrl: null,
+      pronouns: null,
+      notes: null,
+    },
+  }
   const authority = createInMemoryAuthority<
-    EntityComponents,
+    EntityReplicaState,
     EntityReplicaInvocation,
     EntityReplicaRejection
-  >({ mutations: entityReplicaMutations, initial: initialComponents })
+  >({ mutations: entityReplicaMutations, initial: initialState })
   const handle = authority.transport(identity)
 
   let vector: Record<VersionClass, number> = {
@@ -82,7 +93,7 @@ function createEntityWorld() {
     inventory: 1,
     progression: 1,
   }
-  const observations: Accepted<EntityComponents, EntityVersionVector>[] = []
+  const observations: Accepted<EntityReplicaState, EntityVersionVector>[] = []
   const pingHandlers = new Set<{ onPing(): void; onReconnect(): void }>()
   const held: Array<{ released: boolean; resolve(): void }> = []
   let severed = false
@@ -90,13 +101,16 @@ function createEntityWorld() {
   let incomparableNext = false
   let resolvedReads = 0
 
-  const bumpFor = (write: EntityWrite): void => {
-    const durableClass = ENTITY_WRITERS[write.component].durableClass
+  const bumpFor = (invocation: EntityReplicaInvocation): void => {
+    const durableClass =
+      invocation.name === "entity.setColumn"
+        ? "identity"
+        : ENTITY_WRITERS[invocation.args.component].durableClass
     vector = { ...vector, [durableClass]: vector[durableClass] + 1 }
   }
 
   const currentAccepted = (): Accepted<
-    EntityComponents,
+    EntityReplicaState,
     EntityVersionVector
   > => ({
     value: authority.read(),
@@ -115,7 +129,7 @@ function createEntityWorld() {
   ) => {
     const before = authority.cursor()
     const result = await handle.transport.push(envelope, signal)
-    if (authority.cursor() > before) bumpFor(envelope.invocation.args)
+    if (authority.cursor() > before) bumpFor(envelope.invocation)
     return result
   }
 
@@ -176,16 +190,16 @@ function createEntityWorld() {
     advance: async () => {
       const external = currency("addCurrency", 1)
       await authority.commitExternal(external)
-      bumpFor(external.args)
+      bumpFor(external)
     },
     commitExternal: async (invocation: EntityReplicaInvocation) => {
       await authority.commitExternal(invocation)
-      bumpFor(invocation.args)
+      bumpFor(invocation)
     },
     deliver: async (envelope: MutationEnvelope<EntityReplicaInvocation>) => {
       const before = authority.cursor()
       const result = await authority.deliver(envelope)
-      if (authority.cursor() > before) bumpFor(envelope.invocation.args)
+      if (authority.cursor() > before) bumpFor(envelope.invocation)
       return result
     },
     sever: () => {
@@ -225,7 +239,7 @@ function createEntityWorld() {
 }
 
 type EntityScenario = TransportContractScenario<
-  EntityComponents,
+  EntityReplicaState,
   EntityReplicaInvocation,
   EntityReplicaRejection,
   void,
@@ -289,7 +303,7 @@ describe("transport contract — Showtime entity adapter", () => {
 
 describe("replica contract — Showtime entity binding", () => {
   function createContext(): ReplicaContractContext<
-    EntityComponents,
+    EntityReplicaState,
     EntityReplicaInvocation,
     EntityReplicaRejection,
     unknown
@@ -362,4 +376,38 @@ describe("replica contract — Showtime entity binding", () => {
   for (const law of laws) {
     it(law.name, () => law.run())
   }
+})
+
+describe("Showtime entity mutation vocabulary", () => {
+  it("serializes component and column intent on one ordered stream", async () => {
+    const world = createEntityWorld()
+    const replica = createReplica({
+      identity,
+      initial: world.initial,
+      mutations: entityReplicaMutations,
+      transport: createEntityReplicaTransport({
+        source: world.source,
+        initial: world.initial,
+      }),
+    })
+
+    const component = replica.mutate(currency("addCurrency", 2))
+    const column = replica.mutate(
+      setEntityColumn({ column: "name", value: "Iris" })
+    )
+
+    await Promise.all([component.remote, column.remote])
+    expect(
+      world.authority
+        .deliveries()
+        .map((delivery) => [delivery.mutationId, delivery.invocation.name])
+    ).toEqual([
+      [1, "entity.write"],
+      [2, "entity.setColumn"],
+    ])
+    expect(world.authority.read().columns.name).toBe("Iris")
+    expect(world.authority.read().components.equipment?.currency).toBe(2)
+
+    replica.dispose()
+  })
 })
