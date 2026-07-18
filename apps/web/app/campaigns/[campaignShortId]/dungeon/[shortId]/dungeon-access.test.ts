@@ -45,6 +45,7 @@ const dungeonRow = (shortId: string): DungeonRow =>
     mapInstanceId: "mi-1",
     name: "Delve",
     status: "active",
+    regionId: null,
     state: {
       turnCounter: 0,
       actedCharacterIds: [],
@@ -87,6 +88,7 @@ const instanceRow: MapInstanceRow = {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   },
   version: 0,

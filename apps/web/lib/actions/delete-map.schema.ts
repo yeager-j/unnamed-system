@@ -4,7 +4,8 @@ import { z } from "zod/v4"
  * Input schema for {@link import("./delete-map").deleteMapAction} (UNN-460).
  * Deleting a Map is low-stakes (it's a template; the `mapInstance.mapId` FK is
  * `set null`, so any minted Instance survives), so a simple confirm dialog
- * suffices — no type-to-confirm, unlike campaign/character deletion.
+ * suffices — no type-to-confirm, unlike campaign/character deletion. The action
+ * refuses when a Region seeds from the Map (`map-in-use`, UNN-589).
  */
 export const DeleteMapSchema = z.object({
   mapId: z.string(),
@@ -12,4 +13,4 @@ export const DeleteMapSchema = z.object({
 
 export type DeleteMapInput = z.input<typeof DeleteMapSchema>
 
-export type DeleteMapError = "invalid-input"
+export type DeleteMapError = "invalid-input" | "map-in-use"

@@ -58,6 +58,14 @@ export interface UseQueuedWriteReturn {
   enqueue: <TSuccess extends { version: number }, TError extends string>(
     action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   ) => Promise<Result<TSuccess, TError>>
+  /** Serialize a step on this lane without reading or bumping its token — the
+   *  cross-row combined spine (UNN-589 D11): a two-row gesture acquires the
+   *  dungeon lane and, inside it, the instance lane, then runs
+   *  `runDualVersionedWrite` with both token ports. */
+  enqueueStep: <T>(action: () => Promise<T>) => Promise<T>
+  /** The lane's token port — read/bump for a cross-row protocol pass that this
+   *  lane's own `enqueue` can't drive (it only knows one token). */
+  token: WriteQueueTokenPort
 }
 
 export function useQueuedWrite({
@@ -79,6 +87,10 @@ export function useQueuedWrite({
   }
   const enqueue: WriteQueue["enqueue"] = (action) =>
     createWriteQueue({ token, refetchVersion, chain: chainRef }).enqueue(action)
+  const enqueueStep: WriteQueue["enqueueStep"] = (action) =>
+    createWriteQueue({ token, refetchVersion, chain: chainRef }).enqueueStep(
+      action
+    )
 
-  return { versionRef, bump: token.bump, enqueue }
+  return { versionRef, bump: token.bump, enqueue, enqueueStep, token }
 }

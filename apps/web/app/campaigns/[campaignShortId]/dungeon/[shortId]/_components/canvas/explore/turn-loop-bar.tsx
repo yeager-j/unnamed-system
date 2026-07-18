@@ -47,12 +47,14 @@ export function TurnLoopBar() {
   const {
     advanceTurn,
     finishDelve,
+    isExpedition,
     onStartEncounter,
     mode,
     onModeChange,
     disabled,
   } = useDungeonCanvas()
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const runNoun = isExpedition ? "expedition" : "delve"
 
   return (
     <>
@@ -88,7 +90,7 @@ export function TurnLoopBar() {
               <Button
                 size="icon"
                 variant="outline"
-                aria-label="Finish delve"
+                aria-label={`Finish ${runNoun}`}
                 onClick={() => setConfirmFinish(true)}
                 disabled={disabled}
               />
@@ -96,7 +98,7 @@ export function TurnLoopBar() {
           >
             <FlagCheckeredIcon weight="bold" />
           </TooltipTrigger>
-          <TooltipContent>Finish delve</TooltipContent>
+          <TooltipContent>Finish {runNoun}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -119,9 +121,11 @@ export function TurnLoopBar() {
       <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Finish this delve?</AlertDialogTitle>
+            <AlertDialogTitle>Finish this {runNoun}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The delve will be marked done. Players see a frozen final map.
+              {isExpedition
+                ? "The expedition will be marked done and what the party explored of the seed map is remembered by the Region. Players see a frozen final map."
+                : "The delve will be marked done. Players see a frozen final map."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -132,7 +136,7 @@ export function TurnLoopBar() {
                 setConfirmFinish(false)
               }}
             >
-              Finish delve
+              Finish {runNoun}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

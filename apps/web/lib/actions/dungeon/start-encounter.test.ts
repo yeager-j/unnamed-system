@@ -7,7 +7,7 @@ import {
 import type { Entity } from "@workspace/game-v2/kernel"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
-import { ok } from "@workspace/result"
+import { err, ok } from "@workspace/result"
 
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 
@@ -20,9 +20,12 @@ const loadMapInstanceById = vi.fn()
 const loadLiveEntityRowById = vi.fn()
 const createEncounter = vi.fn()
 const saveMapInstanceState = vi.fn()
+const lockDungeonRowForLifecycle = vi.fn()
+const touchDungeonLifecycle = vi.fn()
 const revalidateDungeon = vi.fn()
 const publishEncounterPing = vi.fn()
 const publishDungeonInstancePing = vi.fn()
+const publishDungeonPing = vi.fn()
 const instantiateEnemy = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
@@ -32,8 +35,8 @@ vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
-  loadLiveEncounterIdForCampaign: (id: string) =>
-    loadLiveEncounterIdForCampaign(id),
+  loadLiveEncounterIdForCampaign: (id: string, tx: unknown) =>
+    loadLiveEncounterIdForCampaign(id, tx),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
@@ -51,6 +54,12 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
     state: MapInstanceState,
     v: number
   ) => saveMapInstanceState(tx, id, state, v),
+}))
+vi.mock("@/lib/db/writes/dungeon", () => ({
+  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
+    lockDungeonRowForLifecycle(tx, id, v),
+  touchDungeonLifecycle: (tx: unknown, id: string, v: number) =>
+    touchDungeonLifecycle(tx, id, v),
 }))
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
@@ -89,6 +98,8 @@ vi.mock("@/lib/realtime/publish", () => ({
     publishEncounterPing(shortId, ping),
   publishDungeonInstancePing: (shortId: string, version: number) =>
     publishDungeonInstancePing(shortId, version),
+  publishDungeonPing: (shortId: string, ping: unknown) =>
+    publishDungeonPing(shortId, ping),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -134,6 +145,7 @@ function makeInstanceState(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   }
 }
@@ -152,9 +164,13 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ id: "new-enc", shortId: "new-short" })
   saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 8 }))
+  // The locked row is still active — the in-tx re-check passes.
+  lockDungeonRowForLifecycle.mockReset().mockResolvedValue(ok(makeDungeonRow()))
+  touchDungeonLifecycle.mockReset().mockResolvedValue(ok({ version: 3 }))
   revalidateDungeon.mockReset()
   publishEncounterPing.mockReset()
   publishDungeonInstancePing.mockReset()
+  publishDungeonPing.mockReset()
   instantiateEnemy
     .mockReset()
     .mockImplementation((key: string, id: string): Entity | undefined =>
@@ -166,6 +182,7 @@ beforeEach(() => {
 
 const INPUT = {
   dungeonId: DUNGEON_ID,
+  expectedVersion: 2,
   expectedInstanceVersion: 7,
   name: "Ambush",
   advantage: "players" as const,
@@ -187,6 +204,8 @@ describe("startDungeonEncounterAction — atomic already-live mint (PR11c)", () 
       }),
       "tx"
     )
+    // Combat start bumps the dungeon lifecycle token so a racing finish conflicts.
+    expect(touchDungeonLifecycle).toHaveBeenCalledWith("tx", DUNGEON_ID, 2)
 
     const nextInstance = saveMapInstanceState.mock
       .calls[0]![2] as MapInstanceState
@@ -211,20 +230,57 @@ describe("startDungeonEncounterAction — atomic already-live mint (PR11c)", () 
     expect(blob.advantage).toBe("players")
   })
 
-  it("rejects a delve that is not active", async () => {
+  it("pings the encounter, instance, and dungeon streams on success (D11)", async () => {
+    await startDungeonEncounterAction(INPUT)
+    expect(publishEncounterPing).toHaveBeenCalledWith("new-short", {
+      version: 0,
+      status: "live",
+    })
+    expect(publishDungeonInstancePing).toHaveBeenCalledWith("dng1", 8)
+    expect(publishDungeonPing).toHaveBeenCalledWith("dng1", {
+      version: 3,
+      status: "active",
+    })
+  })
+
+  it("rejects a delve that is not active (friendly pre-read)", async () => {
     loadDungeonRowById.mockResolvedValue(makeDungeonRow("draft"))
     const result = await startDungeonEncounterAction(INPUT)
     expect(result).toEqual({ ok: false, error: "delve-not-active" })
     expect(createEncounter).not.toHaveBeenCalled()
   })
 
-  it("rejects when the campaign already has a live encounter", async () => {
+  it("rejects when the locked row is no longer active (a racing finish won)", async () => {
+    // The friendly pre-read saw `active`; under the lock the row already flipped.
+    lockDungeonRowForLifecycle.mockResolvedValue(ok(makeDungeonRow("done")))
+    const result = await startDungeonEncounterAction(INPUT)
+    expect(result).toEqual({ ok: false, error: "delve-not-active" })
+    expect(createEncounter).not.toHaveBeenCalled()
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
+  })
+
+  it("rejects when the campaign already has a live encounter (friendly pre-read)", async () => {
     loadLiveEncounterIdForCampaign.mockResolvedValue("other-enc")
     const result = await startDungeonEncounterAction(INPUT)
     expect(result).toEqual({
       ok: false,
       error: "campaign-already-has-live-encounter",
     })
+  })
+
+  it("rejects when a live encounter appears under the lock (in-tx re-check)", async () => {
+    // Boundary read clean, but the in-tx read (after the lock) finds one — a
+    // racing start committed between the two reads.
+    loadLiveEncounterIdForCampaign
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce("other-enc")
+    const result = await startDungeonEncounterAction(INPUT)
+    expect(result).toEqual({
+      ok: false,
+      error: "campaign-already-has-live-encounter",
+    })
+    expect(createEncounter).not.toHaveBeenCalled()
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
   })
 
   it("rejects an unknown enemy key before any write", async () => {
@@ -250,5 +306,14 @@ describe("startDungeonEncounterAction — atomic already-live mint (PR11c)", () 
       error: "encounter-has-unplaced-combatants",
     })
     expect(createEncounter).not.toHaveBeenCalled()
+  })
+
+  it("propagates a stale lifecycle touch and fires no pings", async () => {
+    touchDungeonLifecycle.mockResolvedValue(err("stale"))
+    const result = await startDungeonEncounterAction(INPUT)
+    expect(result).toEqual({ ok: false, error: "stale" })
+    expect(publishEncounterPing).not.toHaveBeenCalled()
+    expect(publishDungeonPing).not.toHaveBeenCalled()
+    expect(revalidateDungeon).not.toHaveBeenCalled()
   })
 })

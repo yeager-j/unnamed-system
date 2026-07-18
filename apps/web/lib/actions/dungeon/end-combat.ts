@@ -9,7 +9,10 @@ import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
-import { saveDungeonState } from "@/lib/db/writes/dungeon"
+import {
+  lockDungeonRowForLifecycle,
+  saveDungeonState,
+} from "@/lib/db/writes/dungeon"
 import {
   saveEncounterSession,
   setEncounterStatus,
@@ -95,8 +98,12 @@ export async function endDungeonCombatAction(
     )
     .map((participant) => participant.id)
   const pruned = pruneCombat(instance.state, ephemeralIds)
-  const nextDungeon = reduceDungeon(dungeon.state, { kind: "advanceTurn" })
 
+  // Lifecycle lock order (D11, UNN-589): dungeon → mapInstance → encounter.
+  // Combat end used to write encounter-first; a finish (dungeon → instance)
+  // racing that order is a textbook deadlock, so the dungeon lock now opens the
+  // body, and the `advanceTurn` reduces from the **locked** row's state — the
+  // freshest committed truth, not the pre-transaction read.
   const result = await guardMany<
     {
       encounterVersion: number
@@ -105,6 +112,24 @@ export async function endDungeonCombatAction(
     },
     EndDungeonCombatError
   >(async (tx: WriteExecutor) => {
+    const locked = await lockDungeonRowForLifecycle(
+      tx,
+      dungeonId,
+      expectedDungeonVersion
+    )
+    if (!locked.ok) return locked
+    const nextDungeon = reduceDungeon(locked.value.state, {
+      kind: "advanceTurn",
+    })
+
+    const inst = await saveMapInstanceState(
+      tx,
+      dungeon.mapInstanceId,
+      pruned,
+      expectedInstanceVersion
+    )
+    if (!inst.ok) return inst
+
     const saved = await saveEncounterSession(
       row.id,
       stored.value,
@@ -120,14 +145,6 @@ export async function endDungeonCombatAction(
       tx
     )
     if (!ended.ok) return ended
-
-    const inst = await saveMapInstanceState(
-      tx,
-      dungeon.mapInstanceId,
-      pruned,
-      expectedInstanceVersion
-    )
-    if (!inst.ok) return inst
 
     const dng = await saveDungeonState(
       dungeonId,

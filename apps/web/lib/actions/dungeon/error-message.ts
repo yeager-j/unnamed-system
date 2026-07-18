@@ -16,6 +16,10 @@ export type DungeonActionError =
   | "campaign-already-has-active-delve"
   | "map-not-found"
   | "delve-not-active"
+  | "delve-is-expedition"
+  | "not-an-expedition"
+  | "delve-has-live-encounter"
+  | "region-not-found"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
   | "character-not-found"
@@ -39,6 +43,14 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
       return "This delve has already started."
     case "delve-not-active":
       return "This delve isn't running. Reload and try again."
+    case "delve-is-expedition":
+      return "This is a Region expedition — run it from its Region."
+    case "not-an-expedition":
+      return "This delve doesn't belong to a Region."
+    case "delve-has-live-encounter":
+      return "Finish the live encounter before finishing the expedition."
+    case "region-not-found":
+      return "This Region no longer exists."
     case "campaign-already-has-live-encounter":
       return "This campaign already has a live encounter."
     case "encounter-has-unplaced-combatants":

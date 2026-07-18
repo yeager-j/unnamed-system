@@ -256,6 +256,7 @@ export function DungeonExploreBody({
               turnCounter: dungeonState.turnCounter,
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
               finishDelve,
+              isExpedition: dungeon.regionId !== null,
               navigateToPage,
               onStartEncounter: () =>
                 router.push(dungeonSetupPath(campaignShortId, dungeon.shortId)),

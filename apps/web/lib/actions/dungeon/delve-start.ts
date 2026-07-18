@@ -1,21 +1,21 @@
 "use server"
 
-import {
-  addOccupant,
-  mapInstanceFromGeometry,
-  type MapInstanceState,
-} from "@workspace/game-v2/spatial"
+import { mapInstanceFromGeometry } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import {
   loadActiveDungeonForCampaign,
-  loadDungeonRowById,
+  loadDungeonVariantForWrite,
 } from "@/lib/db/queries/load-dungeon"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
-import { setDungeonStatus } from "@/lib/db/writes/dungeon"
+import {
+  lockDungeonRowForLifecycle,
+  mapActivationRaceToActiveDelve,
+  setDungeonStatus,
+} from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { publishDungeonPing } from "@/lib/realtime/publish"
@@ -25,6 +25,7 @@ import {
   type StartDelveError,
   type StartDelveInput,
 } from "./delve-start.schema"
+import { placeRoster } from "./place-roster"
 import { revalidateDungeon } from "./revalidate"
 
 /**
@@ -37,11 +38,18 @@ import { revalidateDungeon } from "./revalidate"
  * geometry+tokens write and the dungeon status flip commit together or not at all;
  * mirrors `applyStartCombat`).
  *
- * Auth + guards (read-then-act at the boundary, before the transaction): resolve
- * the campaign and `requireCampaignDM`; the delve must still be `draft`; and the
- * **one-active-delve-per-campaign** rule rejects start when another delve already
- * holds the active slot. Returns **both** bumped versions so the console advances
- * its dungeon and Instance optimistic refs precisely.
+ * Ordinary delves only: a Region **expedition** is refused here (UNN-589 D11's
+ * variant sealing — `startExpeditionAction` owns that lifecycle; UI routing is
+ * not an invariant).
+ *
+ * Concurrency (D11): the friendly status/one-active reads stay at the boundary
+ * for error copy, but the transaction re-establishes them — it opens with the
+ * dungeon-row lifecycle lock ({@link lockDungeonRowForLifecycle}, dungeon-first
+ * per the lock-order discipline) and re-checks `draft` on the locked row, and
+ * the one-active rule is DB-enforced by the `dungeon_one_active_per_campaign`
+ * partial index (a fully-concurrent second activation loses at the index and
+ * maps back to the same friendly error). Returns **both** bumped versions so the
+ * console advances its dungeon and Instance optimistic refs precisely.
  */
 export async function startDelveAction(
   input: StartDelveInput
@@ -54,8 +62,10 @@ export async function startDelveAction(
   const { dungeonId, expectedVersion, expectedInstanceVersion, placements } =
     parsed.data
 
-  const dungeon = await loadDungeonRowById(dungeonId)
-  if (dungeon === null) return err("dungeon-not-found")
+  const variant = await loadDungeonVariantForWrite(dungeonId)
+  if (variant === null) return err("dungeon-not-found")
+  if (variant.kind === "expedition") return err("delve-is-expedition")
+  const dungeon = variant.row
   await requireCampaignDM(dungeon.campaignId)
 
   if (dungeon.status !== "draft") return err("delve-not-draft")
@@ -74,29 +84,38 @@ export async function startDelveAction(
 
   const next = placeRoster(mapInstanceFromGeometry(map.geometry), placements)
 
-  const result = await guardMany<
-    { version: number; instanceVersion: number },
-    StartDelveError
-  >(async (tx: WriteExecutor) => {
-    const inst = await saveMapInstanceState(
-      tx,
-      dungeon.mapInstanceId,
-      next,
-      expectedInstanceVersion
+  const result = await mapActivationRaceToActiveDelve(
+    guardMany<{ version: number; instanceVersion: number }, StartDelveError>(
+      async (tx: WriteExecutor) => {
+        const locked = await lockDungeonRowForLifecycle(
+          tx,
+          dungeon.id,
+          expectedVersion
+        )
+        if (!locked.ok) return locked
+        if (locked.value.status !== "draft") return err("delve-not-draft")
+
+        const inst = await saveMapInstanceState(
+          tx,
+          dungeon.mapInstanceId,
+          next,
+          expectedInstanceVersion
+        )
+        if (!inst.ok) return inst
+        const flipped = await setDungeonStatus(
+          dungeon.id,
+          "active",
+          expectedVersion,
+          tx
+        )
+        if (!flipped.ok) return flipped
+        return ok({
+          version: flipped.value.version,
+          instanceVersion: inst.value.version,
+        })
+      }
     )
-    if (!inst.ok) return inst
-    const flipped = await setDungeonStatus(
-      dungeon.id,
-      "active",
-      expectedVersion,
-      tx
-    )
-    if (!flipped.ok) return flipped
-    return ok({
-      version: flipped.value.version,
-      instanceVersion: inst.value.version,
-    })
-  })
+  )
   if (!result.ok) return result
 
   // The delve just went live (draft → active) — the dungeon ping's status flips
@@ -108,42 +127,4 @@ export async function startDelveAction(
   })
   revalidateDungeon(dungeon)
   return ok(result.value)
-}
-
-/**
- * Places each staged PC token onto the snapshotted geometry (keyed by
- * `characterId`) and reveals each starting Zone that exists in the geometry —
- * placement is the party's first "entry", the initial `move → reveal`. A
- * placement pointing at a Zone the geometry doesn't carry still places the token
- * (guides, doesn't block) but reveals nothing.
- *
- * **Security invariant (fog-redaction gate):** a real delve reveals ≥1 starting
- * Zone here, which is what {@link
- * import("@workspace/game-v2/spatial/reveal").isFogActive} keys off to fog-redact
- * the public encounter snapshot ({@link
- * import("@workspace/game-v2/visibility").projectSpatialEncounterSnapshot}).
- * The only way `revealedZoneIds` stays empty is a degenerate delve whose every
- * placement points off-geometry (no party token on a real Zone) — broken, not a
- * runnable fight. If an explicit delve marker ever lands on the Instance, prefer
- * gating the redaction on that structural signal instead of this emergent one.
- */
-function placeRoster(
-  base: MapInstanceState,
-  placements: readonly { characterId: string; zoneId: string }[]
-): MapInstanceState {
-  let next = base
-  const revealed: string[] = []
-  for (const { characterId, zoneId } of placements) {
-    next = addOccupant(next, characterId, {
-      zoneId,
-      engagement: { status: "free" },
-    })
-    if (
-      next.geometry.zones[zoneId] !== undefined &&
-      !revealed.includes(zoneId)
-    ) {
-      revealed.push(zoneId)
-    }
-  }
-  return { ...next, reveal: { ...next.reveal, revealedZoneIds: revealed } }
 }

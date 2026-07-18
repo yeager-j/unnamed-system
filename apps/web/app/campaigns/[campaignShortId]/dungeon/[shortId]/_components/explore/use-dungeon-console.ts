@@ -8,6 +8,7 @@ import {
   type DungeonEvent,
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
+import { type Result } from "@workspace/result"
 
 import { dispatchDungeonEvent } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/dispatch-event"
 import {
@@ -16,12 +17,15 @@ import {
   type DungeonConsoleState,
 } from "@/domain/dungeon/console-optimistic"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
+import { finishExpeditionAction } from "@/lib/actions/dungeon/expedition-finish"
 import { searchRevealAction } from "@/lib/actions/dungeon/search-reveal"
 import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"
 import { getDungeonVersionAction } from "@/lib/actions/dungeon/version"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { fetchDungeonInstanceVersion } from "@/lib/sync/fetch-dungeon-instance-version"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { runDualVersionedWrite } from "@/lib/sync/run-dual-versioned-write"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 /**
@@ -39,10 +43,17 @@ import { useQueuedWrite } from "@/lib/sync/use-queued-write"
  * Two gestures sit **outside** the optimistic dispatch path because they aren't
  * `reduceDungeon` events:
  * - {@link searchReveal} — the search-that-reveals cross-write (`markActed` +
- *   reveal), one `guardMany`; it mirrors **both** containers and advances both
- *   refs (the action returns both bumped versions).
- * - {@link finishDelve} — the terminal `active → done` status flip (a row column,
- *   like combat's `endEncounter`), enqueued on the dungeon queue.
+ *   reveal), one `guardMany`; it mirrors **both** containers and rides the
+ *   **combined spine** (UNN-589 D11): acquire the dungeon lane and, inside it,
+ *   the instance lane, then run the two-token protocol
+ *   ({@link runDualVersionedWrite} — dual dispatch, dual fold, refetch-both
+ *   stale retry). Same lock order as the server's transactions, which is what
+ *   keeps a two-row write from interleaving with a single-row write on either
+ *   lane.
+ * - {@link finishDelve} — the terminal `active → done` flip. An ordinary delve
+ *   enqueues the status flip on the dungeon lane alone; a Region **expedition**
+ *   routes to `finishExpeditionAction` on the combined spine (its instance
+ *   token is the D5 freeze, and the returned instance version must fold).
  *
  * The `dungeon:` channel (DM-to-DM spatial sync) is M3 (UNN-468), so the console
  * relies on its own optimistic frame + `router.refresh()` for the DM's own edits;
@@ -54,7 +65,10 @@ import { useQueuedWrite } from "@/lib/sync/use-queued-write"
  * is a remote change with no self-echo to suppress.
  */
 export function useDungeonConsole(
-  dungeon: Pick<DungeonRow, "id" | "shortId" | "state" | "version">,
+  dungeon: Pick<
+    DungeonRow,
+    "id" | "shortId" | "state" | "version" | "regionId"
+  >,
   instance: Pick<MapInstanceRow, "state" | "version">
 ) {
   const router = useRouter()
@@ -70,19 +84,52 @@ export function useDungeonConsole(
   const dungeonState = state.dungeon
   const instanceState = state.instance
 
+  // Named refetchers: each lane's one-shot stale-retry reads through its own,
+  // and the combined spine's refetch-both stale retry reuses the same pair.
+  const refetchDungeonVersion = async () => {
+    const result = await getDungeonVersionAction({ shortId: dungeon.shortId })
+    return result.ok ? result.value.version : null
+  }
+  const refetchInstanceVersion = () =>
+    fetchDungeonInstanceVersion(dungeon.shortId)
+
   const dungeonWrite = useQueuedWrite({
     serverVersion: dungeon.version,
-    refetchVersion: async () => {
-      const result = await getDungeonVersionAction({ shortId: dungeon.shortId })
-      return result.ok ? result.value.version : null
-    },
+    refetchVersion: refetchDungeonVersion,
   })
-  // No `refetchVersion` for the Instance: there's no instance-version read
-  // action yet (`getDungeonVersionAction` returns only the dungeon version), and
-  // in M2 the DM is the sole writer so a stale spatial write is rare — it surfaces
-  // an error toast rather than one-shot-retrying. Wire an instance-version refetch
-  // here when realtime / multi-tab lands (M3, UNN-468).
-  const instanceWrite = useQueuedWrite({ serverVersion: instance.version })
+  const instanceWrite = useQueuedWrite({
+    serverVersion: instance.version,
+    refetchVersion: refetchInstanceVersion,
+  })
+
+  /**
+   * The **combined spine** (UNN-589 D11) for two-row gestures: acquire the
+   * dungeon lane, and *inside it* the instance lane, then run one two-token
+   * protocol pass. Single-row writes acquire only their own lane, and every
+   * cross-row gesture acquires dungeon-first, so neither lane can interleave a
+   * single-row write into the middle of a two-row one — the client mirror of
+   * the server's dungeon → mapInstance lock order.
+   */
+  const enqueueCrossRow = <
+    TSuccess extends { version: number; instanceVersion: number },
+    TError,
+  >(
+    action: (
+      expectedVersion: number,
+      expectedInstanceVersion: number
+    ) => Promise<Result<TSuccess, TError>>
+  ): Promise<Result<TSuccess, TError>> =>
+    dungeonWrite.enqueueStep(() =>
+      instanceWrite.enqueueStep(() =>
+        runDualVersionedWrite(
+          dungeonWrite.token,
+          instanceWrite.token,
+          refetchDungeonVersion,
+          refetchInstanceVersion,
+          action
+        )
+      )
+    )
 
   // Character-channel pings (a player editing their own sheet) collapse into one
   // `router.refresh()` per event-loop task — mirroring the combat console, so a
@@ -179,29 +226,20 @@ export function useDungeonConsole(
             event: { kind: "markActed", characterId },
           })
           applyOptimistic({ kind: "instanceEvent", event })
-          // This is a cross-write (marks the dungeon row + reveals on the
-          // Instance), but `dungeonWrite`'s one-shot stale-retry only refetches
-          // the *dungeon* version — `expectedInstanceVersion` rides the
-          // un-refetched Instance ref. So an Instance-stale conflict surfaces a
-          // toast rather than auto-recovering (same limitation the
-          // `instanceWrite` setup notes above). A real fix wants a discriminated
-          // stale-instance error + an instance-version read action — M3
-          // (UNN-468), where realtime/multi-tab makes a concurrent spatial
-          // writer real.
-          const result = await dungeonWrite.enqueue((expectedVersion) =>
-            searchRevealAction({
-              dungeonId: dungeon.id,
-              expectedVersion,
-              expectedInstanceVersion: instanceWrite.versionRef.current,
-              characterId,
-              event,
-            })
+          const result = await enqueueCrossRow(
+            (expectedVersion, expectedInstanceVersion) =>
+              searchRevealAction({
+                dungeonId: dungeon.id,
+                expectedVersion,
+                expectedInstanceVersion,
+                characterId,
+                event,
+              })
           )
           if (!result.ok) {
             toast.error(dungeonErrorMessage(result.error))
             return
           }
-          instanceWrite.bump(result.value.instanceVersion)
           router.refresh()
         },
         () => toast.error("Couldn't save. Try again.")
@@ -213,13 +251,27 @@ export function useDungeonConsole(
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await dungeonWrite.enqueue((expectedVersion) =>
-            setDungeonStatusAction({
-              dungeonId: dungeon.id,
-              status: "done",
-              expectedVersion,
-            })
-          )
+          // A Region expedition's finish is not a bare flip: it folds the
+          // Region's chart and freezes the Instance (both rows' tokens ride
+          // the wire), so it takes the combined spine; an ordinary delve
+          // stays a dungeon-lane status flip.
+          const result =
+            dungeon.regionId !== null
+              ? await enqueueCrossRow(
+                  (expectedVersion, expectedInstanceVersion) =>
+                    finishExpeditionAction({
+                      dungeonId: dungeon.id,
+                      expectedVersion,
+                      expectedInstanceVersion,
+                    })
+                )
+              : await dungeonWrite.enqueue((expectedVersion) =>
+                  setDungeonStatusAction({
+                    dungeonId: dungeon.id,
+                    status: "done",
+                    expectedVersion,
+                  })
+                )
           if (!result.ok) {
             toast.error(dungeonErrorMessage(result.error))
             return

@@ -124,11 +124,13 @@ function connectionIdBetween(
  * `geometry.connections`). `addZone` records a full {@link MapZone} (defaulting
  * `position`/`description` for the ad-hoc combat-setup surface that authors only
  * name/notes) and `setZoneAdjacency` mints an id-keyed {@link MapConnection} with
- * default flags. `removeZone` also prunes every connection touching the zone and clears
- * the Enchantment when it sat on the removed Zone (both are Instance state, so keeping
- * them consistent is this reducer's own job) and leaves occupancy untouched — placement
- * cleanup is a separate concern. Each event no-ops on an unknown Zone id (Immer returns
- * the input untouched when no draft mutates).
+ * default flags. `addZone` also stamps `manual` provenance into `generation.zones`
+ * (a directly-added Zone is DM hand-added mid-run, D4); `removeZone` also prunes every
+ * connection touching the zone, drops its provenance entry, and clears the Enchantment
+ * when it sat on the removed Zone (all Instance state, so keeping them consistent is
+ * this reducer's own job) and leaves occupancy untouched — placement cleanup is a
+ * separate concern. Each event no-ops on an unknown Zone id (Immer returns the input
+ * untouched when no draft mutates).
  */
 function reduceZoneGraphEvent(
   state: MapInstanceState,
@@ -151,13 +153,17 @@ function reduceZoneGraphEvent(
           pageId: firstPageId(draft.geometry),
         }
         draft.geometry.zones[id] = zone
+        // A directly-added Zone is DM hand-added mid-run — `manual` provenance, so
+        // it never folds to the Region at finish and never survives the reshuffle (D4).
+        draft.generation.zones[id] = { source: "manual" }
         return
       }
 
       case "removeZone": {
-        // Stryker disable next-line ConditionalExpression: equivalent — removing an unknown Zone mutates nothing downstream (the deletes/connection-prune/enchantment-check all no-op), so Immer returns the same ref with or without this short-circuit.
+        // Stryker disable next-line ConditionalExpression: equivalent — removing an unknown Zone mutates nothing downstream (the deletes/connection-prune/enchantment-check/provenance-delete all no-op), so Immer returns the same ref with or without this short-circuit.
         if (draft.geometry.zones[event.zoneId] === undefined) return
         delete draft.geometry.zones[event.zoneId]
+        delete draft.generation.zones[event.zoneId]
         for (const [connId, conn] of Object.entries(
           draft.geometry.connections
         )) {
@@ -448,10 +454,15 @@ function reduceRevealEvent(
  *
  * - **Occupied-Zone delete is blocked** — deleting a Zone an occupancy token stands in is
  *   a no-op (returns the same `state`); the DM relocates the party first.
- * - **Fog + Enchantment reconciliation** — after a delete, prune the removed
- *   Zone/connections from the `reveal` overlay (no phantom revealed/unlocked ids) and
- *   clear the `enchantment` if its Zone no longer exists (generalizing the `removeZone`
- *   prune).
+ * - **Provenance stamping** — every Zone this edit *newly mints* (`addZone`,
+ *   `duplicateZone`, or each copy an `duplicatePage` produces) is DM hand-added mid-run,
+ *   so it is stamped `manual` in `generation.zones` (D4). The minted ids are found by
+ *   diffing the Zone key set before/after the geometry reduce — kind-agnostic, so it can
+ *   never miss a copy a future add-shaped edit introduces.
+ * - **Fog + Enchantment + provenance reconciliation** — after a delete, prune the removed
+ *   Zone/connections from the `reveal` overlay (no phantom revealed/unlocked ids), drop
+ *   the provenance entries of Zones that no longer exist, and clear the `enchantment` if
+ *   its Zone is gone (generalizing the `removeZone` prune).
  *
  * A no-op inner edit (unknown id, empty rename, duplicate/self-loop connection) leaves
  * `reduceMapGeometry` returning the same geometry reference, so this returns the same
@@ -490,6 +501,16 @@ function reduceGeometryEditEvent(
 
   return produce(state, (draft) => {
     draft.geometry = nextGeometry
+
+    // Newly-minted Zones (present after the reduce, absent before) are DM
+    // hand-added mid-run — stamp them `manual`. Diffing the key set is
+    // kind-agnostic: `addZone`/`duplicateZone`/`duplicatePage` all surface here.
+    for (const zoneId of Object.keys(nextGeometry.zones)) {
+      if (state.geometry.zones[zoneId] === undefined) {
+        draft.generation.zones[zoneId] = { source: "manual" }
+      }
+    }
+
     if (!removesGeometry) return
 
     draft.reveal.revealedZoneIds = draft.reveal.revealedZoneIds.filter(
@@ -503,6 +524,11 @@ function reduceGeometryEditEvent(
       draft.reveal.unlockedConnectionIds.filter(
         (id) => nextGeometry.connections[id] !== undefined
       )
+    for (const zoneId of Object.keys(draft.generation.zones)) {
+      if (nextGeometry.zones[zoneId] === undefined) {
+        delete draft.generation.zones[zoneId]
+      }
+    }
     if (
       draft.enchantment !== null &&
       nextGeometry.zones[draft.enchantment.zoneId] === undefined

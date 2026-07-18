@@ -32,6 +32,7 @@ import type {
   MapZoneMood,
   MapZoneMotif,
   MapZoneSize,
+  RandomEncounterInterval,
 } from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
 
@@ -502,6 +503,23 @@ export const DUNGEON_STATUS_LABELS: Record<DungeonStatus, string> = {
   active: "Active",
   done: "Done",
 }
+
+/**
+ * The Region wandering-table cadence choices (UNN-589 D7), in ascending order —
+ * how often the designated table fires, in dungeon turns. Reuses the delve loop's
+ * native `1 / 2 / 3 / 6`-turn unit ({@link RandomEncounterInterval}) so the
+ * authored default speaks the same vocabulary as the runtime setting. Shared by
+ * the Region create dialog and its settings form, so the phrasing single-sources
+ * across both surfaces. */
+export const WANDERING_INTERVAL_OPTIONS: {
+  turns: RandomEncounterInterval
+  label: string
+}[] = [
+  { turns: 1, label: "Every turn" },
+  { turns: 2, label: "Every 2 turns" },
+  { turns: 3, label: "Every 3 turns" },
+  { turns: 6, label: "Every 6 turns" },
+]
 
 /**
  * The at-0-HP badge a combatant shows in the console (UNN-309), keyed by kind: a

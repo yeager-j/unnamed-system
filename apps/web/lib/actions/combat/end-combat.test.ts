@@ -157,6 +157,7 @@ function makeInstanceState(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
+    generation: { zones: {}, grafts: {} },
     lastMovedTokenKey: null,
   }
 }

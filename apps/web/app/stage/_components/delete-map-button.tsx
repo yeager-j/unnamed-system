@@ -49,7 +49,11 @@ export function DeleteMapButton({
             router.push(stageMapsPath())
             return
           }
-          toast.error("Couldn't delete the map. Try again.")
+          toast.error(
+            result.error === "map-in-use"
+              ? "A Region seeds from this map — archive or delete that Region first."
+              : "Couldn't delete the map. Try again."
+          )
         },
         () => toast.error("Couldn't delete the map. Try again.")
       )

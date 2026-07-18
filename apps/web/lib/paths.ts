@@ -100,6 +100,29 @@ export const dungeonWatchPath = (
 ) => `${dungeonConsolePath(campaignShortId, dungeonShortId)}/watch`
 
 /**
+ * A Region's DM detail page — its expedition history + settings (UNN-589). Nested
+ * under its campaign like the dungeon/encounter consoles, since `region.campaignId`
+ * is a `NOT NULL` cascade FK, so the builder can't be called without the campaign
+ * shortId.
+ */
+export const campaignRegionPath = (
+  campaignShortId: string,
+  regionShortId: string
+) => `/campaigns/${campaignShortId}/regions/${regionShortId}`
+
+/**
+ * The Region-stable player watch link (UNN-589). Players keep **one** URL across a
+ * Region's expeditions; the route resolves it to the current run's watch
+ * (`loadActiveExpeditionForRegion`). Singular `region/` — the address is the
+ * Region, not a specific expedition (contrast {@link campaignRegionPath}'s DM
+ * detail list).
+ */
+export const regionWatchPath = (
+  campaignShortId: string,
+  regionShortId: string
+) => `/campaigns/${campaignShortId}/region/${regionShortId}/watch`
+
+/**
  * Dynamic-route patterns for template-form `revalidatePath(pattern, "page")` —
  * the encounter/dungeon write paths don't cheaply hold the campaign shortId, so
  * they invalidate by route template rather than by concrete address.

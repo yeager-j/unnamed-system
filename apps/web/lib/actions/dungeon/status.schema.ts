@@ -17,8 +17,13 @@ export const SetDungeonStatusSchema = z.object({
 export type SetDungeonStatusInput = z.input<typeof SetDungeonStatusSchema>
 
 /** Transition fails on a bad payload, the guarded-write errors (`stale` /
- *  `dungeon-not-found`), or the one-active-delve guard. */
+ *  `dungeon-not-found`), the one-active-delve guard, an illegal transition
+ *  caught on the locked row (D11), or the variant seal — a Region expedition
+ *  must go through `startExpeditionAction` / `finishExpeditionAction`. */
 export type SetDungeonStatusError =
   | "invalid-input"
   | "campaign-already-has-active-delve"
+  | "delve-is-expedition"
+  | "delve-not-draft"
+  | "delve-not-active"
   | DungeonWriteError

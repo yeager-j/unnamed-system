@@ -1,6 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm"
 
-import type { DungeonState, DungeonStatus } from "@workspace/game-v2/spatial"
+import {
+  dungeonStateSchema,
+  type DungeonState,
+  type DungeonStatus,
+} from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { isFrozenDay } from "@/domain/planner/clock"
@@ -10,7 +14,7 @@ import {
   campaignSlot,
   campaignSlotDungeon,
 } from "@/lib/db/schema/campaign-clock"
-import { dungeons } from "@/lib/db/schema/dungeon"
+import { dungeons, type DungeonRow } from "@/lib/db/schema/dungeon"
 import { insertWithShortId } from "@/lib/db/short-id"
 import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
 
@@ -43,6 +47,9 @@ export async function createDungeon(
     name: string
     mapInstanceId: string
     state: DungeonState
+    /** Set only when minting a Region **expedition** (UNN-589 D5); immutable
+     *  after — `loadDungeonVariantForWrite` discriminates on it forever. */
+    regionId?: string
   },
   executor: WriteExecutor = db
 ): Promise<{ id: string; shortId: string }> {
@@ -53,6 +60,7 @@ export async function createDungeon(
         campaignId: input.campaignId,
         name: input.name,
         mapInstanceId: input.mapInstanceId,
+        regionId: input.regionId,
         shortId,
         state: input.state,
       })
@@ -96,6 +104,86 @@ export async function saveDungeonState(
   return bumpDungeonVersionGuarded(executor, dungeonId, expectedVersion, {
     state,
   })
+}
+
+/**
+ * The lifecycle-serialization read (D11, UNN-589): `SELECT … FOR UPDATE` on the
+ * dungeon row + a version compare, as the **first statement** of every lifecycle
+ * `guardMany` body (expedition start/finish, combat start/end, the generic
+ * status flip). From this statement to commit the transaction holds the dungeon
+ * row lock, so every competing lifecycle action blocks here and, when it
+ * unblocks, sees the winner's bumped version and returns `"stale"` — which is
+ * what makes the body's *cross-row* reads (live encounter, instance, region)
+ * stable without pessimistic locks on those rows. Same-row facts (status) are
+ * re-checked on the locked row, so the pre-transaction friendly checks can stay
+ * where they are for error copy.
+ *
+ * A tombstoned (`deletedAt`) row reads as `"dungeon-not-found"`: `archiveDungeon`
+ * writes the tombstone without a version bump, but its UPDATE takes this same
+ * row lock, so the two orderings serialize here and the locked read sees it.
+ *
+ * **Lock-order discipline:** every multi-row dungeon-family transaction acquires
+ * **dungeon → mapInstance → encounter → region**. Nothing in the type system
+ * enforces this — a new lifecycle action that locks in a different order is a
+ * deadlock, not a conflict.
+ */
+export async function lockDungeonRowForLifecycle(
+  tx: WriteExecutor,
+  dungeonId: string,
+  expectedVersion: number
+): Promise<Result<DungeonRow, DungeonWriteError>> {
+  const [row] = await tx
+    .select()
+    .from(dungeons)
+    .where(eq(dungeons.id, dungeonId))
+    .for("update")
+  if (!row || row.deletedAt !== null) return err("dungeon-not-found")
+  if (row.version !== expectedVersion) return err("stale")
+  return ok({ ...row, state: dungeonStateSchema.parse(row.state) })
+}
+
+/**
+ * Bumps the dungeon `version` with no column change — the lifecycle-visibility
+ * bump (D11): combat start changes no dungeon column, but bumping the token is
+ * what makes it *visible* to every other lifecycle actor's guard (a finish
+ * racing a combat start conflicts here instead of committing over a live
+ * encounter it never saw).
+ */
+export async function touchDungeonLifecycle(
+  executor: WriteExecutor,
+  dungeonId: string,
+  expectedVersion: number
+): Promise<Result<{ version: number }, DungeonWriteError>> {
+  return bumpDungeonVersionGuarded(executor, dungeonId, expectedVersion, {})
+}
+
+/**
+ * Maps the one-active partial unique index's 23505 (two fully-concurrent
+ * activations — both passed the friendly app-side read, the second `UPDATE …
+ * SET status='active'` lost at `dungeon_one_active_per_campaign`) to the same
+ * `"campaign-already-has-active-delve"` the read path returns. Wraps the whole
+ * `guardMany` call, not the inner write: the throw must first roll the
+ * transaction back. Any other 23505 (or any other error) propagates — a
+ * constraint we didn't anticipate is a bug, not a domain refusal. Mirrors
+ * `mapClaimRaceToOccupied` (campaign-slot-dungeon.ts).
+ */
+export async function mapActivationRaceToActiveDelve<T, E>(
+  write: Promise<Result<T, E | "campaign-already-has-active-delve">>
+): Promise<Result<T, E | "campaign-already-has-active-delve">> {
+  try {
+    return await write
+  } catch (error) {
+    if (isOneActiveViolation(error)) {
+      return err("campaign-already-has-active-delve")
+    }
+    throw error
+  }
+}
+
+function isOneActiveViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const { code, constraint } = error as { code?: string; constraint?: string }
+  return code === "23505" && constraint === "dungeon_one_active_per_campaign"
 }
 
 export type ArchiveDungeonError = "dungeon-not-found" | "clock-not-found"

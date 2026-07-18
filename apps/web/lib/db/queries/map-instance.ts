@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { mapInstanceStateSchema } from "@workspace/game-v2/spatial"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { mapInstances, type MapInstanceRow } from "@/lib/db/schema/map-instance"
 
 /**
@@ -19,11 +19,15 @@ function withParsedState(row: MapInstanceRow): MapInstanceRow {
   return { ...row, state: mapInstanceStateSchema.parse(row.state) }
 }
 
-/** The `mapInstance` row by id (state parsed), or `null` when none matches. */
+/** The `mapInstance` row by id (state parsed), or `null` when none matches.
+ *  Takes an optional `executor` so a lifecycle transaction can read the row it
+ *  just froze (UNN-589 D11: expedition finish folds the exact state its
+ *  `freezeMapInstance` version-certified, so the read must share the tx). */
 export async function loadMapInstanceById(
-  mapInstanceId: string
+  mapInstanceId: string,
+  executor: WriteExecutor = db
 ): Promise<MapInstanceRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(mapInstances)
     .where(eq(mapInstances.id, mapInstanceId))

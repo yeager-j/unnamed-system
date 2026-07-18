@@ -5,6 +5,7 @@ import {
   COMBAT_SIDES,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
+import type { DungeonWriteError } from "@/lib/db/writes/dungeon"
 import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
 /**
@@ -25,6 +26,10 @@ export const MAX_STAGED_ENEMY_COUNT = 20
 
 export const StartDungeonEncounterSchema = z.object({
   dungeonId: z.string(),
+  /** The dungeon row's optimistic token: combat start is an expedition lifecycle
+   *  action (D11, UNN-589), so it version-guards the dungeon row — that bump is
+   *  what a racing finish conflicts with. */
+  expectedVersion: z.number().int().nonnegative(),
   expectedInstanceVersion: z.number().int().nonnegative(),
   name: z.string().trim().min(1).max(100),
   advantage: z.enum(COMBAT_ADVANTAGES),
@@ -51,4 +56,5 @@ export type StartDungeonEncounterError =
   | "unknown-enemy"
   | "encounter-has-unplaced-combatants"
   | "locator-missing"
+  | DungeonWriteError
   | MapInstanceWriteError

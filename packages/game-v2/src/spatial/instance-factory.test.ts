@@ -15,6 +15,7 @@ describe("emptyMapInstance", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      generation: { zones: {}, grafts: {} },
       lastMovedTokenKey: null,
     })
   })

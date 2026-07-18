@@ -48,10 +48,12 @@ export function isDungeonEvent(
 /** The spatial path adds the Instance write errors, a `missing-instance-version`
  *  when the console omitted the Instance token a move/reveal needs, and a
  *  `character-not-in-campaign` when a `placeCombatant` names a character not
- *  finalized-placed in this campaign (UNN-487). */
+ *  finalized-placed in this campaign (UNN-487). `delve-not-active` is the D11
+ *  status seal — the event vocabulary writes only running delves. */
 export type ApplyDungeonEventError =
   | "invalid-input"
   | "missing-instance-version"
   | "character-not-in-campaign"
+  | "delve-not-active"
   | DungeonWriteError
   | MapInstanceWriteError
