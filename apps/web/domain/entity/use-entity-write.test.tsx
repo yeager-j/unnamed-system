@@ -285,6 +285,31 @@ describe("useEntityColumnWrite — replayable column intent (UNN-648)", () => {
   })
 })
 
+describe("useEntityReplica — expiry observability and recovery (UNN-649)", () => {
+  it("logs the dropped count, toasts, and bootstraps a fresh identity", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    pushAction.mockResolvedValueOnce(
+      err({ kind: "unknown-client", received: 1 })
+    )
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
+    const bootstrapReads = acceptedAction.mock.calls.length
+
+    await act(async () => result.current.dispatch(damage))
+    await flush()
+
+    expect(warn).toHaveBeenCalledWith(
+      "[entity-replica-client]",
+      JSON.stringify({ kind: "expired", dropped: 1 })
+    )
+    expect(toast.error).toHaveBeenCalledWith(
+      "This tab's live session expired — unsaved changes were discarded. Reconnecting…"
+    )
+    expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
+    warn.mockRestore()
+  })
+})
+
 describe("EntityWriteProvider — unmount saves outlive provider cleanup (Codex P1, PR #386)", () => {
   it("delivers a mutate fired after cleanup in the same commit — teardown yields a macrotask", async () => {
     const { result, unmount } = renderHook(() => useEntityWrite(), { wrapper })
@@ -336,7 +361,7 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UN
     })
   })
 
-  it("fans a ping into the replica transport (a fresh refetch) AND the classic refresh compare", async () => {
+  it("feeds routine owner pings only into the replica transport", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
     await flush()
     const bootstrapReads = acceptedAction.mock.calls.length
@@ -350,10 +375,10 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UN
     await flush()
 
     expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
-    expect(routerRefresh).toHaveBeenCalledTimes(1)
+    expect(routerRefresh).not.toHaveBeenCalled()
   })
 
-  it("suppresses echoes in the refresh compare: nothing fresher never refreshes", async () => {
+  it("does not revive the RSC refresh arm for owner echoes", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
     await flush()
 
@@ -367,7 +392,25 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UN
     expect(routerRefresh).not.toHaveBeenCalled()
   })
 
-  it("refreshes and re-pulls once a dropped connection comes back", async () => {
+  it("refreshes the owner RSC layout for an explicit lifecycle ping", async () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
+    const bootstrapReads = acceptedAction.mock.calls.length
+
+    await act(async () => {
+      capturedChannel.current?.onPing({
+        kind: "entity",
+        versions: { identity: 2 },
+        status: "finalized",
+      })
+    })
+    await flush()
+
+    expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
+  })
+
+  it("re-pulls without refreshing the owner RSC frame after reconnect", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
     await flush()
     const bootstrapReads = acceptedAction.mock.calls.length
@@ -377,18 +420,19 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UN
     })
     await flush()
 
-    expect(routerRefresh).toHaveBeenCalledTimes(1)
+    expect(routerRefresh).not.toHaveBeenCalled()
     expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
   })
 })
 
 describe("EntityWriteProvider — read-only mounts", () => {
+  const readOnly = ({ children }: { children: React.ReactNode }) => (
+    <EntityWriteProvider loaded={loaded} writable={false}>
+      {children}
+    </EntityWriteProvider>
+  )
+
   it("never bootstraps the replica when not writable", async () => {
-    const readOnly = ({ children }: { children: React.ReactNode }) => (
-      <EntityWriteProvider loaded={loaded} writable={false}>
-        {children}
-      </EntityWriteProvider>
-    )
     const { result } = renderHook(() => useLoadedCharacter(), {
       wrapper: readOnly,
     })
@@ -396,6 +440,19 @@ describe("EntityWriteProvider — read-only mounts", () => {
 
     expect(acceptedAction).not.toHaveBeenCalled()
     expect(result.current.entity).toBe(loaded.entity)
+  })
+
+  it("refreshes its RSC frame on every ping and reconnect", async () => {
+    renderHook(() => useLoadedCharacter(), { wrapper: readOnly })
+    await flush()
+
+    await act(async () => {
+      capturedChannel.current?.onPing({ kind: "entity", versions: {} })
+      capturedChannel.current?.onReconnect?.()
+    })
+
+    expect(routerRefresh).toHaveBeenCalledTimes(2)
+    expect(acceptedAction).not.toHaveBeenCalled()
   })
 })
 

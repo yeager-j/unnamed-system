@@ -29,9 +29,10 @@ import {
  * wedges into a gap on its next mutation.
  *
  * On an actually-executed commit (never a deduplicated replay — the
- * processor's context back-channel distinguishes them) it fires the same
- * realtime ping + route revalidation the classic door fires, so every other
- * watcher's catch-up path is identical during the migration window.
+ * processor's context back-channel distinguishes them) it fires the character
+ * realtime ping plus route revalidation. Owner mounts ingest the ping through
+ * their replica; read-only and classic combat readers retain their respective
+ * RSC/token catch-up paths.
  */
 export async function pushEntityMutationAction(
   input: EntityPushInput

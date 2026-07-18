@@ -1,45 +1,14 @@
 import { z } from "zod/v4"
 
 import { BUILDER_STEPS } from "@/domain/character/builder-steps"
-import {
-  entityNameValueSchema,
-  entityNotesValueSchema,
-  entityPronounsValueSchema,
-} from "@/domain/entity/replica/mutations"
 import type { EntityGuardError } from "@/lib/actions/entity/version-guard"
 import type { PortraitUploadError } from "@/lib/storage/portrait-upload"
 
-import { entityMutationBase } from "./entity-mutation.schema"
-
 /**
- * The per-field column-action wires (ADR §2.4's "classic per-field Server
- * Actions" species — name / pronouns / portrait / builder step). One schema per
- * field, all extending the aggregate envelope; every action guards the
- * **identity** class.
+ * Wires for the two non-replayable/non-versioned column actions left after
+ * replica contraction. Replayable entity-row columns are validated by the
+ * `entity.setColumn` mutation registry instead.
  */
-
-/** Mirrors v1's name rules: trimmed, required, 64-char cap. */
-export const UpdateEntityNameSchema = entityMutationBase.extend({
-  name: entityNameValueSchema,
-})
-export type UpdateEntityNameInput = z.input<typeof UpdateEntityNameSchema>
-
-export const UpdateEntityPronounsSchema = entityMutationBase.extend({
-  pronouns: entityPronounsValueSchema,
-})
-export type UpdateEntityPronounsInput = z.input<
-  typeof UpdateEntityPronounsSchema
->
-
-/**
- * Notes is the free-form `notes` app column (table-facing, visible to every
- * viewer). The 8000-char cap matches the narrative prose fields
- * (`NARRATIVE_TEXT_MAX`) so both long-form surfaces share one bound.
- */
-export const UpdateEntityNotesSchema = entityMutationBase.extend({
-  notes: entityNotesValueSchema,
-})
-export type UpdateEntityNotesInput = z.input<typeof UpdateEntityNotesSchema>
 
 /**
  * Builder step is **unguarded** (R3 — UNN-573): it lives on the `playerCharacter`
@@ -61,14 +30,8 @@ export type SetEntityBuilderStepInput = z.input<
 >
 export type SetEntityBuilderStepError = "invalid-input" | "entity-not-found"
 
-export const RemoveEntityPortraitSchema = entityMutationBase
-export type RemoveEntityPortraitInput = z.input<
-  typeof RemoveEntityPortraitSchema
->
-
-export type EntityColumnActionError = "invalid-input" | EntityGuardError
-
 /** The portrait upload adds the Blob stage's failures to the column set. */
 export type UploadEntityPortraitError =
-  | EntityColumnActionError
+  | "invalid-input"
+  | EntityGuardError
   | PortraitUploadError

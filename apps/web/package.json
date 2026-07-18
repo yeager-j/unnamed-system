@@ -12,6 +12,7 @@
     "format": "eslint --fix \"**/*.{ts,tsx}\" && prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:replica-db": "REPLICA_DB_TESTS=1 vitest run",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "test:e2e": "playwright test",

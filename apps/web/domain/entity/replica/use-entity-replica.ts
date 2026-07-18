@@ -15,6 +15,7 @@ import { err, ok, type Result } from "@workspace/result"
 import { loadEntityAcceptedAction } from "@/lib/actions/entity/replica/snapshot"
 import { createEntityReplicaSource } from "@/lib/sync/entity-replica-source"
 
+import { logEntityReplicaEvent } from "./events"
 import { mintEntityClientIdentity } from "./identity"
 import {
   entityReplicaMutations,
@@ -156,6 +157,7 @@ export function useEntityReplica({
           initial: result.value,
         }),
         onEvent: (event) => {
+          logEntityReplicaEvent(event)
           if (event.kind !== "expired") return
           if (event.dropped > 0) {
             toast.error(

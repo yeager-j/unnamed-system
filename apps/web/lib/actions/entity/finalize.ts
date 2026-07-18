@@ -10,6 +10,7 @@ import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
 import { playerCharacter } from "@/lib/db/schema/player-character"
+import { publishPlayerCharacterLifecyclePing } from "@/lib/realtime/publish"
 
 import {
   FinalizeEntitySchema,
@@ -65,6 +66,10 @@ export async function finalizeEntityAction(
     .update(playerCharacter)
     .set({ status: "finalized" })
     .where(eq(playerCharacter.entityId, row.id))
+
+  publishPlayerCharacterLifecyclePing(row.shortId, "finalized", {
+    identity: committed.value.version,
+  })
 
   revalidateEntity({ shortId: row.shortId })
   revalidateCharacterList()

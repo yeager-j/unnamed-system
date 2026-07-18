@@ -36,8 +36,7 @@ explicit-`undefined` deletion, the exact edge the negative control proves.
 - **App-owned columns** (name, portrait, pronouns, notes) use the owner entity
   replica's `entity.setColumn` desired-value mutation. Builder step is an
   unversioned subtype LWW action; finalize and Blob upload are single-attempt,
-  identity-preconditioned lifecycle actions. Classic column actions remain only
-  for expand/rollback compatibility until UNN-649.
+  identity-preconditioned lifecycle actions.
 
 Both are the same D35 storage projection surfacing at the write layer; do not
 route one through the other.
@@ -54,8 +53,8 @@ one version class — CH15's disjoint-footprint guarantee is per class.
 ## The two optimistic hooks (Open Q5 — container split stays, policy split ended)
 
 `useEntityWrite` (character routes) and `useCombatantWrite` (encounters) both
-predict via the same Writers but reconcile differently: the entity door
-re-folds `resolveEntity` client-side and catches up via route revalidation;
+predict via the same Writers but reconcile differently: the entity replica
+re-folds `resolveEntity` client-side and catches up through accepted snapshots;
 the console pushes the patch into its session-frame reducer and reconciles via
 the pc-ping refetch. That **container** split stays deliberate (the reconcile
 channels genuinely differ); converge only if one channel wins.
