@@ -62,7 +62,12 @@ export default async function MapEditorPage({ params }: PageProps) {
   for (const set of templateSets) {
     for (const templateKey of set.content.templateOrder) {
       const template = set.content.templates[templateKey]
-      if (template === undefined || seenKeys.has(templateKey)) continue
+      // Tombstoned templates take no NEW bindings (D2: a tombstone stops rolls
+      // and offers while existing references keep resolving) — skipped before
+      // the dedupe so a live copy of the key in another Set still offers, and
+      // an existing stale binding still renders via the select's fallback.
+      if (template === undefined || template.tombstoned === true) continue
+      if (seenKeys.has(templateKey)) continue
       seenKeys.add(templateKey)
       templateKeys.push({
         key: templateKey,
