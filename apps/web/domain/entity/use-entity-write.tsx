@@ -19,6 +19,7 @@ import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
+import { parsePlayerCharacterStatus } from "@/lib/realtime/character-lifecycle-ping"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
 
 import {
@@ -60,10 +61,12 @@ import {
  * action and needs no identity serialization.
  *
  * The provider stays the single Ably subscriber (the cross-writer reconcile
- * channel, UNN-569). Writable owner mounts forward pings only to the replica
- * transport, whose causal gate decides whether to accept the refetch. A
- * read-only mount has no replica and refreshes its RSC frame instead; that is
- * its sole cross-writer liveness path.
+ * channel, UNN-569). Writable owner mounts forward pings to the replica
+ * transport, whose causal gate decides whether to accept the refetch. An
+ * explicit PC-lifecycle ping also refreshes the owner's RSC layout because
+ * subtype status is deliberately outside the replica projection. A read-only
+ * mount has no replica and refreshes its RSC frame instead; that is its sole
+ * cross-writer liveness path.
  *
  * Widget blindness: components receive {@link useEntityWrite}'s `dispatch` /
  * {@link useEntityAutoSave} from this provider and never import the Server
@@ -144,8 +147,10 @@ export function EntityWriteProvider({
   }
 
   // The cross-writer reconcile channel (UNN-569 → UNN-649): every guarded
-  // entity commit pings `character:{shortId}`. Owner mounts feed only the
-  // replica transport; its causal gate suppresses echoes and stale reads.
+  // entity commit pings `character:{shortId}`. Owner mounts feed the replica
+  // transport; its causal gate suppresses echoes and stale reads. A lifecycle
+  // fact additionally refreshes the RSC layout because PC subtype status is
+  // not part of the replica root.
   // Read-only mounts cannot bootstrap the strict-owner replica, so their RSC
   // frame refresh is the deliberately separate liveness arm. Inert without
   // ABLY_API_KEY, like every listener.
@@ -153,9 +158,13 @@ export function EntityWriteProvider({
   useRealtimeChannel({
     domain: "character",
     shortId: profile.shortId,
-    onPing: () => {
-      if (writable) notifyPing()
-      else router.refresh()
+    onPing: (data) => {
+      if (!writable) {
+        router.refresh()
+        return
+      }
+      notifyPing()
+      if (parsePlayerCharacterStatus(data)) router.refresh()
     },
     onReconnect: () => {
       if (writable) notifyReconnect()

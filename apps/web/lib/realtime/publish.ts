@@ -4,6 +4,7 @@ import { after } from "next/server"
 
 import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
+import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
 
 import { realtimeChannelName, type RealtimeDomain } from "./channels"
@@ -11,9 +12,10 @@ import { getAblyRest } from "./client"
 
 /**
  * Fire-and-forget invalidation pings over Ably (realtime ADR, Decisions 1, 4,
- * 5). The payload is advisory metadata only — touched version tokens, never
- * domain data — so subscribers refetch through the existing authed/redacting
- * read paths and the server-side redaction model is untouched.
+ * 5). The payload is advisory metadata only — touched version tokens plus
+ * optional lifecycle hints, never authoritative state — so subscribers
+ * refetch through the existing authed/redacting read paths and the server-side
+ * redaction model is untouched.
  *
  * With `ABLY_API_KEY` unset every publish is a silent no-op. A publish failure
  * is logged and swallowed; it never fails or delays the write, which is also
@@ -35,13 +37,17 @@ import { getAblyRest } from "./client"
 export type CharacterPingKind = "character" | "entity"
 
 /**
- * The character ping body: which row family moved, and the touched version
- * classes mapped to their new values, feeding the subscribers' per-class
- * version-compare (UNN-372/UNN-569).
+ * The character ping body: which row family moved and the touched version
+ * classes mapped to their new values. A PC-subtype lifecycle write also
+ * carries its status so owner RSC layouts know they must re-evaluate; the
+ * status remains advisory and is never applied directly (UNN-372/UNN-569).
  */
 export interface CharacterPing {
   kind: CharacterPingKind
   versions: Partial<Record<VersionClass, number>>
+  /** Present only when a write changed lifecycle state outside the entity
+   *  replica projection and owner RSC layouts must be re-evaluated. */
+  status?: PlayerCharacterStatus
 }
 
 /**
@@ -113,6 +119,17 @@ export function publishCharacterPing(
   versions: CharacterPing["versions"]
 ): void {
   schedulePublish("character", shortId, { kind, versions })
+}
+
+/** Publishes the PC-subtype lifecycle fact after its write succeeds. Owner
+ *  replicas still ingest the invalidation, while their RSC layouts refresh to
+ *  enforce status-dependent routing such as leaving the draft builder. */
+export function publishPlayerCharacterLifecyclePing(
+  shortId: string,
+  status: PlayerCharacterStatus,
+  versions: CharacterPing["versions"]
+): void {
+  schedulePublish("character", shortId, { kind: "entity", versions, status })
 }
 
 /** Pings an encounter's channel after a successful **session** write (the

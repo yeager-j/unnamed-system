@@ -361,7 +361,7 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UN
     })
   })
 
-  it("feeds owner pings only into the replica transport", async () => {
+  it("feeds routine owner pings only into the replica transport", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
     await flush()
     const bootstrapReads = acceptedAction.mock.calls.length
@@ -390,6 +390,24 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UN
     })
 
     expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  it("refreshes the owner RSC layout for an explicit lifecycle ping", async () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
+    const bootstrapReads = acceptedAction.mock.calls.length
+
+    await act(async () => {
+      capturedChannel.current?.onPing({
+        kind: "entity",
+        versions: { identity: 2 },
+        status: "finalized",
+      })
+    })
+    await flush()
+
+    expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
   })
 
   it("re-pulls without refreshing the owner RSC frame after reconnect", async () => {
