@@ -28,11 +28,6 @@ import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 type PickableMap = { shortId: string; name: string }
 
-/** The table Select's "no wandering table" sentinel — Base UI `SelectItem`
- *  values can't be empty, so `""` (unselected `settings.wanderingTableKey`) is
- *  represented in the list by this reserved value. */
-const NO_TABLE = "none"
-
 /**
  * "New region" CTA on the campaign manage page (UNN-589). Opens a dialog for the
  * Region name, its **seed Map** (over the DM's Maps) and **Template Set** (over the
@@ -69,7 +64,7 @@ export function CreateRegionButton({
   const [name, setName] = useState("")
   const [selectedMapShortId, setSelectedMapShortId] = useState("")
   const [selectedSetShortId, setSelectedSetShortId] = useState("")
-  const [wanderingTableKey, setWanderingTableKey] = useState(NO_TABLE)
+  const [wanderingTableKey, setWanderingTableKey] = useState("")
   const [intervalTurns, setIntervalTurns] = useState<1 | 2 | 3 | 6>(6)
 
   const selectedSet = sets.find((set) => set.shortId === selectedSetShortId)
@@ -78,14 +73,14 @@ export function CreateRegionButton({
 
   function onSelectSet(shortId: string) {
     setSelectedSetShortId(shortId)
-    setWanderingTableKey(NO_TABLE)
+    setWanderingTableKey("")
   }
 
   function onCreate() {
     const trimmed = name.trim()
     if (!trimmed || !selectedMapShortId || !selectedSetShortId) return
 
-    const hasTable = wanderingTableKey !== NO_TABLE
+    const hasTable = wanderingTableKey !== ""
 
     startTransition(() =>
       guardWriteTransition(
@@ -192,24 +187,18 @@ export function CreateRegionButton({
               <DataSelect
                 id="region-table"
                 disabled={tables.length === 0}
-                options={[{ key: NO_TABLE, name: "None" }, ...tables]}
+                nullOption={{
+                  label: <span className="text-muted-foreground">None</span>,
+                }}
+                options={tables}
                 optionValue={(table) => table.key}
                 optionLabel={(table) => table.name}
                 value={wanderingTableKey}
-                onValueChange={(value) =>
-                  setWanderingTableKey(value || NO_TABLE)
-                }
-                selectTriggerLabel={(table) =>
-                  table && table.key !== NO_TABLE ? (
-                    table.name
-                  ) : (
-                    <span className="text-muted-foreground">None</span>
-                  )
-                }
+                onValueChange={setWanderingTableKey}
               />
             </Field>
 
-            {wanderingTableKey !== NO_TABLE ? (
+            {wanderingTableKey !== "" ? (
               <Field>
                 <FieldLabel htmlFor="region-interval">Fires</FieldLabel>
                 <DataSelect

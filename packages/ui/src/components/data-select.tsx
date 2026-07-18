@@ -14,6 +14,14 @@ import {
 } from "@workspace/ui/components/select"
 
 /**
+ * Base UI requires a non-empty string value for every selectable item, so the
+ * `nullOption` ("nothing chosen") item needs a reserved stand-in the caller
+ * never sees. `DataSelect` maps the caller's `""` ↔ `NULL_VALUE` at its
+ * boundary; the null character can't collide with a real option key.
+ */
+const NULL_VALUE = "\u0000"
+
+/**
  * A data-driven wrapper over the compositional `Select` primitive. You pass a
  * domain array plus accessor functions; `DataSelect` builds the trigger, the
  * popup, and the label resolution from them — the `.map()` / `.find()` /
@@ -51,14 +59,21 @@ type DataSelectProps<T> = Omit<
     /** Leading slot rendered inside the trigger, before the value. */
     icon?: React.ReactNode
     /**
+     * A leading "nothing chosen" option, selected when `value` is `""`. Its
+     * `label` shows in the trigger and popup — so callers stop hand-rolling a
+     * sentinel key and its `?? SENTINEL` / `=== SENTINEL` translation, and just
+     * bridge their domain's `undefined` with `?? ""` / `|| undefined`.
+     */
+    nullOption?: { label: React.ReactNode }
+    /**
      * Override the trigger's rendered value. Receives the matched option (or
-     * `undefined` when the value matches nothing — e.g. a stale/deleted key) and
-     * the raw selected value. When set, the automatic label resolution is
-     * bypassed.
+     * `undefined` when the null option / a stale-deleted key is selected) and
+     * the selected value (`""` for the null option). When set, the automatic
+     * label resolution is bypassed.
      */
     selectTriggerLabel?: (
       option: T | undefined,
-      value: string | null
+      value: string
     ) => React.ReactNode
   }
 
@@ -72,6 +87,7 @@ function DataSelect<T>({
   placeholder,
   align,
   icon,
+  nullOption,
   selectTriggerLabel,
   disabled,
   name,
@@ -81,10 +97,13 @@ function DataSelect<T>({
   ...triggerProps
 }: DataSelectProps<T>) {
   // Feeds Base UI's native label resolution for the default trigger.
-  const items = options.map((option) => ({
-    value: optionValue(option),
-    label: optionLabel(option),
-  }))
+  const items = [
+    ...(nullOption ? [{ value: NULL_VALUE, label: nullOption.label }] : []),
+    ...options.map((option) => ({
+      value: optionValue(option),
+      label: optionLabel(option),
+    })),
+  ]
   const byValue = new Map(
     options.map((option) => [optionValue(option), option])
   )
@@ -92,8 +111,11 @@ function DataSelect<T>({
   return (
     <Select
       items={items}
-      value={value}
-      onValueChange={(next) => onValueChange(next ?? "")}
+      value={value === "" && nullOption ? NULL_VALUE : value}
+      onValueChange={(next) => {
+        const raw = next ?? ""
+        onValueChange(raw === NULL_VALUE ? "" : raw)
+      }}
       disabled={disabled}
       name={name}
       defaultValue={defaultValue}
@@ -104,18 +126,23 @@ function DataSelect<T>({
         {icon}
         {selectTriggerLabel ? (
           <SelectValue placeholder={placeholder}>
-            {(selected: string | null) =>
-              selectTriggerLabel(
-                selected == null ? undefined : byValue.get(selected),
-                selected
+            {(selected: string | null) => {
+              const resolved =
+                selected == null || selected === NULL_VALUE ? "" : selected
+              return selectTriggerLabel(
+                resolved === "" ? undefined : byValue.get(resolved),
+                resolved
               )
-            }
+            }}
           </SelectValue>
         ) : (
           <SelectValue placeholder={placeholder} />
         )}
       </SelectTrigger>
       <SelectContent align={align}>
+        {nullOption && (
+          <SelectItem value={NULL_VALUE}>{nullOption.label}</SelectItem>
+        )}
         {optionGroup
           ? renderGroups(options, optionGroup, optionValue, optionLabel)
           : options.map((option) => {

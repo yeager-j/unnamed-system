@@ -15,10 +15,6 @@ import { regionErrorMessage } from "@/lib/actions/region/error-message"
 import { updateRegionSettingsAction } from "@/lib/actions/region/update-settings"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
-/** The table Select's "no wandering table" sentinel — Base UI `SelectItem` values
- *  can't be empty, so absent `settings.wanderingTableKey` shows as this value. */
-const NO_TABLE = "none"
-
 /** The authored settings this form edits — the plain projection of the Region's
  *  `settings` blob (the app tier is gated against engine types). */
 type RegionSettingsProp = {
@@ -56,13 +52,13 @@ export function RegionSettingsForm({
 
   const [name, setName] = useState(initialName)
   const [wanderingTableKey, setWanderingTableKey] = useState(
-    settings.wanderingTableKey ?? NO_TABLE
+    settings.wanderingTableKey ?? ""
   )
   const [intervalTurns, setIntervalTurns] = useState<1 | 2 | 3 | 6>(
     settings.wanderingIntervalTurns ?? 6
   )
 
-  const hasTable = wanderingTableKey !== NO_TABLE
+  const hasTable = wanderingTableKey !== ""
 
   function onSave() {
     const trimmed = name.trim()
@@ -115,13 +111,14 @@ export function RegionSettingsForm({
         <DataSelect
           id="region-settings-table"
           disabled={tables.length === 0 && !hasTable}
-          options={[{ key: NO_TABLE, name: "None" }, ...tables]}
+          nullOption={{ label: "None" }}
+          options={tables}
           optionValue={(table) => table.key}
           optionLabel={(table) => table.name}
           value={wanderingTableKey}
-          onValueChange={(value) => setWanderingTableKey(value || NO_TABLE)}
+          onValueChange={setWanderingTableKey}
           selectTriggerLabel={(table, value) =>
-            value === NO_TABLE ? (
+            value === "" ? (
               <span className="text-muted-foreground">None</span>
             ) : table ? (
               table.name

@@ -32,8 +32,6 @@ import type { SetEditorSelection } from "./selection"
 import type { PortalMapOption } from "./set-editor"
 import { TokenCombobox } from "./token-combobox"
 
-const NO_PORTAL = "none"
-
 /**
  * One zone template's form — "a small form, not a canvas" (PRD). Every change
  * flows through `updateTemplate` into the whole-blob autosave; there is no
@@ -258,15 +256,12 @@ export function TemplateForm({
         <DataSelect
           className="w-full max-w-sm"
           placeholder="Missing map"
-          options={[{ id: NO_PORTAL, name: "Not a portal" }, ...mapOptions]}
+          nullOption={{ label: "Not a portal" }}
+          options={mapOptions}
           optionValue={(option) => option.id}
           optionLabel={(option) => option.name}
-          value={template.portalMapId ?? NO_PORTAL}
-          onValueChange={(value) =>
-            patch({
-              portalMapId: value === NO_PORTAL ? undefined : value,
-            })
-          }
+          value={template.portalMapId ?? ""}
+          onValueChange={(value) => patch({ portalMapId: value || undefined })}
         />
         <FieldDescription>
           A portal template grafts the targeted static Map when the party enters

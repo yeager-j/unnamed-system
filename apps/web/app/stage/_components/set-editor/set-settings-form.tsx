@@ -17,8 +17,6 @@ import {
 } from "@/domain/template-set/edit"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
 
-const NO_CONNECTOR = "none"
-
 /**
  * The Set settings view — the two set-level knobs plus the delete control. The
  * knobs live on the content blob (not `region.settings`): `closureChance` is
@@ -95,23 +93,15 @@ export function SetSettingsForm({
         <DataSelect
           className="w-full max-w-sm"
           placeholder="Missing template"
-          options={[
-            { key: NO_CONNECTOR, label: "No connector" },
-            ...connectorOptions.map(({ key, template }) => ({
-              key,
-              label: template.name.trim() || "Untitled template",
-            })),
-          ]}
-          optionValue={(option) => option.key}
-          optionLabel={(option) => option.label}
-          value={content.connectorTemplateKey ?? NO_CONNECTOR}
+          nullOption={{ label: "No connector" }}
+          options={connectorOptions}
+          optionValue={({ key }) => key}
+          optionLabel={({ template }) =>
+            template.name.trim() || "Untitled template"
+          }
+          value={content.connectorTemplateKey ?? ""}
           onValueChange={(value) =>
-            onApplyContent(
-              setConnectorTemplateKey(
-                content,
-                value === NO_CONNECTOR ? undefined : value
-              )
-            )
+            onApplyContent(setConnectorTemplateKey(content, value || undefined))
           }
         />
         <FieldDescription>
