@@ -70,6 +70,9 @@ beforeEach(() => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      // The real loader zod-parses the blob, so `generation` always exists —
+      // the fixture mirrors the load-schema fixed point (UNN-590).
+      generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
     },
     version: 0,
   })
@@ -96,5 +99,58 @@ describe("getDungeonSnapshot — campaign pairing (UNN-608)", () => {
   it("404s when no dungeon matches the shortId", async () => {
     loadDungeonRowByShortId.mockResolvedValue(null)
     expect(await getDungeonSnapshot("missing", "camp-1")).toBeNull()
+  })
+})
+
+describe("getDungeonSnapshot — stub anchors thread to the projector (UNN-590)", () => {
+  it("passes a revealed parent's stub anchor (keyed by stub id) as an exit anchor", async () => {
+    loadMapInstanceById.mockResolvedValue({
+      id: "mi-1",
+      state: {
+        occupancy: {},
+        geometry: {
+          pages: { default: { id: "default", name: "Page 1" } },
+          zones: {
+            z1: {
+              id: "z1",
+              name: "Entry",
+              description: "",
+              dmNotes: "",
+              position: { x: 0, y: 0 },
+              pageId: "default",
+            },
+          },
+          connections: {},
+        },
+        reveal: {
+          revealedZoneIds: ["z1"],
+          revealedConnectionIds: [],
+          unlockedConnectionIds: [],
+        },
+        generation: {
+          zones: {},
+          stubs: {
+            "stub-1": {
+              id: "stub-1",
+              zoneId: "z1",
+              bearing: 1.1,
+              anchor: { side: "w", offset: 0.3 },
+            },
+          },
+          connections: {},
+          grafts: {},
+        },
+      },
+      version: 0,
+    })
+
+    const snapshot = await getDungeonSnapshot("dungeon-a")
+    expect(snapshot).toBe(SENTINEL)
+
+    const exitAnchors = projectDungeonSnapshot.mock.calls[0]!.at(-1) as Record<
+      string,
+      { side: string; offset: number }
+    >
+    expect(exitAnchors["stub-1"]).toEqual({ side: "w", offset: 0.3 })
   })
 })

@@ -29,6 +29,7 @@ import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/connection-edge"
+import { DungeonStubGhostNode } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/stub-ghost-node"
 import { TurnLoopBar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/turn-loop-bar"
 import { DungeonZoneNode } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node"
 import {
@@ -62,6 +63,7 @@ import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 const nodeTypes = {
   dungeonZone: DungeonZoneNode,
   dungeonCombatZone: DungeonCombatZoneNode,
+  stubGhost: DungeonStubGhostNode,
 }
 const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 
@@ -206,6 +208,8 @@ function DungeonCanvasInner({
   const minimapClasses: Record<string, MinimapZoneClass> = {}
   for (const node of nodes) {
     const data = node.data
+    // Stub ghosts (UNN-590) carry no zone data and stay off the minimap.
+    if (!("revealed" in data)) continue
     if (!data.revealed) {
       minimapClasses[node.id] = "unmapped"
     } else if ("tokens" in data) {

@@ -94,3 +94,201 @@ describe("dungeonReminders (pure selectors over the turn counter)", () => {
     expect(dungeonReminders(dungeon({ turnCounter: 50 }))).toEqual([])
   })
 })
+
+describe("reduceDungeon — draw ledger (UNN-590)", () => {
+  const declaration = (
+    id: string,
+    overrides: Partial<DungeonState["generation"]["declarations"][number]> = {}
+  ) => ({
+    id,
+    sequence: 0,
+    templateKey: "vault",
+    minDepth: 0,
+    k: 6,
+    secretIndex: 3,
+    qualifyingCount: 0,
+    ...overrides,
+  })
+
+  const withLedger = (
+    generation: Partial<DungeonState["generation"]> = {}
+  ): DungeonState =>
+    dungeon({
+      generation: {
+        seed: "seed-1",
+        streamCursors: { templates: 4 },
+        declarations: [],
+        mintedUniqueKeys: [],
+        mints: {},
+        ...generation,
+      },
+    })
+
+  describe("declareSite", () => {
+    it("appends the fully resolved declaration", () => {
+      const next = reduceDungeon(withLedger(), {
+        kind: "declareSite",
+        declaration: declaration("d1"),
+      })
+      expect(next.generation.declarations).toEqual([declaration("d1")])
+    })
+
+    it("is a same-ref no-op on a duplicate declaration id (retry)", () => {
+      const state = withLedger({ declarations: [declaration("d1")] })
+      const next = reduceDungeon(state, {
+        kind: "declareSite",
+        declaration: declaration("d1", { k: 15 }),
+      })
+      expect(next).toBe(state)
+    })
+  })
+
+  describe("recordMint", () => {
+    const record = {
+      sequence: 1,
+      templateKey: "castle-entrance",
+      unique: true,
+      effects: [{ declarationId: "d1", incremented: true, resolved: true }],
+    }
+
+    it("writes the record, consumes uniqueness, and applies declaration effects", () => {
+      const state = withLedger({ declarations: [declaration("d1")] })
+      const next = reduceDungeon(state, {
+        kind: "recordMint",
+        zoneId: "zone-m",
+        record,
+      })
+      expect(next.generation.mints["zone-m"]).toEqual(record)
+      expect(next.generation.mintedUniqueKeys).toEqual(["castle-entrance"])
+      expect(next.generation.declarations[0]).toMatchObject({
+        qualifyingCount: 1,
+        resolvedZoneId: "zone-m",
+      })
+    })
+
+    it("is a same-ref no-op when the zone already has a mint record (retry)", () => {
+      const state = withLedger({ mints: { "zone-m": record } })
+      expect(
+        reduceDungeon(state, { kind: "recordMint", zoneId: "zone-m", record })
+      ).toBe(state)
+    })
+
+    it("skips effects naming a withdrawn declaration", () => {
+      const state = withLedger()
+      const next = reduceDungeon(state, {
+        kind: "recordMint",
+        zoneId: "zone-m",
+        record,
+      })
+      expect(next.generation.mints["zone-m"]).toEqual(record)
+      expect(next.generation.declarations).toEqual([])
+    })
+
+    it("does not double-add an already-minted unique key", () => {
+      const state = withLedger({ mintedUniqueKeys: ["castle-entrance"] })
+      const next = reduceDungeon(state, {
+        kind: "recordMint",
+        zoneId: "zone-m",
+        record: { ...record, effects: [] },
+      })
+      expect(next.generation.mintedUniqueKeys).toEqual(["castle-entrance"])
+    })
+  })
+
+  describe("revertMint", () => {
+    const record = {
+      sequence: 1,
+      templateKey: "castle-entrance",
+      unique: true,
+      effects: [{ declarationId: "d1", incremented: true, resolved: true }],
+    }
+
+    it("replays the recorded inverse exactly (record → revert ≡ identity)", () => {
+      const base = withLedger({ declarations: [declaration("d1")] })
+      const minted = reduceDungeon(base, {
+        kind: "recordMint",
+        zoneId: "zone-m",
+        record,
+      })
+      const reverted = reduceDungeon(minted, {
+        kind: "revertMint",
+        zoneId: "zone-m",
+      })
+      expect(reverted).toStrictEqual(base)
+    })
+
+    it("is a same-ref no-op on an absent record (benign retry)", () => {
+      const state = withLedger()
+      expect(
+        reduceDungeon(state, { kind: "revertMint", zoneId: "zone-m" })
+      ).toBe(state)
+    })
+
+    it("never touches streamCursors", () => {
+      const minted = reduceDungeon(
+        withLedger({ declarations: [declaration("d1")] }),
+        {
+          kind: "recordMint",
+          zoneId: "zone-m",
+          record,
+        }
+      )
+      const reverted = reduceDungeon(minted, {
+        kind: "revertMint",
+        zoneId: "zone-m",
+      })
+      expect(reverted.generation.streamCursors).toEqual({ templates: 4 })
+    })
+
+    it("leaves a declaration resolved by a LATER mint untouched (non-LIFO soundness)", () => {
+      // zone-m resolves d1; zone-n later re-resolves it is impossible (resolved
+      // declarations don't re-draw) — the real non-LIFO case: d1 resolved by
+      // zone-n, while zone-m's record only incremented. Reverting zone-m must
+      // not clear d1's resolution.
+      const base = withLedger({ declarations: [declaration("d1")] })
+      const mintedM = reduceDungeon(base, {
+        kind: "recordMint",
+        zoneId: "zone-m",
+        record: {
+          sequence: 1,
+          templateKey: "hall",
+          unique: false,
+          effects: [
+            { declarationId: "d1", incremented: true, resolved: false },
+          ],
+        },
+      })
+      const mintedN = reduceDungeon(mintedM, {
+        kind: "recordMint",
+        zoneId: "zone-n",
+        record: {
+          sequence: 2,
+          templateKey: "vault",
+          unique: false,
+          effects: [{ declarationId: "d1", incremented: true, resolved: true }],
+        },
+      })
+      const reverted = reduceDungeon(mintedN, {
+        kind: "revertMint",
+        zoneId: "zone-m",
+      })
+      expect(reverted.generation.declarations[0]).toMatchObject({
+        qualifyingCount: 1,
+        resolvedZoneId: "zone-n",
+      })
+    })
+  })
+
+  describe("advanceCursors", () => {
+    it("adds each consumed count, minting absent purposes at 0", () => {
+      const next = reduceDungeon(withLedger(), {
+        kind: "advanceCursors",
+        consumed: { templates: 2, closure: 1 },
+      })
+      expect(next.generation.streamCursors).toEqual({
+        templates: 6,
+        closure: 1,
+      })
+    })
+  })
+})

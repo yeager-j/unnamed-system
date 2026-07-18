@@ -1,5 +1,7 @@
 import { z } from "zod/v4"
 
+import { generationLedgerSchema } from "./generation-ledger.schema"
+
 /**
  * A **Dungeon**'s lifecycle status. `draft` while the DM preps the delve, `active`
  * once it is running, `done` when it has wrapped. Owned in the game domain so the
@@ -65,11 +67,14 @@ export type ReminderSettings = z.infer<typeof reminderSettingsSchema>
  * layers over a Map-Instance. Re-declared in v2 as pure Zod (D32). Persisted as one
  * versioned jsonb blob; the `version` is a row column, never part of this shape.
  *
- * It owns **no** geography — that is the Map-Instance's. It holds only the temporal
- * loop state: `turnCounter` (dungeon turns elapsed, ~10 min each) and
- * `actedCharacterIds` (which characters have acted *this* turn). The delve roster is
- * **derived** from the Instance's PC tokens, not stored here. Every field
- * `.default()`s so a freshly-minted Dungeon parses.
+ * It owns **no** geography — that is the Map-Instance's. It holds the temporal
+ * loop state — `turnCounter` (dungeon turns elapsed, ~10 min each) and
+ * `actedCharacterIds` (which characters have acted *this* turn) — plus the
+ * visit-lifetime **draw ledger** (`generation`, UNN-590 — see
+ * {@link import("./generation-ledger.schema").generationLedgerSchema}; the zero
+ * ledger on ordinary dungeons). The delve roster is **derived** from the
+ * Instance's PC tokens, not stored here. Every field `.default()`s so a
+ * freshly-minted (or pre-P3) Dungeon blob parses.
  */
 export const dungeonStateSchema = z.object({
   turnCounter: z.number().int().nonnegative().default(0),
@@ -77,6 +82,9 @@ export const dungeonStateSchema = z.object({
   reminderSettings: reminderSettingsSchema.default({
     randomEncounters: { enabled: false, intervalTurns: 6 },
   }),
+  generation: generationLedgerSchema.default(() =>
+    generationLedgerSchema.parse({})
+  ),
 })
 export type DungeonState = z.infer<typeof dungeonStateSchema>
 

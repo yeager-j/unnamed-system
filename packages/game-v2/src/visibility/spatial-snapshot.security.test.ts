@@ -16,6 +16,7 @@ import {
   makeMapInstanceState,
   makeZone,
 } from "@workspace/game-v2/spatial/__fixtures__/spatial"
+import { emptyGenerationLedger } from "@workspace/game-v2/spatial/generation-ledger.schema"
 import { isFogActive } from "@workspace/game-v2/spatial/reveal"
 
 import { makeParticipantView, spectator } from "./__fixtures__/redaction"
@@ -198,6 +199,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
       reminderSettings: {
         randomEncounters: { enabled: false, intervalTurns: 6 },
       },
+      generation: emptyGenerationLedger(),
     },
     roster
   )
@@ -242,6 +244,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
@@ -264,6 +267,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
@@ -282,6 +286,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
@@ -297,9 +302,185 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
     expect(dangling.activePageId).toBeUndefined()
+  })
+})
+
+describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits (UNN-590)", () => {
+  const DUNGEON_META: DungeonSnapshotMeta = {
+    name: "Crypt",
+    status: "active",
+    campaignShortId: "camp1",
+    version: 1,
+    instanceVersion: 1,
+  }
+  const SECRET_SEED = "expedition-seed-3f9a"
+  const SECRET_TEMPLATE_KEY = "castle-entrance"
+  const SECRET_PORTAL_MAP = "portal-map-77"
+
+  // z1 revealed and bound (templateKey + portalMapId + rollContentsAtStart +
+  // the geometry entry designation); c1 is an authored known-exit into the
+  // unrevealed z-secret; stub-open hangs off revealed z1; stub-dark hangs off
+  // unrevealed z-secret and must be structurally absent.
+  const generationInstance = makeMapInstanceState({
+    geometry: {
+      ...makeGeometry(
+        [
+          makeZone("z1", {
+            name: "Entry",
+            templateKey: SECRET_TEMPLATE_KEY,
+            portalMapId: SECRET_PORTAL_MAP,
+            rollContentsAtStart: true,
+          }),
+          makeZone("z-secret", { name: SECRET_ZONE_NAME }),
+        ],
+        [makeConnection("c1", "z1", "z-secret")]
+      ),
+      entryZoneId: "z1",
+    },
+    occupancy: { hero: free("z1") },
+    reveal: {
+      revealedZoneIds: ["z1"],
+      revealedConnectionIds: [],
+      unlockedConnectionIds: [],
+    },
+    generation: {
+      zones: {
+        z1: { source: "authored", depth: 0, templateKey: SECRET_TEMPLATE_KEY },
+        "z-secret": { source: "authored", depth: 1 },
+      },
+      stubs: {
+        "stub-open": {
+          id: "stub-open",
+          zoneId: "z1",
+          bearing: 2.35,
+          anchor: { side: "s", offset: 0.4 },
+        },
+        "stub-dark": {
+          id: "stub-dark",
+          zoneId: "z-secret",
+          bearing: 0,
+          anchor: { side: "n", offset: 0.5 },
+        },
+      },
+      connections: { c1: { source: "generated" } },
+      grafts: {},
+    },
+  })
+
+  const roster: Record<string, DungeonRosterEntry> = {
+    hero: {
+      name: "Hero",
+      portraitUrl: null,
+      hp: { current: 10, max: 10 },
+      sp: { current: 2, max: 2 },
+    },
+  }
+
+  const snap = projectDungeonSnapshot(
+    DUNGEON_META,
+    generationInstance,
+    {
+      turnCounter: 1,
+      actedCharacterIds: [],
+      reminderSettings: {
+        randomEncounters: { enabled: false, intervalTurns: 6 },
+      },
+      generation: {
+        seed: SECRET_SEED,
+        streamCursors: { templates: 4 },
+        declarations: [
+          {
+            id: "d1",
+            sequence: 0,
+            templateKey: "vault",
+            minDepth: 2,
+            k: 6,
+            secretIndex: 4,
+            qualifyingCount: 1,
+          },
+        ],
+        mintedUniqueKeys: [SECRET_TEMPLATE_KEY],
+        mints: {
+          "z-minted": {
+            sequence: 0,
+            templateKey: "hall",
+            unique: false,
+            effects: [],
+          },
+        },
+      },
+    },
+    roster
+  )
+  const wire = JSON.stringify(snap)
+
+  it("projects a stub on a revealed parent as an exit byte-shape-identical to an authored one", () => {
+    const authored = snap.exits.find((exit) => exit.id === "c1")!
+    const stub = snap.exits.find((exit) => exit.id === "stub-open")!
+    expect(stub).toEqual({
+      id: "stub-open",
+      zoneId: "z1",
+      locked: false,
+      side: "s",
+      offset: 0.4,
+    })
+    // The full-payload shape law: identical sorted key sets.
+    expect(Object.keys(stub).sort()).toEqual(Object.keys(authored).sort())
+    expect(Object.keys(stub).sort()).toEqual([
+      "id",
+      "locked",
+      "offset",
+      "side",
+      "zoneId",
+    ])
+  })
+
+  it("keeps a stub on an unrevealed parent structurally absent", () => {
+    expect(wire).not.toContain("stub-dark")
+  })
+
+  it("prefers a loader anchor over the stored one, keyed by stub id (the shared nudge path)", () => {
+    const nudged = projectDungeonSnapshot(
+      DUNGEON_META,
+      generationInstance,
+      {
+        turnCounter: 1,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+        generation: emptyGenerationLedger(),
+      },
+      roster,
+      { "stub-open": { side: "s", offset: 0.47 } }
+    )
+    const stub = nudged.exits.find((exit) => exit.id === "stub-open")!
+    expect(stub.offset).toBe(0.47)
+  })
+
+  it("never serializes the generation slice, bindings, ledger, or seed", () => {
+    // Instance-side: stub internals + provenance + authored bindings.
+    expect(wire).not.toContain("bearing")
+    expect(wire).not.toContain("templateKey")
+    expect(wire).not.toContain(SECRET_TEMPLATE_KEY)
+    expect(wire).not.toContain("portalMapId")
+    expect(wire).not.toContain(SECRET_PORTAL_MAP)
+    expect(wire).not.toContain("rollContentsAtStart")
+    expect(wire).not.toContain("entryZoneId")
+    expect(wire).not.toContain("generation")
+    expect(wire).not.toContain("depth")
+    // Dungeon-side: the draw ledger, in shape and in value.
+    expect(wire).not.toContain(SECRET_SEED)
+    expect(wire).not.toContain("streamCursors")
+    expect(wire).not.toContain("declarations")
+    expect(wire).not.toContain("secretIndex")
+    expect(wire).not.toContain("mintedUniqueKeys")
+    expect(wire).not.toContain("mints")
+    expect(wire).not.toContain("z-minted")
   })
 })

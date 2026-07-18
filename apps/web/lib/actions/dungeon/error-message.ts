@@ -20,6 +20,8 @@ export type DungeonActionError =
   | "not-an-expedition"
   | "delve-has-live-encounter"
   | "region-not-found"
+  | "template-set-not-found"
+  | "generation-event-not-supported"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
   | "character-not-found"
@@ -51,6 +53,10 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
       return "Finish the live encounter before finishing the expedition."
     case "region-not-found":
       return "This Region no longer exists."
+    case "template-set-not-found":
+      return "This Region's Template Set no longer exists."
+    case "generation-event-not-supported":
+      return "That gesture isn't available yet. Reload and try again."
     case "campaign-already-has-live-encounter":
       return "This campaign already has a live encounter."
     case "encounter-has-unplaced-combatants":

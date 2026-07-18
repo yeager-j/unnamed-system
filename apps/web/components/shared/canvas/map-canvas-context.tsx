@@ -24,6 +24,32 @@ export interface ZoneIdentityPatch {
 }
 
 /**
+ * A partial patch of a Zone's authored **generation binding** fields (UNN-590,
+ * D4). Same contract as {@link ZoneIdentityPatch}: an absent key means "leave it
+ * unchanged"; `null` **clears** the field (the blob never stores an explicit
+ * off). Mirrors the `setZoneBinding` geometry event's `binding` shape.
+ */
+export interface ZoneBindingPatch {
+  templateKey?: string | null
+  portalMapId?: string | null
+  rollContentsAtStart?: boolean | null
+}
+
+/**
+ * The reference options the `/stage` Map editor loads for the generation-binding
+ * pickers (UNN-590) — plain data, no engine types (this tier is engine-gated).
+ * `templateKeys` is the union of template keys across the owner's Template Sets
+ * (a Map is deliberately not bound to a Set — the Region binds Map + Set — so
+ * the picker's job is typo-prevention, not referential integrity; identical keys
+ * across sets dedupe upstream). Absent entirely on non-authoring hosts (the
+ * dungeon console's Edit board), which hides the whole Generation section.
+ */
+export interface MapAuthoringOptions {
+  templateKeys: Array<{ key: string; label: string; setName: string }>
+  maps: Array<{ id: string; name: string }>
+}
+
+/**
  * The edit dispatchers the custom {@link import("./zone-node").ZoneNode} /
  * {@link import("./connection-edge").ConnectionEdge} and their floating toolbars
  * call, provided by the canvas root ({@link import("./map-canvas").MapCanvas}).

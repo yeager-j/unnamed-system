@@ -765,3 +765,179 @@ describe("page stamping on zone mints", () => {
     ).toBe(geometry)
   })
 })
+
+describe("setZoneBinding (UNN-590)", () => {
+  const bind = (
+    geometry: MapGeometry,
+    zoneId: string,
+    binding: {
+      templateKey?: string | null
+      portalMapId?: string | null
+      rollContentsAtStart?: boolean | null
+    }
+  ) => reduceMapGeometry(geometry, { kind: "setZoneBinding", zoneId, binding })
+
+  it("sets each binding field independently", () => {
+    const base = withZones(["a", "A"])
+    const bound = bind(base, "a", {
+      templateKey: "hall",
+      rollContentsAtStart: true,
+    })
+    expect(bound.zones["a"]).toMatchObject({
+      templateKey: "hall",
+      rollContentsAtStart: true,
+    })
+    expect(bound.zones["a"]?.portalMapId).toBeUndefined()
+  })
+
+  it("absent fields leave current values untouched", () => {
+    const base = bind(withZones(["a", "A"]), "a", { templateKey: "hall" })
+    const next = bind(base, "a", { portalMapId: "map-x" })
+    expect(next.zones["a"]).toMatchObject({
+      templateKey: "hall",
+      portalMapId: "map-x",
+    })
+  })
+
+  it("null clears: a cleared zone deep-equals a never-bound one", () => {
+    const base = withZones(["a", "A"])
+    const bound = bind(base, "a", {
+      templateKey: "hall",
+      portalMapId: "map-x",
+      rollContentsAtStart: true,
+    })
+    const cleared = bind(bound, "a", {
+      templateKey: null,
+      portalMapId: null,
+      rollContentsAtStart: null,
+    })
+    expect(cleared).toStrictEqual(base)
+  })
+
+  it("no-ops (same ref) on an unknown zone", () => {
+    const base = withZones(["a", "A"])
+    expect(bind(base, "ghost", { templateKey: "hall" })).toBe(base)
+  })
+
+  it("stays a load-schema fixed point after set and clear", () => {
+    const bound = bind(withZones(["a", "A"]), "a", { templateKey: "hall" })
+    expect(mapGeometrySchema.parse(bound)).toStrictEqual(bound)
+    const cleared = bind(bound, "a", { templateKey: null })
+    expect(mapGeometrySchema.parse(cleared)).toStrictEqual(cleared)
+  })
+})
+
+describe("duplicateZone copies binding fields", () => {
+  it("a duplicated bound zone keeps its templateKey/portalMapId/rollContentsAtStart", () => {
+    const base = reduceMapGeometry(withZones(["a", "A"]), {
+      kind: "setZoneBinding",
+      zoneId: "a",
+      binding: { templateKey: "hall", rollContentsAtStart: true },
+    })
+    const next = reduceMapGeometry(base, {
+      kind: "duplicateZone",
+      sourceId: "a",
+      newId: "b",
+      position: { x: 50, y: 50 },
+      pageId: DEFAULT_PAGE_ID,
+    })
+    expect(next.zones["b"]).toMatchObject({
+      templateKey: "hall",
+      rollContentsAtStart: true,
+    })
+  })
+})
+
+describe("setEntryZone (UNN-590)", () => {
+  it("sets, replaces (single-select), and clears the entry designation", () => {
+    const base = withZones(["a", "A"], ["b", "B"])
+    const withEntry = reduceMapGeometry(base, {
+      kind: "setEntryZone",
+      zoneId: "a",
+    })
+    expect(withEntry.entryZoneId).toBe("a")
+
+    const replaced = reduceMapGeometry(withEntry, {
+      kind: "setEntryZone",
+      zoneId: "b",
+    })
+    expect(replaced.entryZoneId).toBe("b")
+
+    const cleared = reduceMapGeometry(replaced, {
+      kind: "setEntryZone",
+      zoneId: null,
+    })
+    expect(cleared).toStrictEqual(base)
+  })
+
+  it("no-ops (same ref) on an unknown zone and on clearing an unset entry", () => {
+    const base = withZones(["a", "A"])
+    expect(
+      reduceMapGeometry(base, { kind: "setEntryZone", zoneId: "ghost" })
+    ).toBe(base)
+    expect(
+      reduceMapGeometry(base, { kind: "setEntryZone", zoneId: null })
+    ).toBe(base)
+  })
+
+  it("deleteZone clears a dangling entry designation", () => {
+    const base = reduceMapGeometry(withZones(["a", "A"], ["b", "B"]), {
+      kind: "setEntryZone",
+      zoneId: "a",
+    })
+    const next = reduceMapGeometry(base, { kind: "deleteZone", zoneId: "a" })
+    expect(next.entryZoneId).toBeUndefined()
+    const untouched = reduceMapGeometry(base, {
+      kind: "deleteZone",
+      zoneId: "b",
+    })
+    expect(untouched.entryZoneId).toBe("a")
+  })
+
+  it("deletePage clears the entry designation when its zone was on the page", () => {
+    let geometry = reduceMapGeometry(withZones(["a", "A"]), {
+      kind: "addPage",
+      id: "p2",
+    })
+    geometry = addZone(geometry, "b", { x: 0, y: 0 }, "p2")
+    geometry = reduceMapGeometry(geometry, {
+      kind: "setEntryZone",
+      zoneId: "b",
+    })
+    const next = reduceMapGeometry(geometry, {
+      kind: "deletePage",
+      pageId: "p2",
+    })
+    expect(next.entryZoneId).toBeUndefined()
+  })
+})
+
+describe("setPageGrowth (UNN-590)", () => {
+  it("sets and clears the page growth mode", () => {
+    const base = makeGeometry()
+    const open = reduceMapGeometry(base, {
+      kind: "setPageGrowth",
+      pageId: DEFAULT_PAGE_ID,
+      growth: "open",
+    })
+    expect(open.pages[DEFAULT_PAGE_ID]?.growth).toBe("open")
+
+    const cleared = reduceMapGeometry(open, {
+      kind: "setPageGrowth",
+      pageId: DEFAULT_PAGE_ID,
+      growth: null,
+    })
+    expect(cleared).toStrictEqual(base)
+  })
+
+  it("no-ops (same ref) on an unknown page", () => {
+    const base = makeGeometry()
+    expect(
+      reduceMapGeometry(base, {
+        kind: "setPageGrowth",
+        pageId: "ghost",
+        growth: "edge",
+      })
+    ).toBe(base)
+  })
+})

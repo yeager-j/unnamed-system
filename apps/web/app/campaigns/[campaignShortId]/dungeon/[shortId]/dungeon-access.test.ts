@@ -52,6 +52,14 @@ const dungeonRow = (shortId: string): DungeonRow =>
       reminderSettings: {
         randomEncounters: { enabled: false, intervalTurns: 6 },
       },
+      // Inline zero ledger — this tier is engine-gated, so no engine import.
+      generation: {
+        seed: "",
+        streamCursors: {},
+        declarations: [],
+        mintedUniqueKeys: [],
+        mints: {},
+      },
     },
     version: 0,
     deletedAt: null,
@@ -88,7 +96,7 @@ const instanceRow: MapInstanceRow = {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: { zones: {}, grafts: {} },
+    generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
     lastMovedTokenKey: null,
   },
   version: 0,

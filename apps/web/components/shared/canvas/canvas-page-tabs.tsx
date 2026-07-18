@@ -23,6 +23,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
@@ -41,6 +43,8 @@ import { cn } from "@workspace/ui/lib/utils"
 export interface PageTabItem {
   id: string
   name: string
+  /** The page's procedural growth mode (UNN-590, D6); absent = `edge`. */
+  growth?: "edge" | "open"
 }
 
 export function CanvasPageTabs({
@@ -51,6 +55,7 @@ export function CanvasPageTabs({
   onRenamePage,
   onDuplicatePage,
   onRequestDelete,
+  onSetGrowth,
 }: {
   pages: PageTabItem[]
   activePageId: string
@@ -60,6 +65,9 @@ export function CanvasPageTabs({
   onDuplicatePage: (pageId: string) => void
   /** Opens the canvas's cascade-confirm dialog; disabled on the last page. */
   onRequestDelete: (pageId: string) => void
+  /** Sets the page's growth mode (UNN-590). Absent hides the control — only the
+   *  `/stage` Map editor authors generation facts. */
+  onSetGrowth?: (pageId: string, growth: "edge" | "open") => void
 }) {
   const [renaming, setRenaming] = useState<PageTabItem | null>(null)
 
@@ -106,6 +114,24 @@ export function CanvasPageTabs({
                   <CopyIcon />
                   Duplicate
                 </DropdownMenuItem>
+                {onSetGrowth && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={page.growth ?? "edge"}
+                      onValueChange={(value) =>
+                        onSetGrowth(page.id, value as "edge" | "open")
+                      }
+                    >
+                      <DropdownMenuRadioItem value="edge">
+                        Growth: edge (grows inward)
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="open">
+                        Growth: open (grows all around)
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"

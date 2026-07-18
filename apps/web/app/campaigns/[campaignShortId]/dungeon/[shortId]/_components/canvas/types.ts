@@ -1,4 +1,5 @@
 import { type DungeonCombatZoneNode as DungeonCombatZoneNodeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/zone-node"
+import { type StubGhostNode as StubGhostNodeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/stub-ghost-node"
 import { type DungeonZoneNode as DungeonZoneNodeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node"
 import { type RosterView } from "@/domain/combat/view/roster-view"
 import { type Pool } from "@/domain/pool"
@@ -31,4 +32,7 @@ export type DungeonCanvasMode =
   | { kind: "combat"; roster: RosterView }
 
 /** The React Flow node union the canvas renders. */
-export type CanvasNode = DungeonZoneNodeType | DungeonCombatZoneNodeType
+export type CanvasNode =
+  | DungeonZoneNodeType
+  | DungeonCombatZoneNodeType
+  | StubGhostNodeType

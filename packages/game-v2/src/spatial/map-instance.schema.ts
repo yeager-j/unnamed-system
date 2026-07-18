@@ -67,13 +67,60 @@ export type RevealState = z.infer<typeof revealStateSchema>
  *
  * **Missing provenance ⇒ treated as non-authored** — the fold fails safe (an
  * under-fold, never an over-fold: an unstamped Zone never leaks into the Region's
- * chart). P3 extends this row with `templateKey?`, `depth`, and a DM-only
- * `manifest?` (staged content); the enum is the stable core P1 needs.
+ * chart).
+ *
+ * P3 (UNN-590) grew the row with the generation facts:
+ *
+ * - **`templateKey?`** — the template this Zone was minted from (generated) or
+ *   bound to (authored, stamped from the authored `mapZoneSchema.templateKey` at
+ *   expedition start). DM-only; never serializes to the player snapshot.
+ * - **`depth`** — distance from the nearest starting Zone (multi-source BFS at
+ *   expedition start for authored space; parent + 1 at mint for generated space).
+ *   `.default(0)` heals pre-P3 blobs on read; authored depths are recomputed at
+ *   every start, so a defaulted 0 is only transiently wrong. Manual Zones stamp 0
+ *   (unused — manual space never draws or retracts).
+ *
+ * P5 adds the DM-only `manifest?` (staged content) — deferred with its consumer.
  */
 export const zoneProvenanceSchema = z.object({
   source: z.enum(["authored", "generated", "manual"]),
+  templateKey: z.string().optional(),
+  depth: z.number().int().nonnegative().default(0),
 })
 export type ZoneProvenance = z.infer<typeof zoneProvenanceSchema>
+
+/**
+ * A stub's stored rim anchor — the wall of its parent Zone the stub opens through
+ * plus the along-wall coordinate normalized to that edge (0..1). **Stored, not
+ * derived** (D10): an authored exit's anchor derives from *both* endpoint
+ * footprints, which a stub cannot supply (it has no far Zone — the shipped
+ * derivation would silently fall back to `{side:"n", offset:0.5}` and give the
+ * stub away). Computed once at sprout from the parent's footprint + the stub's
+ * bearing, projected verbatim into the snapshot, and restored byte-identical on
+ * retract.
+ */
+export const stubAnchorSchema = z.object({
+  side: z.enum(["n", "e", "s", "w"]),
+  offset: z.number().min(0).max(1),
+})
+export type StubAnchor = z.infer<typeof stubAnchorSchema>
+
+/**
+ * One **stub** — an open generated exit hanging off `zoneId`, the expandable
+ * frontier of procedural space (D4). `bearing` is the outward direction the mint
+ * will grow along (radians, canvas convention: x right, y down); `anchor` is the
+ * stored rim placement ({@link stubAnchorSchema}). The stub's `id` becomes the
+ * minted connection's id at expansion (exit-id continuity, D10), and the player
+ * snapshot projects a stub as a {@link import("../visibility/spatial-snapshot").SnapshotExit}
+ * byte-shape-identical to an authored unexplored exit.
+ */
+export const generationStubSchema = z.object({
+  id: z.string(),
+  zoneId: z.string(),
+  bearing: z.number(),
+  anchor: stubAnchorSchema,
+})
+export type GenerationStub = z.infer<typeof generationStubSchema>
 
 /**
  * The Instance's **generation** slice (procedural-dungeons tech design D4) — a
@@ -81,18 +128,30 @@ export type ZoneProvenance = z.infer<typeof zoneProvenanceSchema>
  * expedition lifecycle reads:
  *
  * - **`zones`** — provenance keyed by Zone id (the {@link ZoneProvenance} above).
+ * - **`stubs`** — open generated exits keyed by stub id ({@link generationStubSchema}),
+ *   sprouted at expedition start and by every mint; consumed by mint/closure/dead-end.
+ * - **`connections`** — provenance for generation-minted connections, keyed by
+ *   connection id and stamped by both `mintZone` and `closeLoop`. A deliberate
+ *   one-record addition to D4's published shape (D6's ADR-0001 rider): a loop
+ *   closure between two *authored* Zones has no generated endpoint, so future
+ *   provenance consumers can't otherwise identify it. Retract and zone-deletion
+ *   prune it.
  * - **`grafts`** — keyed by *source* mapId, the pages each grafted static Map
  *   contributed (P6 portal grafting). It is **empty until P6**, but present now so
  *   the `staticReveal` fold's zone→source-Map attribution signature is stable: the
  *   fold reads `grafts` to decide which Map a folded Zone attributes to, and seed
  *   pages (claimed by no graft) attribute to the seed Map.
  *
- * Both fields `.default()` empty so an old stored blob (no `generation` key) heals
- * on read — the file's own graceful-boundary doctrine. P3 adds `stubs` (open
- * generated exits) here as a third sibling.
+ * Every field `.default()`s empty so an old stored blob (no `generation` key, or a
+ * pre-P3 one without `stubs`/`connections`) heals on read — the file's own
+ * graceful-boundary doctrine.
  */
 export const generationStateSchema = z.object({
   zones: z.record(z.string(), zoneProvenanceSchema).default({}),
+  stubs: z.record(z.string(), generationStubSchema).default({}),
+  connections: z
+    .record(z.string(), z.object({ source: z.literal("generated") }))
+    .default({}),
   grafts: z
     .record(z.string(), z.object({ pageIds: z.array(z.string()).default([]) }))
     .default({}),
@@ -119,7 +178,12 @@ export const mapInstanceStateSchema = z.object({
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   }),
-  generation: generationStateSchema.default({ zones: {}, grafts: {} }),
+  generation: generationStateSchema.default({
+    zones: {},
+    stubs: {},
+    connections: {},
+    grafts: {},
+  }),
   lastMovedTokenKey: z.string().nullable().default(null),
 })
 export type MapInstanceState = z.infer<typeof mapInstanceStateSchema>

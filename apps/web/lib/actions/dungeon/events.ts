@@ -26,6 +26,7 @@ import {
 import {
   ApplyDungeonEventSchema,
   isDungeonEvent,
+  isGenerationEventKind,
   type ApplyDungeonEventError,
   type ApplyDungeonEventInput,
 } from "./events.schema"
@@ -64,6 +65,13 @@ export async function applyDungeonEvent(
 
   const { dungeonId, expectedVersion, expectedInstanceVersion, event } =
     parsed.data
+
+  // The UNN-590 generation family never travels this single-row door — each of
+  // those events is one half of a paired two-row transaction (P3b's dedicated
+  // actions). Refused before any load; see isGenerationEventKind.
+  if (isGenerationEventKind(event)) {
+    return err("generation-event-not-supported")
+  }
 
   const campaignId = await loadDungeonCampaignId(dungeonId)
   if (campaignId === null) return err("dungeon-not-found")

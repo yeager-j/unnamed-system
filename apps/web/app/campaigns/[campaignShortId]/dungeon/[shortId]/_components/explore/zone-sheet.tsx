@@ -152,6 +152,11 @@ function ZoneSheetBody({
   const rosterIds = deriveDungeonRoster(instance)
 
   const exits = resolveZoneExits(instance, zone.id)
+  // Open generation stubs off this zone (UNN-590) — the expandable frontier,
+  // read-only in P3a (the expand gesture is P3b's).
+  const stubs = Object.values(instance.generation.stubs).filter(
+    (stub) => stub.zoneId === zone.id
+  )
 
   function confirm() {
     if (pending?.kind === "reveal-zone") {
@@ -256,6 +261,22 @@ function ZoneSheetBody({
           </ul>
         )}
       </Field>
+
+      {stubs.length > 0 && (
+        <Field label={`Unexplored passages (${stubs.length})`}>
+          <ul className="flex flex-col gap-2">
+            {stubs.map((stub) => (
+              <li
+                key={stub.id}
+                className="flex items-center justify-between gap-2 border border-dashed px-3 py-2 text-sm text-muted-foreground"
+              >
+                <span>Unexplored passage — expands into new space</span>
+                <Badge variant="outline">frontier</Badge>
+              </li>
+            ))}
+          </ul>
+        </Field>
+      )}
 
       <AlertDialog
         open={pending !== null}

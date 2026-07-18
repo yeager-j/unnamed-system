@@ -4,6 +4,11 @@ import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.sc
 import { ENCHANTMENT_TYPES } from "@workspace/game-v2/kernel/vocab/enchantment"
 
 import { mapGeometryEventSchema } from "./geometry-event"
+import { mapZoneSchema } from "./geometry.schema"
+import {
+  generationStubSchema,
+  zoneProvenanceSchema,
+} from "./map-instance.schema"
 
 /**
  * The spatial event vocabulary `reduceMapInstance` (PR2) dispatches over — the events
@@ -73,6 +78,56 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("editGeometry"),
     event: mapGeometryEventSchema,
   }),
+  // ————— The generation family (UNN-590, D4) — every payload fully resolved
+  // (D1): the roll happened server-side in the pure roller; reducers replay
+  // deterministically and consult no randomness. Consuming an already-consumed
+  // stub is the **benign no-op** the D8 retry contract requires (a committed-but-
+  // response-lost retry finds the stub minted/closed/dead-ended and must surface
+  // as nothing, never an error).
+  z.object({
+    kind: z.literal("mintZone"),
+    stubId: z.string(),
+    // The minted Zone, fully laid out (position from the layout, pageId, size,
+    // templateKey stamped by the roller).
+    zone: mapZoneSchema,
+    // The minted connection takes `id := stubId` (exit-id continuity, D10);
+    // carried explicitly so the payload is self-describing — the reducer trusts
+    // it rather than re-deriving.
+    connectionId: z.string(),
+    // The minted Zone's own sprouted stubs (its onward frontier).
+    stubs: z.array(generationStubSchema),
+    provenance: zoneProvenanceSchema,
+  }),
+  z.object({
+    kind: z.literal("closeLoop"),
+    stubId: z.string(),
+    connectionId: z.string(),
+    toZoneId: z.string(),
+  }),
+  z.object({
+    kind: z.literal("retractZone"),
+    zoneId: z.string(),
+    // The original stub, restored **byte-identical** (stored anchor included) so
+    // the player payload after retract equals the pre-mint payload (D10).
+    restoredStub: generationStubSchema,
+  }),
+  // The PRD's no-connector fallback: the stub is removed and the exit narrates
+  // as collapsed rubble.
+  z.object({ kind: z.literal("resolveDeadEnd"), stubId: z.string() }),
 ])
 
 export type MapInstanceEvent = z.infer<typeof mapInstanceEventSchema>
+
+/**
+ * The instance-side **generation family** (UNN-590). Exported so the app's
+ * generic single-row event path can refuse them without a hand-maintained list:
+ * a generation event is only sound inside its paired two-row transaction (a
+ * `mintZone` without its `recordMint`/`advanceCursors` breaks D4's pairing
+ * invariants), so P3b gives them dedicated actions and the generic path rejects.
+ */
+export const GENERATION_INSTANCE_EVENT_KINDS = [
+  "mintZone",
+  "closeLoop",
+  "retractZone",
+  "resolveDeadEnd",
+] as const satisfies readonly MapInstanceEvent["kind"][]

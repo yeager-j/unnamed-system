@@ -83,7 +83,12 @@ import {
   useEdgeFocusPairing,
   useHoveredConnection,
 } from "./hovered-connection-context"
-import { MapCanvasProvider, type ZoneIdentityPatch } from "./map-canvas-context"
+import {
+  MapCanvasProvider,
+  type MapAuthoringOptions,
+  type ZoneBindingPatch,
+  type ZoneIdentityPatch,
+} from "./map-canvas-context"
 import type { ToolMode } from "./tool-mode"
 import { useCanvasTier } from "./use-canvas-tier"
 import { useCoarsePointer } from "./use-coarse-pointer"
@@ -156,6 +161,11 @@ export function MapCanvas(props: {
    *  off — its Pages sidebar is the switcher (D3: the console's page switcher
    *  arrives deliberately, not by leak). */
   showPageTabs?: boolean
+  /** The generation-binding picker options (UNN-590). Present only on the
+   *  `/stage` Map editor — its presence is what mounts the Zone sheet's
+   *  Generation section and the page-tab growth control; the dungeon console's
+   *  Edit board passes nothing and never authors bindings. */
+  authoring?: MapAuthoringOptions
 }) {
   return (
     <ReactFlowProvider>
@@ -180,6 +190,7 @@ function MapCanvasInner({
   activePageId: activePageIdProp,
   onActivePageChange,
   showPageTabs,
+  authoring,
 }: {
   geometry: MapGeometry
   onGeometryChange?: (geometry: MapGeometry) => void
@@ -194,6 +205,7 @@ function MapCanvasInner({
   activePageId?: string
   onActivePageChange?: (pageId: string) => void
   showPageTabs?: boolean
+  authoring?: MapAuthoringOptions
 }) {
   const editable = interactivity === "edit"
   const { resolvedTheme } = useTheme()
@@ -460,6 +472,27 @@ function MapCanvasInner({
     )
   }
 
+  function handleSetZoneBinding(zoneId: string, binding: ZoneBindingPatch) {
+    patchZoneNodeData(
+      zoneId,
+      dispatchGeometry({ kind: "setZoneBinding", zoneId, binding })
+    )
+  }
+
+  function handleSetEntryZone(zoneId: string | null) {
+    dispatchGeometry({ kind: "setEntryZone", zoneId })
+  }
+
+  function handleSetPageGrowth(pageId: string, growth: "edge" | "open") {
+    // `edge` is the consumer-side default (D6), so choosing it clears the key —
+    // the blob never stores an explicit default (the fixed-point discipline).
+    dispatchGeometry({
+      kind: "setPageGrowth",
+      pageId,
+      growth: growth === "edge" ? null : growth,
+    })
+  }
+
   function handleSetConnectionFlag(
     connectionId: string,
     flag: ConnectionFlag,
@@ -708,6 +741,7 @@ function MapCanvasInner({
               onRenamePage={handleRenamePage}
               onDuplicatePage={handleDuplicatePage}
               onRequestDelete={setPendingDeletePageId}
+              onSetGrowth={authoring ? handleSetPageGrowth : undefined}
             />
           )}
           <WarningsBanner geometry={geometry} />
@@ -730,6 +764,10 @@ function MapCanvasInner({
             onRename={handleRenameZone}
             onSetText={handleSetZoneText}
             onSetIdentity={handleSetZoneIdentity}
+            authoring={authoring}
+            entryZoneId={geometry.entryZoneId}
+            onSetBinding={authoring ? handleSetZoneBinding : undefined}
+            onSetEntryZone={authoring ? handleSetEntryZone : undefined}
           />
         )}
 

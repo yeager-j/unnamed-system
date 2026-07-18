@@ -95,30 +95,87 @@ const arbitrarySource = fc.constantFrom<
   GenerationState["zones"][string]["source"]
 >("authored", "manual", "generated")
 
+/** One provenance row as a load-schema fixed point: `depth` present (defaulted
+ *  field), `templateKey` present-or-absent (optional field, never `undefined`). */
+const arbitraryProvenanceRow: fc.Arbitrary<GenerationState["zones"][string]> =
+  record({
+    source: arbitrarySource,
+    depth: fc.nat({ max: 6 }),
+    templateKey: fc.option(fc.constantFrom("hall", "vault", "shrine"), {
+      nil: undefined,
+    }),
+  }).map(({ source, depth, templateKey }) =>
+    templateKey === undefined
+      ? { source, depth }
+      : { source, depth, templateKey }
+  )
+
 /** Per-zone provenance where each zone is *independently* stamped or left unstamped
  *  (to exercise the missing-provenance → non-authored branch), and stamped zones draw
- *  a random source. */
+ *  a random source/depth/binding. */
 function arbitraryProvenance(
   zoneIds: string[]
 ): fc.Arbitrary<GenerationState["zones"]> {
   if (zoneIds.length === 0) return fc.constant({})
   return fc
-    .tuple(...zoneIds.map(() => fc.option(arbitrarySource, { nil: undefined })))
-    .map((sources) => {
+    .tuple(
+      ...zoneIds.map(() =>
+        fc.option(arbitraryProvenanceRow, { nil: undefined })
+      )
+    )
+    .map((rows) => {
       const zones: GenerationState["zones"] = {}
       zoneIds.forEach((id, index) => {
-        const source = sources[index]
-        if (source !== undefined) zones[id] = { source }
+        const row = rows[index]
+        if (row !== undefined) zones[id] = row
       })
       return zones
     })
 }
 
+/** Stubs hung off the given zones (empty when the geometry has none): distinct ids,
+ *  finite bearings, anchors on a random wall with offset ∈ [0, 1]. */
+function arbitraryStubs(
+  zoneIds: string[]
+): fc.Arbitrary<GenerationState["stubs"]> {
+  if (zoneIds.length === 0) return fc.constant({})
+  return fc
+    .uniqueArray(
+      record({
+        id: arbitraryShortId.map((id) => `stub-${id}`),
+        zoneIndex: fc.nat(),
+        bearing: fc.double({
+          min: -Math.PI,
+          max: Math.PI,
+          noNaN: true,
+          noDefaultInfinity: true,
+        }),
+        side: fc.constantFrom<"n" | "e" | "s" | "w">("n", "e", "s", "w"),
+        offset: fc.double({ min: 0, max: 1, noNaN: true }),
+      }),
+      { selector: (spec) => spec.id, maxLength: 4 }
+    )
+    .map((specs) => {
+      const stubs: GenerationState["stubs"] = {}
+      for (const spec of specs) {
+        stubs[spec.id] = {
+          id: spec.id,
+          zoneId: zoneIds[spec.zoneIndex % zoneIds.length]!,
+          bearing: spec.bearing,
+          anchor: { side: spec.side, offset: spec.offset },
+        }
+      }
+      return stubs
+    })
+}
+
 /**
  * A mid-run expedition {@link MapInstanceState}: an {@link arbitraryMapGeometry} with
- * mixed (or absent) provenance over its zones and reveal arrays drawn from the
- * geometry ids **plus junk** — the shape a fold consumes at expedition finish. Grafts
- * stay empty (P6). Occupancy/enchantment are irrelevant to the fold, so they default.
+ * mixed (or absent) provenance over its zones, stubs hung off random zones, and
+ * reveal arrays drawn from the geometry ids **plus junk** — the shape a fold
+ * consumes at expedition finish. Generated-connection provenance and grafts stay
+ * empty (P3b mints / P6 grafts). Occupancy/enchantment are irrelevant to the fold,
+ * so they default.
  */
 export const arbitraryExpeditionInstance: fc.Arbitrary<MapInstanceState> =
   arbitraryMapGeometry.chain((geometry) => {
@@ -129,12 +186,14 @@ export const arbitraryExpeditionInstance: fc.Arbitrary<MapInstanceState> =
 
     return record({
       zones: arbitraryProvenance(zoneIds),
+      stubs: arbitraryStubs(zoneIds),
       revealedZoneIds: fc.subarray(zonePool),
       revealedConnectionIds: fc.subarray(connectionPool),
       unlockedConnectionIds: fc.subarray(connectionPool),
     }).map(
       ({
         zones,
+        stubs,
         revealedZoneIds,
         revealedConnectionIds,
         unlockedConnectionIds,
@@ -147,7 +206,7 @@ export const arbitraryExpeditionInstance: fc.Arbitrary<MapInstanceState> =
           revealedConnectionIds,
           unlockedConnectionIds,
         },
-        generation: { zones, grafts: {} },
+        generation: { zones, stubs, connections: {}, grafts: {} },
         lastMovedTokenKey: null,
       })
     )
