@@ -14,14 +14,6 @@ import {
 } from "@workspace/ui/components/select"
 
 /**
- * Base UI requires a non-empty string value for every selectable item, so the
- * `nullOption` ("nothing chosen") item needs a reserved stand-in the caller
- * never sees. `DataSelect` maps the caller's `""` ↔ `NULL_VALUE` at its
- * boundary; the null character can't collide with a real option key.
- */
-const NULL_VALUE = "\u0000"
-
-/**
  * A data-driven wrapper over the compositional `Select` primitive. You pass a
  * domain array plus accessor functions; `DataSelect` builds the trigger, the
  * popup, and the label resolution from them — the `.map()` / `.find()` /
@@ -63,6 +55,10 @@ type DataSelectProps<T> = Omit<
      * `label` shows in the trigger and popup — so callers stop hand-rolling a
      * sentinel key and its `?? SENTINEL` / `=== SENTINEL` translation, and just
      * bridge their domain's `undefined` with `?? ""` / `|| undefined`.
+     *
+     * It uses Base UI's native `null` item value, so `""` serializes to an empty
+     * field (not a sentinel key) when the select participates in a form via
+     * `name`.
      */
     nullOption?: { label: React.ReactNode }
     /**
@@ -96,9 +92,10 @@ function DataSelect<T>({
   readOnly,
   ...triggerProps
 }: DataSelectProps<T>) {
-  // Feeds Base UI's native label resolution for the default trigger.
-  const items = [
-    ...(nullOption ? [{ value: NULL_VALUE, label: nullOption.label }] : []),
+  // Feeds Base UI's native label resolution for the default trigger; the null
+  // option carries the native `null` value so it serializes as an empty field.
+  const items: { value: string | null; label: React.ReactNode }[] = [
+    ...(nullOption ? [{ value: null, label: nullOption.label }] : []),
     ...options.map((option) => ({
       value: optionValue(option),
       label: optionLabel(option),
@@ -111,11 +108,8 @@ function DataSelect<T>({
   return (
     <Select
       items={items}
-      value={value === "" && nullOption ? NULL_VALUE : value}
-      onValueChange={(next) => {
-        const raw = next ?? ""
-        onValueChange(raw === NULL_VALUE ? "" : raw)
-      }}
+      value={value === "" && nullOption ? null : value}
+      onValueChange={(next) => onValueChange(next ?? "")}
       disabled={disabled}
       name={name}
       defaultValue={defaultValue}
@@ -127,8 +121,7 @@ function DataSelect<T>({
         {selectTriggerLabel ? (
           <SelectValue placeholder={placeholder}>
             {(selected: string | null) => {
-              const resolved =
-                selected == null || selected === NULL_VALUE ? "" : selected
+              const resolved = selected ?? ""
               return selectTriggerLabel(
                 resolved === "" ? undefined : byValue.get(resolved),
                 resolved
@@ -140,9 +133,7 @@ function DataSelect<T>({
         )}
       </SelectTrigger>
       <SelectContent align={align}>
-        {nullOption && (
-          <SelectItem value={NULL_VALUE}>{nullOption.label}</SelectItem>
-        )}
+        {nullOption && <SelectItem value={null}>{nullOption.label}</SelectItem>}
         {optionGroup
           ? renderGroups(options, optionGroup, optionValue, optionLabel)
           : options.map((option) => {
