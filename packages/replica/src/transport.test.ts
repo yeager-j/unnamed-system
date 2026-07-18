@@ -139,16 +139,47 @@ describe("createCausalAcceptanceGate", () => {
     })
   }
 
-  it("emits the recovery read unless it is provably stale", async () => {
-    const { gate, emitted } = build(() =>
+  it("emits a provably fresh recovery read", async () => {
+    const { gate, emitted } = build(() => accepted(5, "fresh", 42, "recovered"))
+    gate.offer(accepted(0, "unknown", 1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(emitted.map((a) => a.value)).toEqual(["recovered"])
+    gate.dispose()
+  })
+
+  it("drops an incomparable recovery read when the last emission has not moved", async () => {
+    // Two consistent observations of one serialized authority are always
+    // comparable; incomparability against an unchanged last means the source
+    // served an inconsistent read, and re-reading cannot fix it.
+    const { gate, emitted, recoveries } = build(() =>
       accepted(5, "unknown", 42, "recovered")
     )
     gate.offer(accepted(0, "unknown", 1))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    // The recovery result classifies "unknown" again, but a recovery read is
-    // the authority's current observation — emitting it is what terminates
-    // recovery instead of looping.
-    expect(emitted.map((a) => a.value)).toEqual(["recovered"])
+    expect(emitted).toEqual([])
+    expect(recoveries()).toBe(1)
+    gate.dispose()
+  })
+
+  it("re-reads a recovery result that raced a fresher emission", async () => {
+    // Codex P1 (PR #382): while a recovery read is in flight, a fresh accept
+    // may advance `last`; the stale in-flight result must trigger a re-read,
+    // never be emitted over the newer base.
+    const results = [
+      accepted(1, "stale", 50, "raced"),
+      accepted(2, "fresh", 51, "final"),
+    ]
+    const { gate, emitted, recoveries } = build(() => {
+      const next = results.shift()
+      if (!next) throw new Error("unexpected extra recovery")
+      return next
+    })
+    gate.offer(accepted(0, "unknown", 1))
+    gate.offer(accepted(0, "fresh", 2, "newer"))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(emitted.map((a) => a.value)).toEqual(["newer", "final"])
+    expect(recoveries()).toBe(2)
     gate.dispose()
   })
 

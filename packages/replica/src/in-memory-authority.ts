@@ -1,12 +1,7 @@
 import { err, ok, type Result } from "@workspace/result"
 
 import type { MutationInvocation, MutationRegistry } from "./mutations"
-import type {
-  Accepted,
-  ClientIdentity,
-  ConnectionStatus,
-  MutationEnvelope,
-} from "./protocol"
+import type { Accepted, ClientIdentity, MutationEnvelope } from "./protocol"
 import {
   createMutationProcessor,
   type ProcessRefusal,
@@ -49,8 +44,10 @@ export interface InMemoryTransportHandle<
     Remote,
     number
   >
-  /** Drives the connected sink's connection status, simulating stream health. */
-  setConnection(status: ConnectionStatus): void
+  /** Sends liveness evidence to the connected sink, simulating stream health. */
+  alive(): void
+  /** Marks the source unreachable for the connected sink. */
+  down(): void
   /** The current accepted tuple personalized to this handle's client. */
   accepted(): Accepted<State, number>
 }
@@ -274,7 +271,7 @@ export function createInMemoryAuthority<
             // Catch-up emission: the current accepted tuple is the gapless
             // continuation for an in-process source.
             sink.accept(acceptedFor(identity))
-            sink.setConnection("connected")
+            sink.alive()
             return () => {
               if (sinks.get(key) === sink) sinks.delete(key)
             }
@@ -319,8 +316,11 @@ export function createInMemoryAuthority<
             }
           },
         },
-        setConnection(status) {
-          sinks.get(key)?.setConnection(status)
+        alive() {
+          sinks.get(key)?.alive()
+        },
+        down() {
+          sinks.get(key)?.down()
         },
         accepted: () => acceptedFor(identity),
       }

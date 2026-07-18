@@ -75,7 +75,7 @@ function createContext(): Context {
       publish: authority.publish,
       recover: () => {
         authority.publish()
-        handle.setConnection("connected")
+        handle.alive()
       },
       commitExternal: authority.commitExternal,
       deliver: authority.deliver,
@@ -155,7 +155,7 @@ describe("replica contract — recorded remote mode", () => {
         publish: authority.publish,
         recover: () => {
           authority.publish()
-          handle.setConnection("connected")
+          handle.alive()
         },
         commitExternal: authority.commitExternal,
         deliver: authority.deliver,
@@ -257,7 +257,7 @@ describe("replica contract — negative controls", () => {
             },
             recover: () => {
               authority.publish()
-              handle.setConnection("connected")
+              handle.alive()
             },
             commitExternal: authority.commitExternal,
             deliver: authority.deliver,

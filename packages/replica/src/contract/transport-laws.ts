@@ -101,7 +101,7 @@ export interface TransportContractOptions<
 }
 
 export const TRANSPORT_CONTRACT_LAW_NAMES = [
-  "emits a current accepted snapshot before reporting connected",
+  "emits a current accepted snapshot before signalling liveness",
   "suppresses a slower result from an older pull generation",
   "never emits a duplicate accepted snapshot",
   "never emits a causally stale accepted snapshot",
@@ -111,6 +111,7 @@ export const TRANSPORT_CONTRACT_LAW_NAMES = [
   "preserves an envelope exactly across an ambiguous redelivery",
   "reports terminal rejection separately from ambiguous failure",
   "stops all emissions after disposal",
+  "reasserts liveness after a successful pull that emits nothing",
 ] as const
 
 const LAW_CAPABILITIES: Partial<
@@ -120,20 +121,25 @@ const LAW_CAPABILITIES: Partial<
   [TRANSPORT_CONTRACT_LAW_NAMES[2]]: "duplicate-suppression",
   [TRANSPORT_CONTRACT_LAW_NAMES[4]]: "incomparable-cursors",
   [TRANSPORT_CONTRACT_LAW_NAMES[5]]: "reconnect",
+  [TRANSPORT_CONTRACT_LAW_NAMES[10]]: "duplicate-suppression",
 }
 
 type SinkEvent<State, Cursor> =
   | { readonly kind: "accept"; readonly accepted: Accepted<State, Cursor> }
-  | { readonly kind: "connection"; readonly status: ConnectionStatus }
+  | { readonly kind: "alive" }
+  | { readonly kind: "down" }
 
 interface RecordingSink<State, Cursor> {
   readonly sink: {
     accept(accepted: Accepted<State, Cursor>): void
-    setConnection(status: ConnectionStatus): void
+    alive(): void
+    down(): void
   }
   events(): ReadonlyArray<SinkEvent<State, Cursor>>
   accepts(): ReadonlyArray<Accepted<State, Cursor>>
-  lastStatus(): ConnectionStatus | undefined
+  aliveCount(): number
+  /** The most recent liveness signal, with accepts counting as alive. */
+  lastSignal(): "alive" | "down" | undefined
 }
 
 function recordingSink<State, Cursor>(): RecordingSink<State, Cursor> {
@@ -143,8 +149,11 @@ function recordingSink<State, Cursor>(): RecordingSink<State, Cursor> {
       accept: (accepted) => {
         events.push({ kind: "accept", accepted })
       },
-      setConnection: (status) => {
-        events.push({ kind: "connection", status })
+      alive: () => {
+        events.push({ kind: "alive" })
+      },
+      down: () => {
+        events.push({ kind: "down" })
       },
     },
     events: () => [...events],
@@ -152,10 +161,13 @@ function recordingSink<State, Cursor>(): RecordingSink<State, Cursor> {
       events.flatMap((event) =>
         event.kind === "accept" ? [event.accepted] : []
       ),
-    lastStatus: () => {
+    aliveCount: () => events.filter((event) => event.kind === "alive").length,
+    lastSignal: () => {
       for (let i = events.length - 1; i >= 0; i -= 1) {
         const event = events[i]
-        if (event && event.kind === "connection") return event.status
+        if (!event) continue
+        if (event.kind === "down") return "down"
+        if (event.kind === "alive" || event.kind === "accept") return "alive"
       }
       return undefined
     },
@@ -262,11 +274,12 @@ export function verifyTransportContract<
     }
   }
 
-  async function awaitConnected(
-    rec: RecordingSink<State, Cursor>
-  ): Promise<void> {
+  async function awaitAlive(rec: RecordingSink<State, Cursor>): Promise<void> {
     await eventually(() => {
-      invariant(rec.lastStatus() === "connected", "adapter never connected")
+      invariant(
+        rec.lastSignal() === "alive",
+        "adapter never signalled liveness"
+      )
     })
   }
 
@@ -283,20 +296,18 @@ export function verifyTransportContract<
         // adapter must surface current accepted state before claiming health.
         await scenario.advance()
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         const events = rec.events()
-        const connectedAt = events.findIndex(
-          (event) => event.kind === "connection" && event.status === "connected"
-        )
-        invariant(connectedAt !== -1, "adapter never reported connected")
+        const aliveAt = events.findIndex((event) => event.kind === "alive")
+        invariant(aliveAt !== -1, "adapter never signalled liveness")
         const priorAccepts = events
-          .slice(0, connectedAt)
+          .slice(0, aliveAt)
           .flatMap((event) => (event.kind === "accept" ? [event.accepted] : []))
         invariant(
           priorAccepts.some((accepted) =>
             deepEqual(accepted, scenario.authoritative())
           ),
-          "no current accepted snapshot was emitted before reporting connected"
+          "no current accepted snapshot was emitted before the liveness signal"
         )
       }
     ),
@@ -309,7 +320,7 @@ export function verifyTransportContract<
           "scenario must implement gateReads() for the pull-generation law"
         )
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         // Establish a baseline emission first: a correct adapter emits
         // nothing at connect when the source never moved.
         await scenario.advance()
@@ -352,7 +363,7 @@ export function verifyTransportContract<
       TRANSPORT_CONTRACT_LAW_NAMES[2],
       async (scenario, rec, connect) => {
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         // Establish a baseline emission first: a correct adapter emits
         // nothing at connect when the source never moved.
         await scenario.advance()
@@ -378,7 +389,7 @@ export function verifyTransportContract<
       TRANSPORT_CONTRACT_LAW_NAMES[3],
       async (scenario, rec, connect) => {
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         await scenario.advance()
         scenario.signal()
         await eventually(() => {
@@ -401,7 +412,7 @@ export function verifyTransportContract<
           "scenario must implement advanceIncomparable() for the incomparable-cursor law"
         )
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         // Advance first so the recovery read has genuinely fresh state to
         // surface; the doctored incomparable snapshot must not be emitted.
         await scenario.advance()
@@ -424,7 +435,7 @@ export function verifyTransportContract<
           "scenario must implement sever()/restore() for the reconnect law"
         )
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         scenario.sever?.()
         await scenario.advance()
         scenario.restore?.()
@@ -434,8 +445,8 @@ export function verifyTransportContract<
             "the change missed while severed never arrived"
           )
           invariant(
-            rec.lastStatus() === "connected",
-            "the adapter must report connected after recovery"
+            rec.lastSignal() === "alive",
+            "the adapter must signal liveness after recovery"
           )
         })
         assertCausalOrder(scenario, rec, "reconnect recovery", {
@@ -448,7 +459,7 @@ export function verifyTransportContract<
       TRANSPORT_CONTRACT_LAW_NAMES[6],
       async (scenario, rec, connect) => {
         connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         await scenario.advance()
         scenario.signal()
         await scenario.advance()
@@ -534,7 +545,7 @@ export function verifyTransportContract<
       TRANSPORT_CONTRACT_LAW_NAMES[9],
       async (scenario, rec, connect) => {
         const disconnect = connect()
-        await awaitConnected(rec)
+        await awaitAlive(rec)
         disconnect()
         const frozen = rec.events().length
         await scenario.advance()
@@ -543,6 +554,31 @@ export function verifyTransportContract<
         invariant(
           rec.events().length === frozen,
           "a disposed transport must stop all emissions"
+        )
+      }
+    ),
+
+    // The starvation case behind the level-triggered contract: a parked
+    // replica's only wake-up on an unchanged source is this signal, and
+    // duplicate suppression erases it from the accept channel.
+    [TRANSPORT_CONTRACT_LAW_NAMES[10]]: law(
+      TRANSPORT_CONTRACT_LAW_NAMES[10],
+      async (scenario, rec, connect) => {
+        connect()
+        await awaitAlive(rec)
+        await settle(5)
+        const accepts = rec.accepts().length
+        const alive = rec.aliveCount()
+        scenario.signal()
+        await eventually(() => {
+          invariant(
+            rec.aliveCount() > alive,
+            "a successful pull must reassert liveness even when it emits nothing"
+          )
+        })
+        invariant(
+          rec.accepts().length === accepts,
+          "the unchanged source must not have re-emitted"
         )
       }
     ),

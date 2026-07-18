@@ -35,7 +35,9 @@ interrupts, Kubernetes' level-based reconciliation; kin to
 [[2026-07-09-emptiness-is-not-absence]] — "no change" and "no signal" are
 different facts.)
 
-**Action:** `createPollingTransport`/`createEntityReplicaTransport` report
-connected unconditionally on pull success (documented inline); the replica's
-`selfDisconnected` flag distinguishes replica-declared from transport-declared
-outages; the reconnect law in `verifyReplicaContract` now pins the behavior.
+**Action:** promoted to the type rung (Code Style #8): the sink's
+edge-shaped `setConnection(status)` became level-triggered `alive()` + `down()`,
+the replica derives its two-state `ConnectionStatus`, and any liveness evidence
+resumes delivery. Enforced by the "reasserts liveness after a successful pull
+that emits nothing" law in `verifyTransportContract` plus the reconnect law in
+`verifyReplicaContract`.

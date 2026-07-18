@@ -8,6 +8,18 @@ Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 > ambiguous delivery recovery, moves an unlike second binding ahead of broad Showtime
 > migration, narrows accepted snapshots to the current client's watermark, and makes
 > `Remote = void` the default.
+>
+> **Implementation revision (2026-07-18, UNN-639 PR #382).** The sink's
+> `setConnection(status)` proved edge-shaped where the protocol is level-triggered:
+> a duplicate-suppressing transport starves a parked replica of the "still alive,
+> nothing new" signal. The implemented port replaces it with `alive()`
+> (level-triggered, per successful source round-trip) and `down()`; the replica
+> derives a two-state `ConnectionStatus` (`recovering` was never emitted and is
+> gone), and any liveness evidence resumes delivery with a fresh retry epoch.
+> The causal acceptance gate also gained a raced-recovery rule: an in-flight
+> recovery result that is incomparable with a `last` that advanced re-reads;
+> against an unchanged `last` it is dropped as an inconsistent source read.
+> Interface sketches below predate this; the package is authoritative.
 
 ## Summary
 

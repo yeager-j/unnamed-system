@@ -79,45 +79,32 @@ export function createEntityReplicaTransport<Remote = void>(
         },
       })
 
-      // Deliberately NOT transition-guarded: each successful refetch is fresh
-      // evidence of connectivity, and a replica that self-disconnected after
-      // exhausting its retry budget can only resume on such a signal when the
-      // snapshot itself is unchanged (duplicate-suppressed). The replica
-      // treats repeats as no-ops.
-      const reportConnected = (): void => {
-        if (active) sink.setConnection("connected")
-      }
-      let reportedDown = false
-      const reportDisconnected = (): void => {
-        if (active && !reportedDown) {
-          reportedDown = true
-          sink.setConnection("disconnected")
-        }
-      }
-
       const pull = (): void => {
         const generation = generations.begin()
         options.source.fetchAccepted(generation.signal).then(
           (snapshot) => {
             generation.publish(() => {
-              reportedDown = false
+              // Emit (via the gate) before the liveness signal, so the sink
+              // holds current accepted state before delivery resumes.
               acceptance.offer(snapshot)
-              reportConnected()
+              if (active) sink.alive()
             })
           },
           () => {
-            if (!generation.signal.aborted) reportDisconnected()
+            if (active && !generation.signal.aborted) sink.down()
           }
         )
       }
 
-      // Catch-up: surface anything missed between load and subscribe before
-      // claiming health.
-      pull()
+      // Subscribe BEFORE the catch-up read (Codex P2, PR #382): a ping
+      // landing while the catch-up is in flight schedules another
+      // generation-gated pull instead of vanishing into the gap between
+      // read and subscription — missed changes are closed by the read.
       const unsubscribe = options.source.subscribe({
         onPing: pull,
         onReconnect: pull,
       })
+      pull()
       return () => {
         active = false
         unsubscribe()

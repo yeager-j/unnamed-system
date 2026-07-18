@@ -90,10 +90,17 @@ describe("transport contract — in-memory adapter", () => {
     omit: IN_MEMORY_OMITTED,
   })
 
-  it("covers every law outside the declared omissions", () => {
-    expect(laws.length).toBe(
-      TRANSPORT_CONTRACT_LAW_NAMES.length - IN_MEMORY_OMITTED.length
-    )
+  it("covers exactly the laws outside the declared omissions", () => {
+    // duplicate-suppression gates two laws (never-duplicate + the liveness
+    // reassertion), so the expected list is named, not counted.
+    expect(laws.map((law) => law.name)).toEqual([
+      TRANSPORT_CONTRACT_LAW_NAMES[0],
+      TRANSPORT_CONTRACT_LAW_NAMES[3],
+      TRANSPORT_CONTRACT_LAW_NAMES[6],
+      TRANSPORT_CONTRACT_LAW_NAMES[7],
+      TRANSPORT_CONTRACT_LAW_NAMES[8],
+      TRANSPORT_CONTRACT_LAW_NAMES[9],
+    ])
   })
 
   for (const law of laws) {

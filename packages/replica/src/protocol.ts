@@ -42,11 +42,14 @@ export interface Accepted<State, Cursor = unknown> {
 }
 
 /**
- * `disconnected`: pending mutations remain projected but no delivery attempt
- * is active. `recovering`: the transport has reconnected but has not yet
- * re-established accepted state; delivery resumes only once `connected`.
+ * The replica-derived delivery health surfaced on snapshots. `disconnected`
+ * means pending mutations remain projected but no delivery attempt is active
+ * — either the transport reported the source unreachable (`sink.down()`) or
+ * the replica parked itself after exhausting its retry budget. Any liveness
+ * evidence (`sink.alive()` or an accepted snapshot) returns it to
+ * `connected`. This is derived state, not a transport-negotiated protocol.
  */
-export type ConnectionStatus = "connected" | "recovering" | "disconnected"
+export type ConnectionStatus = "connected" | "disconnected"
 
 /**
  * `retryable` means the authority outcome is unknown — not that the authority

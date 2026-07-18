@@ -168,16 +168,13 @@ export function createReplica<
   let disposed = false
   let base: Accepted<State, Cursor> = options.initial
   let nextMutationId: MutationId = options.initial.through + 1
-  let connection: ConnectionStatus = "connected"
-  /**
-   * True when the replica itself declared `disconnected` (retry-budget
-   * exhaustion) rather than the transport. A stateless transport (e.g.
-   * polling) may never send a connection signal, so in that mode an arriving
-   * accepted snapshot is itself the evidence of restored connectivity and
-   * resumes delivery with a fresh epoch. A transport-declared disconnection
-   * stays down until the transport says otherwise.
-   */
-  let selfDisconnected = false
+  // Delivery pauses while either holds: the transport reported the source
+  // unreachable (`down()`), or the replica parked itself after exhausting
+  // its retry budget. Both are cleared by the same level-triggered liveness
+  // evidence (`alive()`, or an accepted snapshot, which implies it) — the
+  // snapshot's ConnectionStatus is derived from these, never negotiated.
+  let transportDown = false
+  let parked = false
   let epochBudget = retryBudget
 
   let pending: PendingEntry[] = []
@@ -186,10 +183,12 @@ export function createReplica<
   let projectedValue: State = options.initial.value
 
   const listeners = new Set<() => void>()
+  const connection = (): ConnectionStatus =>
+    transportDown || parked ? "disconnected" : "connected"
   let snapshot: ReplicaSnapshot<State, ApplyError> = {
     value: projectedValue,
     pending: 0,
-    connection,
+    connection: connection(),
     conflicts,
   }
 
@@ -201,7 +200,7 @@ export function createReplica<
     if (
       previous.value === projectedValue &&
       previous.pending === pending.length &&
-      previous.connection === connection &&
+      previous.connection === connection() &&
       previous.conflicts === conflicts
     ) {
       return
@@ -209,7 +208,7 @@ export function createReplica<
     snapshot = {
       value: projectedValue,
       pending: pending.length,
-      connection,
+      connection: connection(),
       conflicts,
     }
     for (const listener of [...listeners]) listener()
@@ -269,7 +268,7 @@ export function createReplica<
     if (delivering) return
     delivering = true
     try {
-      while (!disposed && connection === "connected") {
+      while (!disposed && !transportDown && !parked) {
         const head = ledger[0]
         if (!head) break
 
@@ -312,8 +311,7 @@ export function createReplica<
           epochBudget -= 1
           continue
         }
-        connection = "disconnected"
-        selfDisconnected = true
+        parked = true
         publish()
         break
       }
@@ -324,6 +322,15 @@ export function createReplica<
 
   function wake(): void {
     void deliver()
+  }
+
+  /** Delivery resumes from any outage with a fresh retry epoch. */
+  function liveness(): void {
+    if (!transportDown && !parked) return
+    transportDown = false
+    parked = false
+    epochBudget = retryBudget
+    wake()
   }
 
   const disconnect = transport.connect({
@@ -338,26 +345,19 @@ export function createReplica<
       )
       dropConflicts((id) => id <= accepted.through)
       rebase()
-      if (selfDisconnected) {
-        selfDisconnected = false
-        connection = "connected"
-        epochBudget = retryBudget
-        wake()
-      }
+      liveness()
       publish()
     },
-    setConnection(status) {
-      if (disposed || status === connection) return
-      connection = status
-      selfDisconnected = false
-      if (status === "connected") {
-        epochBudget = retryBudget
-        publish()
-        wake()
-        return
-      }
-      // A dead connection makes any in-flight attempt ambiguous; abort it so
-      // the delivery loop parks instead of hanging on a doomed await.
+    alive() {
+      if (disposed) return
+      liveness()
+      publish()
+    },
+    down() {
+      if (disposed || transportDown) return
+      transportDown = true
+      // A dead source makes any in-flight attempt ambiguous; abort it so the
+      // delivery loop parks instead of hanging on a doomed await.
       attemptController?.abort()
       publish()
     },

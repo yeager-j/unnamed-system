@@ -227,9 +227,9 @@ describe("transport contract — negative control", () => {
           client.fetchSnapshot(new AbortController().signal).then(
             (snapshot) => {
               sink.accept(snapshot)
-              sink.setConnection("connected")
+              sink.alive()
             },
-            () => sink.setConnection("disconnected")
+            () => sink.down()
           )
         }
         pull()

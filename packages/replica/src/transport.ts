@@ -39,9 +39,18 @@ export interface ReplicaTransport<
   ): Promise<Result<Remote, PushError<Error>>>
 }
 
+/**
+ * `alive` is level-triggered: call it after EVERY successful source
+ * round-trip, including ones that emitted nothing (a duplicate-suppressed
+ * pull). Repeats are expected and cheap; a parked replica needs exactly that
+ * "still alive, nothing new" signal to resume delivery, and deduplication
+ * erases it from the accept channel. `down` marks the source unreachable;
+ * any subsequent `alive` or `accept` clears it. An `accept` implies `alive`.
+ */
 export interface ReplicaTransportSink<State, Cursor = unknown> {
   accept(accepted: Accepted<State, Cursor>): void
-  setConnection(status: ConnectionStatus): void
+  alive(): void
+  down(): void
 }
 
 /**
@@ -130,9 +139,13 @@ export interface CausalAcceptanceGate<State, Cursor> {
  *   watermark starts recovery.
  * - `unknown` starts recovery rather than guessing.
  *
- * A recovery read is the authority's current consistent observation, so its
- * result is emitted unless it is provably stale or a duplicate — this is what
- * makes recovery terminate instead of looping on incomparable cursors.
+ * A recovery read emits only when it is provably fresh against the snapshot
+ * last emitted. Because `last` may advance while a recovery read is in
+ * flight, an in-flight result can come back incomparable with the *new*
+ * `last`: if `last` moved, the read was raced and recovery re-runs; if
+ * `last` did not move, the source served an inconsistent observation and the
+ * result is dropped (two consistent observations of one serialized authority
+ * are always comparable, so re-reading an unchanged world cannot help).
  */
 export function createCausalAcceptanceGate<State, Cursor>(
   options: CausalAcceptanceGateOptions<State, Cursor>
@@ -173,12 +186,20 @@ export function createCausalAcceptanceGate<State, Cursor>(
     }
     const controller = new AbortController()
     recovery = controller
+    const lastAtStart = last
     void options
       .recover(controller.signal)
       .then((recovered) => {
         if (disposed || controller.signal.aborted) return
         const decision = classifyAgainstLast(recovered)
-        if (decision !== "drop") emit(recovered)
+        if (decision === "emit") {
+          emit(recovered)
+        } else if (decision === "recover" && last !== lastAtStart) {
+          // The read raced a fresher emission; re-read against the new last.
+          recoveryQueued = true
+        }
+        // Otherwise drop: stale/duplicate, or incomparable against an
+        // unchanged last (an inconsistent source read a re-read cannot fix).
       })
       .catch(() => {
         // A failed recovery read leaves `last` untouched; the next offer or

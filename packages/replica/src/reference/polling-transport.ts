@@ -57,7 +57,6 @@ export function createPollingTransport<
   return {
     connect(sink) {
       let active = true
-      let healthy: boolean | null = null
       const generations = createPullGenerationGate()
       const acceptance = createCausalAcceptanceGate<State, number>({
         initial: options.initial,
@@ -73,43 +72,28 @@ export function createPollingTransport<
         },
       })
 
-      // Deliberately NOT transition-guarded: each successful pull is fresh
-      // evidence of connectivity. A replica that self-disconnected after
-      // exhausting its retry budget can only resume on such a signal when
-      // the snapshot itself is unchanged (duplicate-suppressed), so the
-      // stateless adapter must keep saying "connected". The replica treats
-      // repeats as no-ops.
-      const reportConnected = (): void => {
-        if (!active) return
-        healthy = true
-        sink.setConnection("connected")
-      }
-      const reportDisconnected = (): void => {
-        if (active && healthy !== false) {
-          healthy = false
-          sink.setConnection("disconnected")
-        }
-      }
-
       const pull = (): void => {
         const generation = generations.begin()
         options.client.fetchSnapshot(generation.signal).then(
           (snapshot) => {
             generation.publish(() => {
-              // Emit (via the gate) before reporting connected, so the sink
+              // Emit (via the gate) before the liveness signal, so the sink
               // holds current accepted state before delivery resumes.
               acceptance.offer(snapshot)
-              reportConnected()
+              if (active) sink.alive()
             })
           },
           () => {
-            if (!generation.signal.aborted) reportDisconnected()
+            if (active && !generation.signal.aborted) sink.down()
           }
         )
       }
 
-      pull()
+      // Subscribe before the catch-up pull: a tick landing during the pull
+      // schedules another generation-gated pull instead of vanishing into
+      // the gap between read and subscription.
       const unsubscribe = options.client.subscribeTicks(pull)
+      pull()
       return () => {
         active = false
         unsubscribe()
