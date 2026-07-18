@@ -13,15 +13,27 @@ export function mergeComponentPatch(
   entity: Entity,
   patch: EntityWritePatch
 ): Entity {
-  const components = { ...entity.components }
+  return { ...entity, components: mergeComponents(entity.components, patch) }
+}
+
+/**
+ * The bag-level half of {@link mergeComponentPatch}, for callers that hold a
+ * component bag without an `Entity` wrapper (the replica binding's state
+ * root). Same CH15 semantics: keys replace wholesale, `undefined` removes.
+ */
+export function mergeComponents(
+  components: Entity["components"],
+  patch: EntityWritePatch
+): Entity["components"] {
+  const next = { ...components }
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) {
-      delete components[key as keyof typeof components]
+      delete next[key as keyof typeof next]
     } else {
-      Object.assign(components, { [key]: value })
+      Object.assign(next, { [key]: value })
     }
   }
-  return { ...entity, components }
+  return next
 }
 
 /**

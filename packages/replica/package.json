@@ -1,0 +1,41 @@
+{
+  "name": "@workspace/replica",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint",
+    "format": "eslint --fix \"**/*.{ts,mjs}\" && prettier --write \"**/*.{ts,mjs,md,json}\"",
+    "typecheck": "tsc --noEmit",
+    "depcheck": "node depcheck.mjs",
+    "test": "vitest run"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./transport": "./src/transport.ts",
+    "./react": "./src/react.ts",
+    "./server": "./src/server.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {
+    "@workspace/result": "*"
+  },
+  "peerDependencies": {
+    "react": "^19.2.4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.10",
+    "@workspace/eslint-config": "*",
+    "@workspace/typescript-config": "*",
+    "eslint": "^9.39.2",
+    "react": "^19.2.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}

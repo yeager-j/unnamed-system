@@ -214,6 +214,8 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 ```
 apps/web/                Next.js 16 app (App Router, RSC, Server Actions)
 packages/game-v2/        Game engine + data (@workspace/game-v2) — sole engine, v1 retired
+packages/result/         Dependency-free Result type (@workspace/result)
+packages/replica/        Predicted replica module (@workspace/replica) — mutate/rebase runtime, transport port + gates, authority processor, contract suites (UNN-639)
 packages/ui/             Shared components (shadcn/ui on Base UI, Tailwind 4)
 packages/editor/         Vendored atomic-editor mirror (CM6 markdown editor) — never edit src/
 packages/eslint-config/  Shared ESLint config
