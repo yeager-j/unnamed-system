@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { useViewerRole } from "@/components/shell/viewer-role"
 import type { LoadedCharacter } from "@/domain/character/load"
 import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
 import { buildRailView } from "@/domain/character/view/rail-view"
@@ -28,8 +29,11 @@ import { SheetDock, type SheetTabKey } from "./tab-dock"
  * the instant a control dispatches.
  */
 export function CharacterSheet({ loaded }: { loaded: LoadedCharacter }) {
+  // Visitors and DMs get the read-only frame: the replica bootstrap is
+  // strict-owner (UNN-645), so non-owner liveness stays ping → refresh.
+  const role = useViewerRole()
   return (
-    <EntityWriteProvider loaded={loaded}>
+    <EntityWriteProvider loaded={loaded} writable={role === "owner"}>
       <SheetShell />
     </EntityWriteProvider>
   )

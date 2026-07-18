@@ -4,26 +4,30 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
-import { err, ok, type Result } from "@workspace/result"
+import { err, ok } from "@workspace/result"
 
 import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { resolveEntity } from "@/domain/game-engine-v2"
-import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
-import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
-import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
+import { pushEntityMutationAction } from "@/lib/actions/entity/replica/push"
+import { loadEntityAcceptedAction } from "@/lib/actions/entity/replica/snapshot"
 
 import {
   EntityWriteProvider,
-  useEntityAutoSave,
   useEntityIdentityQueue,
   useEntityWrite,
+  useLoadedCharacter,
 } from "./use-entity-write"
 
+/**
+ * The replica-backed provider (UNN-645): the REAL replica runtime, transport,
+ * and source run here — only the two door actions, the realtime channel, and
+ * the router are stubbed. The old one-shot stale-retry suite retired with the
+ * expectedVersion protocol it tested; ordering/dedup/rebase live in
+ * `@workspace/replica`'s law suites and the binding contract test.
+ */
 const { routerRefresh } = vi.hoisted(() => ({ routerRefresh: vi.fn() }))
 
-/** The provider's channel subscription, captured by the hook mock so tests can
- *  feed pings/reconnects as if Ably delivered them. */
 interface CapturedChannel {
   domain: string
   shortId: string
@@ -34,29 +38,34 @@ const { capturedChannel } = vi.hoisted(() => ({
   capturedChannel: { current: null as CapturedChannel | null },
 }))
 
-vi.mock("@/lib/actions/entity/apply-entity-write", () => ({
-  applyEntityWriteAction: vi.fn(),
+vi.mock("@/lib/actions/entity/replica/push", () => ({
+  pushEntityMutationAction: vi.fn(),
+}))
+vi.mock("@/lib/actions/entity/replica/snapshot", () => ({
+  loadEntityAcceptedAction: vi.fn(),
+}))
+vi.mock("@/lib/actions/entity/versions", () => ({
+  getEntityClassVersionAction: vi.fn(),
 }))
 vi.mock("@/lib/sync/use-realtime-channel", () => ({
   useRealtimeChannel: (args: CapturedChannel) => {
     capturedChannel.current = args
   },
 }))
-vi.mock("@/lib/actions/entity/versions", () => ({
-  getEntityClassVersionAction: vi.fn(),
-}))
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: routerRefresh }),
 }))
 
-const writeAction = vi.mocked(applyEntityWriteAction)
-const versionAction = vi.mocked(getEntityClassVersionAction)
+const pushAction = vi.mocked(pushEntityMutationAction)
+const acceptedAction = vi.mocked(loadEntityAcceptedAction)
 const { toast } = await import("sonner")
+
+const baseComponents = { vitals: { base: 10, damage: 0 } }
 
 const entity: Entity = {
   id: "char-1",
-  components: { vitals: { base: 10, damage: 0 } },
+  components: baseComponents,
 }
 
 const profile = {
@@ -79,32 +88,34 @@ const loaded: LoadedCharacter = {
   resolved: resolveEntity(entity),
 }
 
-const commit = (version: number): Result<EntityCommit, never> =>
-  ok({ version, shortId: "abc123", status: "finalized" })
+/** The authority's accepted tuple as the snapshot action would serve it. */
+function accepted(components: Record<string, unknown>, through = 0) {
+  return ok({
+    value: components,
+    through,
+    cursor: { identity: 1, vitals: 1, inventory: 1, progression: 1 },
+  })
+}
 
 const damage: EntityWrite = { component: "vitals", op: "damage", amount: 1 }
-const talents: EntityWrite = {
-  component: "talents",
-  op: "setGained",
-  keys: ["sneak"],
-}
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <EntityWriteProvider loaded={loaded}>{children}</EntityWriteProvider>
 )
 
+/** Drains the bootstrap read + replica delivery microtasks. */
 const flush = () => act(async () => {})
 
 beforeEach(() => {
-  writeAction.mockReset()
-  versionAction.mockReset()
+  pushAction.mockReset().mockResolvedValue(ok(undefined))
+  acceptedAction.mockReset().mockResolvedValue(accepted(baseComponents))
   routerRefresh.mockReset()
   vi.mocked(toast.error).mockReset()
   capturedChannel.current = null
 })
 
-describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
-  it("short-circuits a local Writer refusal before any network request", async () => {
+describe("useEntityWrite — replica dispatch (UNN-645)", () => {
+  it("short-circuits a local Writer refusal before any delivery", async () => {
     const missingSkillPool: EntityWrite = {
       component: "skillPool",
       op: "damage",
@@ -112,10 +123,10 @@ describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
     }
 
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
     await act(async () => result.current.dispatch(missingSkillPool))
 
-    expect(writeAction).not.toHaveBeenCalled()
-    expect(versionAction).not.toHaveBeenCalled()
+    expect(pushAction).not.toHaveBeenCalled()
     expect(toast.error).toHaveBeenCalledWith(
       "That change can't apply to this character. Reload and try again."
     )
@@ -130,344 +141,252 @@ describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
     }
 
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
     await act(async () =>
       result.current.dispatch(missingSkillPool, { onError })
     )
 
     expect(onError).toHaveBeenCalledWith("capability-missing")
-    expect(writeAction).not.toHaveBeenCalled()
+    expect(pushAction).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it("silently retries a cross-writer stale with the refetched class token", async () => {
-    writeAction
-      .mockResolvedValueOnce(err("stale"))
-      .mockResolvedValueOnce(commit(6))
-    versionAction.mockResolvedValue(ok({ version: 5 }))
+  it("projects the prediction into the frame and delivers one ordered envelope", async () => {
     const onSuccess = vi.fn()
+    const { result } = renderHook(
+      () => ({ write: useEntityWrite(), frame: useLoadedCharacter() }),
+      { wrapper }
+    )
+    await flush()
 
-    const { result } = renderHook(() => useEntityWrite(), { wrapper })
     await act(async () => {
-      result.current.dispatch(damage, { onSuccess })
+      result.current.write.dispatch(damage, { onSuccess })
     })
     await flush()
 
-    expect(writeAction).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ expectedVersion: 1 })
-    )
-    expect(versionAction).toHaveBeenCalledWith({
-      entityId: "char-1",
-      versionClass: "vitals",
+    expect(result.current.frame.entity.components.vitals).toEqual({
+      base: 10,
+      damage: 1,
     })
-    expect(writeAction).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ expectedVersion: 5 })
-    )
-    expect(onSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({ version: 6 })
-    )
+    expect(onSuccess).toHaveBeenCalled()
+    expect(pushAction).toHaveBeenCalledTimes(1)
+    const input = pushAction.mock.calls[0]![0] as {
+      entityId: string
+      envelope: { mutationId: number; invocation: { name: string } }
+    }
+    expect(input.entityId).toBe("char-1")
+    expect(input.envelope.mutationId).toBe(1)
+    expect(input.envelope.invocation.name).toBe("entity.write")
     expect(toast.error).not.toHaveBeenCalled()
-    expect(routerRefresh).not.toHaveBeenCalled()
   })
 
-  it("a stale that survives the retry is a real conflict: toast + refresh", async () => {
-    writeAction.mockResolvedValue(err("stale"))
-    versionAction.mockResolvedValue(ok({ version: 5 }))
-
+  it("serializes back-to-back writes with strictly sequential mutation IDs", async () => {
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    await act(async () => {
-      result.current.dispatch(damage)
-    })
     await flush()
 
-    expect(writeAction).toHaveBeenCalledTimes(2)
-    expect(toast.error).toHaveBeenCalledWith(
-      "This character changed elsewhere — refreshing."
-    )
-    expect(routerRefresh).toHaveBeenCalledTimes(1)
-  })
-
-  it("serializes same-class writes so the second reads the bumped token", async () => {
-    writeAction
-      .mockResolvedValueOnce(commit(2))
-      .mockResolvedValueOnce(commit(3))
-
-    const { result } = renderHook(() => useEntityWrite(), { wrapper })
     await act(async () => {
       result.current.dispatch(damage)
       result.current.dispatch(damage)
     })
     await flush()
 
-    expect(writeAction).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ expectedVersion: 1 })
+    const ids = pushAction.mock.calls.map(
+      (call) =>
+        (call[0] as { envelope: { mutationId: number } }).envelope.mutationId
     )
-    expect(writeAction).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ expectedVersion: 2 })
-    )
+    expect(ids).toEqual([1, 2])
   })
 
-  it("keeps class queues isolated — an in-flight identity write never blocks a vitals write", async () => {
-    let releaseIdentity!: (value: Result<EntityCommit, never>) => void
-    writeAction.mockImplementation((input) =>
-      input.write.component === "talents"
-        ? new Promise((resolve) => {
-            releaseIdentity = resolve
-          })
-        : Promise.resolve(commit(2))
+  it("rolls back the prediction on a trusted remote rejection and routes the code to onError", async () => {
+    pushAction.mockResolvedValue(
+      err({ kind: "rejected", error: "capability-missing" })
+    )
+    const onError = vi.fn(() => false)
+    const { result } = renderHook(
+      () => ({ write: useEntityWrite(), frame: useLoadedCharacter() }),
+      { wrapper }
+    )
+    await flush()
+
+    await act(async () => {
+      result.current.write.dispatch(damage, { onError })
+    })
+    await flush()
+
+    expect(onError).toHaveBeenCalledWith("capability-missing")
+    expect(toast.error).toHaveBeenCalledWith("Couldn't save. Try again.")
+    expect(result.current.frame.entity.components.vitals).toEqual({
+      base: 10,
+      damage: 0,
+    })
+  })
+
+  it("buffers a dispatch racing the bootstrap and replays it through the replica", async () => {
+    let releaseBootstrap!: () => void
+    acceptedAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseBootstrap = () => resolve(accepted(baseComponents))
+        })
     )
 
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
     await act(async () => {
-      result.current.dispatch(talents) // identity class — parked in flight
-      result.current.dispatch(damage) // vitals class — its own spine
+      result.current.dispatch(damage)
+    })
+    expect(pushAction).not.toHaveBeenCalled()
+
+    await act(async () => {
+      releaseBootstrap()
     })
     await flush()
-
-    // The vitals write dispatched (and committed) while identity is parked.
-    expect(writeAction).toHaveBeenCalledTimes(2)
-    expect(writeAction).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        expectedVersion: 1,
-        write: damage,
-      })
-    )
-
-    await act(async () => releaseIdentity(commit(2)))
+    expect(pushAction).toHaveBeenCalledTimes(1)
   })
 })
 
-describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569)", () => {
-  const ping = (data: unknown) =>
-    act(() => capturedChannel.current!.onPing(data))
+describe("EntityWriteProvider — unmount saves outlive provider cleanup (Codex P1, PR #386)", () => {
+  it("delivers a mutate fired after cleanup in the same commit — teardown yields a macrotask", async () => {
+    const { result, unmount } = renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
 
-  it("subscribes to the character channel by the profile's shortId", () => {
+    // Deletion cleanups run parent-first: the provider tears down before a
+    // dirty field's unmount auto-save fires. Simulate that child cleanup by
+    // dispatching immediately after unmount, same tick.
+    unmount()
+    result.current.dispatch(damage)
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+    expect(pushAction).toHaveBeenCalledTimes(1)
+  })
+
+  it("flushes a buffered unmount save through a short-lived replica when torn down mid-bootstrap", async () => {
+    let releaseBootstrap!: () => void
+    acceptedAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseBootstrap = () => resolve(accepted(baseComponents))
+        })
+    )
+
+    const { result, unmount } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(damage)
+    })
+    unmount()
+    expect(pushAction).not.toHaveBeenCalled()
+
+    await act(async () => {
+      releaseBootstrap()
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+    expect(pushAction).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UNN-645)", () => {
+  it("subscribes to the character channel by the profile's shortId", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
     expect(capturedChannel.current).toMatchObject({
       domain: "character",
       shortId: "abc123",
     })
   })
 
-  it("a genuinely fresher ping refreshes and forwards the class token to the next write", async () => {
-    writeAction.mockResolvedValueOnce(commit(8))
-
-    const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    ping({ kind: "entity", versions: { vitals: 7 } })
-    expect(routerRefresh).toHaveBeenCalledTimes(1)
-
-    await act(async () => {
-      result.current.dispatch(damage)
-    })
-    await flush()
-
-    // The dispatch read the pinged token — no stale round-trip.
-    expect(writeAction).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedVersion: 7 })
-    )
-    expect(versionAction).not.toHaveBeenCalled()
-  })
-
-  it("suppresses echoes and junk: nothing fresher never refreshes", () => {
+  it("fans a ping into the replica transport (a fresh refetch) AND the classic refresh compare", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
-    ping({ kind: "entity", versions: { vitals: 1 } }) // equal to the known token
-    ping({ kind: "entity", versions: { bogus: 99 } }) // foreign key
-    ping("junk") // malformed payload
-    expect(routerRefresh).not.toHaveBeenCalled()
-  })
-
-  it("ignores v1 characters-row pings — the other family's counters must not poison the entity refs", async () => {
-    writeAction.mockResolvedValueOnce(commit(2))
-
-    const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    // A v1 write bumps the characters row's counter far above the entity
-    // row's; forwarding it would strand the forward-only ref above the true
-    // entity version and every later write would send a too-high token.
-    ping({ kind: "character", versions: { identity: 40 } })
-    ping({ versions: { identity: 40 } }) // untagged legacy: ambiguous, dropped
-    expect(routerRefresh).not.toHaveBeenCalled()
+    await flush()
+    const bootstrapReads = acceptedAction.mock.calls.length
 
     await act(async () => {
-      result.current.dispatch(talents) // identity class
+      capturedChannel.current?.onPing({
+        kind: "entity",
+        versions: { vitals: 9 },
+      })
     })
     await flush()
 
-    // The identity write still reads the untouched entity token.
-    expect(writeAction).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedVersion: 1 })
-    )
-  })
-
-  it("an echo of this tab's own committed write does not refresh", async () => {
-    writeAction.mockResolvedValueOnce(commit(2))
-
-    const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    await act(async () => {
-      result.current.dispatch(damage)
-    })
-    await flush()
-
-    ping({ kind: "entity", versions: { vitals: 2 } })
-    expect(routerRefresh).not.toHaveBeenCalled()
-  })
-
-  it("refreshes once a dropped connection comes back", () => {
-    renderHook(() => useEntityWrite(), { wrapper })
-    act(() => capturedChannel.current!.onReconnect?.())
+    expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
     expect(routerRefresh).toHaveBeenCalledTimes(1)
+  })
+
+  it("suppresses echoes in the refresh compare: nothing fresher never refreshes", async () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
+
+    await act(async () => {
+      capturedChannel.current?.onPing({
+        kind: "entity",
+        versions: { vitals: 1 },
+      })
+    })
+
+    expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  it("refreshes and re-pulls once a dropped connection comes back", async () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
+    const bootstrapReads = acceptedAction.mock.calls.length
+
+    await act(async () => {
+      capturedChannel.current?.onReconnect?.()
+    })
+    await flush()
+
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
+    expect(acceptedAction.mock.calls.length).toBeGreaterThan(bootstrapReads)
   })
 })
 
-describe("useEntityAutoSave — the shared class spine (UNN-568)", () => {
-  it("serializes an identity lifecycle action behind a parked identity auto-save", async () => {
-    let releaseSave!: (value: Result<EntityCommit, never>) => void
-    writeAction.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          releaseSave = resolve
-        })
+describe("EntityWriteProvider — read-only mounts", () => {
+  it("never bootstraps the replica when not writable", async () => {
+    const readOnly = ({ children }: { children: React.ReactNode }) => (
+      <EntityWriteProvider loaded={loaded} writable={false}>
+        {children}
+      </EntityWriteProvider>
     )
-    const finalize = vi.fn(async (expectedVersion: number) =>
-      ok({ shortId: "abc123", version: expectedVersion + 1 })
-    )
-
-    const { result } = renderHook(
-      () => ({
-        autoSave: useEntityAutoSave({
-          serverValue: "old",
-          makeWrite: (value) => ({
-            component: "narrative",
-            op: "setField",
-            field: "ancestry",
-            value,
-          }),
-        }),
-        identity: useEntityIdentityQueue(),
-      }),
-      { wrapper }
-    )
-
-    await act(async () => result.current.autoSave.setValue("new"))
-    await act(async () => result.current.autoSave.flush())
-
-    let finalized!: ReturnType<typeof finalize>
-    act(() => {
-      finalized = result.current.identity.enqueueOnce(finalize)
+    const { result } = renderHook(() => useLoadedCharacter(), {
+      wrapper: readOnly,
     })
-    expect(finalize).not.toHaveBeenCalled()
+    await flush()
 
-    await act(async () => releaseSave(commit(4)))
-    await act(async () => finalized)
-
-    expect(finalize).toHaveBeenCalledWith(4)
+    expect(acceptedAction).not.toHaveBeenCalled()
+    expect(result.current.entity).toBe(loaded.entity)
   })
+})
 
-  it("does not retry a stale identity lifecycle action against unseen state", async () => {
-    const finalize = vi.fn(async () => err("stale"))
-    versionAction.mockResolvedValue(ok({ version: 7 }))
+describe("useEntityIdentityQueue — the classic lifecycle path (unchanged this increment)", () => {
+  it("keeps the identity queue serialized with token accounting", async () => {
+    const first = vi.fn(
+      (
+        expectedVersion: number
+      ): Promise<
+        import("@workspace/result").Result<{ version: number }, never>
+      > => Promise.resolve(ok({ version: expectedVersion + 1 }))
+    )
+    const second = vi.fn(
+      (
+        expectedVersion: number
+      ): Promise<
+        import("@workspace/result").Result<{ version: number }, never>
+      > => Promise.resolve(ok({ version: expectedVersion + 1 }))
+    )
 
     const { result } = renderHook(() => useEntityIdentityQueue(), { wrapper })
-    let finalized!: ReturnType<typeof finalize>
-    act(() => {
-      finalized = result.current.enqueueOnce(finalize)
-    })
-    await act(async () => finalized)
-
-    expect(finalize).toHaveBeenCalledOnce()
-    expect(finalize).toHaveBeenCalledWith(1)
-    expect(versionAction).not.toHaveBeenCalled()
-  })
-
-  it("a click write chains behind an in-flight debounced save on the same class and reads its bumped token", async () => {
-    let releaseSave!: (value: Result<EntityCommit, never>) => void
-    writeAction.mockImplementation((input) => {
-      const write = input.write as EntityWrite
-      if (write.component === "narrative") {
-        return new Promise((resolve) => {
-          releaseSave = resolve
-        })
-      }
-      return Promise.resolve(commit(9))
-    })
-
-    const { result } = renderHook(
-      () => ({
-        autoSave: useEntityAutoSave({
-          serverValue: "old",
-          makeWrite: (value) => ({
-            component: "narrative",
-            op: "setField",
-            field: "ancestry",
-            value,
-          }),
-        }),
-        write: useEntityWrite(),
-      }),
-      { wrapper }
-    )
-
-    // Kick the debounced save (identity class) and park it in flight. The
-    // draft state must commit before flush reads it, so two acts.
-    await act(async () => {
-      result.current.autoSave.setValue("new")
-    })
-    await act(async () => {
-      result.current.autoSave.flush()
-    })
-    expect(writeAction).toHaveBeenCalledTimes(1)
-
-    // A click write in the same class chains behind it on the shared spine.
-    await act(async () => {
-      result.current.write.dispatch(talents)
-    })
-    expect(writeAction).toHaveBeenCalledTimes(1)
-
-    // Releasing the save bumps the identity token; the click write follows
-    // with the fresh token — never the stale pre-save value.
-    await act(async () => releaseSave(commit(4)))
     await flush()
 
-    expect(writeAction).toHaveBeenCalledTimes(2)
-    expect(writeAction).toHaveBeenLastCalledWith(
-      expect.objectContaining({ expectedVersion: 4, write: talents })
-    )
-  })
-
-  it("a debounced save's surviving stale refreshes the route (cross-tab strand guard)", async () => {
-    writeAction.mockResolvedValue(err("stale"))
-    versionAction.mockResolvedValue(ok({ version: 7 }))
-
-    const { result } = renderHook(
-      () =>
-        useEntityAutoSave({
-          serverValue: "old",
-          makeWrite: (value) => ({
-            component: "narrative",
-            op: "setField",
-            field: "ancestry",
-            value,
-          }),
-        }),
-      { wrapper }
-    )
-
     await act(async () => {
-      result.current.setValue("new")
+      await Promise.all([
+        result.current.enqueueOnce(first),
+        result.current.enqueueOnce(second),
+      ])
     })
-    await act(async () => {
-      result.current.flush()
-    })
-    await flush()
 
-    // Retried once (stale → refetch 7 → retry), then surfaced + refreshed.
-    expect(writeAction).toHaveBeenCalledTimes(2)
-    expect(writeAction).toHaveBeenLastCalledWith(
-      expect.objectContaining({ expectedVersion: 7 })
-    )
-    expect(routerRefresh).toHaveBeenCalledTimes(1)
-    expect(toast.error).toHaveBeenCalled()
+    // Serialized: the second read the token the first bumped.
+    expect(first).toHaveBeenCalledWith(1)
+    expect(second).toHaveBeenCalledWith(2)
   })
 })

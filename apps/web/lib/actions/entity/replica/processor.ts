@@ -195,7 +195,7 @@ async function executeEntityWrite(
     .from(entity)
     .where(eq(entity.id, context.entityId))
     .for("update")
-  if (!row) return err("entity-load-failed")
+  if (!row) return err("entity-not-found")
 
   const loaded = loadEntityRow(row)
   if (!loaded.ok) return err("entity-load-failed")

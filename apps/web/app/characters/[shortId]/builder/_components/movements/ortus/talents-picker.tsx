@@ -84,8 +84,6 @@ export function TalentsPicker() {
       { component: "talents", op: "setGained", keys: next },
       {
         messages: {
-          stale:
-            "Someone else updated this character — refresh to see the latest.",
           error: "Couldn't save Talents. Try again.",
         },
       }

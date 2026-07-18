@@ -12,8 +12,9 @@ import type { EntityWriteRefusal } from "../commit/writers"
  * behind. The door codes are server-only: `"forbidden"` is an auth or
  * viewer-identity gate refusal (typed, never a `forbidden()` throw — a throw
  * would abort the transaction without advancing the watermark and strand the
- * client in ambiguous redelivery), and `"entity-load-failed"` mirrors the
- * entity door's assemble failure. `"invalid-write"` is the client-facing
+ * client in ambiguous redelivery); `"entity-not-found"` is the classic
+ * door's missing-row code, kept verbatim because sheet consumers branch on
+ * it; `"entity-load-failed"` mirrors the entity door's assemble failure. `"invalid-write"` is the client-facing
  * collapse of the authority's recorded decode refusals (`invalid` /
  * `unknown-mutation` — deploy skew between this client and the server) and
  * of a malformed transport envelope: in every case this build of the client
@@ -23,5 +24,6 @@ import type { EntityWriteRefusal } from "../commit/writers"
 export type EntityReplicaRejection =
   | EntityWriteRefusal
   | "forbidden"
+  | "entity-not-found"
   | "entity-load-failed"
   | "invalid-write"
