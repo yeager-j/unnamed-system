@@ -3,6 +3,12 @@
 Status: **Proposed** · 2026-07-18  
 Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 
+> **Design-review revision.** The first draft established the replica core. This
+> revision promotes adapter authoring to a first-class package interface, specifies
+> ambiguous delivery recovery, moves an unlike second binding ahead of broad Showtime
+> migration, narrows accepted snapshots to the current client's watermark, and makes
+> `Remote = void` the default.
+
 ## Summary
 
 Extract the client write-coordination machinery as a framework-independent
@@ -14,13 +20,14 @@ intents. It projects the pending intents over the base, delivers them with exact
 authority effects, accepts causally ordered authoritative snapshots, and rebases the
 remaining intents after every accepted update.
 
-Its daily caller interface is deliberately small:
+Its daily caller interface is deliberately small. Remote success is acknowledgment-only
+by default:
 
 ```ts
-interface Replica<State, Invocation, Remote, Error> {
+interface Replica<State, Invocation, Error, Remote = void> {
   getSnapshot(): ReplicaSnapshot<State, Error>
   subscribe(listener: () => void): () => void
-  mutate(invocation: Invocation): MutationReceipt<Remote, Error>
+  mutate(invocation: Invocation): MutationReceipt<Error, Remote>
   dispose(): void
 }
 ```
@@ -28,6 +35,12 @@ interface Replica<State, Invocation, Remote, Error> {
 This interface hides mutation identity, serialization, retry, deduplication, optimistic
 projection, acknowledgment, rollback, and rebase. Deleting the module would spread
 those decisions back across every caller, so it earns its place as a deep module.
+
+An external package nevertheless has three consequential interfaces: the daily replica
+interface, the transport port implemented by adapter authors, and the authority
+processor. The transport port is part of the product, not application glue. The package
+must provide ordering helpers and an executable adapter contract so each consumer does
+not rebuild causal delivery unaided.
 
 The package will begin in this workspace so Showtime can be its first production
 adapter. Its interface should be publication-quality, but it should not be declared
@@ -73,10 +86,13 @@ lifecycle.
 - Make network redelivery safe through transactional authority-side deduplication.
 - Separate local prediction, remote terminal outcome, and authoritative incorporation.
 - Rebase pending mutation intents over causally newer authoritative state.
+- Keep mutations with an ambiguous remote outcome pending across disconnection and
+  resume delivery with the same identity.
 - Preserve typed `Result` failures without requiring thrown domain errors.
 - Keep React, Next.js, databases, authentication, and realtime vendors outside the
   core module.
-- Make the module testable through the same interface used by production callers.
+- Make both the replica and transport port testable through the same interfaces used by
+  production callers and adapters.
 
 ## Non-goals
 
@@ -96,12 +112,19 @@ lifecycle.
 - **Invocation** — a registered mutation name plus validated, serializable arguments.
 - **Pending log** — locally accepted invocations not yet incorporated into the
   authoritative base.
+- **Delivery ledger** — envelopes whose remote outcome is not yet known. An incorporated
+  mutation may leave the pending log while remaining in this ledger long enough to
+  recover its receipt.
 - **Projected value** — the authoritative base with the pending log replayed in order.
 - **Remote outcome** — the authority's terminal acceptance or typed rejection of one
   mutation delivery.
+- **Unsettled delivery** — a mutation whose last attempt ended ambiguously, such as a
+  timeout after the authority may have committed it. It remains pending and keeps the
+  same identity.
 - **Incorporation** — evidence that an authoritative base reflects the terminal outcome
   of a mutation. Incorporation is later than, and distinct from, remote acknowledgment.
-- **Watermark** — the last mutation ID incorporated into a base for each client.
+- **Watermark** — the last mutation ID from this replica's client incorporated into an
+  accepted base.
 
 ## Package shape
 
@@ -111,9 +134,10 @@ Examples use `@scope/replica` as a placeholder publication name.
 packages/replica/
   src/
     index.ts          # core interface and runtime
+    transport.ts      # transport port, ordering helpers, adapter contracts
     react.ts          # useReplica, backed by useSyncExternalStore
     server.ts         # ordered deduplication processor
-    testing.ts        # in-memory authority and reusable behavior laws
+    testing.ts        # in-memory authority and both contract suites
 ```
 
 Public entry points:
@@ -122,7 +146,15 @@ Public entry points:
 import { createReplica, defineMutation, defineMutations } from "@scope/replica"
 import { useReplica } from "@scope/replica/react"
 import { createMutationProcessor } from "@scope/replica/server"
-import { createInMemoryAuthority } from "@scope/replica/testing"
+import {
+  createInMemoryAuthority,
+  verifyReplicaContract,
+  verifyTransportContract,
+} from "@scope/replica/testing"
+import {
+  createCausalAcceptanceGate,
+  createPullGenerationGate,
+} from "@scope/replica/transport"
 ```
 
 The core has no React or Next.js dependency. It uses the dependency-free
@@ -184,20 +216,20 @@ an application-owned handler against trusted context and current persistence sta
 interface ReplicaSnapshot<State, Error> {
   value: State
   pending: number
-  connection: "online" | "offline" | "syncing"
+  connection: "connected" | "recovering" | "disconnected"
   conflicts: readonly MutationConflict<Error>[]
 }
 
-interface MutationReceipt<Remote, Error> {
+interface MutationReceipt<Error, Remote = void> {
   id: MutationId
   local: Promise<Result<void, Error>>
   remote: Promise<Result<Remote, Error>>
 }
 
-interface Replica<State, Invocation, Remote, Error> {
+interface Replica<State, Invocation, Error, Remote = void> {
   getSnapshot(): ReplicaSnapshot<State, Error>
   subscribe(listener: () => void): () => void
-  mutate(invocation: Invocation): MutationReceipt<Remote, Error>
+  mutate(invocation: Invocation): MutationReceipt<Error, Remote>
   dispose(): void
 }
 ```
@@ -218,6 +250,11 @@ Neither promise means that an accepted snapshot has incorporated the mutation. T
 replica keeps the predicted effect mounted until incorporation arrives through the
 accepted-state stream.
 
+`disconnected` describes delivery during the lifetime of an in-memory replica; it does
+not promise reload-surviving offline support. Pending mutations remain projected but no
+delivery attempt is active. `recovering` means the transport has reconnected but has not
+yet re-established accepted state. Delivery resumes only after recovery completes.
+
 ## Creating a replica
 
 ```ts
@@ -231,31 +268,56 @@ const replica = createReplica({
 The initial value and every subsequent accepted value have this shape:
 
 ```ts
-interface Accepted<State> {
+interface Accepted<State, Cursor = unknown> {
   value: State
-  through: MutationWatermark
+  through: MutationId
+  cursor: Cursor
 }
-
-type MutationWatermark = Readonly<Record<ClientId, MutationId>>
 ```
 
-`through[clientId] = 42` means the base reflects the terminal outcome of every mutation
-from that client through ID 42. Accepted mutations are present in the base; rejected
+`through = 42` means the base reflects the terminal outcome of every mutation from this
+replica's client through ID 42. Accepted mutations are present in the base; rejected
 mutations have no effect in the base. This wording permits the stream to advance after a
 rejection even when application state itself did not change.
+
+The transport binds one replica to one client identity and narrows the authority's
+per-client ledger to that client's watermark. Accepted snapshots do not carry an
+ever-growing `Record<ClientId, MutationId>`. A future shared durable outbox may justify
+a wider group watermark, but the first interface should not pay for that unimplemented
+cardinality.
+
+`cursor` is an adapter-owned causal token for the domain value. The replica carries it
+but does not compare or interpret it; the transport's acceptance gate combines it with
+`through` to prevent regression of either domain state or protocol progress. A terminal
+rejection can advance `through` without changing `cursor`, so cursor equality alone does
+not make two accepted snapshots duplicates.
 
 The watermark is required for correct pruning. A domain row version alone cannot tell
 the replica whether a returned snapshot already contains a particular local mutation.
 Replaying an incorporated mutation could otherwise apply it twice.
 
+The authority read adapter must obtain `value`, `through`, and `cursor` from one
+consistent observation. Pairing a newer watermark with an older domain snapshot could
+prune a mutation whose effect is absent; pairing newer state with an older watermark
+could replay it twice. The transport contract treats the accepted tuple as atomic.
+
 ## Transport port
 
 The authority is remote but owned. The replica therefore defines one port at the seam,
-with a production network adapter and an in-memory testing adapter.
+with a production network adapter and an in-memory testing adapter. This is the primary
+interface for package adopters: the package is only deep if it helps adapters establish
+one causal accepted-state stream instead of moving today's race machinery into every
+consumer.
 
 ```ts
-interface ReplicaTransport<State, Invocation, Remote, Error> {
-  connect(sink: ReplicaTransportSink<State>): () => void
+interface ReplicaTransport<
+  State,
+  Invocation,
+  Error,
+  Remote = void,
+  Cursor = unknown,
+> {
+  connect(sink: ReplicaTransportSink<State, Cursor>): () => void
 
   push(
     envelope: MutationEnvelope<Invocation>,
@@ -263,9 +325,9 @@ interface ReplicaTransport<State, Invocation, Remote, Error> {
   ): Promise<Result<Remote, PushError<Error>>>
 }
 
-interface ReplicaTransportSink<State> {
-  accept(accepted: Accepted<State>): void
-  setConnection(status: "online" | "offline" | "syncing"): void
+interface ReplicaTransportSink<State, Cursor> {
+  accept(accepted: Accepted<State, Cursor>): void
+  setConnection(status: "connected" | "recovering" | "disconnected"): void
 }
 
 type PushError<Error> =
@@ -273,15 +335,91 @@ type PushError<Error> =
   | { kind: "rejected"; error: Error }
 ```
 
+`retryable` means the authority outcome is unknown, not that the authority is known to
+have skipped the mutation. Only `rejected` is a trusted terminal refusal.
+
 The transport adapter must deliver accepted snapshots in causal order. HTTP request
-races, polling generations, reconnect cursors, and vendor-specific message ordering are
-adapter responsibilities. This keeps multi-dimensional Showtime version comparison out
-of the general module while giving the module one reliable accepted-state stream.
+races, polling generations, reconnect cursors, and vendor-specific message ordering
+remain adapter decisions because only the adapter understands its source. The package
+owns the stateful enforcement machinery and contract tests so those decisions are made
+once per adapter rather than reimplemented in every callback.
 
 The replica calls `push` serially for one client. A retry uses the exact same envelope.
 A terminal rejection does not poison the queue; it removes that mutation, rebases later
 pending mutations over the unchanged base, and resolves its receipt with the typed
 error.
+
+### Adapter-authoring helpers
+
+`@scope/replica/transport` provides composable guards for the two common sources of
+causal regression:
+
+```ts
+const generation = createPullGenerationGate()
+
+const acceptance = createCausalAcceptanceGate({
+  initial: loadedEntity,
+  classify: compareEntityCursor,
+  recover: refetchCurrentSnapshot,
+  emit: sink.accept,
+})
+```
+
+`createPullGenerationGate` issues a generation for each overlapping pull and allows
+only the latest still-relevant request to publish. It centralizes cancellation and the
+“older response finished last” race.
+
+`createCausalAcceptanceGate` remembers the last emitted accepted snapshot. Its
+application-supplied classifier describes the relationship between the old and incoming
+**domain cursors**:
+
+```ts
+type CausalRelationship = "stale" | "same" | "fresh" | "unknown"
+```
+
+- `stale` with an equal or older watermark does not emit; a newer watermark paired with
+  stale domain state is incomparable and starts recovery.
+- `same` with an older watermark is stale, with the same watermark is a duplicate, and
+  with a newer watermark emits. The last case is how a terminal rejection becomes
+  observable without a domain-state change.
+- `fresh` emits when the watermark is equal or newer; a regressing watermark starts
+  recovery.
+- `unknown` does not guess; it starts the configured recovery read.
+
+An identical cursor and watermark is a duplicate and does not emit. These product-order
+rules live in the package; adapters do not reimplement them.
+
+This permits a scalar cursor, a vector such as Showtime's multi-dimensional versions,
+or another project-specific token without forcing one comparison model into the core.
+The helper owns duplicate suppression, recovery serialization, cancellation, and
+publication; the adapter supplies only the domain-specific classification and read.
+
+Adapters that consume ordered deltas must fold them into complete `Accepted<State>`
+values before crossing the port. The replica intentionally does not interpret vendor
+events or partial patches.
+
+### Transport contract suite
+
+`verifyTransportContract` is a named deliverable of `@scope/replica/testing`. An
+adapter supplies a controllable harness for its source and the suite verifies that the
+port:
+
+- establishes a gapless continuation from the supplied initial cursor, or emits a
+  current accepted snapshot, before reporting `connected`,
+- suppresses a slower result from an older pull generation,
+- never emits a causally stale or duplicate accepted snapshot,
+- recovers rather than guessing when cursors are incomparable,
+- resumes from a reconnect cursor or performs a current-state recovery read,
+- preserves the accepted value and its `through` watermark as one observation,
+- preserves an envelope exactly when the caller redelivers it after an ambiguous push
+  result,
+- reports terminal rejection separately from ambiguous transport failure,
+- stops all emissions after disconnect/disposal, and
+- fails a deliberate adapter that publishes pull responses in completion order.
+
+The suite must run against Showtime's production-shaped adapter and the deliberately
+alien polling adapter described in the migration plan. Vendor integration tests may add
+coverage, but they do not replace this deterministic contract.
 
 ## Mutation identity
 
@@ -327,8 +465,8 @@ interface MutationProcessorOptions<
   Registry,
   Transaction,
   TrustedContext,
-  Remote,
   Error,
+  Remote = void,
 > {
   mutations: Registry
   transact<T>(work: (tx: Transaction) => Promise<T>): Promise<T>
@@ -353,18 +491,29 @@ Inside one application transaction, the processor:
 Unexpected exceptions abort the transaction and do not advance the watermark. They are
 retryable only when the production adapter classifies them that way.
 
-### Deduplicated remote results
+### Remote result modes
 
-The `remote` result creates a stronger requirement than Zero's acknowledgment-only
-success: a redelivery must reproduce the original terminal result. The dedup adapter
-must therefore retain enough information to return that result, or the binding must use
-`Remote = void`.
+The package defaults to `Remote = void`. A successful redelivery then needs only the
+recorded fact that the mutation terminated; accepted versions and state arrive through
+the accepted-state stream. This keeps the normal authority adapter close to Zero's
+acknowledgment semantics and avoids making serialized success-result storage a hidden
+cost for every adopter.
 
-For Showtime, the long-term replica binding should prefer `Remote = void` and derive
-accepted versions from the accepted-state stream. During migration, retaining
-`EntityCommit` is permitted, but its serialized outcome must be stored for the dedup
-retention window. Reconstructing an old result from current domain state is invalid
-because later mutations may already have changed it.
+The dedup record must retain the last terminal outcome long enough to recover an
+ambiguous delivery. For the default mode, that is an accepted marker or the typed
+terminal rejection. Because the client never advances to mutation N+1 until N's remote
+outcome is known, retaining the current terminal outcome per client is sufficient for
+the in-memory delivery model. Durable or concurrently delivered outboxes may require a
+longer outcome log.
+
+Non-void `Remote` is an advanced opt-in. At the point where an adapter selects it, the
+authority adapter must also provide serialized outcome storage for the full recovery
+window. A redelivery must reproduce the original result; reconstructing it from current
+domain state is invalid because later mutations may already have changed that state.
+
+Showtime may temporarily opt into `Remote = EntityCommit` during migration. Its target
+binding should use the default `void` result and derive accepted versions from the
+accepted-state stream.
 
 ## Client state machine
 
@@ -383,15 +532,43 @@ not merely to the last authoritative base.
 ### Remote terminal outcome
 
 1. Deliver only the head unsent mutation for the client.
-2. Retry a retryable failure with the same identity according to a bounded internal
-   policy.
-3. On acceptance, resolve `remote`; retain the mutation in the pending log until an
-   accepted snapshot incorporates it.
+2. Retry an ambiguous failure with the same identity according to a bounded
+   per-connection policy.
+3. On terminal acceptance, resolve `remote`; retain the mutation in the pending log
+   until an accepted snapshot incorporates it.
 4. On terminal rejection, resolve `remote` with `Result.err`, remove the predicted
    mutation, and replay later pending mutations over the current base.
 
-The default retry policy must be bounded and cancellable. Exact backoff values are an
-implementation decision, not part of the daily caller interface.
+### Ambiguous delivery and retry exhaustion
+
+A timeout, connection loss, or cancelled response is not a terminal rejection. The
+authority may already have committed the mutation. The replica must not resolve
+`remote`, remove the prediction, allocate a replacement ID, or advance to the next
+mutation.
+
+Retry is bounded **per connection epoch**, not per mutation:
+
+1. retry the same envelope within the current budget,
+2. when that budget is exhausted, transition to `disconnected`,
+3. keep the mutation projected and its `remote` promise unresolved,
+4. pause later deliveries to preserve ordering,
+5. on reconnect, transition to `recovering` and obtain a current accepted snapshot,
+6. rebase or prune the prediction from that snapshot, then
+7. redeliver the same envelope to recover its recorded terminal outcome.
+
+An incorporated mutation may leave the projection before its lost remote outcome has
+been recovered. The implementation therefore keeps receipt/delivery bookkeeping
+separate from the pending projection log until `remote` settles. Authority
+deduplication makes this recovery redelivery safe.
+
+Only a trusted terminal response may resolve `remote` as accepted or rejected. A
+retryable transport error never becomes a domain error merely because a budget elapsed.
+Exact backoff values and connection-health detection are implementation decisions; the
+unsettled-state behavior is part of the interface.
+
+The first version does not persist this state across replica disposal or page reload.
+That is the limit expressed by the offline-persistence non-goal. Dedup outcome retention
+must nevertheless exceed the recovery window promised by any future durable outbox.
 
 ### Accepted snapshot
 
@@ -446,7 +623,7 @@ The React entry point should contain one thin binding:
 
 ```ts
 function useReplica<State, Error>(
-  replica: Replica<State, unknown, unknown, Error>
+  replica: Replica<State, unknown, Error>
 ): ReplicaSnapshot<State, Error> {
   return useSyncExternalStore(
     replica.subscribe,
@@ -491,8 +668,8 @@ mutation identity, stale retry, Ably, or route refresh.
 | `use-entity-write.tsx` prediction, refs, queues, and dispatch | Replica; app retains entity context and error policy              |
 | `use-combatant-write.ts` optimistic Writer dispatch           | Replica; app retains console/container integration                |
 | `write-lanes.ts` per-PC queues and token maps                 | Replica; app retains the durable-versus-inline ownership decision |
-| Snapshot race suppression                                     | Showtime transport adapter                                        |
-| Ably subscription and polling                                 | Showtime transport adapter                                        |
+| Snapshot race suppression                                     | Package ordering helpers configured by Showtime's adapter         |
+| Ably subscription and polling                                 | Showtime adapter, verified by the transport contract              |
 | Fetch functions and Server Actions                            | Showtime transport adapter                                        |
 | `guard-write-transition.ts`                                   | Application UI policy                                             |
 | `run-dual-versioned-write.ts`                                 | Application unless both records become one replica root           |
@@ -528,8 +705,11 @@ Authorization and secrecy take precedence over replica uniformity.
 
 ## Testing strategy
 
-The interface is the test surface. The package's in-memory authority is a real second
-adapter for the owned remote seam, not a mock of internal methods.
+The interfaces are the test surfaces. `@scope/replica/testing` ships two named contract
+suites plus an in-memory authority. Tests do not reach through either interface to
+assert on private queues, cursors, or reducer frames.
+
+### Replica contract
 
 The reusable behavior suite must prove:
 
@@ -537,7 +717,8 @@ The reusable behavior suite must prove:
 - back-to-back mutations serialize and accumulate over the projected value,
 - retry redelivers the same envelope identity,
 - authority deduplication prevents duplicate execution,
-- a duplicate returns the original terminal result,
+- a duplicate returns the same terminal classification,
+- non-void result mode reproduces the original terminal result,
 - an ID gap is rejected without executing application code,
 - an external accepted snapshot rebases pending mutations in order,
 - an incorporated mutation is pruned exactly once,
@@ -547,8 +728,32 @@ The reusable behavior suite must prove:
 - replay refusal surfaces a conflict without corrupting later replay,
 - accepted snapshots arriving around remote acknowledgment do not flicker or double
   apply,
+- retry-budget exhaustion leaves the mutation projected and `remote` unresolved,
+- later mutations remain blocked while the head outcome is ambiguous,
+- reconnect obtains accepted state and redelivers the same envelope,
+- incorporation may prune prediction before the lost remote outcome is recovered,
 - disposal unsubscribes and cancels outstanding waits, and
 - a deliberate negative control makes the rebase and dedup laws fail.
+
+### Transport adapter contract
+
+`verifyTransportContract` exercises causal ordering, pull generations, reconnect
+recovery, watermark/value atomicity, envelope identity, and disposal through the port.
+Its required cases are defined in §Transport contract suite. Every production adapter
+must run it; passing only the replica contract with the in-memory transport is
+insufficient.
+
+The package ships an intentionally alien reference fixture alongside the suite:
+
+- collection-valued state rather than one entity,
+- scalar HTTP cursor rather than Showtime's version vector,
+- polling rather than Ably invalidation,
+- `Remote = void`, and
+- no React binding.
+
+This is not evidence equal to a production consumer, but it is an early falsification
+tool. It must use only the public transport and replica interfaces and must pass both
+contract suites before broad Showtime migration begins.
 
 Showtime keeps domain-law tests for `EntityWrite`, Writer application, merge, and
 commit/reload equivalence. Existing tests of queues and version refs should be deleted
@@ -557,24 +762,36 @@ freeze the previous implementation shape.
 
 ## Migration plan
 
-### Phase 1 — Contract and in-memory authority
+### Phase 1 — Three interfaces and their contracts
 
-- Create `packages/replica` with the core, server, React, and testing entry points.
+- Create `packages/replica` with the core, transport, server, React, and testing entry
+  points.
 - Move the disposable Zero mock's behavior into interface-level tests.
-- Implement identity, pending log, projection, delivery, deduplication, and rebase in
-  memory.
-- Prove the behavior suite and negative controls before application integration.
+- Implement the pull-generation and causal-acceptance helpers.
+- Ship `verifyReplicaContract` and `verifyTransportContract`, each with a deliberate
+  negative control.
+- Implement identity, pending log, delivery ledger, projection, deduplication, and
+  rebase in memory.
+- Prove ambiguous delivery, disconnection, recovery, and remote-outcome retrieval.
 
-### Phase 2 — Showtime entity adapter
+### Phase 2 — Two unlike bindings before broad migration
+
+- Build the collection-valued, polling, `Remote = void`, non-React reference binding.
+- Build one low-risk Showtime entity binding with its multi-dimensional cursor and
+  Ably/refetch transport.
+- Run both contract suites against both transport shapes.
+- Change the external interfaces when either binding needs internal access; do not add
+  an escape hatch for one consumer.
+- Treat the alien binding as falsification evidence, not as the eventual proof required
+  for a stable public release.
+
+### Phase 3 — Showtime entity coordination
 
 - Register `entity.write` around the existing `EntityWrite` schema and Writer reducer.
 - Add the authority dedup schema and transaction adapter.
-- Extend accepted entity snapshots with the per-client watermark.
+- Extend accepted entity snapshots with the current replica's watermark and causal
+  cursor.
 - Bind current Server Actions and accepted-state delivery behind the transport port.
-- Migrate one low-risk entity write family before the whole provider.
-
-### Phase 3 — Replace entity coordination
-
 - Move remaining replayable entity writes onto the replica.
 - Classify current `enqueueOnce` callers and encode their preconditions in intent.
 - Remove superseded per-class queues, token refs, stale retry, and implementation tests.
@@ -588,14 +805,15 @@ freeze the previous implementation shape.
 - Remove per-PC queue/token machinery where the replica now owns it.
 - Keep cross-root commands and redacted views application-specific.
 
-### Phase 5 — Second project and publication decision
+### Phase 5 — Publication hardening
 
-- Implement a production-shaped adapter in one other project.
+- Supplement the deliberately alien fixture's evidence with a production-shaped
+  adapter in one other project.
 - Compare required changes at the external interface rather than granting access to
   internals.
 - Stabilize naming, persistence requirements, and error taxonomy from two real
   consumers.
-- Publish only after the second adapter passes the shared behavior suite.
+- Publish only after the second adapter passes both contract suites.
 
 ## Rollout and compatibility
 
@@ -603,7 +821,8 @@ Transport and authority contracts must support mixed deployments:
 
 1. deploy dedup persistence and compatible readers,
 2. deploy authority handlers that accept mutation envelopes,
-3. expose accepted snapshots with watermarks,
+3. expose personalized accepted snapshots with the current replica's watermark and
+   causal cursor,
 4. migrate clients by write family,
 5. observe duplicate, gap, retry, conflict, and rebase metrics, and
 6. remove the old version-token path only after no old clients depend on it.
@@ -630,17 +849,19 @@ private game or application data.
 
 ## Risks and mitigations
 
-| Risk                                                                      | Mitigation                                                                                                     |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| A small `mutate` wrapper hides the old queues without earning true rebase | Do not remove token/reconciliation code until accepted bases and watermarks are live.                          |
-| Duplicate delivery returns a different commit result                      | Store the terminal result or use `Remote = void`; never reconstruct it from newer state.                       |
-| A snapshot double-applies a committed mutation                            | Require the per-client incorporation watermark.                                                                |
-| A stale transport response regresses the base                             | Require each transport adapter to emit accepted snapshots in causal order and test the adapter contract.       |
-| Replaying a lifecycle command changes its meaning                         | Encode its observed precondition in the mutation arguments and surface typed conflict.                         |
-| Prediction leaks or requires hidden state                                 | Keep redacted surfaces narrower or server-driven.                                                              |
-| The package becomes a framework adapter collection                        | Keep the core interface to snapshot, subscribe, mutate, and dispose; keep vendor code in application adapters. |
-| One consumer dictates a false generalization                              | Validate the interface with a second production-shaped project before stabilization.                           |
-| Publication creates two `Result` types                                    | Preserve `@workspace/result` as the single authority and plan its packaging with replica publication.          |
+| Risk                                                                      | Mitigation                                                                                                                            |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| A small `mutate` wrapper hides the old queues without earning true rebase | Do not remove token/reconciliation code until accepted bases and watermarks are live.                                                 |
+| Retry exhaustion is mistaken for rejection                                | Keep the head unsettled, pause the ordered queue, recover accepted state, and redeliver the same ID after reconnect.                  |
+| Duplicate delivery returns a different non-void result                    | Default to `Remote = void`; advanced adapters store the terminal result and never reconstruct it from newer state.                    |
+| A snapshot double-applies a committed mutation                            | Require the current replica's incorporation watermark.                                                                                |
+| Per-client watermarks grow without bound on the wire                      | Personalize accepted snapshots to the current replica's client; retain the wider ledger only at the authority.                        |
+| A stale transport response regresses the base                             | Ship causal/generation guards and require every adapter to pass `verifyTransportContract`.                                            |
+| Replaying a lifecycle command changes its meaning                         | Encode its observed precondition in the mutation arguments and surface typed conflict.                                                |
+| Prediction leaks or requires hidden state                                 | Keep redacted surfaces narrower or server-driven.                                                                                     |
+| The package becomes a framework adapter collection                        | Keep vendor code in application adapters while treating adapter-authoring helpers and contracts as first-class package functionality. |
+| One consumer dictates a false generalization                              | Exercise the alien binding before broad migration and a second real project before stabilization.                                     |
+| Publication creates two `Result` types                                    | Preserve `@workspace/result` as the single authority and plan its packaging with replica publication.                                 |
 
 ## Open decisions
 
@@ -653,9 +874,14 @@ the abstract:
 4. Dedup outcome retention and cleanup policy.
 5. Whether conflict history is retained until acknowledged or exposed only as current
    snapshot state.
-6. Whether Showtime can move directly to `Remote = void` or needs `EntityCommit` during
-   migration.
-7. Which other project will provide the second production adapter.
+6. Whether Showtime migration can use the default `Remote = void` immediately or needs
+   the advanced `EntityCommit` mode temporarily.
+7. Replica granularity outside the character sheet: one replica per entity, a
+   collection-valued replica, and transport fan-in have different authority-scope,
+   cursor, and lifetime consequences.
+8. Which causal cursor Showtime will expose to collapse its current multi-dimensional
+   version checks at the transport seam.
+9. Which other project will provide the second production adapter.
 
 ## Acceptance criteria
 
@@ -664,8 +890,12 @@ The proposal is implemented when:
 - application call sites express only typed mutation intent;
 - the replica owns prediction, ordered delivery, retry, acknowledgment, and rebase;
 - the authority records dedup state atomically with domain outcomes;
-- accepted snapshots carry incorporation watermarks;
-- the shared behavior suite passes against both in-memory and Showtime adapters;
+- accepted snapshots carry the current replica's incorporation watermark and a causal
+  cursor;
+- the replica and transport contract suites pass against the in-memory, alien, and
+  Showtime adapters;
+- ambiguous delivery remains unsettled across disconnection and recovers with the same
+  mutation identity;
 - replayable and preconditioned mutation families have explicit tests;
 - old queues and version-token coordination are removed only where the replica fully
   replaces their contracts; and
