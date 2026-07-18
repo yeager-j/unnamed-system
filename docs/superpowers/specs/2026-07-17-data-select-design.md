@@ -24,7 +24,7 @@ instances across 14 files found the same boilerplate repeated almost everywhere:
   content) and `region-settings-form.tsx` (a stale/deleted table key rendered as
   a `text-destructive` "(missing from the set)" — a documented invariant: falling
   back to "None" would let the form submit the stale key with no UI path out).
-  These two establish that a `renderValue` escape hatch is a real need, not a
+  These two establish that a trigger-label escape hatch is a real need, not a
   hypothetical one.
 
 The trigger-label `.find()` is *derivable* for the common case — if a component
