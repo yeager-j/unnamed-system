@@ -97,7 +97,17 @@ export function dungeonExitAnchors(
     else groups.set(key, [p])
   }
   for (const group of groups.values()) {
-    group.sort((a, b) => a.connectionId.localeCompare(b.connectionId))
+    // Code-unit comparator, not localeCompare: the spread order decides the
+    // serialized offsets, and D10's stub-continuity contract makes those wire
+    // bytes part of the payload's determinism — collation is for human eyes
+    // ([[2026-07-11-comparator-is-part-of-the-contract]]).
+    group.sort((a, b) =>
+      a.connectionId < b.connectionId
+        ? -1
+        : a.connectionId > b.connectionId
+          ? 1
+          : 0
+    )
     group.forEach((p, i) => {
       const step = NOTCH.along / p.wallLen
       const spread = (i - (group.length - 1) / 2) * step
