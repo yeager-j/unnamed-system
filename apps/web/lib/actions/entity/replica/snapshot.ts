@@ -6,7 +6,7 @@ import type { Accepted } from "@workspace/replica"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityVersionVector } from "@/domain/entity/replica/cursor"
-import type { EntityComponents } from "@/domain/entity/replica/mutations"
+import type { EntityReplicaState } from "@/domain/entity/replica/mutations"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
@@ -18,7 +18,7 @@ import {
   type EntityAcceptedRequest,
 } from "./wire.schema"
 
-export type EntityAccepted = Accepted<EntityComponents, EntityVersionVector>
+export type EntityAccepted = Accepted<EntityReplicaState, EntityVersionVector>
 
 export type EntityAcceptedError = "invalid-input" | "entity-load-failed"
 
@@ -98,7 +98,15 @@ export async function loadEntityAcceptedAction(
   if (!loaded.ok) return err("entity-load-failed")
 
   return ok({
-    value: loaded.value.components,
+    value: {
+      components: loaded.value.components,
+      columns: {
+        name: row.entity.name,
+        portraitUrl: row.entity.portraitUrl,
+        pronouns: row.entity.pronouns,
+        notes: row.entity.notes,
+      },
+    },
     through: row.lastMutationId ?? 0,
     cursor: {
       identity: row.entity.identityVersion,

@@ -13,13 +13,11 @@ import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import {
-  useEntityIdentityQueue,
+  useEntityColumnWrite,
+  useEntityIdentityAction,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import {
-  removeEntityPortraitAction,
-  uploadEntityPortraitAction,
-} from "@/lib/actions/entity/columns"
+import { uploadEntityPortraitAction } from "@/lib/actions/entity/columns"
 import {
   MAX_PORTRAIT_BYTES,
   messageForPortraitUploadError,
@@ -34,17 +32,19 @@ import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
  * with the name field for attention. Once uploaded, the image fills the
  * same circular frame.
  *
- * Upload pipeline: the entity portrait column actions serialize on the shared
- * identity queue. Upload is deliberately single-attempt because retrying a
- * stale response would upload the same Blob twice; removal uses the ordinary
- * one-shot stale retry. Client-side mime + size guards mirror what the server
- * enforces so the user gets fast feedback.
+ * Upload is a single-attempt lifecycle action: it waits for current replica
+ * writes, captures an identity precondition, then uploads exactly once because
+ * retrying a stale response would upload the same Blob twice. Removal is a
+ * replayable `entity.setColumn` mutation. Client-side mime + size guards mirror
+ * what the server enforces so the user gets fast feedback.
  */
 export function PortraitArea() {
   const { profile } = useLoadedCharacter()
   const portraitUrl = profile.portraitUrl
-  const identityQueue = useEntityIdentityQueue()
+  const identityAction = useEntityIdentityAction()
+  const columnWrite = useEntityColumnWrite()
   const [pending, startTransition] = useTransition()
+  const disabled = pending || columnWrite.pending
   const inputRef = useRef<HTMLInputElement>(null)
 
   function openPicker() {
@@ -69,13 +69,17 @@ export function PortraitArea() {
       guardWriteTransition(
         async () => {
           const formData = new FormData()
-          const result = await identityQueue.enqueueOnce((expectedVersion) => {
-            formData.append("entityId", identityQueue.entityId)
+          const result = await identityAction.runOnce((expectedVersion) => {
+            formData.append("entityId", identityAction.entityId)
             formData.append("expectedVersion", String(expectedVersion))
             formData.append("file", file)
             return uploadEntityPortraitAction(formData)
           })
           if (result.ok) return
+          if (result.error === "identity-precondition-unavailable") {
+            toast.error("Couldn't finish saving recent changes. Try again.")
+            return
+          }
           toast.error(messageForPortraitUploadError(result.error))
         },
         () => toast.error("Couldn't upload the portrait. Try again.")
@@ -84,20 +88,9 @@ export function PortraitArea() {
   }
 
   function onRemove() {
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const result = await identityQueue.enqueue((expectedVersion) =>
-            removeEntityPortraitAction({
-              entityId: identityQueue.entityId,
-              expectedVersion,
-            })
-          )
-          if (result.ok) return
-          toast.error("Couldn't remove the portrait. Try again.")
-        },
-        () => toast.error("Couldn't remove the portrait. Try again.")
-      )
+    columnWrite.dispatch(
+      { column: "portraitUrl", value: null },
+      { messages: { error: "Couldn't remove the portrait. Try again." } }
     )
   }
 
@@ -122,7 +115,7 @@ export function PortraitArea() {
           variant="outline"
           size="sm"
           onClick={openPicker}
-          disabled={pending}
+          disabled={disabled}
         >
           {pending ? <Spinner /> : <CameraIcon weight="bold" />}
           {portraitUrl ? "Replace" : "Upload portrait"}
@@ -133,7 +126,7 @@ export function PortraitArea() {
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            disabled={pending}
+            disabled={disabled}
           >
             <TrashIcon weight="bold" />
             Remove

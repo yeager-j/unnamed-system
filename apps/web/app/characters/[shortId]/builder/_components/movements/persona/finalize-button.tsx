@@ -13,7 +13,10 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useEntityIdentityQueue } from "@/domain/entity/use-entity-write"
+import {
+  useEntityIdentityAction,
+  type EntityIdentityActionError,
+} from "@/domain/entity/use-entity-write"
 import { finalizeEntityAction } from "@/lib/actions/entity/finalize"
 import type { FinalizeEntityError } from "@/lib/actions/entity/finalize.schema"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
@@ -37,7 +40,7 @@ export function FinalizeButton({
   canFinalize: boolean
   disabledReason?: string
 }) {
-  const identityQueue = useEntityIdentityQueue()
+  const identityAction = useEntityIdentityAction()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canFinalize
@@ -47,9 +50,9 @@ export function FinalizeButton({
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await identityQueue.enqueueOnce((expectedVersion) =>
+          const result = await identityAction.runOnce((expectedVersion) =>
             finalizeEntityAction({
-              entityId: identityQueue.entityId,
+              entityId: identityAction.entityId,
               expectedVersion,
             })
           )
@@ -86,7 +89,13 @@ export function FinalizeButton({
   )
 }
 
-function surfaceError(error: FinalizeEntityError): void {
+function surfaceError(
+  error: FinalizeEntityError | EntityIdentityActionError
+): void {
+  if (error === "identity-precondition-unavailable") {
+    toast.error("Couldn't finish saving recent changes. Try again.")
+    return
+  }
   if (typeof error === "object" && error.kind === "missing-requirement") {
     toast.error(error.reason)
     return

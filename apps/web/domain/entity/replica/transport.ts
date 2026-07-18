@@ -9,7 +9,7 @@ import {
 import { err, type Result } from "@workspace/result"
 
 import { compareEntityVersionVectors, type EntityVersionVector } from "./cursor"
-import type { EntityComponents, EntityReplicaInvocation } from "./mutations"
+import type { EntityReplicaInvocation, EntityReplicaState } from "./mutations"
 import type { EntityReplicaRejection } from "./rejection"
 
 /**
@@ -37,7 +37,7 @@ import type { EntityReplicaRejection } from "./rejection"
 export interface EntityReplicaSource<Remote = void> {
   fetchAccepted(
     signal: AbortSignal
-  ): Promise<Accepted<EntityComponents, EntityVersionVector>>
+  ): Promise<Accepted<EntityReplicaState, EntityVersionVector>>
   pushEnvelope(
     envelope: MutationEnvelope<EntityReplicaInvocation>,
     signal: AbortSignal
@@ -48,7 +48,7 @@ export interface EntityReplicaSource<Remote = void> {
 export interface EntityReplicaTransportOptions<Remote = void> {
   readonly source: EntityReplicaSource<Remote>
   /** The accepted tuple the replica was loaded with (the causal floor). */
-  readonly initial: Accepted<EntityComponents, EntityVersionVector>
+  readonly initial: Accepted<EntityReplicaState, EntityVersionVector>
 }
 
 /**
@@ -62,7 +62,7 @@ export interface EntityReplicaTransportOptions<Remote = void> {
 export function createEntityReplicaTransport<Remote = void>(
   options: EntityReplicaTransportOptions<Remote>
 ): ReplicaTransport<
-  EntityComponents,
+  EntityReplicaState,
   EntityReplicaInvocation,
   EntityReplicaRejection,
   Remote,
@@ -73,7 +73,7 @@ export function createEntityReplicaTransport<Remote = void>(
       let active = true
       const generations = createPullGenerationGate()
       const acceptance = createCausalAcceptanceGate<
-        EntityComponents,
+        EntityReplicaState,
         EntityVersionVector
       >({
         initial: options.initial,

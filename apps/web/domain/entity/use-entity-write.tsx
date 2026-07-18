@@ -27,16 +27,17 @@ import {
 } from "@/lib/sync/character-version-sync"
 import { useMonotonicVersionRef } from "@/lib/sync/use-monotonic-version-ref"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
-import {
-  createWriteQueue,
-  runVersionedWrite,
-  type WriteQueueTokenPort,
-} from "@/lib/sync/write-queue"
 
+import {
+  setEntityColumn,
+  writeEntity,
+  type EntityColumnWrite,
+  type EntityReplicaInvocation,
+} from "./replica/mutations"
 import type { EntityReplicaRejection } from "./replica/rejection"
 import {
   useEntityReplica,
-  type EntityWriteReceipt,
+  type EntityMutationReceipt,
 } from "./replica/use-entity-replica"
 import {
   useDebouncedAutoSave,
@@ -58,11 +59,12 @@ import {
  * bootstrap read resolves (and on read-only mounts) the frame is the
  * RSC-loaded one.
  *
- * Still on the classic guarded path in this increment (UNN-645 expand
- * phase): **column actions** (name, portrait, pronouns, notes — the
- * app-column species) and the **identity-queue lifecycle writes** (portrait
- * upload, finalize, builder step), which keep the identity-class token +
- * queue machinery below.
+ * UNN-648 adds replayable app-column intent to the same replica root. The
+ * only guarded writes left outside it are portrait upload and finalize:
+ * their Blob/lifecycle meaning is non-replayable, so the provider settles
+ * current replica writes, captures a fresh identity-version precondition,
+ * and invokes each exactly once. Builder step is an unversioned subtype LWW
+ * action and needs no identity serialization.
  *
  * The provider stays the single Ably subscriber (the cross-writer reconcile
  * channel, UNN-569): each ping is fanned into the replica transport (its
@@ -85,35 +87,18 @@ interface LoadedFrame extends EntityFrame {
   profile: CharacterProfile
 }
 
-/** A guarded dispatch on one class's token: `action` receives the expected
- *  version, a success's `version` folds back into the token. */
-type ClassWriteRun = <TSuccess extends { version: number }, TError>(
-  versionClass: VersionClass,
-  action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
-) => Promise<Result<TSuccess, TError>>
+export type EntityIdentityActionError = "identity-precondition-unavailable"
 
-type ClassWriteStep = <T>(
-  versionClass: VersionClass,
-  action: () => Promise<T>
-) => Promise<T>
+type RunIdentityActionOnce = <TSuccess, TError>(
+  action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
+) => Promise<Result<TSuccess, TError | EntityIdentityActionError>>
 
 interface EntityWriteApi {
   entityId: string
-  versionRefs: Record<VersionClass, RefObject<number>>
-  queueRefs: Record<VersionClass, RefObject<Promise<void>>>
-  /** The replica dispatch — every component write's transport (UNN-645). */
-  mutate: (write: EntityWrite) => EntityWriteReceipt
-  /** Serialized dispatch on the identity spine + one-shot stale-retry — the
-   *  classic path the column/lifecycle writes still ride. */
-  enqueue: ClassWriteRun
-  /** Serialized dispatch with token accounting but no stale retry. */
-  enqueueOnce: ClassWriteRun
-  /** Serialized unversioned step for state outside the entity row. */
-  enqueueStep: ClassWriteStep
-  /** One retrying protocol pass with NO enqueue — for callers already chained
-   *  on the class spine (the debounced auto-save runs inside its own queued
-   *  step; enqueueing from there would wait on itself). */
-  runVersioned: ClassWriteRun
+  /** The single replica mutation interface for component and column intent. */
+  mutate: (invocation: EntityReplicaInvocation) => EntityMutationReceipt
+  /** Lifecycle seam: settle replica writes, capture identity intent, run once. */
+  runIdentityActionOnce: RunIdentityActionOnce
 }
 
 const EntityFrameContext = createContext<LoadedFrame | null>(null)
@@ -150,10 +135,7 @@ export function EntityWriteProvider({
   const progressionVersionRef = useMonotonicVersionRef(
     profile.versions.progression
   )
-  const identityQueueRef = useRef<Promise<void>>(Promise.resolve())
-  const vitalsQueueRef = useRef<Promise<void>>(Promise.resolve())
-  const inventoryQueueRef = useRef<Promise<void>>(Promise.resolve())
-  const progressionQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const identityLifecycleRef = useRef<Promise<void>>(Promise.resolve())
 
   const versionRefs: Record<VersionClass, RefObject<number>> = {
     identity: identityVersionRef,
@@ -161,64 +143,28 @@ export function EntityWriteProvider({
     inventory: inventoryVersionRef,
     progression: progressionVersionRef,
   }
-  const queueRefs: Record<VersionClass, RefObject<Promise<void>>> = {
-    identity: identityQueueRef,
-    vitals: vitalsQueueRef,
-    inventory: inventoryQueueRef,
-    progression: progressionQueueRef,
-  }
+  const { snapshot, mutate, settleMutations, notifyPing, notifyReconnect } =
+    useEntityReplica({ entityId: profile.id, enabled: writable })
 
-  // The token port + refetch for one class — assembled at event time inside
-  // `enqueue`/`runVersioned` (never during render; the ref stays unread until
-  // a dispatch). `bump` is forward-only: the monotonic invariant lives in the
-  // port (write-queue's contract).
-  function tokenFor(versionClass: VersionClass): WriteQueueTokenPort {
-    const ref = versionRefs[versionClass]
-    return {
-      read: () => ref.current,
-      bump: (version) => {
-        if (version > ref.current) ref.current = version
-      },
-    }
-  }
-  function refetchFor(
-    versionClass: VersionClass
-  ): () => Promise<number | null> {
-    return async () => {
+  const runIdentityActionOnce: RunIdentityActionOnce = (action) => {
+    const run = identityLifecycleRef.current.then(async () => {
+      const settled = await settleMutations()
+      if (!settled.ok) return err("identity-precondition-unavailable" as const)
+
       const fresh = await getEntityClassVersionAction({
         entityId: profile.id,
-        versionClass,
+        versionClass: "identity",
       })
-      return fresh.ok ? fresh.value.version : null
-    }
+      if (!fresh.ok) return err("identity-precondition-unavailable" as const)
+
+      return action(fresh.value.version)
+    })
+    identityLifecycleRef.current = run.then(
+      () => undefined,
+      () => undefined
+    )
+    return run
   }
-
-  const enqueue: ClassWriteRun = (versionClass, action) =>
-    createWriteQueue({
-      token: tokenFor(versionClass),
-      refetchVersion: refetchFor(versionClass),
-      chain: queueRefs[versionClass],
-    }).enqueue(action)
-
-  const enqueueOnce: ClassWriteRun = (versionClass, action) =>
-    createWriteQueue({
-      token: tokenFor(versionClass),
-      chain: queueRefs[versionClass],
-    }).enqueue(action)
-
-  const enqueueStep: ClassWriteStep = (versionClass, action) =>
-    createWriteQueue({
-      token: tokenFor(versionClass),
-      chain: queueRefs[versionClass],
-    }).enqueueStep(action)
-
-  const runVersioned: ClassWriteRun = (versionClass, action) =>
-    runVersionedWrite(tokenFor(versionClass), refetchFor(versionClass), action)
-
-  const { snapshot, mutate, notifyPing, notifyReconnect } = useEntityReplica({
-    entityId: profile.id,
-    enabled: writable,
-  })
 
   // The cross-writer reconcile channel (UNN-569 → UNN-645): every guarded
   // entity commit pings `character:{shortId}` with its class's new version.
@@ -247,26 +193,28 @@ export function EntityWriteProvider({
 
   // The replica projection re-folded through the mount's resolve context —
   // or the RSC frame until the bootstrap resolves (and on read-only mounts).
-  const frame = useMemo((): EntityFrame => {
-    if (!snapshot) return { entity: loaded.entity, resolved: loaded.resolved }
-    const entity: Entity = { ...loaded.entity, components: snapshot.value }
-    return { entity, resolved: resolveEntity(entity, resolveContext) }
-  }, [snapshot, loaded.entity, loaded.resolved, resolveContext])
+  const frame = useMemo((): LoadedFrame => {
+    if (!snapshot) return loaded
+    const entity: Entity = {
+      ...loaded.entity,
+      components: snapshot.value.components,
+    }
+    return {
+      profile: { ...loaded.profile, ...snapshot.value.columns },
+      entity,
+      resolved: resolveEntity(entity, resolveContext),
+    }
+  }, [snapshot, loaded, resolveContext])
 
   const write: EntityWriteApi = {
     entityId: profile.id,
-    versionRefs,
-    queueRefs,
     mutate,
-    enqueue,
-    enqueueOnce,
-    enqueueStep,
-    runVersioned,
+    runIdentityActionOnce,
   }
 
   return (
     <EntityWriteContext.Provider value={write}>
-      <EntityFrameContext.Provider value={{ profile, ...frame }}>
+      <EntityFrameContext.Provider value={frame}>
         {children}
       </EntityFrameContext.Provider>
     </EntityWriteContext.Provider>
@@ -317,12 +265,15 @@ export interface EntityDispatchOptions {
  * snapshot plus the rejection here). Each consumer gets its own `pending`
  * (local `useTransition` — no global lock).
  */
-export function useEntityWrite() {
-  const { mutate } = useWriteApi("useEntityWrite")
+function useEntityMutationDispatch(caller: string) {
+  const { mutate } = useWriteApi(caller)
   const [pending, startTransition] = useTransition()
 
-  function dispatch(write: EntityWrite, opts?: EntityDispatchOptions) {
-    const receipt = mutate(write)
+  function dispatch(
+    invocation: EntityReplicaInvocation,
+    opts?: EntityDispatchOptions
+  ) {
+    const receipt = mutate(invocation)
 
     startTransition(async () => {
       const local = await receipt.local
@@ -356,6 +307,25 @@ export function useEntityWrite() {
   return { pending, dispatch }
 }
 
+export function useEntityWrite() {
+  const mutation = useEntityMutationDispatch("useEntityWrite")
+  return {
+    pending: mutation.pending,
+    dispatch: (write: EntityWrite, opts?: EntityDispatchOptions) =>
+      mutation.dispatch(writeEntity(write), opts),
+  }
+}
+
+/** Click-write interface for replayable app columns such as portrait removal. */
+export function useEntityColumnWrite() {
+  const mutation = useEntityMutationDispatch("useEntityColumnWrite")
+  return {
+    pending: mutation.pending,
+    dispatch: (write: EntityColumnWrite, opts?: EntityDispatchOptions) =>
+      mutation.dispatch(setEntityColumn(write), opts),
+  }
+}
+
 /** The auto-save failure vocabulary over the replica: the door's rejections
  *  plus the two receipt-lifecycle strandings (both toast generically). */
 export type EntityAutoSaveError =
@@ -369,7 +339,7 @@ export type EntityAutoSaveError =
  * The hook keeps owning draft/debounce/flush; each save is one replica
  * mutation, so cross-field ordering and redelivery are the protocol's job —
  * the version token in the shared hook's signature is vestigial here (always
- * 0) until the classic column path migrates too. The leaf owns the draft
+ * 0). The leaf owns the draft
  * display, so no optimistic frame ride-along.
  */
 export function useEntityAutoSave(
@@ -388,7 +358,7 @@ export function useEntityAutoSave(
   return useDebouncedAutoSave<string, EntityAutoSaveError>({
     ...rest,
     save: async (value) => {
-      const receipt = mutate(makeWrite(value))
+      const receipt = mutate(writeEntity(makeWrite(value)))
       const local = await receipt.local
       if (!local.ok) return err(autoSaveError(local.error))
       const remote = await receipt.remote
@@ -416,84 +386,44 @@ function autoSaveError(
 }
 
 /**
- * The debounced wrappers' shared dispatch (UNN-568): one retrying protocol
- * pass on the class token — `runVersioned`, **never** `enqueue`, because the
- * debounced lifecycle already chained this call on the class spine
- * (`saveQueueRef`) and enqueueing from inside a chained step would wait on
- * itself. A stale that survives the retry triggers `router.refresh()` so the
- * provider re-renders with fresh server versions and the monotonic refs move
- * forward — without it, a cross-tab/external bump would strand this tab.
- * (The click-write path in {@link useEntityWrite} refreshes the same way.)
+ * Debounced app-column auto-save through `entity.setColumn` (UNN-648). The
+ * leaf names only its typed desired-value intent; the replica owns ordering,
+ * delivery, rebase, and cross-column serialization.
  */
-function useRetryingDispatch(caller: string) {
-  const { runVersioned } = useWriteApi(caller)
-  const router = useRouter()
-  return async function dispatchWithRetry<TValue, TError extends string>(
-    versionClass: VersionClass,
-    action: (
-      expectedVersion: number
-    ) => Promise<
-      | { ok: true; value: { value: TValue; version: number } }
-      | { ok: false; error: TError }
-    >
-  ) {
-    const result = await runVersioned(versionClass, action)
-    if (!result.ok && result.error === "stale") router.refresh()
-    return result
-  }
-}
-
-/**
- * Debounced **column** auto-save (the app-column species — name, pronouns):
- * same lifecycle, but the leaf supplies its own per-field Server Action and
- * the class is fixed to `identity`.
- */
-export function useEntityColumnSave<TValue, TError extends string>(
+export function useEntityColumnSave<TValue>(
   args: Omit<
-    UseDebouncedAutoSaveArgs<TValue, TError>,
+    UseDebouncedAutoSaveArgs<TValue, EntityAutoSaveError>,
     "saveQueueRef" | "dispatchWrite" | "save"
   > & {
-    save: (
-      value: TValue,
-      args: { entityId: string; expectedVersion: number }
-    ) => Promise<
-      | { ok: true; value: { value: TValue; version: number } }
-      | { ok: false; error: TError }
-    >
+    makeWrite: (value: TValue) => EntityColumnWrite
   }
 ): UseDebouncedAutoSaveReturn<TValue> {
-  const { entityId, queueRefs } = useWriteApi("useEntityColumnSave")
-  const dispatchWithRetry = useRetryingDispatch("useEntityColumnSave")
-  const { save, ...rest } = args
+  const { mutate } = useWriteApi("useEntityColumnSave")
+  const { makeWrite, ...rest } = args
 
-  return useDebouncedAutoSave<TValue, TError>({
+  return useDebouncedAutoSave<TValue, EntityAutoSaveError>({
     ...rest,
-    saveQueueRef: queueRefs.identity,
-    save: (value, expectedVersion) =>
-      save(value, { entityId, expectedVersion }),
-    dispatchWrite: (action) => dispatchWithRetry("identity", action),
+    save: async (value) => {
+      const receipt = mutate(setEntityColumn(makeWrite(value)))
+      const local = await receipt.local
+      if (!local.ok) return err(autoSaveError(local.error))
+      const remote = await receipt.remote
+      if (!remote.ok) return err(autoSaveError(remote.error))
+      return ok({ value, version: 0 })
+    },
+    dispatchWrite: (action) => action(0),
   })
 }
 
 /**
- * The identity-class queue for one-shot lifecycle and column actions. Callers
- * never read or bump the token themselves: guarded actions enqueue through the
- * retrying protocol, Blob upload uses the single-attempt arm, and subtype-only
- * writes serialize as unversioned steps on the same spine.
+ * Single-attempt lifecycle interface (UNN-648). Each action waits for current
+ * replica intent, captures a fresh identity version as its typed precondition,
+ * and runs exactly once. A later external bump may still return a legitimate
+ * `stale`; this seam never silently replays lifecycle meaning on a newer base.
  */
-export function useEntityIdentityQueue() {
-  const { entityId, enqueue, enqueueOnce, enqueueStep } = useWriteApi(
-    "useEntityIdentityQueue"
+export function useEntityIdentityAction() {
+  const { entityId, runIdentityActionOnce } = useWriteApi(
+    "useEntityIdentityAction"
   )
-  return {
-    entityId,
-    enqueue: <TSuccess extends { version: number }, TError>(
-      action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
-    ) => enqueue("identity", action),
-    enqueueOnce: <TSuccess extends { version: number }, TError>(
-      action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
-    ) => enqueueOnce("identity", action),
-    enqueueStep: <T,>(action: () => Promise<T>) =>
-      enqueueStep("identity", action),
-  }
+  return { entityId, runOnce: runIdentityActionOnce }
 }

@@ -67,7 +67,7 @@ apps/web/
 │   ├── character/                    Read side: load.ts (one load boundary) + view/ + animus/documents.ts
 │   ├── combat/                       Neutral vocab: console-optimistic, view/, snapshot-version, load-encounter-for-dm
 │   ├── dungeon/                      Explore console shaping: console-optimistic + view/set-piece-view
-│   ├── entity/                       Durable-entity write vocab: commit/ (schema + predictors) + use-entity-write + replica/ (UNN-639 binding: entity.write mutation, version-vector cursor, Ably/refetch transport — not yet wired to UI)
+│   ├── entity/                       Durable-entity write vocab: commit/ (schema + predictors) + use-entity-write + replica/ (entity.write + entity.setColumn, version-vector cursor, Ably/refetch transport)
 │   ├── game-v2/                      entity-row-to-bag: entity row → runtime Entity
 │   ├── map/                          Pure renderer vocab: footprints, set-piece-view, zone size/motif/mood aliases
 │   ├── planner/                      Campaign Planner pure selectors (clock-time, slot materialization)

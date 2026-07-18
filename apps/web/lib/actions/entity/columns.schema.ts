@@ -1,6 +1,11 @@
 import { z } from "zod/v4"
 
 import { BUILDER_STEPS } from "@/domain/character/builder-steps"
+import {
+  entityNameValueSchema,
+  entityNotesValueSchema,
+  entityPronounsValueSchema,
+} from "@/domain/entity/replica/mutations"
 import type { EntityGuardError } from "@/lib/actions/entity/version-guard"
 import type { PortraitUploadError } from "@/lib/storage/portrait-upload"
 
@@ -15,12 +20,12 @@ import { entityMutationBase } from "./entity-mutation.schema"
 
 /** Mirrors v1's name rules: trimmed, required, 64-char cap. */
 export const UpdateEntityNameSchema = entityMutationBase.extend({
-  name: z.string().trim().min(1, "Name is required").max(64),
+  name: entityNameValueSchema,
 })
 export type UpdateEntityNameInput = z.input<typeof UpdateEntityNameSchema>
 
 export const UpdateEntityPronounsSchema = entityMutationBase.extend({
-  pronouns: z.string().max(64),
+  pronouns: entityPronounsValueSchema,
 })
 export type UpdateEntityPronounsInput = z.input<
   typeof UpdateEntityPronounsSchema
@@ -32,7 +37,7 @@ export type UpdateEntityPronounsInput = z.input<
  * (`NARRATIVE_TEXT_MAX`) so both long-form surfaces share one bound.
  */
 export const UpdateEntityNotesSchema = entityMutationBase.extend({
-  notes: z.string().max(8000),
+  notes: entityNotesValueSchema,
 })
 export type UpdateEntityNotesInput = z.input<typeof UpdateEntityNotesSchema>
 

@@ -52,3 +52,4 @@ apps/web/next-env.d.ts
 
 # Obsidian vault local state
 .obsidian/
+.codex

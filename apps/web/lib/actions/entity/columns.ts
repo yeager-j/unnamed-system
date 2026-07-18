@@ -33,6 +33,12 @@ import { bumpEntityVersionGuarded } from "./version-guard"
  * the strict owner and bump the **identity** class. Builder step is the odd one
  * out — it lives on the `playerCharacter` door and writes unguarded (see
  * {@link setEntityBuilderStepAction}).
+ *
+ * UNN-648 moves name/pronouns/notes/portrait-removal callers onto the replica's
+ * `entity.setColumn` mutation. These guarded actions remain temporarily as
+ * expand/rollback-compatible readers of the old wire and are removed by
+ * UNN-649. Portrait upload remains here because its Blob stage is deliberately
+ * single-attempt and preconditioned.
  */
 
 interface EntityColumnCommit {

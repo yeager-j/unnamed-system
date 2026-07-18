@@ -6,7 +6,6 @@ import {
   useEntityColumnSave,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { updateEntityNameAction } from "@/lib/actions/entity/columns"
 
 const MAX_LENGTH = 64
 
@@ -18,8 +17,8 @@ const MAX_LENGTH = 64
  * immediately.
  *
  * Reuses the same debounced-autosave plumbing as the sheet header's editable
- * name (debounced keystroke + blur save, optimistic concurrency on the
- * identity token, Escape-revert) — a classic per-field column action.
+ * name (debounced keystroke + blur save, replica ordering/rebase,
+ * Escape-revert) through replayable column intent.
  */
 export function NameField() {
   const { profile } = useLoadedCharacter()
@@ -27,20 +26,7 @@ export function NameField() {
     serverValue: profile.name,
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, { entityId, expectedVersion }) => {
-      const result = await updateEntityNameAction({
-        entityId,
-        name: next.trim(),
-        expectedVersion,
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next.trim(), version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => ({ column: "name", value: next.trim() }),
   })
 
   return (

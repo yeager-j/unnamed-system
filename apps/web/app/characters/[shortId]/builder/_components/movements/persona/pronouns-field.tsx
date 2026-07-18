@@ -7,7 +7,6 @@ import {
   useEntityColumnSave,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { updateEntityPronounsAction } from "@/lib/actions/entity/columns"
 
 const MAX_LENGTH = 64
 
@@ -23,20 +22,7 @@ export function PronounsField() {
   const { value, setValue, revert, onFocusChange } = useEntityColumnSave({
     serverValue: profile.pronouns ?? "",
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, { entityId, expectedVersion }) => {
-      const result = await updateEntityPronounsAction({
-        entityId,
-        pronouns: next.trim(),
-        expectedVersion,
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next.trim(), version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => ({ column: "pronouns", value: next.trim() }),
   })
 
   return (

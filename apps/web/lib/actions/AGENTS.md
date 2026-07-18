@@ -51,8 +51,9 @@ concurrency token, and envelope:
 > combat's durable arm (the encounter door forwards here) commit through — one
 > write architecture, two doors.
 
-> **The `entity/replica/` door (UNN-645)** is the replica-protocol sibling of the
-> entity door: `pushEntityMutationAction` delivers one `entity.write` envelope
+> **The `entity/replica/` door (UNN-645/648)** is the replica-protocol sibling of the
+> entity door: `pushEntityMutationAction` delivers `entity.write` component
+> intent or `entity.setColumn` app-column intent
 > through `createEntityPushProcessor` (`@workspace/replica`'s authority processor
 > over one Drizzle transaction: `replicaClient` dedup row locked → duplicate/gap
 > handled → domain write + recorded outcome commit atomically), and
@@ -81,16 +82,15 @@ but the shape rhymes: parse the wire, authorize, persist version-guarded,
 revalidate.
 
 **Durable character writes go through the entity door** (`lib/actions/entity/`,
-ADR §2.4). A character surface's provider dispatches a serializable
-component-write **descriptor** (`entityWriteSchema`, `domain/entity/commit/write.schema.ts`)
-to `applyEntityWriteAction`, which hands off to `commitEntityWrite` — the shared
-Store that owns auth, assembling the row into a runtime `Entity`, running the pure
-**Writer** (`ENTITY_WRITERS.applyOp`), and the guarded column commit
-(`bumpEntityVersionGuarded`). App-owned entity columns (name, portrait, pronouns,
-notes) stay classic per-field actions (`lib/actions/entity/columns.ts`) composing
-the same guard. PC lifecycle state (`builderStep`, `status`) lives on the
-unversioned `playerCharacter` subtype; `finalize` spans the guarded entity and
-subtype halves. The neutral descriptor +
+ADR §2.4). Owner character surfaces dispatch component descriptors and replayable
+name/pronouns/notes/portrait-removal intent through the replica door; the processor
+owns row locking, Writer/column application, version bumps, and dedup recording.
+The classic component and column actions remain temporarily for expand/rollback
+compatibility and contract in UNN-649. PC lifecycle state (`builderStep`, `status`)
+lives on the unversioned `playerCharacter` subtype; `finalize` spans the guarded
+entity and subtype halves, while portrait upload retains its single-attempt Blob
+stage. Both capture an explicit identity-version precondition after replica writes
+settle and execute once. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 

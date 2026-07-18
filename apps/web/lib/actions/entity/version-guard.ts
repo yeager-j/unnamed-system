@@ -36,13 +36,10 @@ import { publishCharacterPing } from "@/lib/realtime/publish"
 export type EntityGuardError = "entity-not-found" | "stale"
 
 /**
- * The app-owned column half of a guarded write (ADR §2.4: "app-column writes
- * stay classic per-field Server Actions ... both compose
- * `bumpEntityVersionGuarded`"). Only the substrate content columns are guarded
- * here; the PC-lifecycle columns moved to the `playerCharacter` subtype (R3 —
- * UNN-573) and write unguarded through it — `builderStep` as a plain subtype
- * update, `status` as finalize's follow-on flip, `campaignId` as placement (v1
- * parity).
+ * The app-owned column half of a guarded write. UNN-648's replica processor
+ * uses the same patch vocabulary under a row lock; legacy classic actions keep
+ * composing this guard until UNN-649 contracts them. PC-lifecycle columns live
+ * on the `playerCharacter` subtype.
  */
 export type EntityColumnPatch = Partial<
   Pick<EntityRow, "name" | "portraitUrl" | "pronouns" | "notes">
