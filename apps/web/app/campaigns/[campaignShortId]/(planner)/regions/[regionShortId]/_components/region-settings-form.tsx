@@ -116,13 +116,27 @@ export function RegionSettingsForm({
           value={wanderingTableKey}
           onValueChange={(value) => setWanderingTableKey(value ?? NO_TABLE)}
         >
+          {/* Disabled only when there is nothing to choose AND nothing to
+              clear: a designation whose table the author has since deleted
+              must keep this control (and its "None") reachable, or the stale
+              key becomes unsaveable with no UI path out. The trigger names the
+              missing table honestly rather than falling back to "None" while
+              the form would still submit the stale key. */}
           <SelectTrigger
             id="region-settings-table"
-            disabled={tables.length === 0}
+            disabled={tables.length === 0 && !hasTable}
           >
             <SelectValue>
-              {tables.find((table) => table.key === wanderingTableKey)
-                ?.name ?? <span className="text-muted-foreground">None</span>}
+              {hasTable ? (
+                (tables.find((table) => table.key === wanderingTableKey)
+                  ?.name ?? (
+                  <span className="text-destructive">
+                    {wanderingTableKey} (missing from the set)
+                  </span>
+                ))
+              ) : (
+                <span className="text-muted-foreground">None</span>
+              )}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>

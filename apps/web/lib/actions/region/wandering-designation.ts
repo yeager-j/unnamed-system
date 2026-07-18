@@ -12,7 +12,14 @@ export function checkWanderingDesignation(
   content: TemplateSetContent,
   wanderingTableKey: string | undefined
 ): Result<void, "wandering-table-not-found"> {
-  if (wanderingTableKey && !Object.hasOwn(content.tables, wanderingTableKey)) {
+  // "Designated" is strictly `!== undefined`: the schema pins a present key to
+  // be non-empty (`min(1)`), so an empty string can't reach here — and if that
+  // invariant ever regressed, treating "" as designated fails loudly here
+  // rather than minting an expedition with wandering enabled and no table.
+  if (
+    wanderingTableKey !== undefined &&
+    !Object.hasOwn(content.tables, wanderingTableKey)
+  ) {
     return err("wandering-table-not-found")
   }
   return ok(undefined)

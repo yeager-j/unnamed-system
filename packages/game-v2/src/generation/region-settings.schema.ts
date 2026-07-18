@@ -16,10 +16,14 @@ import { randomEncounterIntervalSchema } from "@workspace/game-v2/spatial/dungeo
  * {@link randomEncounterIntervalSchema} unit (`1 / 2 / 3 / 6` dungeon turns), so the
  * authored default and the runtime setting speak the same vocabulary. Both optional:
  * a Region need not designate wandering, and an absent field means "no default".
- * `generation → spatial` is the legal seam direction (the reverse is sealed, SD2).
+ * A **present** key must be non-empty — "designated" is `!== undefined`, decided
+ * here at the parse boundary so no downstream consumer (the mint's
+ * `enabled: key !== undefined` stamp, the table-exists check) re-decides what an
+ * empty string means. `generation → spatial` is the legal seam direction (the
+ * reverse is sealed, SD2).
  */
 export const regionSettingsSchema = z.object({
-  wanderingTableKey: z.string().optional(),
+  wanderingTableKey: z.string().min(1).optional(),
   wanderingIntervalTurns: randomEncounterIntervalSchema.optional(),
 })
 export type RegionSettings = z.infer<typeof regionSettingsSchema>
