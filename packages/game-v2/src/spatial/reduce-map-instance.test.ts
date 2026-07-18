@@ -1136,7 +1136,10 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       () => "fresh-zone"
     )
 
-    expect(next.generation.zones["fresh-zone"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["fresh-zone"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
   })
 
   it("drops the provenance entry when a Zone is removed", () => {
@@ -1144,9 +1147,11 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       ...twoZones(),
       generation: {
         zones: {
-          "zone-a": { source: "authored" },
-          "zone-b": { source: "manual" },
+          "zone-a": { source: "authored", depth: 0 },
+          "zone-b": { source: "manual", depth: 0 },
         },
+        stubs: {},
+        connections: {},
         grafts: {},
       },
     })
@@ -1154,7 +1159,10 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
     const next = reduceInstance(state, { kind: "removeZone", zoneId: "zone-a" })
 
     expect(next.generation.zones["zone-a"]).toBeUndefined()
-    expect(next.generation.zones["zone-b"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["zone-b"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
   })
 
   it("stamps an editGeometry addZone as manual", () => {
@@ -1168,7 +1176,10 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       })
     )
 
-    expect(next.generation.zones["zone-c"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["zone-c"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
   })
 
   it("stamps an editGeometry duplicateZone copy as manual", () => {
@@ -1183,7 +1194,10 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       })
     )
 
-    expect(next.generation.zones["zone-a-copy"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["zone-a-copy"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
   })
 
   it("stamps every duplicatePage copy as manual", () => {
@@ -1199,8 +1213,14 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       })
     )
 
-    expect(next.generation.zones["zone-a2"]).toEqual({ source: "manual" })
-    expect(next.generation.zones["zone-b2"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["zone-a2"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
+    expect(next.generation.zones["zone-b2"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
   })
 
   it("leaves existing authored provenance untouched when adding a Zone", () => {
@@ -1208,9 +1228,11 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       ...twoZones(),
       generation: {
         zones: {
-          "zone-a": { source: "authored" },
-          "zone-b": { source: "authored" },
+          "zone-a": { source: "authored", depth: 0 },
+          "zone-b": { source: "authored", depth: 0 },
         },
+        stubs: {},
+        connections: {},
         grafts: {},
       },
     })
@@ -1225,9 +1247,18 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       })
     )
 
-    expect(next.generation.zones["zone-a"]).toEqual({ source: "authored" })
-    expect(next.generation.zones["zone-b"]).toEqual({ source: "authored" })
-    expect(next.generation.zones["zone-c"]).toEqual({ source: "manual" })
+    expect(next.generation.zones["zone-a"]).toEqual({
+      source: "authored",
+      depth: 0,
+    })
+    expect(next.generation.zones["zone-b"]).toEqual({
+      source: "authored",
+      depth: 0,
+    })
+    expect(next.generation.zones["zone-c"]).toEqual({
+      source: "manual",
+      depth: 0,
+    })
   })
 
   it("prunes provenance for a Zone deleted via editGeometry deleteZone", () => {
@@ -1236,9 +1267,11 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       occupancy: { c0: free("zone-b") },
       generation: {
         zones: {
-          "zone-a": { source: "authored" },
-          "zone-b": { source: "authored" },
+          "zone-a": { source: "authored", depth: 0 },
+          "zone-b": { source: "authored", depth: 0 },
         },
+        stubs: {},
+        connections: {},
         grafts: {},
       },
     })
@@ -1249,7 +1282,10 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
     )
 
     expect(next.generation.zones["zone-a"]).toBeUndefined()
-    expect(next.generation.zones["zone-b"]).toEqual({ source: "authored" })
+    expect(next.generation.zones["zone-b"]).toEqual({
+      source: "authored",
+      depth: 0,
+    })
   })
 
   it("prunes provenance for every Zone a deletePage cascade destroys", () => {
@@ -1260,9 +1296,11 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
       ]),
       generation: {
         zones: {
-          "zone-a": { source: "authored" },
-          "zone-b": { source: "manual" },
+          "zone-a": { source: "authored", depth: 0 },
+          "zone-b": { source: "manual", depth: 0 },
         },
+        stubs: {},
+        connections: {},
         grafts: {},
       },
     })
@@ -1273,14 +1311,19 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
     )
 
     expect(next.generation.zones["zone-b"]).toBeUndefined()
-    expect(next.generation.zones["zone-a"]).toEqual({ source: "authored" })
+    expect(next.generation.zones["zone-a"]).toEqual({
+      source: "authored",
+      depth: 0,
+    })
   })
 
   it("preserves the no-op (same ref) contract for a no-op editGeometry", () => {
     const state = makeMapInstanceState({
       ...twoZones(),
       generation: {
-        zones: { "zone-a": { source: "authored" } },
+        zones: { "zone-a": { source: "authored", depth: 0 } },
+        stubs: {},
+        connections: {},
         grafts: {},
       },
     })
@@ -1291,5 +1334,240 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         edit({ kind: "renameZone", zoneId: "ghost", name: "Nowhere" })
       )
     ).toBe(state)
+  })
+})
+
+describe("generation events (UNN-590)", () => {
+  const stub = (id: string, zoneId: string, bearing = 0) => ({
+    id,
+    zoneId,
+    bearing,
+    anchor: { side: "e" as const, offset: 0.5 },
+  })
+
+  /** A one-zone instance with a stub hanging off it. */
+  const withStub = () =>
+    makeMapInstanceState({
+      geometry: makeGeometry([makeZone("zone-a")]),
+      generation: {
+        zones: { "zone-a": { source: "authored", depth: 0 } },
+        stubs: { "stub-1": stub("stub-1", "zone-a") },
+        connections: {},
+        grafts: {},
+      },
+    })
+
+  const mintEvent = () => ({
+    kind: "mintZone" as const,
+    stubId: "stub-1",
+    zone: makeZone("zone-b", {
+      position: { x: 400, y: 0 },
+      size: "M" as const,
+    }),
+    connectionId: "stub-1",
+    stubs: [stub("stub-2", "zone-b", 1), stub("stub-3", "zone-b", -1)],
+    provenance: {
+      source: "generated" as const,
+      templateKey: "hall",
+      depth: 1,
+    },
+  })
+
+  describe("mintZone", () => {
+    it("consumes the stub, wires zone + connection (id := stubId), stamps provenance and child stubs", () => {
+      const next = reduceInstance(withStub(), mintEvent())
+
+      expect(next.generation.stubs["stub-1"]).toBeUndefined()
+      expect(next.geometry.zones["zone-b"]).toStrictEqual(
+        makeZone("zone-b", { position: { x: 400, y: 0 }, size: "M" })
+      )
+      expect(next.geometry.connections["stub-1"]).toEqual({
+        id: "stub-1",
+        fromZoneId: "zone-a",
+        toZoneId: "zone-b",
+        hidden: false,
+        locked: false,
+      })
+      expect(next.generation.connections["stub-1"]).toEqual({
+        source: "generated",
+      })
+      expect(next.generation.zones["zone-b"]).toEqual({
+        source: "generated",
+        templateKey: "hall",
+        depth: 1,
+      })
+      expect(Object.keys(next.generation.stubs).sort()).toEqual([
+        "stub-2",
+        "stub-3",
+      ])
+    })
+
+    it("reveals nothing (reveal arrives via move → reveal)", () => {
+      const next = reduceInstance(withStub(), mintEvent())
+      expect(next.reveal.revealedZoneIds).toEqual([])
+    })
+
+    it("is the benign no-op (same ref) on a consumed stub", () => {
+      const state = withStub()
+      const minted = reduceInstance(state, mintEvent())
+      expect(reduceInstance(minted, mintEvent())).toBe(minted)
+    })
+
+    it("refuses (same ref) a payload whose zone id already exists", () => {
+      const state = withStub()
+      const clashing = {
+        ...mintEvent(),
+        zone: makeZone("zone-a"),
+      }
+      expect(reduceInstance(state, clashing)).toBe(state)
+    })
+  })
+
+  describe("closeLoop", () => {
+    const twoZonesWithStub = () =>
+      makeMapInstanceState({
+        geometry: makeGeometry([makeZone("zone-a"), makeZone("zone-c")]),
+        generation: {
+          zones: {
+            "zone-a": { source: "authored", depth: 0 },
+            "zone-c": { source: "authored", depth: 2 },
+          },
+          stubs: { "stub-1": stub("stub-1", "zone-a") },
+          connections: {},
+          grafts: {},
+        },
+      })
+
+    it("consumes the stub and joins the two zones, stamping connection provenance", () => {
+      const next = reduceInstance(twoZonesWithStub(), {
+        kind: "closeLoop",
+        stubId: "stub-1",
+        connectionId: "stub-1",
+        toZoneId: "zone-c",
+      })
+      expect(next.generation.stubs["stub-1"]).toBeUndefined()
+      expect(next.geometry.connections["stub-1"]).toMatchObject({
+        fromZoneId: "zone-a",
+        toZoneId: "zone-c",
+      })
+      expect(next.generation.connections["stub-1"]).toEqual({
+        source: "generated",
+      })
+    })
+
+    it("no-ops (same ref) on a consumed stub or an unknown target zone", () => {
+      const state = twoZonesWithStub()
+      expect(
+        reduceInstance(state, {
+          kind: "closeLoop",
+          stubId: "ghost",
+          connectionId: "ghost",
+          toZoneId: "zone-c",
+        })
+      ).toBe(state)
+      expect(
+        reduceInstance(state, {
+          kind: "closeLoop",
+          stubId: "stub-1",
+          connectionId: "stub-1",
+          toZoneId: "nowhere",
+        })
+      ).toBe(state)
+    })
+  })
+
+  describe("retractZone", () => {
+    /** Mint zone-b off zone-a's stub, then retract it. */
+    const minted = () => reduceInstance(withStub(), mintEvent())
+
+    it("restores the original stub byte-identical and prunes the minted space", () => {
+      const restored = stub("stub-1", "zone-a")
+      const next = reduceInstance(minted(), {
+        kind: "retractZone",
+        zoneId: "zone-b",
+        restoredStub: restored,
+      })
+
+      expect(next.generation.stubs["stub-1"]).toStrictEqual(restored)
+      expect(next.geometry.zones["zone-b"]).toBeUndefined()
+      expect(next.geometry.connections["stub-1"]).toBeUndefined()
+      expect(next.generation.connections["stub-1"]).toBeUndefined()
+      expect(next.generation.zones["zone-b"]).toBeUndefined()
+      // zone-b's own sprouted stubs die with it.
+      expect(Object.keys(next.generation.stubs)).toEqual(["stub-1"])
+    })
+
+    it("round-trips: mint → retract restores the pre-mint instance exactly", () => {
+      const state = withStub()
+      const next = reduceInstance(minted(), {
+        kind: "retractZone",
+        zoneId: "zone-b",
+        restoredStub: stub("stub-1", "zone-a"),
+      })
+      expect(next).toStrictEqual(state)
+    })
+
+    it("refuses (same ref) a non-generated zone", () => {
+      const state = minted()
+      expect(
+        reduceInstance(state, {
+          kind: "retractZone",
+          zoneId: "zone-a",
+          restoredStub: stub("stub-9", "zone-a"),
+        })
+      ).toBe(state)
+    })
+
+    it("no-ops (same ref) on an unknown zone", () => {
+      const state = minted()
+      expect(
+        reduceInstance(state, {
+          kind: "retractZone",
+          zoneId: "nowhere",
+          restoredStub: stub("stub-9", "zone-a"),
+        })
+      ).toBe(state)
+    })
+  })
+
+  describe("resolveDeadEnd", () => {
+    it("removes the stub; idempotent retry no-ops (same ref)", () => {
+      const state = withStub()
+      const next = reduceInstance(state, {
+        kind: "resolveDeadEnd",
+        stubId: "stub-1",
+      })
+      expect(next.generation.stubs).toEqual({})
+      expect(
+        reduceInstance(next, { kind: "resolveDeadEnd", stubId: "stub-1" })
+      ).toBe(next)
+    })
+  })
+
+  describe("generation-record pruning at the shared delete boundaries", () => {
+    it("removeZone drops the zone's stubs and dead connection provenance", () => {
+      const minted = reduceInstance(withStub(), mintEvent())
+      const next = reduceInstance(minted, {
+        kind: "removeZone",
+        zoneId: "zone-b",
+      })
+      expect(next.generation.stubs["stub-2"]).toBeUndefined()
+      expect(next.generation.stubs["stub-3"]).toBeUndefined()
+      expect(next.generation.connections["stub-1"]).toBeUndefined()
+    })
+
+    it("editGeometry deleteZone drops the zone's stubs and dead connection provenance", () => {
+      const minted = reduceInstance(withStub(), mintEvent())
+      const next = reduceInstance(minted, {
+        kind: "editGeometry",
+        event: { kind: "deleteZone", zoneId: "zone-b" },
+      })
+      expect(next.geometry.zones["zone-b"]).toBeUndefined()
+      expect(next.generation.stubs["stub-2"]).toBeUndefined()
+      expect(next.generation.connections["stub-1"]).toBeUndefined()
+      // zone-a's own frontier is untouched... the original stub was consumed by
+      // the mint, so only the mint's children die here.
+      expect(next.generation.zones["zone-a"]).toBeDefined()
+    })
   })
 })

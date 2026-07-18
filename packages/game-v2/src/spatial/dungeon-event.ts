@@ -1,10 +1,20 @@
 import { z } from "zod/v4"
 
+import { declarationSchema, mintRecordSchema } from "./generation-ledger.schema"
+
 /**
  * The event vocabulary `reduceDungeon` (PR3) dispatches over — the events that mutate
- * the exploration turn loop on a {@link import("./dungeon.schema").DungeonState}:
- * `markActed` (a character has taken its one action this dungeon turn, idempotent) and
- * `advanceTurn` (increment `turnCounter`, clear `actedCharacterIds`; no payload).
+ * a {@link import("./dungeon.schema").DungeonState}. Two families:
+ *
+ * - **Turn loop:** `markActed` (a character has taken its one action this dungeon
+ *   turn, idempotent) and `advanceTurn` (increment `turnCounter`, clear
+ *   `actedCharacterIds`; no payload).
+ * - **Draw ledger (UNN-590, D4):** `declareSite` (append a fully resolved
+ *   declaration — its `secretIndex` was rolled server-side, D1), `recordMint`
+ *   (append the per-mint record + apply its declaration effects + uniqueness),
+ *   `revertMint` (replay the recorded inverse; **never rewinds `streamCursors`**),
+ *   and `advanceCursors` (the stream-cursor bump every expansion outcome emits —
+ *   all three outcomes consumed a roll).
  *
  * Status transitions are **not** here — a Dungeon's lifecycle is a row-column flip in
  * the app layer (mirrors encounter status). The combat-vs-spatial routing predicate is
@@ -13,6 +23,17 @@ import { z } from "zod/v4"
 export const dungeonEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("markActed"), characterId: z.string() }),
   z.object({ kind: z.literal("advanceTurn") }),
+  z.object({ kind: z.literal("declareSite"), declaration: declarationSchema }),
+  z.object({
+    kind: z.literal("recordMint"),
+    zoneId: z.string(),
+    record: mintRecordSchema,
+  }),
+  z.object({ kind: z.literal("revertMint"), zoneId: z.string() }),
+  z.object({
+    kind: z.literal("advanceCursors"),
+    consumed: z.record(z.string(), z.number().int().positive()),
+  }),
 ])
 
 export type DungeonEvent = z.infer<typeof dungeonEventSchema>

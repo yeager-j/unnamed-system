@@ -79,6 +79,17 @@ export type MapZoneMood = "warm" | "dim" | "cool"
  * absent (the render side defaults `size ?? "M"`, no glyph, `mood ?? "dim"`), so
  * existing jsonb blobs parse unchanged with no migration. The engine assigns them no
  * mechanical meaning; they exist only to drive the canvas set-piece card.
+ *
+ * The three **generation binding** fields (procedural-dungeons D4, UNN-590) are
+ * authored in the Map editor and consumed at expedition start; same optional
+ * no-migration pattern, and **none ever serializes to the player snapshot**:
+ *
+ * - `templateKey` — binds the Zone to a Template Set template (a free key, checked
+ *   at expedition start and by set lint — a Map is deliberately not bound to a
+ *   Set; the Region binds Map + Set). A bound Zone sprouts stubs at start.
+ * - `portalMapId` — makes the Zone a portal to another Map (grafting, P6).
+ * - `rollContentsAtStart` — per-Zone opt-in for content rolls on bound authored
+ *   Zones at expedition start (default off; rolls land P5).
  */
 export const mapZoneSchema = z.object({
   id: z.string(),
@@ -93,6 +104,9 @@ export const mapZoneSchema = z.object({
   size: z.enum(["S", "M", "L", "XL"]).optional(),
   motif: z.enum(MAP_ZONE_MOTIFS).optional(),
   mood: z.enum(["warm", "dim", "cool"]).optional(),
+  templateKey: z.string().optional(),
+  portalMapId: z.string().optional(),
+  rollContentsAtStart: z.boolean().optional(),
 })
 export type MapZone = z.infer<typeof mapZoneSchema>
 
@@ -122,10 +136,16 @@ export type MapConnection = z.infer<typeof mapConnectionSchema>
  * `.default()` empty and `pages` defaults to the single {@link DEFAULT_PAGE_ID}
  * page so a freshly-created Map parses. Postgres jsonb does **not** preserve key
  * order — page display order goes through `orderedPages`, never `Object.keys`.
+ *
+ * `entryZoneId` (procedural-dungeons D4, UNN-590) is the Zone where grafting
+ * places the party when this Map is a portal *target* ("the first zone" would be
+ * order-dependent). Authored in the Map editor; set lint requires it on any Map a
+ * portal targets; consumed by graft (P6). Never serializes to the player snapshot.
  */
 export const mapGeometrySchema = z.object({
   pages: z.record(z.string(), mapPageSchema).default(defaultPages),
   zones: z.record(z.string(), mapZoneSchema).default({}),
   connections: z.record(z.string(), mapConnectionSchema).default({}),
+  entryZoneId: z.string().optional(),
 })
 export type MapGeometry = z.infer<typeof mapGeometrySchema>

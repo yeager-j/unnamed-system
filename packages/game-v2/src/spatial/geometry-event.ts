@@ -65,11 +65,29 @@ export const mapGeometryEventSchema = z.discriminatedUnion("kind", [
     }),
   }),
   z.object({
+    kind: z.literal("setZoneBinding"),
+    zoneId: z.string(),
+    // A partial patch of the three authored generation-binding fields (UNN-590,
+    // D4). Same contract as `setZoneIdentity`: an **absent** field means "no
+    // change"; `null` is the explicit **clear** opcode — the reducer deletes the
+    // key so a cleared Zone deep-equals a never-set one (the load-schema
+    // fixed-point law). `rollContentsAtStart` clears rather than storing `false`
+    // (absent already means off).
+    binding: z.object({
+      templateKey: z.string().nullable().optional(),
+      portalMapId: z.string().nullable().optional(),
+      rollContentsAtStart: z.boolean().nullable().optional(),
+    }),
+  }),
+  z.object({
     kind: z.literal("moveZone"),
     zoneId: z.string(),
     position: pointSchema,
   }),
   z.object({ kind: z.literal("deleteZone"), zoneId: z.string() }),
+  // `zoneId: null` clears the entry designation; a non-null unknown Zone no-ops.
+  // Single-select: setting an entry replaces any previous one (UNN-590, D4).
+  z.object({ kind: z.literal("setEntryZone"), zoneId: z.string().nullable() }),
   z.object({
     kind: z.literal("addConnection"),
     id: z.string(),
@@ -113,6 +131,13 @@ export const mapGeometryEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("moveZoneToPage"),
     zoneId: z.string(),
     pageId: z.string(),
+  }),
+  // The page's procedural growth mode (UNN-590, D6). `null` clears the key —
+  // an absent `growth` is the default (`edge`), decided at the consumer.
+  z.object({
+    kind: z.literal("setPageGrowth"),
+    pageId: z.string(),
+    growth: z.enum(["edge", "open"]).nullable(),
   }),
 ])
 

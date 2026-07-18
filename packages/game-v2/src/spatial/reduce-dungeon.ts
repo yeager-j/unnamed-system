@@ -35,6 +35,33 @@ export function reduceDungeon(
   state: DungeonState,
   event: DungeonEvent
 ): DungeonState {
+  switch (event.kind) {
+    case "markActed":
+    case "advanceTurn":
+      return reduceTurnLoopEvent(state, event)
+
+    case "declareSite":
+    case "recordMint":
+    case "revertMint":
+    case "advanceCursors":
+      return reduceLedgerEvent(state, event)
+  }
+}
+
+type TurnLoopEvent = Extract<
+  DungeonEvent,
+  { kind: "markActed" | "advanceTurn" }
+>
+type LedgerEvent = Extract<
+  DungeonEvent,
+  { kind: "declareSite" | "recordMint" | "revertMint" | "advanceCursors" }
+>
+
+/** Turn-loop slice — the original PR3 pair, unchanged in behavior. */
+function reduceTurnLoopEvent(
+  state: DungeonState,
+  event: TurnLoopEvent
+): DungeonState {
   return produce(state, (draft) => {
     switch (event.kind) {
       case "markActed": {
@@ -46,6 +73,97 @@ export function reduceDungeon(
       case "advanceTurn": {
         draft.turnCounter += 1
         draft.actedCharacterIds = []
+        return
+      }
+    }
+  })
+}
+
+/**
+ * Draw-ledger slice (UNN-590, D4). Every payload is fully resolved (D1); the
+ * reducer replays deterministically. Contracts:
+ *
+ * - **Idempotent retries:** `declareSite` on an existing declaration id,
+ *   `recordMint` on an already-minted zone, and `revertMint` on an absent record
+ *   are same-ref no-ops (the D8 benign-retry contract).
+ * - **`revertMint` replays the recorded inverse** from `mints[zoneId]`: releases
+ *   the unique key iff the record entered one, and per recorded effect decrements
+ *   that declaration's `qualifyingCount` / clears its `resolvedZoneId` (re-arming
+ *   the draw). Declarations created after the mint — or resolved by later mints —
+ *   are untouched, which is what makes non-LIFO retract sound; aggregate counts
+ *   could not recover this.
+ * - **`streamCursors` only ever advance** — `revertMint` touches them on no path;
+ *   a re-expand after retract consumes fresh positions and rolls a different
+ *   result (the escape hatch must escape).
+ */
+function reduceLedgerEvent(
+  state: DungeonState,
+  event: LedgerEvent
+): DungeonState {
+  return produce(state, (draft) => {
+    const ledger = draft.generation
+    switch (event.kind) {
+      case "declareSite": {
+        if (ledger.declarations.some((d) => d.id === event.declaration.id)) {
+          return
+        }
+        ledger.declarations.push(event.declaration)
+        return
+      }
+
+      case "recordMint": {
+        if (ledger.mints[event.zoneId] !== undefined) return
+        ledger.mints[event.zoneId] = event.record
+        if (
+          event.record.unique &&
+          !ledger.mintedUniqueKeys.includes(event.record.templateKey)
+        ) {
+          ledger.mintedUniqueKeys.push(event.record.templateKey)
+        }
+        for (const effect of event.record.effects) {
+          const declaration = ledger.declarations.find(
+            (d) => d.id === effect.declarationId
+          )
+          // A withdrawn declaration is skipped — the recorded effect still
+          // documents what the mint did at the time (revert skips it the same way).
+          if (declaration === undefined) continue
+          if (effect.incremented) declaration.qualifyingCount += 1
+          if (effect.resolved) declaration.resolvedZoneId = event.zoneId
+        }
+        return
+      }
+
+      case "revertMint": {
+        const record = ledger.mints[event.zoneId]
+        if (record === undefined) return
+        if (record.unique) {
+          const index = ledger.mintedUniqueKeys.indexOf(record.templateKey)
+          if (index !== -1) ledger.mintedUniqueKeys.splice(index, 1)
+        }
+        for (const effect of record.effects) {
+          const declaration = ledger.declarations.find(
+            (d) => d.id === effect.declarationId
+          )
+          if (declaration === undefined) continue
+          if (effect.incremented) {
+            declaration.qualifyingCount = Math.max(
+              0,
+              declaration.qualifyingCount - 1
+            )
+          }
+          if (effect.resolved && declaration.resolvedZoneId === event.zoneId) {
+            delete declaration.resolvedZoneId
+          }
+        }
+        delete ledger.mints[event.zoneId]
+        return
+      }
+
+      case "advanceCursors": {
+        for (const [purpose, n] of Object.entries(event.consumed)) {
+          ledger.streamCursors[purpose] =
+            (ledger.streamCursors[purpose] ?? 0) + n
+        }
         return
       }
     }

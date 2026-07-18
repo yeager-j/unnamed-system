@@ -16,6 +16,7 @@ import {
   makeMapInstanceState,
   makeZone,
 } from "@workspace/game-v2/spatial/__fixtures__/spatial"
+import { emptyGenerationLedger } from "@workspace/game-v2/spatial/generation-ledger.schema"
 import { isFogActive } from "@workspace/game-v2/spatial/reveal"
 
 import { makeParticipantView, spectator } from "./__fixtures__/redaction"
@@ -198,6 +199,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
       reminderSettings: {
         randomEncounters: { enabled: false, intervalTurns: 6 },
       },
+      generation: emptyGenerationLedger(),
     },
     roster
   )
@@ -242,6 +244,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
@@ -264,6 +267,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
@@ -282,6 +286,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )
@@ -297,6 +302,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
         reminderSettings: {
           randomEncounters: { enabled: false, intervalTurns: 6 },
         },
+        generation: emptyGenerationLedger(),
       },
       roster
     )

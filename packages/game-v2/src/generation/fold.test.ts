@@ -31,7 +31,7 @@ const abcInstance = (
         makeConnection("conn-bc", "zone-b", "zone-c"),
       ]
     ),
-    generation: { zones, grafts: {} },
+    generation: { zones, stubs: {}, connections: {}, grafts: {} },
     reveal: {
       revealedZoneIds: [],
       revealedConnectionIds: [],
@@ -41,9 +41,9 @@ const abcInstance = (
   })
 
 const allAuthored: GenerationState["zones"] = {
-  "zone-a": { source: "authored" },
-  "zone-b": { source: "authored" },
-  "zone-c": { source: "authored" },
+  "zone-a": { source: "authored", depth: 0 },
+  "zone-b": { source: "authored", depth: 0 },
+  "zone-c": { source: "authored", depth: 0 },
 }
 
 describe("foldExpedition", () => {
@@ -74,9 +74,9 @@ describe("foldExpedition", () => {
     const result = foldExpedition({
       instance: abcInstance(
         {
-          "zone-a": { source: "manual" },
-          "zone-b": { source: "manual" },
-          "zone-c": { source: "manual" },
+          "zone-a": { source: "manual", depth: 0 },
+          "zone-b": { source: "manual", depth: 0 },
+          "zone-c": { source: "manual", depth: 0 },
         },
         { revealedZoneIds: ["zone-a", "zone-b", "zone-c"] }
       ),
@@ -90,7 +90,7 @@ describe("foldExpedition", () => {
   it("never folds a Zone with missing provenance (fail-safe under-fold)", () => {
     const result = foldExpedition({
       instance: abcInstance(
-        { "zone-a": { source: "authored" } },
+        { "zone-a": { source: "authored", depth: 0 } },
         { revealedZoneIds: ["zone-a", "zone-b"] }
       ),
       seedMapId: SEED,
@@ -113,9 +113,9 @@ describe("foldExpedition", () => {
     const oneManual = foldExpedition({
       instance: abcInstance(
         {
-          "zone-a": { source: "authored" },
-          "zone-b": { source: "manual" },
-          "zone-c": { source: "authored" },
+          "zone-a": { source: "authored", depth: 0 },
+          "zone-b": { source: "manual", depth: 0 },
+          "zone-c": { source: "authored", depth: 0 },
         },
         { revealedConnectionIds: ["conn-ab"] }
       ),
@@ -175,9 +175,11 @@ describe("foldExpedition", () => {
       ),
       generation: {
         zones: {
-          "zone-a": { source: "authored" },
-          "zone-g": { source: "authored" },
+          "zone-a": { source: "authored", depth: 0 },
+          "zone-g": { source: "authored", depth: 0 },
         },
+        stubs: {},
+        connections: {},
         grafts: { "portal-map": { pageIds: ["grafted-page"] } },
       },
       reveal: {

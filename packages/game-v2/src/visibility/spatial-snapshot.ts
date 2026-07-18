@@ -97,8 +97,9 @@ export type SnapshotExitSide = "n" | "s" | "e" | "w"
  * leak** (§D4): it discloses *where on the wall* the doorway sits (the fiction demands
  * a located doorway into darkness) but no partner id/name/geometry. Computed by the
  * loader through the same threshold geometry the revealed renderer uses, then passed
- * in — the engine stays footprint-blind (D2), so this shape carries the *values*, not
- * the footprint math.
+ * in — the projector carries the *values*, not the threshold math (the footprint
+ * table itself is engine-owned since P3, `spatial/footprints.ts`, but the two-rect
+ * anchor derivation stays loader-side).
  */
 export interface SnapshotExitAnchor {
   side: SnapshotExitSide

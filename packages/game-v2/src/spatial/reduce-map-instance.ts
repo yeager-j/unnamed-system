@@ -43,6 +43,10 @@ type RevealEvent = Extract<
   }
 >
 type EditGeometryEvent = Extract<MapInstanceEvent, { kind: "editGeometry" }>
+type GenerationEvent = Extract<
+  MapInstanceEvent,
+  { kind: "mintZone" | "closeLoop" | "retractZone" | "resolveDeadEnd" }
+>
 
 /**
  * The pure Map-Instance reducer (S4; ports v1 `engine/encounter/reduce-map-instance.ts`,
@@ -98,6 +102,12 @@ export function reduceMapInstance(newId: () => string) {
 
       case "editGeometry":
         return reduceGeometryEditEvent(state, event)
+
+      case "mintZone":
+      case "closeLoop":
+      case "retractZone":
+      case "resolveDeadEnd":
+        return reduceGenerationEvent(state, event)
     }
   }
 }
@@ -155,7 +165,7 @@ function reduceZoneGraphEvent(
         draft.geometry.zones[id] = zone
         // A directly-added Zone is DM hand-added mid-run — `manual` provenance, so
         // it never folds to the Region at finish and never survives the reshuffle (D4).
-        draft.generation.zones[id] = { source: "manual" }
+        draft.generation.zones[id] = { source: "manual", depth: 0 }
         return
       }
 
@@ -172,6 +182,12 @@ function reduceZoneGraphEvent(
             conn.toZoneId === event.zoneId
           ) {
             delete draft.geometry.connections[connId]
+            delete draft.generation.connections[connId]
+          }
+        }
+        for (const [stubId, stub] of Object.entries(draft.generation.stubs)) {
+          if (stub.zoneId === event.zoneId) {
+            delete draft.generation.stubs[stubId]
           }
         }
         if (draft.enchantment?.zoneId === event.zoneId) {
@@ -445,6 +461,123 @@ function reduceRevealEvent(
 }
 
 /**
+ * Generation slice (UNN-590, D4) — replays the fully resolved outcomes of the
+ * server-side roller onto the Instance. Two contracts govern every arm:
+ *
+ * - **Consumed-stub benign no-op (D8):** `mintZone`/`closeLoop`/`resolveDeadEnd`
+ *   on an absent stub return the same reference — a committed-but-response-lost
+ *   retry finds the stub already consumed and must surface as nothing.
+ * - **Byte-identical retract restore (D10):** `retractZone` copies
+ *   `restoredStub` verbatim (stored anchor included), so the post-retract player
+ *   payload equals the pre-mint payload.
+ *
+ * Both mint paths stamp `generation.connections` (the generated-connections
+ * record, D6's ADR-0001 rider) — a closure between two *authored* Zones has no
+ * generated endpoint, so provenance consumers can't otherwise identify it.
+ * Reveal is never written here: a minted Zone surfaces via `move → reveal`, and
+ * its stub silhouettes project from `generation.stubs` directly. Retract
+ * legality (generated-provenance, unrevealed, leaf-only, unoccupied, no
+ * encounter) is server-checked at the action (D8); the reducer keeps only the
+ * provenance guard as defense in depth.
+ */
+function reduceGenerationEvent(
+  state: MapInstanceState,
+  event: GenerationEvent
+): MapInstanceState {
+  return produce(state, (draft) => {
+    switch (event.kind) {
+      case "mintZone": {
+        const stub = draft.generation.stubs[event.stubId]
+        if (stub === undefined) return
+        // Defensive: a payload minting an id that already exists would corrupt
+        // the graph — refuse rather than overwrite (unreachable from the roller,
+        // which mints fresh uuids).
+        if (draft.geometry.zones[event.zone.id] !== undefined) return
+        delete draft.generation.stubs[event.stubId]
+        draft.geometry.zones[event.zone.id] = event.zone
+        draft.geometry.connections[event.connectionId] = {
+          id: event.connectionId,
+          fromZoneId: stub.zoneId,
+          toZoneId: event.zone.id,
+          hidden: false,
+          locked: false,
+        }
+        draft.generation.connections[event.connectionId] = {
+          source: "generated",
+        }
+        for (const child of event.stubs) {
+          draft.generation.stubs[child.id] = child
+        }
+        draft.generation.zones[event.zone.id] = event.provenance
+        return
+      }
+
+      case "closeLoop": {
+        const stub = draft.generation.stubs[event.stubId]
+        if (stub === undefined) return
+        if (draft.geometry.zones[event.toZoneId] === undefined) return
+        delete draft.generation.stubs[event.stubId]
+        draft.geometry.connections[event.connectionId] = {
+          id: event.connectionId,
+          fromZoneId: stub.zoneId,
+          toZoneId: event.toZoneId,
+          hidden: false,
+          locked: false,
+        }
+        draft.generation.connections[event.connectionId] = {
+          source: "generated",
+        }
+        return
+      }
+
+      case "retractZone": {
+        const zone = draft.geometry.zones[event.zoneId]
+        if (zone === undefined) return
+        if (draft.generation.zones[event.zoneId]?.source !== "generated") return
+        delete draft.geometry.zones[event.zoneId]
+        delete draft.generation.zones[event.zoneId]
+        for (const [connId, conn] of Object.entries(
+          draft.geometry.connections
+        )) {
+          if (
+            conn.fromZoneId === event.zoneId ||
+            conn.toZoneId === event.zoneId
+          ) {
+            delete draft.geometry.connections[connId]
+            delete draft.generation.connections[connId]
+          }
+        }
+        for (const [stubId, s] of Object.entries(draft.generation.stubs)) {
+          if (s.zoneId === event.zoneId) delete draft.generation.stubs[stubId]
+        }
+        // Defensive reveal prune (the action refuses a revealed retract, but the
+        // reducer keeps its own state consistent — removeZone precedent).
+        removeFromSet(draft.reveal.revealedZoneIds, event.zoneId)
+        draft.reveal.revealedConnectionIds =
+          draft.reveal.revealedConnectionIds.filter(
+            (id) => draft.geometry.connections[id] !== undefined
+          )
+        draft.reveal.unlockedConnectionIds =
+          draft.reveal.unlockedConnectionIds.filter(
+            (id) => draft.geometry.connections[id] !== undefined
+          )
+        if (draft.enchantment?.zoneId === event.zoneId) {
+          draft.enchantment = null
+        }
+        draft.generation.stubs[event.restoredStub.id] = event.restoredStub
+        return
+      }
+
+      case "resolveDeadEnd": {
+        if (draft.generation.stubs[event.stubId] === undefined) return
+        delete draft.generation.stubs[event.stubId]
+        return
+      }
+    }
+  })
+}
+
+/**
  * In-console geometry-edit slice — the convergence with the Map-template authoring core.
  * It delegates the inner {@link import("./geometry-event").MapGeometryEvent} to
  * {@link reduceMapGeometry} over `state.geometry` (so add/move/rename/retext zones,
@@ -507,7 +640,7 @@ function reduceGeometryEditEvent(
     // kind-agnostic: `addZone`/`duplicateZone`/`duplicatePage` all surface here.
     for (const zoneId of Object.keys(nextGeometry.zones)) {
       if (state.geometry.zones[zoneId] === undefined) {
-        draft.generation.zones[zoneId] = { source: "manual" }
+        draft.generation.zones[zoneId] = { source: "manual", depth: 0 }
       }
     }
 
@@ -527,6 +660,18 @@ function reduceGeometryEditEvent(
     for (const zoneId of Object.keys(draft.generation.zones)) {
       if (nextGeometry.zones[zoneId] === undefined) {
         delete draft.generation.zones[zoneId]
+      }
+    }
+    // The generation records mirror the pruned geometry: a stub whose parent
+    // Zone died and the provenance of a connection that died go with them (D4).
+    for (const [stubId, stub] of Object.entries(draft.generation.stubs)) {
+      if (nextGeometry.zones[stub.zoneId] === undefined) {
+        delete draft.generation.stubs[stubId]
+      }
+    }
+    for (const connId of Object.keys(draft.generation.connections)) {
+      if (nextGeometry.connections[connId] === undefined) {
+        delete draft.generation.connections[connId]
       }
     }
     if (

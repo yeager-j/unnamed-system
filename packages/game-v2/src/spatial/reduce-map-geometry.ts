@@ -40,8 +40,10 @@ export function reduceMapGeometry(
     case "renameZone":
     case "setZoneText":
     case "setZoneIdentity":
+    case "setZoneBinding":
     case "moveZone":
     case "deleteZone":
+    case "setEntryZone":
       return reduceZoneEvent(geometry, event)
 
     case "addConnection":
@@ -54,15 +56,18 @@ export function reduceMapGeometry(
     case "deletePage":
     case "duplicatePage":
     case "moveZoneToPage":
+    case "setPageGrowth":
       return reducePageEvent(geometry, event)
   }
 }
 
 /**
- * Zone-slice edits — add/duplicate/rename/retext/move/delete a Zone. `deleteZone`
- * also cascades every connection that referenced the removed Zone (connections are
- * undirected, so either endpoint matches). Each event no-ops on an unknown Zone id
- * (Immer returns the input untouched when no draft mutates).
+ * Zone-slice edits — add/duplicate/rename/retext/rebind/move/delete a Zone, plus
+ * the geometry-level entry-Zone designation (it names a Zone, so it lives with the
+ * Zone slice). `deleteZone` also cascades every connection that referenced the
+ * removed Zone (connections are undirected, so either endpoint matches) and clears
+ * a dangling `entryZoneId`. Each event no-ops on an unknown Zone id (Immer returns
+ * the input untouched when no draft mutates).
  */
 function reduceZoneEvent(
   geometry: MapGeometry,
@@ -75,8 +80,10 @@ function reduceZoneEvent(
         | "renameZone"
         | "setZoneText"
         | "setZoneIdentity"
+        | "setZoneBinding"
         | "moveZone"
         | "deleteZone"
+        | "setEntryZone"
     }
   >
 ): MapGeometry {
@@ -138,6 +145,22 @@ function reduceZoneEvent(
         return
       }
 
+      case "setZoneBinding": {
+        const zone = draft.zones[event.zoneId]
+        if (zone === undefined) return
+        const { templateKey, portalMapId, rollContentsAtStart } = event.binding
+        // `null` is the clear opcode — delete the key so a cleared Zone
+        // deep-equals a never-set one; absent leaves the value untouched.
+        if (templateKey === null) delete zone.templateKey
+        else if (templateKey !== undefined) zone.templateKey = templateKey
+        if (portalMapId === null) delete zone.portalMapId
+        else if (portalMapId !== undefined) zone.portalMapId = portalMapId
+        if (rollContentsAtStart === null) delete zone.rollContentsAtStart
+        else if (rollContentsAtStart !== undefined)
+          zone.rollContentsAtStart = rollContentsAtStart
+        return
+      }
+
       case "moveZone": {
         const zone = draft.zones[event.zoneId]
         if (zone === undefined) return
@@ -156,6 +179,21 @@ function reduceZoneEvent(
             delete draft.connections[connId]
           }
         }
+        // Keep the geometry self-consistent: a deleted entry Zone clears the
+        // designation (graft-time apply also filters, but the blob shouldn't
+        // carry a knowingly dangling ref).
+        if (geometry.entryZoneId === event.zoneId) delete draft.entryZoneId
+        return
+      }
+
+      case "setEntryZone": {
+        if (event.zoneId === null) {
+          if (geometry.entryZoneId !== undefined) delete draft.entryZoneId
+          return
+        }
+        if (draft.zones[event.zoneId] === undefined) return
+        if (geometry.entryZoneId === event.zoneId) return
+        draft.entryZoneId = event.zoneId
         return
       }
     }
@@ -236,6 +274,7 @@ function reducePageEvent(
         | "deletePage"
         | "duplicatePage"
         | "moveZoneToPage"
+        | "setPageGrowth"
     }
   >
 ): MapGeometry {
@@ -275,6 +314,12 @@ function reducePageEvent(
           ) {
             delete draft.connections[connId]
           }
+        }
+        if (
+          geometry.entryZoneId !== undefined &&
+          doomedZoneIds.has(geometry.entryZoneId)
+        ) {
+          delete draft.entryZoneId
         }
         return
       }
@@ -341,6 +386,16 @@ function reducePageEvent(
         if (geometry.pages[event.pageId] === undefined) return
         if (zone.pageId === event.pageId) return
         zone.pageId = event.pageId
+        return
+      }
+
+      case "setPageGrowth": {
+        const page = draft.pages[event.pageId]
+        if (page === undefined) return
+        // `null` clears the key (back to the consumer-side `edge` default) so a
+        // cleared page deep-equals a never-set one.
+        if (event.growth === null) delete page.growth
+        else page.growth = event.growth
         return
       }
     }
