@@ -92,6 +92,67 @@ export interface Replica<
   dispose(): void
 }
 
+/**
+ * Structured observability events, one per state-machine transition worth
+ * counting: the mutation lifecycle (assigned → sent/retried → settled →
+ * incorporated), accepted snapshots with their replay count, replay
+ * conflicts, connection transitions, and disposal. Events carry mutation
+ * names, IDs, and counts — never arguments, which may hold private
+ * application data, and never app-typed error payloads, which already reach
+ * the caller through receipts and snapshot conflicts.
+ */
+export type ReplicaEvent =
+  | {
+      readonly kind: "assigned"
+      readonly id: MutationId
+      readonly name: string
+    }
+  | {
+      readonly kind: "refused"
+      readonly name: string
+      readonly reason: "invalid" | "refused"
+    }
+  | {
+      readonly kind: "sent"
+      readonly id: MutationId
+      readonly name: string
+      readonly attempt: number
+    }
+  | {
+      readonly kind: "retried"
+      readonly id: MutationId
+      readonly name: string
+      readonly remaining: number
+    }
+  | {
+      readonly kind: "settled"
+      readonly id: MutationId
+      readonly name: string
+      readonly outcome: "accepted" | "rejected"
+    }
+  | {
+      readonly kind: "incorporated"
+      readonly id: MutationId
+      readonly name: string
+    }
+  | {
+      readonly kind: "snapshot"
+      readonly through: MutationId
+      readonly replayed: number
+    }
+  | {
+      readonly kind: "conflict"
+      readonly id: MutationId
+      readonly name: string
+    }
+  | { readonly kind: "connection"; readonly status: "connected" }
+  | {
+      readonly kind: "connection"
+      readonly status: "disconnected"
+      readonly cause: "transport-down" | "retry-exhausted"
+    }
+  | { readonly kind: "disposed"; readonly pending: number }
+
 export interface CreateReplicaOptions<
   State,
   Invocation extends MutationInvocation,
@@ -117,6 +178,12 @@ export interface CreateReplicaOptions<
      */
     readonly retryBudget?: number
   }
+  /**
+   * Optional sink for metrics/logging adapters. Observability must never
+   * alter replica semantics: a throwing sink is swallowed rather than
+   * allowed to corrupt the delivery loop.
+   */
+  readonly onEvent?: (event: ReplicaEvent) => void
 }
 
 const DEFAULT_RETRY_BUDGET = 3
@@ -160,10 +227,21 @@ export function createReplica<
     readonly envelope: MutationEnvelope<Invocation>
     readonly remote: Deferred<Result<Remote, Failure>>
     settled: boolean
+    attempts: number
   }
 
-  const { identity, mutations, transport } = options
+  const { identity, mutations, transport, onEvent } = options
   const retryBudget = options.delivery?.retryBudget ?? DEFAULT_RETRY_BUDGET
+
+  function emit(event: ReplicaEvent): void {
+    if (!onEvent) return
+    try {
+      onEvent(event)
+    } catch {
+      // A throwing sink is the adapter's bug; propagating it would corrupt
+      // the state machine (e.g. read as a retryable push failure).
+    }
+  }
 
   let disposed = false
   let base: Accepted<State, Cursor> = options.initial
@@ -242,6 +320,11 @@ export function createReplica<
             error: applied.error,
           },
         ]
+        emit({
+          kind: "conflict",
+          id: entry.envelope.mutationId,
+          name: entry.envelope.invocation.name,
+        })
       }
     }
     pending = surviving
@@ -262,6 +345,12 @@ export function createReplica<
     const index = ledger.indexOf(entry)
     if (index !== -1) ledger.splice(index, 1)
     dropConflicts((id) => id === entry.envelope.mutationId)
+    emit({
+      kind: "settled",
+      id: entry.envelope.mutationId,
+      name: entry.envelope.invocation.name,
+      outcome: outcome.ok ? "accepted" : "rejected",
+    })
   }
 
   async function deliver(): Promise<void> {
@@ -272,6 +361,13 @@ export function createReplica<
         const head = ledger[0]
         if (!head) break
 
+        head.attempts += 1
+        emit({
+          kind: "sent",
+          id: head.envelope.mutationId,
+          name: head.envelope.invocation.name,
+          attempt: head.attempts,
+        })
         const controller = new AbortController()
         attemptController = controller
         let outcome: Result<Remote, PushError<ApplyError>>
@@ -309,7 +405,22 @@ export function createReplica<
         // `remote`, never re-identify, never advance past the head.
         if (epochBudget > 0) {
           epochBudget -= 1
+          emit({
+            kind: "retried",
+            id: head.envelope.mutationId,
+            name: head.envelope.invocation.name,
+            remaining: epochBudget,
+          })
           continue
+        }
+        // `transportDown` may have flipped during the await; the status
+        // transition then already belonged to `down()`.
+        if (!transportDown && !parked) {
+          emit({
+            kind: "connection",
+            status: "disconnected",
+            cause: "retry-exhausted",
+          })
         }
         parked = true
         publish()
@@ -330,6 +441,7 @@ export function createReplica<
     transportDown = false
     parked = false
     epochBudget = retryBudget
+    emit({ kind: "connection", status: "connected" })
     wake()
   }
 
@@ -340,10 +452,25 @@ export function createReplica<
       if (accepted.through + 1 > nextMutationId) {
         nextMutationId = accepted.through + 1
       }
-      pending = pending.filter(
-        (entry) => entry.envelope.mutationId > accepted.through
-      )
+      const surviving: PendingEntry[] = []
+      for (const entry of pending) {
+        if (entry.envelope.mutationId <= accepted.through) {
+          emit({
+            kind: "incorporated",
+            id: entry.envelope.mutationId,
+            name: entry.envelope.invocation.name,
+          })
+        } else {
+          surviving.push(entry)
+        }
+      }
+      pending = surviving
       dropConflicts((id) => id <= accepted.through)
+      emit({
+        kind: "snapshot",
+        through: accepted.through,
+        replayed: pending.length,
+      })
       rebase()
       liveness()
       publish()
@@ -355,6 +482,13 @@ export function createReplica<
     },
     down() {
       if (disposed || transportDown) return
+      if (!parked) {
+        emit({
+          kind: "connection",
+          status: "disconnected",
+          cause: "transport-down",
+        })
+      }
       transportDown = true
       // A dead source makes any in-flight attempt ambiguous; abort it so the
       // delivery loop parks instead of hanging on a doomed await.
@@ -394,12 +528,16 @@ export function createReplica<
       }
 
       const validated = validateArgs(definition.args, invocation.args)
-      if (!validated.ok) return settledReceipt(validated.error)
+      if (!validated.ok) {
+        emit({ kind: "refused", name: invocation.name, reason: "invalid" })
+        return settledReceipt(validated.error)
+      }
 
       const applied = definition.apply(projectedValue, validated.value, {
         phase: "optimistic",
       })
       if (!applied.ok) {
+        emit({ kind: "refused", name: invocation.name, reason: "refused" })
         return settledReceipt({ kind: "refused", error: applied.error })
       }
 
@@ -417,7 +555,8 @@ export function createReplica<
       pending.push({ envelope, definition })
       projectedValue = applied.value
       const remote = deferred<Result<Remote, Failure>>()
-      ledger.push({ envelope, remote, settled: false })
+      ledger.push({ envelope, remote, settled: false, attempts: 0 })
+      emit({ kind: "assigned", id: mutationId, name: invocation.name })
       publish()
       wake()
 
@@ -441,6 +580,7 @@ export function createReplica<
       }
       ledger.length = 0
       listeners.clear()
+      emit({ kind: "disposed", pending: pending.length })
     },
   }
 }

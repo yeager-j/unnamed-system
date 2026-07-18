@@ -4,6 +4,7 @@ import type { MutationInvocation, MutationRegistry } from "./mutations"
 import type { Accepted, ClientIdentity, MutationEnvelope } from "./protocol"
 import {
   createMutationProcessor,
+  type ProcessorEvent,
   type ProcessRefusal,
   type RecordedOutcome,
 } from "./server"
@@ -29,6 +30,8 @@ export interface InMemoryAuthorityOptions<
   readonly mutations: MutationRegistry<State, Invocation, ApplyError>
   readonly initial: State
   readonly execute?: InMemoryExecute<State, Invocation, ApplyError, Remote>
+  /** Forwarded to the underlying `createMutationProcessor`. */
+  readonly onEvent?: (event: ProcessorEvent) => void
 }
 
 export interface InMemoryTransportHandle<
@@ -191,6 +194,7 @@ export function createInMemoryAuthority<
   >({
     mutations,
     transact,
+    onEvent: options.onEvent,
     dedup: {
       acquire: (tx, client) =>
         Promise.resolve(

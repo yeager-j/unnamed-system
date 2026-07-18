@@ -46,6 +46,39 @@ export type RecordedOutcome<Remote, Error> = Result<
 >
 
 /**
+ * Structured observability events for the authority side, emitted only after
+ * the surrounding transaction resolves — an aborted transaction (ambiguous
+ * delivery) emits nothing. `recorded` marks a watermark advance and is the
+ * only place a deploy-skew refusal (`invalid`/`unknown-mutation`) becomes
+ * visible: the application handler never runs for those. Events carry client
+ * identity, mutation IDs, and names — never arguments.
+ */
+export type ProcessorEvent =
+  | {
+      readonly kind: "duplicate"
+      readonly client: ClientIdentity
+      readonly mutationId: MutationId
+    }
+  | {
+      readonly kind: "outcome-unavailable"
+      readonly client: ClientIdentity
+      readonly mutationId: MutationId
+    }
+  | {
+      readonly kind: "gap"
+      readonly client: ClientIdentity
+      readonly expected: MutationId
+      readonly received: MutationId
+    }
+  | {
+      readonly kind: "recorded"
+      readonly client: ClientIdentity
+      readonly mutationId: MutationId
+      readonly name: string
+      readonly outcome: "accepted" | "rejected" | "invalid" | "unknown-mutation"
+    }
+
+/**
  * Storage adapter for the per-client dedup ledger. Both operations run inside
  * the processor's application transaction; `acquire` must lock or otherwise
  * serialize the client's record so concurrent deliveries of the same client
@@ -89,6 +122,11 @@ export interface MutationProcessorOptions<
     invocation: Invocation,
     context: TrustedContext
   ): Promise<Result<Remote, Error>>
+  /**
+   * Optional sink for metrics/logging adapters. Observability must never
+   * alter processing semantics: a throwing sink is swallowed.
+   */
+  readonly onEvent?: (event: ProcessorEvent) => void
 }
 
 export type MutationProcessor<TrustedContext, Error, Remote> = (
@@ -131,7 +169,10 @@ export function createMutationProcessor<
     }
     const decoded = options.mutations.decode(envelope.invocation)
 
-    return options.transact(async (tx) => {
+    let event: ProcessorEvent | null = null
+    const result = await options.transact<
+      Result<Remote, ProcessRefusal<Error>>
+    >(async (tx) => {
       const { lastMutationId, lastOutcome } = await options.dedup.acquire(
         tx,
         client
@@ -139,7 +180,13 @@ export function createMutationProcessor<
 
       if (envelope.mutationId <= lastMutationId) {
         if (envelope.mutationId === lastMutationId && lastOutcome) {
+          event = { kind: "duplicate", client, mutationId: envelope.mutationId }
           return widen(lastOutcome)
+        }
+        event = {
+          kind: "outcome-unavailable",
+          client,
+          mutationId: envelope.mutationId,
         }
         return err({
           kind: "outcome-unavailable",
@@ -148,6 +195,12 @@ export function createMutationProcessor<
       }
 
       if (envelope.mutationId > lastMutationId + 1) {
+        event = {
+          kind: "gap",
+          client,
+          expected: lastMutationId + 1,
+          received: envelope.mutationId,
+        }
         return err({
           kind: "gap",
           expected: lastMutationId + 1,
@@ -166,8 +219,24 @@ export function createMutationProcessor<
       }
 
       await options.dedup.record(tx, client, envelope.mutationId, outcome)
+      event = {
+        kind: "recorded",
+        client,
+        mutationId: envelope.mutationId,
+        name: envelope.invocation.name,
+        outcome: outcome.ok ? "accepted" : outcome.error.kind,
+      }
       return widen(outcome)
     })
+    if (event && options.onEvent) {
+      try {
+        options.onEvent(event)
+      } catch {
+        // A throwing sink is the adapter's bug; the recorded outcome must
+        // still reach the transport.
+      }
+    }
+    return result
   }
 
   function widen(
