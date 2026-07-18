@@ -119,15 +119,23 @@ export function useEntityReplica({
     let cancelled = false
     let instance: EntityReplica | null = null
 
+    const drainBuffer = (target: EntityReplica): void => {
+      const buffered = bufferRef.current
+      bufferRef.current = []
+      for (const entry of buffered)
+        entry.resolve(target.mutate(writeEntity(entry.write)))
+    }
+
     const identity = mintEntityClientIdentity(entityId)
     void loadEntityAcceptedAction({ entityId, ...identity }).then((result) => {
-      if (cancelled || !result.ok) return
+      if (!result.ok) return
+      if (cancelled && bufferRef.current.length === 0) return
       const source = createEntityReplicaSource({
         entityId,
         identity,
         subscribe: bridge.subscribe,
       })
-      instance = createReplica({
+      const created = createReplica({
         identity,
         initial: result.value,
         mutations: entityReplicaMutations,
@@ -145,19 +153,36 @@ export function useEntityReplica({
           setGeneration((current) => current + 1)
         },
       })
-      replicaRef.current = instance
-      const buffered = bufferRef.current
-      bufferRef.current = []
-      for (const entry of buffered)
-        entry.resolve(instance.mutate(writeEntity(entry.write)))
-      setReplica(instance)
+      if (cancelled) {
+        // Torn down mid-bootstrap with unmount saves in the buffer: flush
+        // them through this short-lived replica (fire-and-forget, like the
+        // classic path's unmount save), then let it go.
+        drainBuffer(created)
+        setTimeout(() => created.dispose(), 0)
+        return
+      }
+      instance = created
+      replicaRef.current = created
+      drainBuffer(created)
+      setReplica(created)
     })
 
     return () => {
       cancelled = true
-      if (replicaRef.current === instance) replicaRef.current = null
-      instance?.dispose()
-      setReplica((current) => (current === instance ? null : current))
+      const teardown = instance
+      setReplica((current) => (current === teardown ? null : current))
+      // Deletion cleanups run PARENT-first: this provider-level cleanup runs
+      // before a dirty field's `useDebouncedAutoSave` unmount flush, whose
+      // fire-and-forget save must still find a live replica (Codex P1, PR
+      // #386). Teardown therefore yields one macrotask — the same-commit
+      // child cleanups land their mutations, the delivery microtasks
+      // dispatch the Server Action POST, and only then does disposal abort
+      // the already-sent wait. (The 2026-07-13 nested-root lesson: teardown
+      // yields when the outer lifecycle can still invoke it.)
+      setTimeout(() => {
+        if (replicaRef.current === teardown) replicaRef.current = null
+        teardown?.dispose()
+      }, 0)
     }
   }, [entityId, enabled, generation, bridge])
 

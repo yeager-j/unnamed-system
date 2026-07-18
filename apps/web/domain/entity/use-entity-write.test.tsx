@@ -244,6 +244,47 @@ describe("useEntityWrite — replica dispatch (UNN-645)", () => {
   })
 })
 
+describe("EntityWriteProvider — unmount saves outlive provider cleanup (Codex P1, PR #386)", () => {
+  it("delivers a mutate fired after cleanup in the same commit — teardown yields a macrotask", async () => {
+    const { result, unmount } = renderHook(() => useEntityWrite(), { wrapper })
+    await flush()
+
+    // Deletion cleanups run parent-first: the provider tears down before a
+    // dirty field's unmount auto-save fires. Simulate that child cleanup by
+    // dispatching immediately after unmount, same tick.
+    unmount()
+    result.current.dispatch(damage)
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+    expect(pushAction).toHaveBeenCalledTimes(1)
+  })
+
+  it("flushes a buffered unmount save through a short-lived replica when torn down mid-bootstrap", async () => {
+    let releaseBootstrap!: () => void
+    acceptedAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseBootstrap = () => resolve(accepted(baseComponents))
+        })
+    )
+
+    const { result, unmount } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(damage)
+    })
+    unmount()
+    expect(pushAction).not.toHaveBeenCalled()
+
+    await act(async () => {
+      releaseBootstrap()
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+    expect(pushAction).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569 → UNN-645)", () => {
   it("subscribes to the character channel by the profile's shortId", async () => {
     renderHook(() => useEntityWrite(), { wrapper })
