@@ -197,6 +197,28 @@ describe("useCombatReplicas", () => {
     expect(onExternalChange).toHaveBeenCalledTimes(1)
   })
 
+  it("refreshes after a write recovered by redelivery — its original response (and RSC payload) may have been lost", async () => {
+    const { rendered, onExternalChange } = renderReplicas()
+    await flush()
+
+    // First attempt throws after the (server-side) commit; the redelivery
+    // settles from the dedup ledger. No fresh RSC payload ever reached this
+    // client, so settlement must schedule the refresh itself.
+    pushCombatDurableMutationAction
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValue(ok(undefined))
+
+    await act(async () => {
+      const receipt = rendered.result.current
+        .handleOf(pcParticipant)!
+        .mutate(damage)
+      await receipt.remote
+    })
+
+    expect(pushCombatDurableMutationAction.mock.calls.length).toBeGreaterThan(1)
+    expect(onExternalChange).toHaveBeenCalled()
+  })
+
   it("disposes a removed durable participant's replica and refuses its handle", async () => {
     const { rendered } = renderReplicas()
     await flush()

@@ -136,8 +136,11 @@ export interface UseCombatReplicasReturn {
  *   snapshot whose incorporation watermark did NOT advance was caused by
  *   someone else's write → `onExternalChange`. A snapshot that advanced
  *   `through` incorporated our own push, whose action response already
- *   carried the revalidated RSC payload → skip. Echoed pings never get this
- *   far — the causal gate suppresses the duplicate pull.
+ *   carried the revalidated RSC payload → skip — except a write recovered by
+ *   redelivery, whose original response (and payload) may have been lost;
+ *   that arm refreshes on settlement (see `createControllerTelemetry`).
+ *   Echoed pings never get this far — the causal gate suppresses the
+ *   duplicate pull.
  */
 export function useCombatReplicas({
   encounterId,
@@ -164,17 +167,74 @@ export function useCombatReplicas({
     return created
   }
 
+  /**
+   * One controller's shared telemetry: the expiry toast, and the two rules
+   * deciding when a root's change needs a route refresh —
+   *
+   * - **The watermark rule** (replacing `decidePcPing`): an accepted snapshot
+   *   whose incorporation watermark did NOT advance was someone else's write
+   *   → refresh. One that advanced incorporated our own push, whose action
+   *   response already carried the revalidated RSC payload → skip.
+   * - **The recovered-write rule** (Codex P2, PR #391): the skip above is
+   *   only sound when the push RESPONSE actually arrived. A mutation that
+   *   settles after a redelivery (`sent` with `attempt > 1`) may have
+   *   committed on an attempt whose response was lost — the revalidation ran
+   *   server-side, but no payload reached this client, and the deduplicated
+   *   replay deliberately re-fires nothing. Refresh on its settlement so the
+   *   base catches up before the held transition drops the prediction. A
+   *   redelivery whose first attempt never reached the server refreshes
+   *   redundantly — one spare `router.refresh()` on an already-rare path.
+   */
+  function createControllerTelemetry(root: "durable" | "session") {
+    let lastThrough = 0
+    const redelivered = new Set<number>()
+    return {
+      bootstrapped(through: number) {
+        lastThrough = through
+      },
+      onEvent(event: Parameters<typeof logCombatReplicaEvent>[1]) {
+        logCombatReplicaEvent(root, event)
+        switch (event.kind) {
+          case "sent":
+            if (event.attempt > 1) redelivered.add(event.id)
+            return
+          case "settled":
+            if (redelivered.delete(event.id)) externalChange()
+            return
+          case "expired":
+            redelivered.clear()
+            return
+          case "snapshot": {
+            const advanced = event.through > lastThrough
+            lastThrough = event.through
+            if (!advanced) externalChange()
+            return
+          }
+          default:
+            return
+        }
+      },
+      onExpired({ dropped }: { dropped: number }) {
+        if (dropped > 0) {
+          toast.error(
+            "This tab's combat session expired — unsent changes were discarded. Reconnecting…"
+          )
+        }
+      },
+    }
+  }
+
   function createDurableController(
     entityId: string,
     firstIdentity: ReturnType<typeof mintCombatEntityIdentity>,
     prefetch: Promise<CombatAccepted | null>
   ): DurableController {
     const bridge = durableBridgeFor(entityId)
+    const telemetry = createControllerTelemetry("durable")
     let pending: {
       identity: typeof firstIdentity
       shared: Promise<CombatAccepted | null>
     } | null = { identity: firstIdentity, shared: prefetch }
-    let lastThrough = 0
 
     return createManagedReplica({
       mutations: combatDurableMutations,
@@ -196,7 +256,7 @@ export function useCombatReplicas({
           accepted = result.ok ? (result.value.durable[entityId] ?? null) : null
         }
         if (!accepted) return null
-        lastThrough = accepted.through
+        telemetry.bootstrapped(accepted.through)
         const source = createCombatDurableSource({
           encounterId,
           entityId,
@@ -213,20 +273,8 @@ export function useCombatReplicas({
           }),
         }
       },
-      onEvent: (event) => {
-        logCombatReplicaEvent("durable", event)
-        if (event.kind !== "snapshot") return
-        const advanced = event.through > lastThrough
-        lastThrough = event.through
-        if (!advanced) externalChange()
-      },
-      onExpired: ({ dropped }) => {
-        if (dropped > 0) {
-          toast.error(
-            "This tab's combat session expired — unsent changes were discarded. Reconnecting…"
-          )
-        }
-      },
+      onEvent: telemetry.onEvent,
+      onExpired: telemetry.onExpired,
     })
   }
 
@@ -236,11 +284,11 @@ export function useCombatReplicas({
   ): InlineController {
     const bridge = inlineBridge.current ?? createInvalidationBridge()
     inlineBridge.current = bridge
+    const telemetry = createControllerTelemetry("session")
     let pending: {
       identity: typeof firstIdentity
       shared: Promise<CombatAccepted | null>
     } | null = { identity: firstIdentity, shared: prefetch }
-    let lastThrough = 0
 
     return createManagedReplica({
       mutations: combatInlineMutations,
@@ -261,7 +309,7 @@ export function useCombatReplicas({
           accepted = result.ok ? (result.value.inline ?? null) : null
         }
         if (!accepted) return null
-        lastThrough = accepted.through
+        telemetry.bootstrapped(accepted.through)
         const source = createCombatInlineSource({
           encounterId,
           identity,
@@ -277,20 +325,8 @@ export function useCombatReplicas({
           }),
         }
       },
-      onEvent: (event) => {
-        logCombatReplicaEvent("session", event)
-        if (event.kind !== "snapshot") return
-        const advanced = event.through > lastThrough
-        lastThrough = event.through
-        if (!advanced) externalChange()
-      },
-      onExpired: ({ dropped }) => {
-        if (dropped > 0) {
-          toast.error(
-            "This tab's combat session expired — unsent changes were discarded. Reconnecting…"
-          )
-        }
-      },
+      onEvent: telemetry.onEvent,
+      onExpired: telemetry.onExpired,
     })
   }
 

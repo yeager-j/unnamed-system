@@ -27,8 +27,10 @@ const envelopeSchema = z.object({
 })
 
 /** Durable home: one `combat.entity.write` delivery against one entity row.
- *  `encounterId` is the console's revalidation context, not authority truth —
- *  it is campaign-verified before revalidating and never gates the write. */
+ *  `encounterId` scopes the delivery: the entity must still be a durable
+ *  participant of that encounter (the classic router's fail-closed locator
+ *  scope, checked in the door's verdict and RECORDED on refusal — Codex P2,
+ *  PR #391), and it is separately campaign-verified before revalidating. */
 export const CombatDurablePushSchema = z.object({
   encounterId: z.string().min(1),
   entityId: z.string().min(1),
