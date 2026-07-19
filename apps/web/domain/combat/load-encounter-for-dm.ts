@@ -58,7 +58,7 @@ export const getEncounterForDM = cache(
 
     const loaded = await loadEncounterForSnapshot(shortId)
     if (!loaded.ok) return null
-    const { row, loaded: loadedSession, durableVersions } = loaded.value
+    const { row, loaded: loadedSession } = loaded.value
 
     const campaign = await loadCampaignByShortId(campaignShortId)
     if (
@@ -71,10 +71,7 @@ export const getEncounterForDM = cache(
     const instance = await loadMapInstanceById(row.mapInstanceId)
     if (!instance) return null
 
-    const participantMeta = await buildParticipantMeta(
-      loadedSession.locators,
-      durableVersions
-    )
+    const participantMeta = await buildParticipantMeta(loadedSession.locators)
 
     return {
       encounter: {
@@ -99,8 +96,7 @@ export const getEncounterForDM = cache(
  * public `entity` `shortId` (the realtime channel key) in one indexed read.
  */
 async function buildParticipantMeta(
-  locators: Map<ParticipantId, StoredEntityLocator>,
-  durableVersions: Map<string, number>
+  locators: Map<ParticipantId, StoredEntityLocator>
 ): Promise<Record<ParticipantId, ParticipantMeta>> {
   const durableIds = [
     ...new Set(
@@ -125,7 +121,6 @@ async function buildParticipantMeta(
         ? {
             storage: "durable",
             characterId: locator.entityId,
-            vitalsVersion: durableVersions.get(locator.entityId) ?? 0,
             characterShortId: shortIdById.get(locator.entityId) ?? "",
           }
         : { storage: "inline" }

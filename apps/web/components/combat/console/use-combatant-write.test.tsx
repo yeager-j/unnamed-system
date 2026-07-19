@@ -5,33 +5,46 @@ import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { MutationReceipt } from "@workspace/replica"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
+import type {
+  CombatReplicaRejection,
+  CombatWriteDispatchError,
+} from "@/domain/combat/replica/rejection"
+import type { CombatWriteHandle } from "@/domain/combat/replica/use-combat-replicas"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
-import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 
 import { useCombatantWrite } from "./use-combatant-write"
-import type { WriteLane } from "./write-lanes"
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 
 const participantId = asParticipantId("p-1")
 const damage: EntityWrite = { component: "vitals", op: "damage", amount: 2 }
 
-type CommitResult = Result<CommittedWrite, ApplyCombatantWriteError>
+type Remote = { version: number } | void
+type Receipt = MutationReceipt<CombatReplicaRejection, Remote>
+type DispatchResult = Result<void, CombatWriteDispatchError> | null
+
+const okReceipt = (remote: Remote = undefined): Receipt => ({
+  id: 1,
+  local: Promise.resolve(ok(undefined)),
+  remote: Promise.resolve(ok(remote)),
+})
 
 function renderWriteHook(
-  commit: (write: EntityWrite) => Promise<CommitResult>
+  mutate: (write: EntityWrite) => Receipt,
+  onRemoteVersion?: (version: number) => void
 ) {
   const mirrored: ConsoleOptimisticAction[] = []
-  const lane: WriteLane = { commit, channel: null }
+  const handle: CombatWriteHandle = { channel: null, mutate }
   const rendered = renderHook(() =>
     useCombatantWrite({
-      laneOf: (id) => (id === participantId ? lane : undefined),
+      handleOf: (id) => (id === participantId ? handle : undefined),
       componentsOf: () => ({ vitals: { base: 20, damage: 0 } }),
       applyOptimistic: (action) => mirrored.push(action),
+      onRemoteVersion,
     })
   )
   return { rendered, mirrored }
@@ -42,18 +55,15 @@ beforeEach(() => {
 })
 
 describe("useCombatantWrite", () => {
-  it("predicts, mirrors into the container, then commits on the lane", async () => {
+  it("predicts, mirrors into the container, then holds the transition until remote settles", async () => {
     const order: string[] = []
-    const commit = vi.fn(async () => {
-      order.push("commit")
-      return ok({
-        version: 6,
-        channel: { domain: "encounter" as const, shortId: "enc" },
-      })
+    const mutate = vi.fn((write: EntityWrite) => {
+      order.push(`mutate:${write.component}`)
+      return okReceipt()
     })
-    const { rendered, mirrored } = renderWriteHook(commit)
+    const { rendered, mirrored } = renderWriteHook(mutate)
 
-    let result: CommitResult | null
+    let result: DispatchResult
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         participantId,
@@ -62,17 +72,31 @@ describe("useCombatantWrite", () => {
       order.push("resolved")
     })
 
-    expect(result!.ok).toBe(true)
-    expect(commit).toHaveBeenCalledWith(damage)
+    expect(result!).toEqual(ok(undefined))
+    expect(mutate).toHaveBeenCalledWith(damage)
     expect(mirrored).toEqual([{ kind: "write", participantId, write: damage }])
-    expect(order).toEqual(["commit", "resolved"])
+    expect(order).toEqual(["mutate:vitals", "resolved"])
+  })
+
+  it("folds the inline door's committed version into onRemoteVersion", async () => {
+    const versions: number[] = []
+    const { rendered } = renderWriteHook(
+      () => okReceipt({ version: 12 }),
+      (version) => versions.push(version)
+    )
+
+    await act(async () => {
+      await rendered.result.current.dispatchWrite(participantId, damage)
+    })
+
+    expect(versions).toEqual([12])
   })
 
   it("short-circuits on a Writer refusal without dispatching or mirroring", async () => {
-    const commit = vi.fn()
-    const { rendered, mirrored } = renderWriteHook(commit)
+    const mutate = vi.fn()
+    const { rendered, mirrored } = renderWriteHook(mutate)
 
-    let result: CommitResult | null
+    let result: DispatchResult
     await act(async () => {
       // The frame's components carry no skillPool → capability-missing.
       result = await rendered.result.current.dispatchWrite(participantId, {
@@ -83,15 +107,15 @@ describe("useCombatantWrite", () => {
     })
 
     expect(result!).toEqual(err("capability-missing"))
-    expect(commit).not.toHaveBeenCalled()
+    expect(mutate).not.toHaveBeenCalled()
     expect(mirrored).toEqual([])
   })
 
-  it("refuses an unknown participant (no lane) before any mirror", async () => {
-    const commit = vi.fn()
-    const { rendered, mirrored } = renderWriteHook(commit)
+  it("refuses an unknown participant (no handle) before any mirror", async () => {
+    const mutate = vi.fn()
+    const { rendered, mirrored } = renderWriteHook(mutate)
 
-    let result: CommitResult | null
+    let result: DispatchResult
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         asParticipantId("ghost"),
@@ -100,15 +124,18 @@ describe("useCombatantWrite", () => {
     })
 
     expect(result!).toEqual(err("participant-not-found"))
-    expect(commit).not.toHaveBeenCalled()
+    expect(mutate).not.toHaveBeenCalled()
     expect(mirrored).toEqual([])
   })
 
-  it("returns the lane's failure (already toasted) to the caller", async () => {
-    const commit = vi.fn(async () => err("stale" as const))
-    const { rendered, mirrored } = renderWriteHook(commit)
+  it("toasts and returns a terminal remote rejection", async () => {
+    const { rendered, mirrored } = renderWriteHook(() => ({
+      id: 1,
+      local: Promise.resolve(ok(undefined)),
+      remote: Promise.resolve(err({ kind: "rejected", error: "forbidden" })),
+    }))
 
-    let result: CommitResult | null
+    let result: DispatchResult
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         participantId,
@@ -116,21 +143,23 @@ describe("useCombatantWrite", () => {
       )
     })
 
-    expect(result!).toEqual(err("stale"))
+    expect(result!).toEqual(err("forbidden"))
+    expect(toast.error).toHaveBeenCalled()
     // The optimistic mirror ran — React reverts it when the transition settles.
     expect(mirrored).toHaveLength(1)
   })
 
-  it("catches a thrown lane commit (transport failure): toasts and resolves to null", async () => {
-    const commit = vi.fn(async () => {
-      throw new Error("network down")
-    })
-    const { rendered, mirrored } = renderWriteHook(commit)
+  it("returns a local replica refusal (base disagrees with the frame) with its toast", async () => {
+    const refused = Promise.resolve(
+      err({ kind: "refused" as const, error: "capability-missing" as const })
+    )
+    const { rendered } = renderWriteHook(() => ({
+      id: null,
+      local: refused,
+      remote: refused,
+    }))
 
-    let result: CommitResult | null = ok({
-      version: 0,
-      channel: { domain: "encounter" as const, shortId: "enc" },
-    })
+    let result: DispatchResult
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         participantId,
@@ -138,9 +167,46 @@ describe("useCombatantWrite", () => {
       )
     })
 
-    // A transport throw doesn't escape to the route boundary — it resolves to
-    // null with a generic toast, and the optimistic mirror (which ran before the
-    // commit) reverts when the transition settles.
+    expect(result!).toEqual(err("capability-missing"))
+    expect(toast.error).toHaveBeenCalled()
+  })
+
+  it("stays quiet on a disposed/expired replica — the write-unavailable arm", async () => {
+    const unavailable = Promise.resolve(err({ kind: "expired" as const }))
+    const { rendered } = renderWriteHook(() => ({
+      id: null,
+      local: unavailable,
+      remote: unavailable,
+    }))
+
+    let result: DispatchResult
+    await act(async () => {
+      result = await rendered.result.current.dispatchWrite(
+        participantId,
+        damage
+      )
+    })
+
+    expect(result!).toEqual(err("write-unavailable"))
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it("catches a thrown mutate (programmer bug): toasts and resolves to null", async () => {
+    const { rendered, mirrored } = renderWriteHook(() => {
+      throw new Error("registry mismatch")
+    })
+
+    let result: DispatchResult = ok(undefined)
+    await act(async () => {
+      result = await rendered.result.current.dispatchWrite(
+        participantId,
+        damage
+      )
+    })
+
+    // A throw doesn't escape to the route boundary — it resolves to null with
+    // a generic toast, and the optimistic mirror (which ran before the
+    // dispatch) reverts when the transition settles.
     expect(result).toBeNull()
     expect(toast.error).toHaveBeenCalledWith("Couldn't save. Try again.")
     expect(mirrored).toHaveLength(1)

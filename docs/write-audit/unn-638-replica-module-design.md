@@ -897,13 +897,26 @@ the abstract:
 4. Dedup outcome retention and cleanup policy.
 5. Whether conflict history is retained until acknowledged or exposed only as current
    snapshot state.
-6. Whether Showtime migration can use the default `Remote = void` immediately or needs
-   the advanced `EntityCommit` mode temporarily.
-7. Replica granularity outside the character sheet: one replica per entity, a
-   collection-valued replica, and transport fan-in have different authority-scope,
-   cursor, and lifetime consequences.
-8. Which causal cursor Showtime will expose to collapse its current multi-dimensional
-   version checks at the transport seam.
+6. **Resolved (UNN-646).** The entity binding uses the default `Remote = void`; the
+   combat session door is the first production non-void `Remote` (`{ version }` — the
+   committed encounter version, recorded with the outcome, reproduced verbatim on
+   deduplicated redelivery, and folded into the console's surviving event-queue token so
+   the two protocols sharing the encounter row keep each other fresh). The recorded-mode
+   replica-contract law runs against it.
+7. **Resolved (UNN-646), with the rule the combat evidence produced: replica granularity
+   follows the authority's commit scope — the row-lock + auth boundary — never the UI's
+   dispatch scope.** Durable combat state → one replica per entity row (own lock, own
+   auth answer, own cursor, own lifetime); inline encounter state → one collection-valued
+   replica per encounter (one row, one scalar version, one gate, one lifetime); transport
+   fan-in is orthogonal — the console's single realtime subscription fans into N
+   transports without merging roots. Caveat recorded: the inline replica's justification
+   is at-most-once delivery and decision-point uniformity, not multi-writer evidence.
+   Full decision record: `apps/web/domain/combat/replica/AGENTS.md`.
+8. **Resolved (UNN-645/646).** The entity roots (owner and combat-durable) expose the
+   per-class version vector with a product-order classifier (`unknown` on mixed
+   dimensions → recovery read); the inline combat root exposes the scalar encounter
+   version (totally ordered, so the incomparable-cursor law is structurally omitted for
+   it, matching the alien polling precedent).
 9. Which other project will provide the second production adapter.
 
 ## Acceptance criteria

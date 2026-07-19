@@ -28,6 +28,15 @@ transaction, and serves value/watermark/cursor through one joined snapshot read.
 `domain/entity/replica/real-door-transport.db.test.ts` runs the transport laws and
 duplicate-delivery serialization against the ephemeral Neon CI branch.
 
+The combat replica (UNN-646) adds the sibling ledger `encounterReplicaClient`
+(encounter-pinned, cascade-delete, same last-outcome-only retention + TTL sweep)
+for the inline home; durable combat clients share `replicaClient`. **Lock
+orders:** `replicaClient → entity` (entity + combat durable doors) and
+`encounterReplicaClient → encounters` (combat session door). No transaction
+takes an aggregate row lock and then a ledger lock — except Postgres itself
+during a cascade delete (parent first), whose only casualty is an in-flight
+push aborting as an ambiguous, redeliverable delivery.
+
 **Wrapper naming rule** (still holds for the surviving aggregates): files in
 `queries/`/`writes/` are named for the slice or operation they touch, with **no
 aggregate prefix** (the folder already says which db) — `writes/map.ts`,

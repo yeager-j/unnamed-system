@@ -40,8 +40,10 @@ import {
  * rather than hidden: a tab that stays open but silent past the TTL loses its
  * row, and its next push is a `gap` refusal — the client must rebootstrap
  * from a fresh accepted snapshot (the same recovery a lost local state needs).
+ * Shared with the combat ledgers (UNN-646) so every dedup row ages by one
+ * policy.
  */
-const DEDUP_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const DEDUP_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 /**
  * Per-delivery trusted context, assembled by the push action **outside** the
@@ -109,15 +111,21 @@ export function createEntityPushProcessor(
   >({
     mutations: entityReplicaMutations,
     transact: (work) => db.transaction(work),
-    dedup: createDedupAdapter(entityId),
+    dedup: createEntityLedgerDedupAdapter(entityId),
     execute: executeEntityMutation,
     onEvent: logProcessorEvent,
   })
 }
 
-function createDedupAdapter(
+/**
+ * The `replicaClient` ledger adapter, exported for the combat durable door
+ * (UNN-646): durable combat clients register in the same entity-pinned ledger
+ * — their identity is one ordered stream against one entity, exactly like an
+ * owner tab's.
+ */
+export function createEntityLedgerDedupAdapter<Rejection>(
   entityId: string
-): MutationDedupAdapter<WriteExecutor, void, EntityReplicaRejection> {
+): MutationDedupAdapter<WriteExecutor, void, Rejection> {
   return {
     async acquire(tx, client) {
       // The row is minted at the client's BOOTSTRAP — the personalized
@@ -151,7 +159,7 @@ function createDedupAdapter(
         // Written exclusively by `record` below under the same schema; the
         // stored shape is this door's own recorded outcome, not foreign input.
         lastOutcome: (row.lastOutcome ?? undefined) as
-          | RecordedOutcome<void, EntityReplicaRejection>
+          | RecordedOutcome<void, Rejection>
           | undefined,
       }
     },

@@ -1,6 +1,7 @@
+import type { CombatWriteDispatchError } from "@/domain/combat/replica/rejection"
+
 import type { AddCatalogEnemiesError } from "./add-participants.schema"
 import type { ApplyCombatEventError } from "./apply-event.schema"
-import type { ApplyCombatantWriteError } from "./commit/apply-combatant-write.schema"
 import type { EndCombatError } from "./end-combat.schema"
 
 /**
@@ -15,7 +16,7 @@ import type { EndCombatError } from "./end-combat.schema"
 export function combatErrorMessage(
   error:
     | ApplyCombatEventError
-    | ApplyCombatantWriteError
+    | CombatWriteDispatchError
     | EndCombatError
     | AddCatalogEnemiesError
 ): string {
@@ -48,11 +49,17 @@ export function combatErrorMessage(
     case "participant-load-failed":
     case "invalid-entity":
     case "locator-missing":
-    case "missing-encounter-version":
-    case "missing-character-version":
+    case "participant-not-inline":
+    case "forbidden":
+    case "invalid-write":
     case "entity-not-found":
     case "entity-load-failed":
       return "Something went wrong with this encounter's data. Reload and try again."
+    // The quiet arm: a disposed/expired replica already surfaced its own
+    // toast (or the surface is unmounting); callers never toast this code,
+    // but the union is exhaustive here by design.
+    case "write-unavailable":
+      return "Reconnecting — try that again in a moment."
     // The Writer refusals; the character-family ones (allocation cap, entry
     // index, rest/leveling, the Spark loop — UNN-556/UNN-557/UNN-558) are
     // unreachable through the narrowed encounter wire, but the shared refusal

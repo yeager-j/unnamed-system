@@ -106,6 +106,5 @@ export function durableMeta(characterId: string): ParticipantMeta {
     storage: "durable",
     characterId,
     characterShortId: characterId,
-    vitalsVersion: 1,
   }
 }

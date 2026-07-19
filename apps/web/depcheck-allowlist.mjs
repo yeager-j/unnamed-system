@@ -93,8 +93,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "components/combat/console/use-combat-selection.ts",
   "components/combat/console/use-combatant-write.test.tsx",
   "components/combat/console/use-combatant-write.ts",
-  "components/combat/console/write-lanes.test.tsx",
-  "components/combat/console/write-lanes.ts",
   "components/combat/controls/engagement.tsx",
   "components/combat/controls/side-toggle.tsx",
   "components/combat/controls/zone-enchantment.tsx",

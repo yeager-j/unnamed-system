@@ -70,6 +70,32 @@ export async function loadEncounterCampaignId(
   return row?.campaignId ?? null
 }
 
+/** The blob-free routing/auth envelope of one encounter (UNN-646): what the
+ *  combat replica doors need before — and without — touching `session`. */
+export interface EncounterEnvelope {
+  id: string
+  shortId: string
+  campaignId: string
+  status: EncounterStatus
+}
+
+export async function loadEncounterEnvelopeById(
+  encounterId: string
+): Promise<EncounterEnvelope | null> {
+  const [row] = await db
+    .select({
+      id: encounters.id,
+      shortId: encounters.shortId,
+      campaignId: encounters.campaignId,
+      status: encounters.status,
+    })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+
+  return row ?? null
+}
+
 /** Summary row for the manage page's encounter list (UNN-329) — the columns the
  *  list renders, never the heavy `session` blob. */
 export interface EncounterSummary {
