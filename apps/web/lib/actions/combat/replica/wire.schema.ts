@@ -3,29 +3,18 @@ import { z } from "zod/v4"
 import type { ProcessRefusal } from "@workspace/replica/server"
 
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
+import { ReplicaMutationEnvelopeSchema } from "@/lib/actions/replica/wire.schema"
 
 /**
  * The combat replica doors' wire (UNN-646), the sibling of
- * `entity/replica/wire.schema.ts` — same rules: the envelope carries only
- * client identity (the root binding is Showtime's, riding beside it), and
- * `args` stays `unknown` so the authority's parse is the registry's `decode`
- * inside the processor, where a failed decode is RECORDED against the
- * watermark (deploy skew) instead of bouncing at the door.
+ * `entity/replica/wire.schema.ts` — the envelope carries only client identity
+ * while the root binding rides beside it. The shared schema owns the
+ * args-stay-unknown rule.
  *
  * Two push doors, not one with a home discriminant: each door can only write
  * its own home, so a tampered or confused client claim fails closed at the
  * other door's decode/locator check rather than routing anything.
  */
-const envelopeSchema = z.object({
-  clientGroupId: z.string().min(1),
-  clientId: z.string().min(1),
-  mutationId: z.number().int().positive(),
-  invocation: z.object({
-    name: z.string().min(1),
-    args: z.unknown(),
-  }),
-})
-
 /** Durable home: one `combat.entity.write` delivery against one entity row.
  *  `encounterId` scopes the delivery: the entity must still be a durable
  *  participant of that encounter (the classic router's fail-closed locator
@@ -34,7 +23,7 @@ const envelopeSchema = z.object({
 export const CombatDurablePushSchema = z.object({
   encounterId: z.string().min(1),
   entityId: z.string().min(1),
-  envelope: envelopeSchema,
+  envelope: ReplicaMutationEnvelopeSchema,
 })
 
 export type CombatDurablePushInput = z.input<typeof CombatDurablePushSchema>
@@ -42,7 +31,7 @@ export type CombatDurablePushInput = z.input<typeof CombatDurablePushSchema>
 /** Inline home: one `combat.session.write` delivery against the session blob. */
 export const CombatSessionPushSchema = z.object({
   encounterId: z.string().min(1),
-  envelope: envelopeSchema,
+  envelope: ReplicaMutationEnvelopeSchema,
 })
 
 export type CombatSessionPushInput = z.input<typeof CombatSessionPushSchema>

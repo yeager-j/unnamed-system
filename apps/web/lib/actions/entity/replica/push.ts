@@ -1,6 +1,7 @@
 "use server"
 
-import { err, ok, type Result } from "@workspace/result"
+import { createMutationPushDoor } from "@workspace/replica/server"
+import { err, type Result } from "@workspace/result"
 
 import { ENTITY_WRITERS } from "@/domain/entity/commit/writers"
 import { entityReplicaMutations } from "@/domain/entity/replica/mutations"
@@ -37,26 +38,25 @@ import {
 export async function pushEntityMutationAction(
   input: EntityPushInput
 ): Promise<Result<void, EntityPushError>> {
-  const parsed = EntityPushSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-  const { entityId, envelope } = parsed.data
+  return pushEntityMutation(input)
+}
 
-  const context: EntityPushContext = {
-    entityId,
-    authorization: await authorizeEnvelope(entityId, envelope.invocation),
-  }
-  const processor = createEntityPushProcessor(entityId)
-  const result = await processor(envelope, context)
-
-  if (context.committed) {
-    const { shortId, durableClass, version, revalidateList } = context.committed
+const pushEntityMutation = createMutationPushDoor({
+  schema: EntityPushSchema,
+  invalidInput: "invalid-input" as const,
+  async prepare({ entityId, envelope }): Promise<EntityPushContext> {
+    return {
+      entityId,
+      authorization: await authorizeEnvelope(entityId, envelope.invocation),
+    }
+  },
+  createProcessor: ({ entityId }) => createEntityPushProcessor(entityId),
+  afterCommit({ shortId, durableClass, version, revalidateList }) {
     publishCharacterPing(shortId, "entity", { [durableClass]: version })
     revalidateEntity({ shortId })
     if (revalidateList) revalidateCharacterList()
-  }
-
-  return result.ok ? ok(undefined) : err(result.error)
-}
+  },
+})
 
 /**
  * The viewer's verdict for this delivery, computed before the transaction:

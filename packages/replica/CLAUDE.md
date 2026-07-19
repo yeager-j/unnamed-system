@@ -21,10 +21,18 @@ are the production examples; `src/reference/` is the deliberately alien one.
   version vectors write a product-order compare that returns `unknown` on mixed dimensions).
 - `createMutationProcessor` (`@workspace/replica/server`) — the authority algorithm. You
   supply `transact`, a dedup adapter (row-locked acquire/record), and `execute`.
+- `createMutationPushDoor` (`@workspace/replica/server`) — the framework-neutral authority
+  door composition: Standard Schema wire validation → application-owned trusted-context
+  preparation → processor → committed-only effects. The context's optional `committed`
+  value is the proof that this delivery executed; a deduplicated replay returns its recorded
+  result without repeating effects. Supply the wire schema, authorization/context builder,
+  processor factory, and ping/revalidation callback from the application adapter.
 
 Binding-owned, never package-owned: identity naming, cursor construction, auth policy,
 toast/error UX, source construction (vendor clients, backoff), and the durable-vs-inline
-style root decision an app makes before it ever calls `mutate`.
+style root decision an app makes before it ever calls `mutate`. Database-specific ledger
+implementations and framework-specific action exports also remain in the binding; the server
+entry point supplies their protocol interfaces and orchestration, not vendor adapters.
 
 ## Mounting the contract suites
 

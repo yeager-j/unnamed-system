@@ -8,6 +8,7 @@ import type {
   ProcessRefusal,
   RecordedOutcome,
 } from "./protocol"
+import type { StandardSchemaV1 } from "./standard-schema"
 
 export type {
   ClientIdentity,
@@ -122,6 +123,86 @@ export type MutationProcessor<TrustedContext, Error, Remote> = (
   envelope: MutationEnvelope<{ readonly name: string; readonly args: unknown }>,
   context: TrustedContext
 ) => Promise<Result<Remote, ProcessRefusal<Error>>>
+
+export interface MutationPushDoorOptions<
+  Input,
+  Parsed extends {
+    readonly envelope: MutationEnvelope<{
+      readonly name: string
+      readonly args: unknown
+    }>
+  },
+  Context extends { committed?: Commit },
+  Commit,
+  Error,
+  Remote,
+  InvalidInput,
+> {
+  readonly schema: StandardSchemaV1<Input, Parsed>
+  readonly invalidInput: InvalidInput
+  prepare(parsed: Parsed): Context | Promise<Context>
+  createProcessor(parsed: Parsed): MutationProcessor<Context, Error, Remote>
+  afterCommit(
+    commit: Commit,
+    parsed: Parsed,
+    context: Context
+  ): void | Promise<void>
+}
+
+/**
+ * Composes an authority push door around a mutation processor without taking
+ * ownership of the application's framework, wire-schema vendor, authorization
+ * policy, or post-commit effects. The door validates the transport shape,
+ * prepares trusted context outside the transaction, invokes the configured
+ * processor, and runs effects only when `execute` left a commit marker in the
+ * context. A deduplicated replay therefore returns its recorded result without
+ * repeating pings, revalidation, or other application effects.
+ *
+ * Validation issues become the caller's `invalidInput` value. Unexpected
+ * throws from validation, context preparation, processing, or effects remain
+ * thrown so the transport can classify their ambiguity.
+ */
+export function createMutationPushDoor<
+  Input,
+  Parsed extends {
+    readonly envelope: MutationEnvelope<{
+      readonly name: string
+      readonly args: unknown
+    }>
+  },
+  Context extends { committed?: Commit },
+  Commit,
+  Error,
+  Remote,
+  InvalidInput,
+>(
+  options: MutationPushDoorOptions<
+    Input,
+    Parsed,
+    Context,
+    Commit,
+    Error,
+    Remote,
+    InvalidInput
+  >
+): (
+  input: Input
+) => Promise<Result<Remote, InvalidInput | ProcessRefusal<Error>>> {
+  return async function push(input) {
+    const parsed = await options.schema["~standard"].validate(input)
+    if (parsed.issues) return err(options.invalidInput)
+
+    const context = await options.prepare(parsed.value)
+    const processor = options.createProcessor(parsed.value)
+    const result = await processor(parsed.value.envelope, context)
+
+    if (context.committed !== undefined) {
+      await options.afterCommit(context.committed, parsed.value, context)
+    }
+
+    return result
+  }
+}
 
 /**
  * Parses an envelope, enforces per-client ordering and deduplication, invokes

@@ -3,6 +3,7 @@ import { z } from "zod/v4"
 import type { ProcessRefusal } from "@workspace/replica/server"
 
 import type { EntityReplicaRejection } from "@/domain/entity/replica/rejection"
+import { ReplicaMutationEnvelopeSchema } from "@/lib/actions/replica/wire.schema"
 
 /**
  * The replica door's wire (UNN-645): the transport envelope around one
@@ -10,23 +11,12 @@ import type { EntityReplicaRejection } from "@/domain/entity/replica/rejection"
  * protocol envelope itself carries only client identity — the entity binding
  * is Showtime's, so it rides beside the envelope, not inside it).
  *
- * `args` stays `unknown` here deliberately: the authority's parse is the
- * mutation registry's `decode` inside the processor (the same
- * `entityWriteSchema` the client validated with), and it must run *there* so
- * a failed decode is RECORDED against the watermark (deploy skew) instead of
- * bouncing at the action door as a retryable-looking refusal.
+ * The shared envelope schema deliberately leaves mutation arguments unknown;
+ * its module documents why decoding belongs inside the processor.
  */
 export const EntityPushSchema = z.object({
   entityId: z.string().min(1),
-  envelope: z.object({
-    clientGroupId: z.string().min(1),
-    clientId: z.string().min(1),
-    mutationId: z.number().int().positive(),
-    invocation: z.object({
-      name: z.string().min(1),
-      args: z.unknown(),
-    }),
-  }),
+  envelope: ReplicaMutationEnvelopeSchema,
 })
 
 export type EntityPushInput = z.input<typeof EntityPushSchema>
