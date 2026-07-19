@@ -12,13 +12,6 @@ import type { MutationInvocation, MutationRegistry } from "./mutations"
 import type { Accepted, ClientIdentity } from "./protocol"
 import type { ReplicaTransport } from "./transport"
 
-/**
- * Everything one bootstrap round mints: a fresh identity, the personalized
- * accepted floor read under that identity, and the transport bound to both.
- * The bootstrap read is where an authority REGISTERS the identity, so
- * registration provably precedes the first push; a rebuild after expiry calls
- * `bootstrap` again and gets a fresh identity, never reusing a dead one.
- */
 export interface ManagedReplicaSetup<
   State,
   Invocation extends MutationInvocation,
@@ -37,21 +30,9 @@ export interface ManagedReplicaSetup<
   >
 }
 
-/**
- * Why one bootstrap round could not produce a setup.
- *
- * - `retryable` — the setup MIGHT succeed later (a network failure, a 5xx, a
- *   thrown call). The managed layer owns backoff and re-attempts.
- * - `unavailable` — it will not. The root does not exist, the viewer may not
- *   have it, or the authority refused the request terminally. The controller
- *   stops, and buffered intent settles `unavailable` rather than hanging.
- *
- * A binding classifies its OWN door errors into these two; the package never
- * guesses from an application error code.
- */
-export type ManagedBootstrapFailure =
+export type ManagedBootstrapFailure<UnavailableReason = unknown> =
   | { readonly kind: "retryable"; readonly cause?: unknown }
-  | { readonly kind: "unavailable"; readonly reason?: unknown }
+  | { readonly kind: "unavailable"; readonly reason: UnavailableReason }
 
 export type ManagedBootstrapResult<
   State,
@@ -59,15 +40,75 @@ export type ManagedBootstrapResult<
   ApplyError,
   Remote = void,
   Cursor = unknown,
-> =
-  | ManagedReplicaSetup<State, Invocation, ApplyError, Remote, Cursor>
-  | ManagedBootstrapFailure
+  UnavailableReason = unknown,
+> = Result<
+  ManagedReplicaSetup<State, Invocation, ApplyError, Remote, Cursor>,
+  ManagedBootstrapFailure<UnavailableReason>
+>
 
-/** Bootstrap retry pacing — mirrors the push backoff so a flapping authority
- *  produces one recognisable cadence across both directions. */
+export type ManagedUnavailable<UnavailableReason = unknown> =
+  | {
+      readonly kind: "terminal"
+      readonly reason: UnavailableReason
+    }
+  | {
+      readonly kind: "retry-exhausted"
+      readonly attempts: number
+      readonly cause?: unknown
+    }
+
+export type ManagedMutationError<ApplyError, UnavailableReason = unknown> =
+  | MutationError<ApplyError>
+  | {
+      readonly kind: "unavailable"
+      readonly failure: ManagedUnavailable<UnavailableReason>
+    }
+
+export interface ManagedMutationReceipt<
+  ApplyError,
+  Remote = void,
+  UnavailableReason = unknown,
+> {
+  readonly local: Promise<
+    Result<void, ManagedMutationError<ApplyError, UnavailableReason>>
+  >
+  readonly remote: Promise<
+    Result<Remote, ManagedMutationError<ApplyError, UnavailableReason>>
+  >
+}
+
+export type ManagedReplicaState<
+  State,
+  ApplyError,
+  UnavailableReason = unknown,
+> =
+  | { readonly status: "bootstrapping" }
+  | {
+      readonly status: "retrying"
+      readonly attempt: number
+      readonly maxAttempts: number
+      readonly cause?: unknown
+    }
+  | {
+      readonly status: "ready"
+      readonly replica: ReplicaSnapshot<State, ApplyError>
+    }
+  | {
+      readonly status: "expired"
+      readonly dropped: number
+    }
+  | {
+      readonly status: "unavailable"
+      readonly failure: ManagedUnavailable<UnavailableReason>
+    }
+  | { readonly status: "disposing" }
+  | { readonly status: "disposed" }
+
 const BOOTSTRAP_RETRY_BASE_MS = 250
 const BOOTSTRAP_RETRY_MAX_MS = 4_000
-const BOOTSTRAP_RETRY_ATTEMPTS = 5
+const BOOTSTRAP_RETRIES = 5
+const BOOTSTRAP_MAX_ATTEMPTS = BOOTSTRAP_RETRIES + 1
+const BOOTSTRAP_ATTEMPT_TIMEOUT_MS = 10_000
 
 export interface ManagedReplicaOptions<
   State,
@@ -75,422 +116,562 @@ export interface ManagedReplicaOptions<
   ApplyError,
   Remote = void,
   Cursor = unknown,
+  UnavailableReason = unknown,
 > {
   readonly mutations: MutationRegistry<State, Invocation, ApplyError>
-  /**
-   * Mints an identity, registers it with the authority, and returns the
-   * accepted floor + transport — or a {@link ManagedBootstrapFailure} saying
-   * whether another attempt could help. A THROWN bootstrap is classified
-   * `retryable`: a throw is ambiguous, and the retry budget bounds it.
-   *
-   * Every dispatch buffered during the bootstrap window reaches a
-   * deterministic outcome: adopted by a later attempt, or settled
-   * `unavailable` when the controller gives up. A bootstrap that can neither
-   * succeed nor fail is a write black hole — the contract exists to make that
-   * state unrepresentable.
-   */
-  readonly bootstrap: () => Promise<
-    ManagedBootstrapResult<State, Invocation, ApplyError, Remote, Cursor>
+  readonly bootstrap: (
+    signal: AbortSignal
+  ) => Promise<
+    ManagedBootstrapResult<
+      State,
+      Invocation,
+      ApplyError,
+      Remote,
+      Cursor,
+      UnavailableReason
+    >
   >
   readonly delivery?: { readonly retryBudget?: number }
-  /** How many `retryable` bootstrap failures to absorb before the controller
-   *  goes `unavailable`. Defaults to {@link BOOTSTRAP_RETRY_ATTEMPTS}. */
-  readonly bootstrapRetries?: number
-  /**
-   * Metrics/logging sink, forwarded verbatim from the underlying replica.
-   * **Observability only.** Its failure must never affect replica semantics —
-   * the controller isolates it, and no lifecycle transition is sequenced
-   * behind it. Never implement reconciliation on top of `ReplicaEvent`; use
-   * {@link onAccepted} / {@link onExpired}, which are the semantic hooks.
-   */
   readonly onEvent?: (event: ReplicaEvent) => void
-  /**
-   * Fires when an accepted observation has been incorporated — the authority's
-   * state advanced as far as this client can see it, from ANY writer. This is
-   * the hook an application refreshes other containers from.
-   *
-   * It deliberately says nothing about *whose* mutations the observation
-   * carried: the incorporation watermark answers "which of MY mutations are
-   * in", never "is this tuple free of everyone else's changes", so watermark
-   * movement cannot be used to suppress a refresh.
-   */
   readonly onAccepted?: () => void
-  /**
-   * Application policy for identity expiry (e.g. a toast when predictions
-   * were dropped). The controller has already begun rebuilding under a fresh
-   * identity when this fires.
-   */
   readonly onExpired?: (event: { readonly dropped: number }) => void
+  readonly onUnavailable?: (
+    failure: ManagedUnavailable<UnavailableReason>
+  ) => void
 }
 
-/**
- * A replica whose bootstrap, rebuild, and disposal are managed. The surface
- * mirrors `Replica` (plus `settleMutations`); `getSnapshot` is null until a
- * bootstrap resolves and after expiry, unavailability, or disposal — callers
- * render their own frame in those windows.
- */
 export interface ManagedReplica<
   State,
   Invocation extends MutationInvocation,
   ApplyError,
   Remote = void,
+  UnavailableReason = unknown,
 > {
-  getSnapshot(): ReplicaSnapshot<State, ApplyError> | null
+  getSnapshot(): ManagedReplicaState<State, ApplyError, UnavailableReason>
   subscribe(listener: () => void): () => void
-  /**
-   * Predicts + delivers one mutation. Dispatches before the first bootstrap
-   * resolves are buffered in order and replayed through the replica — the
-   * receipt settles once the real one exists, or `unavailable` if no bootstrap
-   * attempt ever succeeds. Dispatches during an expiry rebuild settle
-   * `expired` instead: their intent belongs to a dead identity, and silently
-   * re-issuing it under a fresh one could double-apply — the application
-   * re-issues only what it judges safe.
-   */
-  mutate(invocation: Invocation): MutationReceipt<ApplyError, Remote>
-  /** Waits for every tracked mutation to reach a trusted remote outcome. */
+  mutate(
+    invocation: Invocation
+  ): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
   settleMutations(): Promise<Result<void, "pending-write-failed">>
-  /**
-   * Tears down after ONE macrotask: cleanups that run parent-first (React
-   * effect order) may still land fire-and-forget mutations through this
-   * controller in the same commit, and those must find a live replica. A
-   * bootstrap resolving after disposal drains the buffer through the
-   * short-lived replica (the unmount-save flush), then lets it go.
-   */
   dispose(): void
 }
 
-export interface BufferedMutation<Invocation, ApplyError, Remote> {
+const HANDOFF_MUTATION = Symbol("managed-replica-handoff-mutation")
+
+interface ManagedReplicaWithHandoff<
+  State,
+  Invocation extends MutationInvocation,
+  ApplyError,
+  Remote,
+  UnavailableReason,
+> extends ManagedReplica<
+  State,
+  Invocation,
+  ApplyError,
+  Remote,
+  UnavailableReason
+> {
+  [HANDOFF_MUTATION](
+    invocation: Invocation
+  ): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
+}
+
+export function handoffManagedMutation<
+  State,
+  Invocation extends MutationInvocation,
+  ApplyError,
+  Remote,
+  UnavailableReason,
+>(
+  replica: ManagedReplica<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    UnavailableReason
+  >,
+  invocation: Invocation
+): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason> {
+  return (
+    replica as ManagedReplicaWithHandoff<
+      State,
+      Invocation,
+      ApplyError,
+      Remote,
+      UnavailableReason
+    >
+  )[HANDOFF_MUTATION](invocation)
+}
+
+export interface BufferedMutation<
+  Invocation,
+  ApplyError,
+  Remote,
+  UnavailableReason,
+> {
   readonly invocation: Invocation
-  readonly resolve: (receipt: MutationReceipt<ApplyError, Remote>) => void
+  readonly resolve: (
+    receipt: ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
+  ) => void
 }
 
-/** A receipt settled before entering any log (refused/disposed/expired). */
-export function settledMutationReceipt<ApplyError, Remote>(
-  failure: MutationError<ApplyError>
-): MutationReceipt<ApplyError, Remote> {
+export function settledManagedMutationReceipt<
+  ApplyError,
+  Remote,
+  UnavailableReason,
+>(
+  failure: ManagedMutationError<ApplyError, UnavailableReason>
+): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason> {
   const outcome = Promise.resolve(err(failure))
-  return { id: null, local: outcome, remote: outcome }
+  return { local: outcome, remote: outcome }
 }
 
-/**
- * A receipt that settles from a real one minted later — the buffered-dispatch
- * shape shared by the controller's bootstrap window and the React hook's
- * pre-effect window.
- *
- * `id` is a getter, not a captured `null`: the documented meaning of
- * `MutationReceipt.id` is "null iff no protocol ID was consumed", and a
- * buffered dispatch that is later adopted DOES consume one. A frozen `null`
- * would make an adopted mutation indistinguishable from a refused one.
- */
-export function proxiedMutationReceipt<Invocation, ApplyError, Remote>(
+function managedReceiptFromCore<ApplyError, Remote, UnavailableReason>(
+  receipt: MutationReceipt<ApplyError, Remote>
+): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason> {
+  return { local: receipt.local, remote: receipt.remote }
+}
+
+export function proxiedManagedMutationReceipt<
+  Invocation,
+  ApplyError,
+  Remote,
+  UnavailableReason,
+>(
   invocation: Invocation
 ): {
-  entry: BufferedMutation<Invocation, ApplyError, Remote>
-  receipt: MutationReceipt<ApplyError, Remote>
+  entry: BufferedMutation<Invocation, ApplyError, Remote, UnavailableReason>
+  receipt: ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
 } {
-  let adopted: MutationReceipt<ApplyError, Remote> | null = null
-  let resolveReceipt!: (receipt: MutationReceipt<ApplyError, Remote>) => void
-  const receiptPromise = new Promise<MutationReceipt<ApplyError, Remote>>(
-    (resolve) => {
-      resolveReceipt = resolve
-    }
-  )
+  let resolveReceipt!: (
+    receipt: ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
+  ) => void
+  const receiptPromise = new Promise<
+    ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
+  >((resolve) => {
+    resolveReceipt = resolve
+  })
   return {
-    entry: {
-      invocation,
-      resolve: (receipt) => {
-        adopted = receipt
-        resolveReceipt(receipt)
-      },
-    },
+    entry: { invocation, resolve: resolveReceipt },
     receipt: {
-      get id() {
-        return adopted?.id ?? null
-      },
       local: receiptPromise.then((receipt) => receipt.local),
       remote: receiptPromise.then((receipt) => receipt.remote),
     },
   }
 }
 
-/**
- * Owns one replica's lifecycle around `createReplica` (extracted from the
- * entity binding's hook in UNN-646, once the combat binding needed the same
- * scaffolding): bootstrap-before-construction, ordered buffering during the
- * bootstrap window, bootstrap retry/terminal classification, receipt
- * settlement tracking, expiry rebuild under a fresh identity, and deferred
- * disposal. Framework-free — React callers wrap it with `useManagedReplica`;
- * imperative callers (a keyed set of replicas) drive it directly.
- *
- * **Two invariants the lifecycle owes its callers.** Every dispatch reaches a
- * terminal outcome — there is no phase in which a receipt stays unresolved
- * indefinitely. And every internal transition (expiry rebuild, terminal
- * unavailability, teardown) runs to completion independently of the
- * application callbacks that report it.
- */
+interface JournalEntry<ApplyError, Remote, UnavailableReason> {
+  readonly sequence: number
+  readonly remote: Promise<
+    Result<Remote, ManagedMutationError<ApplyError, UnavailableReason>>
+  >
+}
+
+export interface ManagedReceiptJournal<ApplyError, Remote, UnavailableReason> {
+  track(
+    receipt: ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
+  ): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
+  settle(): Promise<Result<void, "pending-write-failed">>
+}
+
+export function createManagedReceiptJournal<
+  ApplyError,
+  Remote,
+  UnavailableReason,
+>(): ManagedReceiptJournal<ApplyError, Remote, UnavailableReason> {
+  let nextSequence = 1
+  const entries = new Map<
+    number,
+    JournalEntry<ApplyError, Remote, UnavailableReason>
+  >()
+
+  return {
+    track(receipt) {
+      const sequence = nextSequence
+      nextSequence += 1
+      const entry = { sequence, remote: receipt.remote }
+      entries.set(sequence, entry)
+      void receipt.remote.then(
+        (result) => {
+          if (result.ok && entries.get(sequence) === entry) {
+            entries.delete(sequence)
+          }
+        },
+        () => {
+          // A rejected promise is retained until a settlement barrier reports it.
+        }
+      )
+      return receipt
+    },
+
+    async settle() {
+      const boundary = nextSequence - 1
+      const captured = [...entries.values()].filter(
+        (entry) => entry.sequence <= boundary
+      )
+      const outcomes = await Promise.allSettled(
+        captured.map((entry) => entry.remote)
+      )
+      for (const entry of captured) {
+        if (entries.get(entry.sequence) === entry)
+          entries.delete(entry.sequence)
+      }
+      const failed = outcomes.some(
+        (outcome) => outcome.status === "rejected" || !outcome.value.ok
+      )
+      return failed ? err("pending-write-failed") : ok(undefined)
+    },
+  }
+}
+
+function retryDelay(attempt: number): number {
+  return Math.min(
+    BOOTSTRAP_RETRY_BASE_MS * 2 ** (attempt - 1),
+    BOOTSTRAP_RETRY_MAX_MS
+  )
+}
+
 export function createManagedReplica<
   State,
   Invocation extends MutationInvocation,
   ApplyError,
   Remote = void,
   Cursor = unknown,
+  UnavailableReason = unknown,
 >(
-  options: ManagedReplicaOptions<State, Invocation, ApplyError, Remote, Cursor>
-): ManagedReplica<State, Invocation, ApplyError, Remote> {
-  type Receipt = MutationReceipt<ApplyError, Remote>
+  options: ManagedReplicaOptions<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    Cursor,
+    UnavailableReason
+  >
+): ManagedReplica<State, Invocation, ApplyError, Remote, UnavailableReason> {
   type Instance = Replica<State, Invocation, ApplyError, Remote>
+  type StateSnapshot = ManagedReplicaState<State, ApplyError, UnavailableReason>
+  type ManagedReceipt = ManagedMutationReceipt<
+    ApplyError,
+    Remote,
+    UnavailableReason
+  >
 
-  /**
-   * `bootstrapping` buffers dispatches (a retry between attempts is still this
-   * phase); `ready` forwards them; `expired` (a rebuild in flight) refuses
-   * them with `expired`; `unavailable` is the terminal no-replica-will-exist
-   * phase; `disposing` is the one-macrotask grace window where the instance
-   * still accepts unmount flushes; `disposed` refuses everything.
-   */
-  let phase:
-    | "bootstrapping"
-    | "ready"
-    | "expired"
-    | "unavailable"
-    | "disposing"
-    | "disposed" = "bootstrapping"
-  let bootstrapInFlight = false
-  let bootstrapAttempt = 0
-  let retryTimer: ReturnType<typeof setTimeout> | null = null
+  let state: StateSnapshot = { status: "bootstrapping" }
   let instance: Instance | null = null
   let unsubscribeInstance: (() => void) | null = null
-  let buffer: BufferedMutation<Invocation, ApplyError, Remote>[] = []
+  let buffer: BufferedMutation<
+    Invocation,
+    ApplyError,
+    Remote,
+    UnavailableReason
+  >[] = []
   const listeners = new Set<() => void>()
-  const unsettled = new Set<
-    Promise<Result<Remote, MutationError<ApplyError>>>
+  const journal = createManagedReceiptJournal<
+    ApplyError,
+    Remote,
+    UnavailableReason
   >()
-  let settlementFailed = false
-  const retryLimit = options.bootstrapRetries ?? BOOTSTRAP_RETRY_ATTEMPTS
+  let bootstrapGeneration = 0
+  let bootstrapAbort: AbortController | null = null
+  let bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null
+  let bootstrapTimeoutTimer: ReturnType<typeof setTimeout> | null = null
 
-  function notify(): void {
-    for (const listener of [...listeners]) listener()
-  }
-
-  /**
-   * Runs an APPLICATION callback where a lifecycle transition would otherwise
-   * be sequenced behind it. A throwing logger, toast, or policy hook must
-   * never be able to strand the controller — every internal transition
-   * completes before its notification, and the notification cannot abort it.
-   */
   function isolate(run: () => void): void {
     try {
       run()
     } catch {
-      // Observability and application policy are not part of the protocol.
+      // Application callbacks never participate in lifecycle correctness.
     }
   }
 
-  const settledReceipt = settledMutationReceipt<ApplyError, Remote>
+  function notify(): void {
+    for (const listener of [...listeners]) isolate(listener)
+  }
 
-  function trackReceipt(receipt: Receipt): Receipt {
-    const remote = receipt.remote
-    unsettled.add(remote)
-    void remote.then(
-      (result) => {
-        if (!result.ok) settlementFailed = true
-        unsettled.delete(remote)
-      },
-      () => {
-        settlementFailed = true
-        unsettled.delete(remote)
-      }
-    )
-    return receipt
+  function transition(next: StateSnapshot): void {
+    state = next
+    notify()
+  }
+
+  function clearBootstrapClock(): void {
+    if (bootstrapRetryTimer !== null) {
+      clearTimeout(bootstrapRetryTimer)
+      bootstrapRetryTimer = null
+    }
+    if (bootstrapTimeoutTimer !== null) {
+      clearTimeout(bootstrapTimeoutTimer)
+      bootstrapTimeoutTimer = null
+    }
+  }
+
+  function cancelBootstrap(): void {
+    bootstrapGeneration += 1
+    clearBootstrapClock()
+    bootstrapAbort?.abort()
+    bootstrapAbort = null
+  }
+
+  function retireInstance(): Instance | null {
+    const retired = instance
+    unsubscribeInstance?.()
+    unsubscribeInstance = null
+    instance = null
+    return retired
+  }
+
+  function settleBuffer(
+    failure: ManagedMutationError<ApplyError, UnavailableReason>
+  ): void {
+    const buffered = buffer
+    buffer = []
+    for (const entry of buffered) {
+      entry.resolve(
+        settledManagedMutationReceipt<ApplyError, Remote, UnavailableReason>(
+          failure
+        )
+      )
+    }
   }
 
   function drainBuffer(target: Instance): void {
     const buffered = buffer
     buffer = []
-    for (const entry of buffered) entry.resolve(target.mutate(entry.invocation))
+    for (const entry of buffered) {
+      entry.resolve(
+        managedReceiptFromCore<ApplyError, Remote, UnavailableReason>(
+          target.mutate(entry.invocation)
+        )
+      )
+    }
   }
 
-  function settleBuffer(failure: MutationError<ApplyError>): void {
-    const buffered = buffer
-    buffer = []
-    for (const entry of buffered) entry.resolve(settledReceipt(failure))
+  function expireInstance(expired: Instance, dropped: number): void {
+    if (instance !== expired) return
+    retireInstance()
+    queueMicrotask(() => expired.dispose())
+    if (state.status === "disposing" || state.status === "disposed") return
+
+    transition({ status: "expired", dropped })
+    startBootstrap(1)
+    isolate(() => options.onExpired?.({ dropped }))
+  }
+
+  function createInstance(
+    setup: ManagedReplicaSetup<State, Invocation, ApplyError, Remote, Cursor>
+  ): Instance {
+    const created: Instance = createReplica({
+      identity: setup.identity,
+      initial: setup.initial,
+      mutations: options.mutations,
+      transport: setup.transport,
+      delivery: options.delivery,
+      onEvent: (event) => {
+        if (event.kind === "expired") expireInstance(created, event.dropped)
+        if (event.kind === "snapshot") {
+          queueMicrotask(() => {
+            if (state.status === "ready" && instance === created) {
+              isolate(() => options.onAccepted?.())
+            }
+          })
+        }
+        isolate(() => options.onEvent?.(event))
+      },
+    })
+    return created
   }
 
   function adoptInstance(created: Instance): void {
     instance = created
-    unsubscribeInstance = created.subscribe(notify)
-    phase = "ready"
+    unsubscribeInstance = created.subscribe(() => {
+      if (instance !== created || state.status !== "ready") return
+      const replica = created.getSnapshot()
+      if (state.replica !== replica) transition({ status: "ready", replica })
+    })
+    transition({ status: "ready", replica: created.getSnapshot() })
     drainBuffer(created)
-    notify()
   }
 
-  function retireInstance(): void {
-    unsubscribeInstance?.()
-    unsubscribeInstance = null
-    instance = null
+  function enterUnavailable(
+    failure: ManagedUnavailable<UnavailableReason>
+  ): void {
+    transition({ status: "unavailable", failure })
+    settleBuffer({ kind: "unavailable", failure })
+    isolate(() => options.onUnavailable?.(failure))
   }
 
-  function bootstrap(): void {
-    bootstrapInFlight = true
-    void options
-      .bootstrap()
-      .then(
-        (result) => result,
-        // A throw is ambiguous — it may be a transient network failure — so
-        // it is retryable, never terminal.
-        (cause): ManagedBootstrapFailure => ({ kind: "retryable", cause })
-      )
-      .then((result) => {
-        bootstrapInFlight = false
-        if ("kind" in result) return handleBootstrapFailure(result)
-
-        bootstrapAttempt = 0
-        const created = createReplica({
-          identity: result.identity,
-          initial: result.initial,
-          mutations: options.mutations,
-          transport: result.transport,
-          delivery: options.delivery,
-          onEvent: (event) => {
-            // The internal transition runs FIRST and unconditionally; the
-            // application sinks are notified after, isolated. Sequencing a
-            // rebuild behind a logger is how a throwing sink strands a tab.
-            if (event.kind === "expired" && instance === created) {
-              expireInstance(created, event.dropped)
-            }
-            if (event.kind === "snapshot") {
-              isolate(() => options.onAccepted?.())
-            }
-            isolate(() => options.onEvent?.(event))
-          },
-        })
-        if (phase === "disposing" || phase === "disposed") {
-          // Torn down mid-bootstrap with unmount saves in the buffer: flush
-          // them through this short-lived replica (fire-and-forget, like the
-          // classic path's unmount save), then let it go.
-          drainBuffer(created)
-          setTimeout(() => created.dispose(), 0)
-          return
-        }
-        adoptInstance(created)
-      })
-  }
-
-  function handleBootstrapFailure(failure: ManagedBootstrapFailure): void {
-    if (phase === "disposing" || phase === "disposed") {
-      // Nothing will ever drain the buffer: the teardown timer deferred to
-      // this in-flight attempt, and the attempt came back empty.
+  function handleBootstrapFailure(
+    failure: ManagedBootstrapFailure<UnavailableReason>,
+    attempt: number
+  ): void {
+    if (state.status === "disposing" || state.status === "disposed") {
       settleBuffer({ kind: "disposed" })
       return
     }
-    if (failure.kind === "retryable" && bootstrapAttempt < retryLimit) {
-      bootstrapAttempt += 1
-      const delay = Math.min(
-        BOOTSTRAP_RETRY_BASE_MS * 2 ** (bootstrapAttempt - 1),
-        BOOTSTRAP_RETRY_MAX_MS
+    if (failure.kind === "unavailable") {
+      enterUnavailable({ kind: "terminal", reason: failure.reason })
+      return
+    }
+    if (attempt >= BOOTSTRAP_MAX_ATTEMPTS) {
+      enterUnavailable({
+        kind: "retry-exhausted",
+        attempts: attempt,
+        ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+      })
+      return
+    }
+
+    const nextAttempt = attempt + 1
+    transition({
+      status: "retrying",
+      attempt: nextAttempt,
+      maxAttempts: BOOTSTRAP_MAX_ATTEMPTS,
+      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+    })
+    bootstrapRetryTimer = setTimeout(() => {
+      bootstrapRetryTimer = null
+      startBootstrap(nextAttempt)
+    }, retryDelay(attempt))
+  }
+
+  function startBootstrap(attempt: number): void {
+    if (state.status === "disposing" || state.status === "disposed") return
+    clearBootstrapClock()
+    const generation = bootstrapGeneration + 1
+    bootstrapGeneration = generation
+    const controller = new AbortController()
+    bootstrapAbort = controller
+    let completed = false
+
+    function complete(
+      result: ManagedBootstrapResult<
+        State,
+        Invocation,
+        ApplyError,
+        Remote,
+        Cursor,
+        UnavailableReason
+      >
+    ): void {
+      if (completed) return
+      completed = true
+      if (bootstrapTimeoutTimer !== null) {
+        clearTimeout(bootstrapTimeoutTimer)
+        bootstrapTimeoutTimer = null
+      }
+      if (bootstrapGeneration !== generation) return
+      bootstrapAbort = null
+
+      if (!result.ok) {
+        handleBootstrapFailure(result.error, attempt)
+        return
+      }
+      if (state.status === "disposed") return
+
+      const created = createInstance(result.value)
+      if (state.status === "disposing") {
+        instance = created
+        drainBuffer(created)
+        return
+      }
+      adoptInstance(created)
+    }
+
+    bootstrapTimeoutTimer = setTimeout(() => {
+      controller.abort()
+      complete(
+        err({
+          kind: "retryable",
+          cause: {
+            kind: "timeout",
+            timeoutMs: BOOTSTRAP_ATTEMPT_TIMEOUT_MS,
+          },
+        })
       )
-      retryTimer = setTimeout(() => {
-        retryTimer = null
-        bootstrap()
-      }, delay)
-      return
-    }
-    // Terminal: either the binding said so, or the retry budget is spent.
-    // Buffered intent settles here rather than waiting for a teardown that
-    // may never come — an unresolvable receipt holds its caller's transition
-    // open forever.
-    phase = "unavailable"
-    settleBuffer({ kind: "unavailable" })
-    notify()
+    }, BOOTSTRAP_ATTEMPT_TIMEOUT_MS)
+
+    void Promise.resolve()
+      .then(() => options.bootstrap(controller.signal))
+      .then(complete, (cause) => complete(err({ kind: "retryable", cause })))
   }
 
-  function expireInstance(expired: Instance, dropped: number): void {
-    retireInstance()
-    setTimeout(() => expired.dispose(), 0)
-    if (phase === "disposing" || phase === "disposed") {
-      // Expiry during the teardown grace: the mount is going away, so do not
-      // resurrect the phase or rebuild under a fresh identity — a replacement
-      // adopted here would outlive the disposal that was already scheduled.
-      notify()
-      return
+  startBootstrap(1)
+
+  function mutate(invocation: Invocation): ManagedReceipt {
+    switch (state.status) {
+      case "ready":
+        return managedReceiptFromCore(instance!.mutate(invocation))
+      case "bootstrapping":
+      case "retrying": {
+        const proxied = proxiedManagedMutationReceipt<
+          Invocation,
+          ApplyError,
+          Remote,
+          UnavailableReason
+        >(invocation)
+        buffer.push(proxied.entry)
+        return proxied.receipt
+      }
+      case "expired":
+        return settledManagedMutationReceipt({ kind: "expired" })
+      case "unavailable":
+        return settledManagedMutationReceipt({
+          kind: "unavailable",
+          failure: state.failure,
+        })
+      case "disposing":
+        if (instance) {
+          return managedReceiptFromCore(instance.mutate(invocation))
+        }
+        if (bootstrapAbort) {
+          const proxied = proxiedManagedMutationReceipt<
+            Invocation,
+            ApplyError,
+            Remote,
+            UnavailableReason
+          >(invocation)
+          buffer.push(proxied.entry)
+          return proxied.receipt
+        }
+        return settledManagedMutationReceipt({ kind: "disposed" })
+      case "disposed":
+        return settledManagedMutationReceipt({ kind: "disposed" })
     }
-    phase = "expired"
-    notify()
-    // Rebuild sits on the guaranteed path, BEFORE the application is told.
-    bootstrapAttempt = 0
-    bootstrap()
-    isolate(() => options.onExpired?.({ dropped }))
   }
 
-  bootstrap()
-
-  return {
-    getSnapshot() {
-      if (!instance || phase !== "ready") return null
-      const snapshot = instance.getSnapshot()
-      return snapshot.expired ? null : snapshot
-    },
+  const managed: ManagedReplicaWithHandoff<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    UnavailableReason
+  > = {
+    getSnapshot: () => state,
 
     subscribe(listener) {
       listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-      }
+      return () => listeners.delete(listener)
     },
 
-    mutate(invocation) {
-      if (phase === "disposed") {
-        return trackReceipt(settledReceipt({ kind: "disposed" }))
-      }
-      if (phase === "expired") {
-        return trackReceipt(settledReceipt({ kind: "expired" }))
-      }
-      if (phase === "unavailable") {
-        return trackReceipt(settledReceipt({ kind: "unavailable" }))
-      }
-      const current = instance
-      if (current) return trackReceipt(current.mutate(invocation))
-      // Bootstrap window: hold the intent, replay in order once the replica
-      // exists. The proxied receipt settles from the real one.
-      const { entry, receipt } = proxiedMutationReceipt<
-        Invocation,
-        ApplyError,
-        Remote
-      >(invocation)
-      buffer.push(entry)
-      return trackReceipt(receipt)
-    },
+    mutate: (invocation) => journal.track(mutate(invocation)),
 
-    async settleMutations() {
-      while (unsettled.size > 0) {
-        await Promise.allSettled([...unsettled])
-      }
-      const failed = settlementFailed
-      settlementFailed = false
-      if (failed) return err("pending-write-failed")
-      return ok(undefined)
-    },
+    [HANDOFF_MUTATION]: mutate,
+
+    settleMutations: () => journal.settle(),
 
     dispose() {
-      if (phase === "disposing" || phase === "disposed") return
-      if (retryTimer !== null) {
-        clearTimeout(retryTimer)
-        retryTimer = null
-      }
-      phase = "disposing"
-      notify()
+      if (state.status === "disposing" || state.status === "disposed") return
+      clearBootstrapClock()
+      transition({ status: "disposing" })
       setTimeout(() => {
-        phase = "disposed"
-        // Read the instance at FIRE time, not at dispose time: capturing it
-        // would dispose a replica that an intervening expiry had already
-        // retired while leaving its replacement's transport live.
-        const teardown = instance
-        retireInstance()
-        teardown?.dispose()
-        // A bootstrap still in flight owns the buffer: it drains through the
-        // short-lived replica (the unmount-save flush) or settles it if the
-        // bootstrap comes back empty.
-        if (!bootstrapInFlight) settleBuffer({ kind: "disposed" })
+        cancelBootstrap()
+        settleBuffer({ kind: "disposed" })
+        const retired = retireInstance()
+        retired?.dispose()
+        transition({ status: "disposed" })
+        listeners.clear()
       }, 0)
     },
   }
+
+  return managed
 }

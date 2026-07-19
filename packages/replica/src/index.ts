@@ -39,9 +39,13 @@ export {
   createManagedReplica,
   type ManagedBootstrapFailure,
   type ManagedBootstrapResult,
+  type ManagedMutationError,
+  type ManagedMutationReceipt,
   type ManagedReplica,
   type ManagedReplicaOptions,
   type ManagedReplicaSetup,
+  type ManagedReplicaState,
+  type ManagedUnavailable,
 } from "./managed"
 
 /**
@@ -55,16 +59,13 @@ export {
  * and the application decides whether the intent is worth re-issuing through
  * a fresh replica.
  *
- * `unavailable` is only ever produced by the MANAGED layer, never by
- * `createReplica`: the intent was dispatched at a controller whose bootstrap
- * terminally failed, so no replica ever existed to predict it. Unlike
- * `expired` it carries no ambiguity — nothing was sent — but like `expired`
- * the application owns whether to re-issue.
+ * Managed bootstrap failure is deliberately absent. `createManagedReplica`
+ * widens this taxonomy with its typed `unavailable` outcome instead of making
+ * the core Replica claim it can produce a state it never owns.
  */
 export type MutationError<ApplyError> =
   | { readonly kind: "disposed" }
   | { readonly kind: "expired" }
-  | { readonly kind: "unavailable" }
   | {
       readonly kind: "invalid"
       readonly issues: ReadonlyArray<StandardSchemaV1.Issue>

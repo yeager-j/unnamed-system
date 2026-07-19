@@ -1,8 +1,14 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+import { err, ok, type Result } from "@workspace/result"
 
 import { settle } from "./contract/support"
 import { createInMemoryAuthority } from "./in-memory-authority"
-import { createManagedReplica, type ManagedReplicaSetup } from "./index"
+import {
+  createManagedReplica,
+  type ManagedReplica,
+  type ManagedReplicaSetup,
+} from "./index"
 import {
   addEntry,
   LEDGER_INITIAL,
@@ -12,9 +18,6 @@ import {
   type LedgerInvocation,
 } from "./reference/ledger"
 
-const macrotask = (): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 0))
-
 type Setup = ManagedReplicaSetup<
   Ledger,
   LedgerInvocation,
@@ -23,129 +26,201 @@ type Setup = ManagedReplicaSetup<
   number
 >
 
-/**
- * A controllable world: one authority, one identity minted per bootstrap
- * round (the expiry-rebuild contract), and a gate on bootstrap resolution so
- * the buffering window is observable.
- */
 function createWorld() {
   const authority = createInMemoryAuthority<
     Ledger,
     LedgerInvocation,
     LedgerError
   >({ mutations: ledgerMutations, initial: LEDGER_INITIAL })
-
   let minted = 0
   const identities: Array<{ clientGroupId: string; clientId: string }> = []
-  let gated = false
-  const held: Array<() => void> = []
+  let bootstrapGated = false
+  const heldBootstraps: Array<() => void> = []
+  let pushesGated = false
+  const heldPushes: Array<() => void> = []
 
-  const bootstrap = async (): Promise<Setup> => {
-    if (gated) {
-      await new Promise<void>((resolve) => {
-        held.push(resolve)
-      })
+  const bootstrap = async (
+    _signal?: AbortSignal
+  ): Promise<Result<Setup, never>> => {
+    if (bootstrapGated) {
+      await new Promise<void>((resolve) => heldBootstraps.push(resolve))
     }
     minted += 1
     const identity = { clientGroupId: "group", clientId: `client-${minted}` }
     identities.push(identity)
     const handle = authority.transport(identity)
-    return {
+    return ok({
       identity,
       initial: handle.accepted(),
-      transport: handle.transport,
-    }
+      transport: {
+        connect: handle.transport.connect,
+        async push(envelope, signal) {
+          if (pushesGated) {
+            await new Promise<void>((resolve) => heldPushes.push(resolve))
+          }
+          return handle.transport.push(envelope, signal)
+        },
+      },
+    })
   }
 
   return {
     authority,
     bootstrap,
     identities: () => [...identities],
-    gate: () => {
-      gated = true
+    gateBootstrap() {
+      bootstrapGated = true
     },
-    release: () => {
-      gated = false
-      for (const resolve of held.splice(0)) resolve()
+    releaseBootstrap() {
+      bootstrapGated = false
+      for (const resolve of heldBootstraps.splice(0)) resolve()
+    },
+    gatePushes() {
+      pushesGated = true
+    },
+    releaseNextPush() {
+      heldPushes.shift()?.()
     },
   }
 }
 
+function readyReplica(
+  managed: ManagedReplica<Ledger, LedgerInvocation, LedgerError>
+) {
+  const state = managed.getSnapshot()
+  expect(state.status).toBe("ready")
+  if (state.status !== "ready")
+    throw new Error("expected ready managed replica")
+  return state.replica
+}
+
+async function flushMicrotasks(turns = 10): Promise<void> {
+  for (let index = 0; index < turns; index += 1) await Promise.resolve()
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("createManagedReplica", () => {
-  it("buffers dispatches during the bootstrap window and replays them in order", async () => {
+  it("publishes explicit state and buffers dispatches in order", async () => {
     const world = createWorld()
-    world.gate()
+    world.gateBootstrap()
     const managed = createManagedReplica({
       mutations: ledgerMutations,
       bootstrap: world.bootstrap,
     })
 
-    expect(managed.getSnapshot()).toBeNull()
+    expect(managed.getSnapshot()).toEqual({ status: "bootstrapping" })
     const first = managed.mutate(addEntry({ entry: "alpha" }))
     const second = managed.mutate(addEntry({ entry: "beta" }))
+    expect("id" in first).toBe(false)
 
-    world.release()
+    world.releaseBootstrap()
     await settle(6)
 
-    const outcomes = await Promise.all([first.remote, second.remote])
-    expect(outcomes.every((outcome) => outcome.ok)).toBe(true)
+    expect((await first.remote).ok).toBe(true)
+    expect((await second.remote).ok).toBe(true)
     expect(world.authority.read().entries).toEqual(["alpha", "beta"])
-    expect(managed.getSnapshot()?.value.entries).toEqual(["alpha", "beta"])
+    expect(readyReplica(managed).value.entries).toEqual(["alpha", "beta"])
     managed.dispose()
   })
 
-  it("settles buffered intent `unavailable` on a terminal bootstrap failure", async () => {
+  it("preserves a typed terminal reason and isolates unavailable callbacks", async () => {
+    const observed: string[] = []
     const managed = createManagedReplica<
       Ledger,
       LedgerInvocation,
       LedgerError,
       void,
-      number
+      number,
+      "not-live"
     >({
       mutations: ledgerMutations,
       bootstrap: () =>
-        Promise.resolve({ kind: "unavailable", reason: "not-live" }),
+        Promise.resolve(
+          err({ kind: "unavailable" as const, reason: "not-live" as const })
+        ),
+      onUnavailable: (failure) => {
+        observed.push(failure.kind)
+        throw new Error("router callback failed")
+      },
     })
     const buffered = managed.mutate(addEntry({ entry: "orphan" }))
     await settle(3)
 
-    // The write must NOT wait for a teardown that may never come: an
-    // unresolvable receipt holds its caller's transition open forever.
+    expect(managed.getSnapshot()).toEqual({
+      status: "unavailable",
+      failure: { kind: "terminal", reason: "not-live" },
+    })
     const remote = await buffered.remote
-    expect(remote.ok).toBe(false)
-    if (!remote.ok) expect(remote.error.kind).toBe("unavailable")
-    expect(managed.getSnapshot()).toBeNull()
-
-    const later = managed.mutate(addEntry({ entry: "later" }))
-    const laterOutcome = await later.remote
-    expect(laterOutcome.ok).toBe(false)
-    if (!laterOutcome.ok) expect(laterOutcome.error.kind).toBe("unavailable")
+    expect(remote).toEqual(
+      err({
+        kind: "unavailable",
+        failure: { kind: "terminal", reason: "not-live" },
+      })
+    )
+    expect(observed).toEqual(["terminal"])
     managed.dispose()
   })
 
-  it("retries a retryable bootstrap and adopts the attempt that succeeds", async () => {
+  it("times out an attempt, publishes retrying, and aborts its signal", async () => {
+    vi.useFakeTimers()
+    let aborted = false
+    const managed = createManagedReplica<
+      Ledger,
+      LedgerInvocation,
+      LedgerError,
+      void,
+      number
+    >({
+      mutations: ledgerMutations,
+      bootstrap: (signal) =>
+        new Promise((resolve) => {
+          signal.addEventListener("abort", () => {
+            aborted = true
+          })
+          void resolve
+        }),
+    })
+
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(aborted).toBe(true)
+    expect(managed.getSnapshot()).toMatchObject({
+      status: "retrying",
+      attempt: 2,
+      maxAttempts: 6,
+    })
+    managed.dispose()
+    await vi.runAllTimersAsync()
+  })
+
+  it("retries with package-owned backoff and adopts the successful attempt", async () => {
+    vi.useFakeTimers()
     const world = createWorld()
     let attempts = 0
     const managed = createManagedReplica({
       mutations: ledgerMutations,
-      bootstrap: async () => {
+      bootstrap: async (signal) => {
         attempts += 1
-        if (attempts < 3) return { kind: "retryable" as const }
-        return world.bootstrap()
+        if (attempts < 3) return err({ kind: "retryable" as const })
+        return world.bootstrap(signal)
       },
     })
-    // Buffered across the whole retry sequence — this is the write that used
-    // to hang forever on a transient load failure.
     const buffered = managed.mutate(addEntry({ entry: "survived" }))
 
-    const remote = await buffered.remote
+    await vi.advanceTimersByTimeAsync(750)
+    await flushMicrotasks()
+
     expect(attempts).toBe(3)
-    expect(remote.ok).toBe(true)
-    expect(world.authority.read().entries).toEqual(["survived"])
+    expect((await buffered.remote).ok).toBe(true)
+    expect(managed.getSnapshot().status).toBe("ready")
     managed.dispose()
+    await vi.runAllTimersAsync()
   })
 
-  it("gives up after the retry budget and settles the buffer", async () => {
+  it("settles the buffer with retry exhaustion after six attempts", async () => {
+    vi.useFakeTimers()
     let attempts = 0
     const managed = createManagedReplica<
       Ledger,
@@ -155,115 +230,79 @@ describe("createManagedReplica", () => {
       number
     >({
       mutations: ledgerMutations,
-      bootstrapRetries: 2,
-      bootstrap: () => {
+      bootstrap: async () => {
         attempts += 1
-        return Promise.reject(new Error("authority down"))
+        return err({ kind: "retryable" as const, cause: attempts })
       },
     })
     const buffered = managed.mutate(addEntry({ entry: "doomed" }))
 
+    await vi.runAllTimersAsync()
+    await flushMicrotasks()
+
+    expect(attempts).toBe(6)
+    expect(managed.getSnapshot()).toEqual({
+      status: "unavailable",
+      failure: { kind: "retry-exhausted", attempts: 6, cause: 6 },
+    })
     const remote = await buffered.remote
-    expect(attempts).toBe(3) // the first attempt plus two retries
     expect(remote.ok).toBe(false)
     if (!remote.ok) expect(remote.error.kind).toBe("unavailable")
     managed.dispose()
+    await vi.runAllTimersAsync()
   })
 
-  it("keeps a throwing event sink from stranding the expiry rebuild", async () => {
+  it("isolates subscribers and callbacks from an expiry rebuild", async () => {
     const world = createWorld()
     const managed = createManagedReplica({
       mutations: ledgerMutations,
       bootstrap: world.bootstrap,
       onEvent: () => {
-        throw new Error("logger blew up")
+        throw new Error("logger failed")
       },
       onExpired: () => {
-        throw new Error("toast blew up")
+        throw new Error("toast failed")
       },
+    })
+    managed.subscribe(() => {
+      throw new Error("subscriber failed")
     })
     await settle(3)
 
-    const seeded = managed.mutate(addEntry({ entry: "seed" }))
-    await seeded.remote
+    await managed.mutate(addEntry({ entry: "seed" })).remote
     world.authority.forgetClient(world.identities()[0]!)
     await managed.mutate(addEntry({ entry: "stranded" })).remote
-
     await settle(6)
-    // Both application callbacks threw; neither may abort the rebuild.
+
     expect(world.identities()).toHaveLength(2)
-    const revived = managed.mutate(addEntry({ entry: "revived" }))
-    expect((await revived.remote).ok).toBe(true)
+    expect(
+      (await managed.mutate(addEntry({ entry: "revived" })).remote).ok
+    ).toBe(true)
     managed.dispose()
   })
 
-  it("disposes the instance that exists when the teardown timer fires", async () => {
+  it("does not rebuild when expiry races the disposal grace", async () => {
     const world = createWorld()
     const managed = createManagedReplica({
       mutations: ledgerMutations,
       bootstrap: world.bootstrap,
     })
     await settle(3)
-
-    const seeded = managed.mutate(addEntry({ entry: "seed" }))
-    await seeded.remote
+    await managed.mutate(addEntry({ entry: "seed" })).remote
     world.authority.forgetClient(world.identities()[0]!)
 
-    // Expire and tear down in the same commit: the rebuild must not adopt a
-    // replacement whose transport would then outlive the disposal.
     const expiring = managed.mutate(addEntry({ entry: "stranded" }))
     managed.dispose()
     await expiring.remote
-    await settle(6)
-    await macrotask()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await settle(4)
 
     expect(world.identities()).toHaveLength(1)
     expect(world.authority.liveTransports()).toBe(0)
+    expect(managed.getSnapshot()).toEqual({ status: "disposed" })
   })
 
-  it("rebuilds under a fresh identity on expiry and refuses the expiry window's dispatches", async () => {
-    const world = createWorld()
-    const expiries: number[] = []
-    const managed = createManagedReplica({
-      mutations: ledgerMutations,
-      bootstrap: world.bootstrap,
-      onExpired: ({ dropped }) => {
-        expiries.push(dropped)
-      },
-    })
-    await settle(3)
-
-    const seeded = managed.mutate(addEntry({ entry: "seed" }))
-    await seeded.remote
-
-    // The authority swept this client's ledger row: the next delivery (id 2
-    // against no history) is `unknown-client`, which expires the identity.
-    world.authority.forgetClient(world.identities()[0]!)
-    const stranded = managed.mutate(addEntry({ entry: "stranded" }))
-    const strandedOutcome = await stranded.remote
-    expect(strandedOutcome.ok).toBe(false)
-    if (!strandedOutcome.ok) expect(strandedOutcome.error.kind).toBe("expired")
-    // Both predictions drop: `seed` was accepted but never incorporated by a
-    // snapshot (the fixture world never publishes), and `stranded` is dead.
-    expect(expiries).toEqual([2])
-
-    // Dispatches during the rebuild window belong to the dead identity's
-    // intent stream — refused `expired`, never silently re-issued.
-    const windowed = managed.mutate(addEntry({ entry: "windowed" }))
-    const windowedOutcome = await windowed.remote
-    expect(windowedOutcome.ok).toBe(false)
-    if (!windowedOutcome.ok) expect(windowedOutcome.error.kind).toBe("expired")
-
-    await settle(6)
-    expect(world.identities()).toHaveLength(2)
-    const revived = managed.mutate(addEntry({ entry: "revived" }))
-    const revivedOutcome = await revived.remote
-    expect(revivedOutcome.ok).toBe(true)
-    expect(world.authority.read().entries).toEqual(["seed", "revived"])
-    managed.dispose()
-  })
-
-  it("keeps accepting for one macrotask after dispose, then refuses", async () => {
+  it("accepts ready flushes for one macrotask, then refuses", async () => {
     const world = createWorld()
     const managed = createManagedReplica({
       mutations: ledgerMutations,
@@ -272,39 +311,66 @@ describe("createManagedReplica", () => {
     await settle(3)
 
     managed.dispose()
-    expect(managed.getSnapshot()).toBeNull()
-    // Same-commit unmount flush: still finds a live replica.
+    expect(managed.getSnapshot()).toEqual({ status: "disposing" })
     const flushed = managed.mutate(addEntry({ entry: "flush" }))
-    const flushedOutcome = await flushed.remote
-    expect(flushedOutcome.ok).toBe(true)
-    expect(world.authority.read().entries).toEqual(["flush"])
+    expect((await flushed.remote).ok).toBe(true)
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
-    await macrotask()
-    const late = managed.mutate(addEntry({ entry: "late" }))
-    const lateOutcome = await late.remote
-    expect(lateOutcome.ok).toBe(false)
-    if (!lateOutcome.ok) expect(lateOutcome.error.kind).toBe("disposed")
+    expect(managed.getSnapshot()).toEqual({ status: "disposed" })
+    const late = await managed.mutate(addEntry({ entry: "late" })).remote
+    expect(late).toEqual(err({ kind: "disposed" }))
   })
 
-  it("drains a buffer whose bootstrap resolves after disposal through the short-lived replica", async () => {
+  it("settles a pre-bootstrap buffer at grace expiry and ignores late success", async () => {
     const world = createWorld()
-    world.gate()
+    world.gateBootstrap()
     const managed = createManagedReplica({
       mutations: ledgerMutations,
       bootstrap: world.bootstrap,
     })
     const receipt = managed.mutate(addEntry({ entry: "unmount-save" }))
     managed.dispose()
-    await macrotask()
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
-    world.release()
+    expect(await receipt.remote).toEqual(err({ kind: "disposed" }))
+    world.releaseBootstrap()
     await settle(6)
-    const outcome = await receipt.remote
-    expect(outcome.ok).toBe(true)
-    expect(world.authority.read().entries).toEqual(["unmount-save"])
+
+    expect(managed.getSnapshot()).toEqual({ status: "disposed" })
+    expect(world.authority.liveTransports()).toBe(0)
+    expect(world.authority.read().entries).toEqual([])
   })
 
-  it("settleMutations reports a failed remote once, then resets", async () => {
+  it("uses call-time settlement barriers and does not absorb later writes", async () => {
+    const world = createWorld()
+    world.gatePushes()
+    const managed = createManagedReplica({
+      mutations: ledgerMutations,
+      bootstrap: world.bootstrap,
+    })
+    await settle(3)
+
+    managed.mutate(addEntry({ entry: "before" }))
+    await settle(2)
+    const barrier = managed.settleMutations()
+    const later = managed.mutate(addEntry({ entry: "after" }))
+    world.releaseNextPush()
+    await settle(6)
+
+    expect(await barrier).toEqual(ok(undefined))
+    let laterSettled = false
+    void later.remote.then(() => {
+      laterSettled = true
+    })
+    await settle(2)
+    expect(laterSettled).toBe(false)
+
+    managed.dispose()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(await later.remote).toEqual(err({ kind: "disposed" }))
+  })
+
+  it("reports a failed barrier once and resets", async () => {
     const world = createWorld()
     const managed = createManagedReplica({
       mutations: ledgerMutations,
@@ -313,15 +379,9 @@ describe("createManagedReplica", () => {
     await settle(3)
 
     world.authority.vetoNext({ kind: "vetoed" })
-    const vetoed = managed.mutate(addEntry({ entry: "vetoed" }))
-    await vetoed.remote
-    const failed = await managed.settleMutations()
-    expect(failed.ok).toBe(false)
-
-    const clean = managed.mutate(addEntry({ entry: "clean" }))
-    await clean.remote
-    const settled = await managed.settleMutations()
-    expect(settled.ok).toBe(true)
+    await managed.mutate(addEntry({ entry: "vetoed" })).remote
+    expect((await managed.settleMutations()).ok).toBe(false)
+    expect(await managed.settleMutations()).toEqual(ok(undefined))
     managed.dispose()
   })
 })

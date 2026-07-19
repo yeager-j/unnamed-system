@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import type { MutationReceipt } from "@workspace/replica"
+import type { ManagedMutationReceipt } from "@workspace/replica"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
@@ -13,7 +13,10 @@ import type {
   CombatReplicaRejection,
   CombatWriteDispatchError,
 } from "@/domain/combat/replica/rejection"
-import type { CombatWriteHandle } from "@/domain/combat/replica/use-combat-replicas"
+import type {
+  CombatBootstrapUnavailableReason,
+  CombatWriteHandle,
+} from "@/domain/combat/replica/use-combat-replicas"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 
 import { useCombatantWrite } from "./use-combatant-write"
@@ -24,11 +27,14 @@ const participantId = asParticipantId("p-1")
 const damage: EntityWrite = { component: "vitals", op: "damage", amount: 2 }
 
 type Remote = { version: number } | void
-type Receipt = MutationReceipt<CombatReplicaRejection, Remote>
+type Receipt = ManagedMutationReceipt<
+  CombatReplicaRejection,
+  Remote,
+  CombatBootstrapUnavailableReason
+>
 type DispatchResult = Result<void, CombatWriteDispatchError> | null
 
 const okReceipt = (remote: Remote = undefined): Receipt => ({
-  id: 1,
   local: Promise.resolve(ok(undefined)),
   remote: Promise.resolve(ok(remote)),
 })
@@ -130,7 +136,6 @@ describe("useCombatantWrite", () => {
 
   it("toasts and returns a terminal remote rejection", async () => {
     const { rendered, mirrored } = renderWriteHook(() => ({
-      id: 1,
       local: Promise.resolve(ok(undefined)),
       remote: Promise.resolve(err({ kind: "rejected", error: "forbidden" })),
     }))
@@ -154,7 +159,6 @@ describe("useCombatantWrite", () => {
       err({ kind: "refused" as const, error: "capability-missing" as const })
     )
     const { rendered } = renderWriteHook(() => ({
-      id: null,
       local: refused,
       remote: refused,
     }))
@@ -174,7 +178,6 @@ describe("useCombatantWrite", () => {
   it("stays quiet on a disposed/expired replica — the write-unavailable arm", async () => {
     const unavailable = Promise.resolve(err({ kind: "expired" as const }))
     const { rendered } = renderWriteHook(() => ({
-      id: null,
       local: unavailable,
       remote: unavailable,
     }))

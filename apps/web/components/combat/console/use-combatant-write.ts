@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import type { MutationError } from "@workspace/replica"
+import type { ManagedMutationError } from "@workspace/replica"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
@@ -122,7 +122,7 @@ export function useCombatantWrite({
   }
 
   const failed = (
-    error: MutationError<CombatReplicaRejection>
+    error: ManagedMutationError<CombatReplicaRejection>
   ): Result<never, CombatWriteDispatchError> => {
     switch (error.kind) {
       case "refused":

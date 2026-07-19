@@ -2,25 +2,19 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 
 import { err, ok, type Result } from "@workspace/result"
 
-import type {
-  MutationError,
-  MutationReceipt,
-  Replica,
-  ReplicaSnapshot,
-} from "./index"
+import type { Replica, ReplicaSnapshot } from "./index"
 import {
-  proxiedMutationReceipt,
-  settledMutationReceipt,
+  createManagedReceiptJournal,
+  handoffManagedMutation,
+  proxiedManagedMutationReceipt,
+  settledManagedMutationReceipt,
   type BufferedMutation,
+  type ManagedMutationReceipt,
   type ManagedReplica,
+  type ManagedReplicaState,
 } from "./managed"
 import type { MutationInvocation } from "./mutations"
 
-/**
- * The application owns where a replica instance lives (typically a
- * domain-specific context) and must not recreate it during render; the
- * runtime that creates it also owns `dispose`.
- */
 export function useReplica<State, ApplyError>(
   replica: Replica<State, MutationInvocation, ApplyError, unknown>
 ): ReplicaSnapshot<State, ApplyError> {
@@ -36,16 +30,16 @@ export interface UseManagedReplicaOptions<
   Invocation extends MutationInvocation,
   ApplyError,
   Remote = void,
+  UnavailableReason = unknown,
 > {
-  /** False for read-only mounts: no bootstrap runs, dispatches settle `disposed`. */
   readonly enabled: boolean
-  /**
-   * Creates the controller (`createManagedReplica`); creation starts its
-   * bootstrap, so this runs inside the effect. MUST be referentially stable
-   * (memoize on the identity-defining inputs) — a new reference tears the
-   * controller down and bootstraps a replacement.
-   */
-  readonly create: () => ManagedReplica<State, Invocation, ApplyError, Remote>
+  readonly create: () => ManagedReplica<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    UnavailableReason
+  >
 }
 
 export interface UseManagedReplicaReturn<
@@ -53,33 +47,24 @@ export interface UseManagedReplicaReturn<
   Invocation extends MutationInvocation,
   ApplyError,
   Remote = void,
+  UnavailableReason = unknown,
 > {
-  /** Null until the bootstrap read resolves (and always for `enabled: false`)
-   *  — render the server-loaded frame until then. */
-  readonly snapshot: ReplicaSnapshot<State, ApplyError> | null
+  readonly state: ManagedReplicaState<State, ApplyError, UnavailableReason>
   readonly mutate: (
     invocation: Invocation
-  ) => MutationReceipt<ApplyError, Remote>
-  /** Waits for current replica writes to reach trusted remote outcomes —
-   *  including dispatches still buffered in the pre-effect window. */
+  ) => ManagedMutationReceipt<ApplyError, Remote, UnavailableReason>
   readonly settleMutations: () => Promise<Result<void, "pending-write-failed">>
 }
 
-/**
- * One managed replica's React lifecycle (extracted from the entity binding in
- * UNN-646): the controller is created in the effect (StrictMode-safe — a
- * replayed effect bootstraps a fresh identity; the abandoned one's dedup row
- * is reclaimed by the authority's TTL sweep) and disposed in the cleanup,
- * where the controller's one-macrotask teardown grace keeps same-commit
- * child unmount flushes working. Dispatches before the effect has created
- * the controller are buffered in order, exactly like the controller's own
- * bootstrap window.
- */
+const BOOTSTRAPPING_STATE = { status: "bootstrapping" } as const
+const DISPOSED_STATE = { status: "disposed" } as const
+
 export function useManagedReplica<
   State,
   Invocation extends MutationInvocation,
   ApplyError,
   Remote = void,
+  UnavailableReason = unknown,
 >({
   enabled,
   create,
@@ -87,87 +72,122 @@ export function useManagedReplica<
   State,
   Invocation,
   ApplyError,
-  Remote
->): UseManagedReplicaReturn<State, Invocation, ApplyError, Remote> {
-  type Controller = ManagedReplica<State, Invocation, ApplyError, Remote>
+  Remote,
+  UnavailableReason
+>): UseManagedReplicaReturn<
+  State,
+  Invocation,
+  ApplyError,
+  Remote,
+  UnavailableReason
+> {
+  type Controller = ManagedReplica<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    UnavailableReason
+  >
+  type Buffered = BufferedMutation<
+    Invocation,
+    ApplyError,
+    Remote,
+    UnavailableReason
+  >
 
   const [controller, setController] = useState<Controller | null>(null)
   const controllerRef = useRef<Controller | null>(null)
-  const preBufferRef = useRef<
-    BufferedMutation<Invocation, ApplyError, Remote>[]
-  >([])
-  // Pre-effect dispatches are tracked here as well as buffered: the
-  // controller only starts tracking a receipt once it adopts one, so without
-  // this `settleMutations` would report success over intent that has not been
-  // sent yet.
-  const preSettleRef = useRef<
-    Promise<Result<Remote, MutationError<ApplyError>>>[]
-  >([])
+  const preBufferRef = useRef<Buffered[]>([])
+  const [preJournal] = useState(() =>
+    createManagedReceiptJournal<ApplyError, Remote, UnavailableReason>()
+  )
+
+  function settlePreBuffer(): void {
+    const buffered = preBufferRef.current
+    preBufferRef.current = []
+    for (const entry of buffered) {
+      entry.resolve(
+        settledManagedMutationReceipt<ApplyError, Remote, UnavailableReason>({
+          kind: "disposed",
+        })
+      )
+    }
+  }
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) {
+      settlePreBuffer()
+      return
+    }
     const created = create()
     controllerRef.current = created
     const buffered = preBufferRef.current
     preBufferRef.current = []
-    // The controller tracks each receipt it mints, so pre-effect tracking
-    // hands over here rather than double-counting.
-    preSettleRef.current = []
-    for (const entry of buffered)
-      entry.resolve(created.mutate(entry.invocation))
+    for (const entry of buffered) {
+      entry.resolve(handoffManagedMutation(created, entry.invocation))
+    }
     setController(created)
     return () => {
       setController((current) => (current === created ? null : current))
       created.dispose()
-      // The controller keeps accepting for one macrotask (unmount flushes);
-      // only then does this mount stop routing dispatches to it.
       setTimeout(() => {
         if (controllerRef.current === created) controllerRef.current = null
       }, 0)
     }
   }, [enabled, create])
 
-  const snapshot = useSyncExternalStore(
-    (onStoreChange) =>
-      controller ? controller.subscribe(onStoreChange) : () => {},
-    () => (controller ? controller.getSnapshot() : null),
-    () => null
+  useEffect(
+    () => () => {
+      settlePreBuffer()
+    },
+    []
   )
 
-  function mutate(invocation: Invocation): MutationReceipt<ApplyError, Remote> {
+  const controllerState = useSyncExternalStore(
+    (onStoreChange) =>
+      controller ? controller.subscribe(onStoreChange) : () => {},
+    () => (controller ? controller.getSnapshot() : BOOTSTRAPPING_STATE),
+    () => BOOTSTRAPPING_STATE
+  )
+  const state = enabled ? controllerState : DISPOSED_STATE
+
+  function mutate(
+    invocation: Invocation
+  ): ManagedMutationReceipt<ApplyError, Remote, UnavailableReason> {
+    if (!enabled) {
+      return preJournal.track(
+        settledManagedMutationReceipt({ kind: "disposed" })
+      )
+    }
     const current = controllerRef.current
     if (current) return current.mutate(invocation)
-    if (!enabled) {
-      return settledMutationReceipt<ApplyError, Remote>({ kind: "disposed" })
-    }
-    // Pre-effect window: hold the intent, replay in order once the effect
-    // creates the controller.
-    const { entry, receipt } = proxiedMutationReceipt<
+
+    const { entry, receipt } = proxiedManagedMutationReceipt<
       Invocation,
       ApplyError,
-      Remote
+      Remote,
+      UnavailableReason
     >(invocation)
     preBufferRef.current.push(entry)
-    preSettleRef.current.push(receipt.remote)
-    return receipt
+    return preJournal.track(receipt)
   }
 
   async function settleMutations(): Promise<
     Result<void, "pending-write-failed">
   > {
-    // Drain the pre-effect receipts first: each resolves once the controller
-    // adopts it (or settles it terminally), so awaiting them is what makes
-    // "settled" true for a caller that dispatched before the effect ran.
-    const buffered = preSettleRef.current.splice(0)
-    const outcomes = await Promise.allSettled(buffered)
-    const bufferedFailed = outcomes.some(
-      (outcome) => outcome.status === "rejected" || !outcome.value.ok
-    )
+    const preEffect = preJournal.settle()
     const current = controllerRef.current
-    const settled = current ? await current.settleMutations() : ok(undefined)
-    if (bufferedFailed) return err("pending-write-failed")
-    return settled
+    const controlled = current
+      ? current.settleMutations()
+      : Promise.resolve(ok(undefined))
+    const [preEffectResult, controlledResult] = await Promise.all([
+      preEffect,
+      controlled,
+    ])
+    return preEffectResult.ok && controlledResult.ok
+      ? ok(undefined)
+      : err("pending-write-failed")
   }
 
-  return { snapshot, mutate, settleMutations }
+  return { state, mutate, settleMutations }
 }

@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { ok } from "@workspace/result"
+import { err, ok } from "@workspace/result"
 
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 
@@ -213,6 +213,15 @@ describe("useCombatReplicas", () => {
     // pull as a duplicate. Unconditional refresh therefore costs nothing at
     // mount — the bound that makes dropping the watermark rule affordable.
     expect(onExternalChange).not.toHaveBeenCalled()
+  })
+
+  it("refreshes after terminal encounter unavailability is published", async () => {
+    loadCombatAcceptedAction.mockResolvedValue(err("encounter-not-live"))
+    const { onExternalChange } = renderReplicas()
+
+    await flush()
+
+    expect(onExternalChange).toHaveBeenCalled()
   })
 
   it("disposes a removed durable participant's replica and refuses its handle", async () => {

@@ -5,13 +5,16 @@ import { toast } from "sonner"
 
 import {
   createManagedReplica,
-  type MutationReceipt,
+  type ManagedMutationReceipt,
   type ReplicaSnapshot,
 } from "@workspace/replica"
 import { useManagedReplica } from "@workspace/replica/react"
-import type { Result } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
-import { loadEntityAcceptedAction } from "@/lib/actions/entity/replica/snapshot"
+import {
+  loadEntityAcceptedAction,
+  type EntityAcceptedError,
+} from "@/lib/actions/entity/replica/snapshot"
 import { createEntityReplicaSource } from "@/lib/sync/entity-replica-source"
 
 import type { EntityVersionVector } from "./cursor"
@@ -30,9 +33,10 @@ export type EntityReplicaSnapshot = ReplicaSnapshot<
   EntityReplicaRejection
 >
 
-export type EntityMutationReceipt = MutationReceipt<
+export type EntityMutationReceipt = ManagedMutationReceipt<
   EntityReplicaRejection,
-  void
+  void,
+  EntityAcceptedError
 >
 
 interface RealtimeBridge {
@@ -112,7 +116,8 @@ export function useEntityReplica({
         EntityReplicaInvocation,
         EntityReplicaRejection,
         void,
-        EntityVersionVector
+        EntityVersionVector,
+        EntityAcceptedError
       >({
         mutations: entityReplicaMutations,
         bootstrap: async () => {
@@ -126,21 +131,21 @@ export function useEntityReplica({
           // THROWN action (network, deploy) never reaches here — the managed
           // layer classifies it retryable and backs off.
           if (!result.ok) {
-            return { kind: "unavailable" as const, reason: result.error }
+            return err({ kind: "unavailable" as const, reason: result.error })
           }
           const source = createEntityReplicaSource({
             entityId,
             identity,
             subscribe: bridge.subscribe,
           })
-          return {
+          return ok({
             identity,
             initial: result.value,
             transport: createEntityReplicaTransport({
               source,
               initial: result.value,
             }),
-          }
+          })
         },
         onEvent: logEntityReplicaEvent,
         onExpired: ({ dropped }) => {
@@ -154,10 +159,11 @@ export function useEntityReplica({
     [entityId, bridge]
   )
 
-  const { snapshot, mutate, settleMutations } = useManagedReplica({
+  const { state, mutate, settleMutations } = useManagedReplica({
     enabled,
     create,
   })
+  const snapshot = state.status === "ready" ? state.replica : null
 
   return {
     snapshot,

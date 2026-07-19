@@ -94,15 +94,27 @@ the production code path.
 - **The bootstrap read registers the client.** An absent dedup row means `unknown-client`,
   which expires the identity terminally; recovery is a fresh identity, and dispatches from
   the dead identity's window are refused `expired`, never silently re-issued.
-- **`bootstrap` must classify its own failures.** Return a `ManagedReplicaSetup`, or
-  `{kind: "retryable"}` / `{kind: "unavailable"}`. The package cannot read your door's
-  error codes, and it will not guess: `retryable` gets backoff and re-attempts,
-  `unavailable` is terminal. A throw is classified `retryable` (ambiguous). There is no
-  third state — a controller that could neither succeed nor fail used to leave buffered
-  writes and their UI transitions pending until unmount.
-- **`onEvent` is observability; `onAccepted` / `onExpired` are semantics.** Never build
+- **`bootstrap(signal)` must classify its own failures with `Result`.** Return
+  `ok(ManagedReplicaSetup)`, `err({kind: "retryable"})`, or a typed
+  `err({kind: "unavailable", reason})`. The package cannot read door error codes and will
+  not guess. Throws and ten-second attempt timeouts are retryable; the package makes one
+  initial attempt plus five retries at 250ms–4s backoff, then publishes retry exhaustion.
+  Respect the signal where the transport permits cancellation; late results are ignored
+  before Replica/transport construction.
+- **Managed state is never nullable.** Branch exhaustively on `bootstrapping`, `retrying`,
+  `ready`, `expired`, `unavailable`, `disposing`, or `disposed`. Only `ready` carries the
+  core `ReplicaSnapshot`.
+- **Managed receipts have no synchronous ID.** Their `local` and `remote` promises carry
+  total fate; only the core `MutationReceipt` exposes the synchronously assigned protocol
+  ID. `settleMutations` captures a call-time barrier and does not absorb later writes.
+- **`onEvent` is observability; `onAccepted` / `onExpired` / `onUnavailable` are policy
+  hooks.** Never build
   reconciliation on `ReplicaEvent`. The controller isolates every application callback and
   sequences no lifecycle transition behind one, so a throwing sink cannot strand a rebuild
   — which also means a sink cannot be relied on to run. In particular, an accepted
   snapshot's `through` says which of _this_ identity's mutations were incorporated, and
   nothing about whose other changes rode along; it can never gate a refresh.
+- **Disposal has one bounded grace.** A ready controller accepts same-commit cleanup saves.
+  An unresolved bootstrap may flush only if it succeeds before that macrotask ends; after
+  it, the signal is aborted, the buffer settles `disposed`, and late completion cannot
+  construct a transport.
