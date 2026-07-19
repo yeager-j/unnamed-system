@@ -31,6 +31,17 @@ Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 > component snapshots reconcile through subscriptions rather than route
 > refresh. The classic event protocol still owns roster, turns, overlays, and
 > spatial facts, and temporarily shares the encounter-row version fold.
+>
+> **Storage-native encounter root revision (2026-07-19, UNN-655).** The
+> inline-only combat root (`CombatInlineState`) is superseded by one
+> storage-native Encounter Replica per encounter row: value = the row's own
+> atomically stored facts (`status` + the game-v2 `SessionShell` — scalars,
+> roster order, overlays, inline entities whole, durable participants as
+> references), scalar `version` cursor, same `encounterReplicaClient` ledger
+> and identity stream (renamed `encounter:{id}`). The authority applies the
+> registered mutation to the shell built from the locked row — one apply on
+> both sides — and Open decisions 6 and 7 gained the records below. Broad
+> session-intent migration remains UNN-656.
 
 ## Summary
 
@@ -955,7 +966,11 @@ the abstract:
    committed encounter version, recorded with the outcome, reproduced verbatim on
    deduplicated redelivery, and folded into the console's surviving event-queue token so
    the two protocols sharing the encounter row keep each other fresh). The recorded-mode
-   replica-contract law runs against it.
+   replica-contract law runs against it. **UNN-655 re-examined and kept it:** the
+   classic event wire (`useQueuedWrite`) still shares the encounter row, and the
+   asynchronous accepted pull cannot keep that queue's token fresh at commit time —
+   nothing simpler suffices. Removal condition: UNN-656 retiring the encounter event
+   queue, at which point the door reverts to the default `Remote = void`.
 7. **Resolved (UNN-646), with the rule the combat evidence produced: replica granularity
    follows the authority's commit scope — the row-lock + auth boundary — never the UI's
    dispatch scope.** Read the rule strictly: the commit scope is _every_ lock the commit
@@ -973,6 +988,21 @@ the abstract:
    transports without merging roots. Caveat recorded: the inline replica's justification
    is at-most-once delivery and decision-point uniformity, not multi-writer evidence.
    Full decision record: `apps/web/domain/combat/replica/AGENTS.md`.
+
+   **Re-proved by UNN-655 (the storage-native encounter root).** The inline root
+   widened to the *full atomically-stored fact set of its one row* — `status` plus the
+   whole session shell — and stopped exactly at the row boundary. Granularity remains
+   encounter row + entity rows + Map Instance row, not one combined combat replica,
+   because the widening direction is the row's fact set, never the surface's: durable
+   entity components and Map Instance state live under other rows' locks, gates,
+   cursors, and lifetimes, and folding them into one root would require exactly the
+   cross-root atomic accepted observation this design refuses to coordinate. The
+   runtime `Session` could not become the root for the same reason — dissolving
+   durable references into entity values is a cross-row read that cannot share the
+   encounter row's one consistent observation. Composition happens in the application
+   view seam (`composeCombatModel` joins the Encounter, Map Instance, and durable
+   entity projections plus loader metadata into the dissolved `Session`-shaped view),
+   never in a root; the derived view is neither an authority nor a transport payload.
 8. **Resolved (UNN-645/646).** The entity roots (owner and combat-durable) expose the
    per-class version vector with a product-order classifier (`unknown` on mixed
    dimensions → recovery read); the inline combat root exposes the scalar encounter

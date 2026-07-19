@@ -200,6 +200,74 @@ describe("composeCombatModel", () => {
     })
   })
 
+  it("projects one durable entity into every roster slot it occupies (duplicate-durable)", () => {
+    const frame = eventFrame()
+    const model = composeCombatModel({
+      eventFrame: frame,
+      encounterReplicaSnapshot: null,
+      durableReplicaSnapshots: new Map([
+        [
+          "entity-1",
+          snapshot<CombatDurableState>({
+            components: { vitals: { base: 20, damage: 11 } },
+          }),
+        ],
+      ]),
+      participantMeta: meta,
+    })
+
+    // durableOne and durableTwo are two roster slots over ONE entity row;
+    // the single entity replica's projection reaches both uniformly.
+    expect(
+      model.session.participants[0]!.entity.components.vitals?.damage
+    ).toBe(11)
+    expect(
+      model.session.participants[1]!.entity.components.vitals?.damage
+    ).toBe(11)
+  })
+
+  it("replaces the complete combat subset for inline participants too — no stale capability survives", () => {
+    const frame = eventFrame()
+    // The accepted inline entity carries vitals only: the frame's skillPool
+    // and resources must not survive the fold (an absent capability in
+    // accepted state is a fact, not a gap).
+    const model = composeCombatModel({
+      eventFrame: frame,
+      encounterReplicaSnapshot: encounterSnapshot({
+        [inline]: { vitals: { base: 20, damage: 8 } },
+      }),
+      durableReplicaSnapshots: new Map(),
+      participantMeta: meta,
+    })
+    const components = model.session.participants[2]!.entity.components
+
+    expect(components.vitals?.damage).toBe(8)
+    expect(components.skillPool).toBeUndefined()
+    expect(components.resources).toBeUndefined()
+    expect(components.identity).toEqual({ name: "enemy-1" })
+  })
+
+  it("narrows an inline shell to the four combat keys — a non-combat inline component never reaches the view through this seam", () => {
+    const frame = eventFrame()
+    const model = composeCombatModel({
+      eventFrame: frame,
+      encounterReplicaSnapshot: encounterSnapshot({
+        [inline]: {
+          vitals: { base: 20, damage: 8 },
+          presentation: { portraitUrl: "projected.png" },
+        },
+      }),
+      durableReplicaSnapshots: new Map(),
+      participantMeta: meta,
+    })
+    const components = model.session.participants[2]!.entity.components
+
+    // The frame's own presentation survives; the root's does not replace it —
+    // the encounter root is unredacted storage, and THIS seam is where inline
+    // projections narrow to the combat-writable subset.
+    expect(components.presentation).toEqual({ portraitUrl: "enemy-1.png" })
+  })
+
   it("keeps the event-frame participant when a ready inline root has no entry", () => {
     const frame = eventFrame()
     const model = composeCombatModel({
