@@ -4,6 +4,10 @@ import { err, ok, type Result } from "@workspace/result"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
+  loadEncounterEnvelopeById,
+  type EncounterEnvelope,
+} from "@/lib/db/queries/load-encounter"
+import {
   loadPlayerCharacterById,
   type LoadedPlayerCharacter,
 } from "@/lib/db/queries/load-player-character"
@@ -108,6 +112,30 @@ export async function requireEntityOwner(
   if (!pc || pc.userId !== viewerId) forbidden()
 
   return pc
+}
+
+/**
+ * The Result-shaped campaign-DM gate for the combat replica's session door
+ * (UNN-646): the session blob has exactly one sanctioned writer — the
+ * campaign's DM (ADR §2.8a) — and the push door must record an auth refusal
+ * as the mutation's terminal outcome rather than throw (same rationale as
+ * {@link authorizeEntityWriteForClass}). Returns the encounter's blob-free
+ * envelope so the door pings and revalidates without re-querying.
+ */
+export async function authorizeCampaignDMForEncounter(
+  encounterId: string
+): Promise<Result<EncounterEnvelope, "forbidden" | "encounter-not-found">> {
+  const session = await auth()
+  const viewerId = session?.user?.id
+  if (!viewerId) return err("forbidden")
+
+  const encounter = await loadEncounterEnvelopeById(encounterId)
+  if (!encounter) return err("encounter-not-found")
+
+  const campaign = await loadCampaignRowById(encounter.campaignId)
+  if (!campaign || campaign.dmUserId !== viewerId) return err("forbidden")
+
+  return ok(encounter)
 }
 
 /**

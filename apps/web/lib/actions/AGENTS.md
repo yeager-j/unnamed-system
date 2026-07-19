@@ -43,6 +43,7 @@ concurrency token, and envelope:
 | `entity/` classic seams | strict owner for lifecycle; owner-or-campaign-DM inside the combat Store                  | explicit identity precondition for lifecycle; `{ entityId, expectedVersion, write }` inside combat                                                                                                                                        | per-write-class guard (`bumpEntityVersionGuarded`)                                              |
 | `encounter/`            | `requireCampaignDM`                                                                       | `encounterMutationBase` (`{ encounterId, expectedVersion }`)                                                                                                                                                                              | single `version` per encounter                                                                  |
 | `combat/`               | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; durable arm forwards to the entity Store and guards `entity.vitalsVersion` |
+| `combat/replica/`       | typed rejections: durable push = class→posture (`authorizeEntityWriteForClass`) at request start + locked liveness/roster in-transaction; session push = `authorizeCampaignDMForEncounter` + locked liveness; batched snapshot = `requireCampaignDM` (throwing read door) + liveness | durable `{ encounterId, entityId, envelope }`, session `{ encounterId, envelope }`, batched accepted request | ordered dedup-row lock (`replicaClient` / `encounterReplicaClient`), then `encounters` (both doors), then `entity` for the durable arm — no client `expectedVersion` |
 
 > **The `entity/` aggregate (UNN-551/649)** is the descriptor → Writer → Store
 > pipeline for durable component writes. The neutral vocabulary (schema,
@@ -65,6 +66,41 @@ concurrency token, and envelope:
 > the client into gap refusals), and **there is no client `expectedVersion`** —
 > the entity row lock inside the transaction is the concurrency strategy; the
 > class version still bumps as the snapshot cursor and ping payload.
+
+> **The `combat/replica/` doors (UNN-646)** bind combat's two persistence homes
+> to the replica, one door pair per home so a confused client claim fails
+> closed at the other home's decode/locator check. The **durable door**
+> (`pushCombatDurableMutationAction`) is the entity door's shape over the
+> `combat.entity.write` registry (the `combatEntityWriteSchema` subset — a
+> non-combat arm is a RECORDED decode refusal), the same `replicaClient`
+> ledger, and the entity-row lock — but its **lock order is `replicaClient →
+> encounters → entity`**, because a durable combat write is licensed by facts
+> that live on the encounter row. Inside the transaction, under the encounter's
+> lock, it re-reads liveness (`encounter-not-live`) and roster membership
+> (`participant-not-found`) before touching the entity, so a removal or an
+> end-combat sweep serializes against the push instead of racing it. Only the
+> viewer verdict is computed at request start; a role revoked mid-flight is a
+> recorded gap, tracked by a fast-follow. The
+> **session door** (`pushCombatSessionMutationAction`) runs the classic
+> session Store's body (locator-derived home, Writer pre-mint, event mint,
+> reduce, fail-closed serialize) under the encounter row lock with the
+> `encounterReplicaClient` ledger; lock order `encounterReplicaClient →
+> encounters`; it refuses `encounter-not-live` under that same lock (and,
+> unlike the classic event door, never promotes `draft → live` — this door
+> exists only behind the live console); `Remote = { version }` is recorded with the outcome and
+> reproduced verbatim on a deduplicated redelivery. The **batched bootstrap**
+> (`loadCombatAcceptedAction`) registers the inline identity plus the
+> roster-admitted durable identities in one action (Server Actions serialize
+> per tab) and serves each root's tuple from one joined statement. It refuses
+> `encounter-not-live` **before minting anything** — registration is the
+> license the push doors lean on, so a stale tab must not acquire one; the
+> binding turns that into a terminal `unavailable` bootstrap. An entity
+> outside the encounter's durable roster is not admitted — neither registered
+> nor served (registration is the license the push doors' absent-row ⇒
+> `unknown-client` invariant leans on). The durable value is the redacted
+> combat root — exactly the four combat-writable components, never narrative
+> or app columns (the entity snapshot door's strict-owner reservation,
+> answered).
 
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` aggregate's replica/combat

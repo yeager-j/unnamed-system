@@ -75,6 +75,29 @@ export async function loadEncounterForWrite(
 }
 
 /**
+ * The in-transaction, row-locked twin of {@link loadEncounterForWrite}
+ * (UNN-646): the combat replica's session processor holds the encounter row
+ * lock from read to commit, so the parse → reduce → save sequence cannot lose
+ * a race — the lock, not a client token, is that door's concurrency strategy.
+ * The durable-participant hydration inside the dissolve still reads through
+ * the default `db` (unlocked, outside the transaction): the inline write
+ * never writes durable rows, and their components only feed the dissolve.
+ */
+export async function loadEncounterForWriteLocked(
+  executor: WriteExecutor,
+  encounterId: string
+): Promise<Result<LoadedEncounterForWrite, LoadEncounterSessionError>> {
+  const [rawRow] = await executor
+    .select()
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+    .for("update")
+
+  return dissolveEncounterRow(rawRow)
+}
+
+/**
  * The snapshot twin of {@link loadEncounterForWrite}, keyed by the watch URL's
  * `shortId` (the read boundary is signed-out-visible, so it never holds a row
  * id). Same parse + dissolve; the result adds `durableOwners` for
@@ -92,8 +115,11 @@ export async function loadEncounterForSnapshot(
   return dissolveEncounterRow(rawRow)
 }
 
-/** The shared parse → hydrate → dissolve core both entry points run. */
-async function dissolveEncounterRow(
+/** The shared parse → hydrate → dissolve core the entry points run. Exported
+ *  (UNN-646) for the combat replica's snapshot door, whose atomicity rule
+ *  requires selecting the row itself in one joined statement before
+ *  dissolving. */
+export async function dissolveEncounterRow(
   rawRow: EncounterRow | undefined
 ): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {
   if (!rawRow) return err("encounter-not-found")
@@ -167,6 +193,57 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
   }
 
   return { entities, versions, owners }
+}
+
+export type EncounterRosterError = "encounter-not-found" | "invalid-session"
+
+export interface LockedEncounterRoster {
+  readonly status: EncounterStatus
+  readonly durableEntityIds: ReadonlySet<string>
+}
+
+/**
+ * The **combat license** of one encounter, read under its row lock: whether
+ * the encounter is still live, and which entities are still durable
+ * participants. Entity ids only, from the stored envelope's locators — never
+ * hydrating entities.
+ *
+ * Locked, not advisory (UNN-646 review). Both facts are preconditions the
+ * durable push door COMMITS on, and a precondition checked outside the
+ * transaction that acts on it is not a precondition: the replica's rebase can
+ * correct a client's projection, but nothing can undo an authority commit
+ * made after the roster or the encounter's liveness lapsed. Holding this lock
+ * is what makes a removal, or an end-combat sweep, serialize against an
+ * in-flight durable push instead of racing it.
+ *
+ * Result-shaped (unlike `loadLiveEncounterDurableEntityIds`'s fail-closed
+ * throw) because a corrupt blob here must become a RECORDED rejection, not a
+ * retryable loop.
+ */
+export async function loadEncounterRosterForWriteLocked(
+  executor: WriteExecutor,
+  encounterId: string
+): Promise<Result<LockedEncounterRoster, EncounterRosterError>> {
+  const [row] = await executor
+    .select({ session: encounters.session, status: encounters.status })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+    .for("update")
+
+  if (!row) return err("encounter-not-found")
+  const parsed = storedSessionSchema.safeParse(row.session)
+  if (!parsed.success) return err("invalid-session")
+  return ok({
+    status: row.status,
+    durableEntityIds: new Set(
+      parsed.data.participants.flatMap((participant) =>
+        participant.locator.storage === "durable"
+          ? [participant.locator.entityId]
+          : []
+      )
+    ),
+  })
 }
 
 /**

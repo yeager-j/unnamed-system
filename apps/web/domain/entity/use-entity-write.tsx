@@ -363,6 +363,11 @@ function autoSaveError(
       return "expired"
     case "disposed":
       return "disposed"
+    case "unavailable":
+      // A controller whose bootstrap terminally failed never mounted a
+      // replica; to an auto-saving leaf that is the same "this surface can no
+      // longer save" story `disposed` already tells.
+      return "disposed"
   }
 }
 

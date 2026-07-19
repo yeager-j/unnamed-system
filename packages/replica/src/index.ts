@@ -35,6 +35,14 @@ export {
   type InvocationOf,
 } from "./mutations"
 export type { StandardSchemaV1 } from "./standard-schema"
+export {
+  createManagedReplica,
+  type ManagedBootstrapFailure,
+  type ManagedBootstrapResult,
+  type ManagedReplica,
+  type ManagedReplicaOptions,
+  type ManagedReplicaSetup,
+} from "./managed"
 
 /**
  * The caller-visible failure taxonomy. `refused` is a local prediction refusal
@@ -46,10 +54,17 @@ export type { StandardSchemaV1 } from "./standard-schema"
  * retention lapsed — so the replica refuses to guess, drops the prediction,
  * and the application decides whether the intent is worth re-issuing through
  * a fresh replica.
+ *
+ * `unavailable` is only ever produced by the MANAGED layer, never by
+ * `createReplica`: the intent was dispatched at a controller whose bootstrap
+ * terminally failed, so no replica ever existed to predict it. Unlike
+ * `expired` it carries no ambiguity — nothing was sent — but like `expired`
+ * the application owns whether to re-issue.
  */
 export type MutationError<ApplyError> =
   | { readonly kind: "disposed" }
   | { readonly kind: "expired" }
+  | { readonly kind: "unavailable" }
   | {
       readonly kind: "invalid"
       readonly issues: ReadonlyArray<StandardSchemaV1.Issue>

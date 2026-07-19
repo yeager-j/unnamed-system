@@ -1,20 +1,20 @@
 "use client"
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useState } from "react"
 import { toast } from "sonner"
 
 import {
-  createReplica,
-  type MutationError,
+  createManagedReplica,
   type MutationReceipt,
-  type Replica,
   type ReplicaSnapshot,
 } from "@workspace/replica"
-import { err, ok, type Result } from "@workspace/result"
+import { useManagedReplica } from "@workspace/replica/react"
+import type { Result } from "@workspace/result"
 
 import { loadEntityAcceptedAction } from "@/lib/actions/entity/replica/snapshot"
 import { createEntityReplicaSource } from "@/lib/sync/entity-replica-source"
 
+import type { EntityVersionVector } from "./cursor"
 import { logEntityReplicaEvent } from "./events"
 import { mintEntityClientIdentity } from "./identity"
 import {
@@ -31,13 +31,6 @@ export type EntityReplicaSnapshot = ReplicaSnapshot<
 >
 
 export type EntityMutationReceipt = MutationReceipt<
-  EntityReplicaRejection,
-  void
->
-
-type EntityReplica = Replica<
-  EntityReplicaState,
-  EntityReplicaInvocation,
   EntityReplicaRejection,
   void
 >
@@ -66,11 +59,6 @@ function createRealtimeBridge(): RealtimeBridge {
   }
 }
 
-interface BufferedMutation {
-  readonly invocation: EntityReplicaInvocation
-  readonly resolve: (receipt: EntityMutationReceipt) => void
-}
-
 export interface UseEntityReplicaArgs {
   readonly entityId: string
   /** False for read-only mounts (a non-owner viewing a public sheet): the
@@ -97,170 +85,79 @@ export interface UseEntityReplicaReturn {
 }
 
 /**
- * Owns one entity replica's React lifecycle (UNN-645):
+ * The entity binding over the managed replica lifecycle (UNN-645, thinned in
+ * UNN-646 when the combat binding proved the scaffolding generic). What stays
+ * here is Showtime policy:
  *
- * - **Bootstrap before construction.** The replica is created only after
- *   `loadEntityAcceptedAction` resolves for a freshly minted identity — that
- *   read REGISTERS the client (the push door refuses unregistered
- *   identities) and returns the personalized `initial`, so registration
- *   provably precedes the first push. Until then `snapshot` is null and the
- *   provider renders the RSC frame; dispatches buffer.
- * - **Expiry rebuilds.** When the authority reports `unknown-client` the
- *   replica expires terminally; this hook toasts (when predictions were
- *   dropped), mints a fresh identity, and bootstraps a replacement. The
- *   `dropped` count comes from the replica's own `expired` event.
- * - **StrictMode-safe** by construction: creation happens in the effect, the
- *   cleanup disposes, and a replayed effect bootstraps a new identity — an
- *   abandoned identity's dedup row is reclaimed by the TTL sweep.
+ * - **Bootstrap = registration.** `loadEntityAcceptedAction` REGISTERS the
+ *   freshly minted identity (the push door refuses unregistered identities)
+ *   and returns the personalized `initial`, so registration provably
+ *   precedes the first push. A failed load leaves the hook on the RSC frame.
+ * - **Expiry toast.** When the authority reports `unknown-client` the
+ *   controller rebuilds under a fresh identity; this hook only decides what
+ *   the user hears (a toast when predictions were dropped).
+ * - **The realtime bridge.** The provider stays the single Ably subscriber
+ *   and fans pings into the transport seam.
  */
 export function useEntityReplica({
   entityId,
   enabled,
 }: UseEntityReplicaArgs): UseEntityReplicaReturn {
-  const [replica, setReplica] = useState<EntityReplica | null>(null)
-  const [generation, setGeneration] = useState(0)
   const [bridge] = useState(createRealtimeBridge)
-  const replicaRef = useRef<EntityReplica | null>(null)
-  const bufferRef = useRef<BufferedMutation[]>([])
-  const unsettledRef = useRef(
-    new Set<Promise<Result<void, MutationError<EntityReplicaRejection>>>>()
-  )
-  const settlementFailedRef = useRef(false)
 
-  useEffect(() => {
-    if (!enabled) return
-    let cancelled = false
-    let instance: EntityReplica | null = null
-
-    const drainBuffer = (target: EntityReplica): void => {
-      const buffered = bufferRef.current
-      bufferRef.current = []
-      for (const entry of buffered)
-        entry.resolve(target.mutate(entry.invocation))
-    }
-
-    const identity = mintEntityClientIdentity(entityId)
-    void loadEntityAcceptedAction({ entityId, ...identity }).then((result) => {
-      if (!result.ok) return
-      if (cancelled && bufferRef.current.length === 0) return
-      const source = createEntityReplicaSource({
-        entityId,
-        identity,
-        subscribe: bridge.subscribe,
-      })
-      const created = createReplica({
-        identity,
-        initial: result.value,
+  const create = useCallback(
+    () =>
+      createManagedReplica<
+        EntityReplicaState,
+        EntityReplicaInvocation,
+        EntityReplicaRejection,
+        void,
+        EntityVersionVector
+      >({
         mutations: entityReplicaMutations,
-        transport: createEntityReplicaTransport({
-          source,
-          initial: result.value,
-        }),
-        onEvent: (event) => {
-          logEntityReplicaEvent(event)
-          if (event.kind !== "expired") return
-          if (event.dropped > 0) {
+        bootstrap: async () => {
+          const identity = mintEntityClientIdentity(entityId)
+          const result = await loadEntityAcceptedAction({
+            entityId,
+            ...identity,
+          })
+          // Both door codes are terminal: a malformed request and an
+          // unloadable entity row are not conditions a retry improves. A
+          // THROWN action (network, deploy) never reaches here — the managed
+          // layer classifies it retryable and backs off.
+          if (!result.ok) {
+            return { kind: "unavailable" as const, reason: result.error }
+          }
+          const source = createEntityReplicaSource({
+            entityId,
+            identity,
+            subscribe: bridge.subscribe,
+          })
+          return {
+            identity,
+            initial: result.value,
+            transport: createEntityReplicaTransport({
+              source,
+              initial: result.value,
+            }),
+          }
+        },
+        onEvent: logEntityReplicaEvent,
+        onExpired: ({ dropped }) => {
+          if (dropped > 0) {
             toast.error(
               "This tab's live session expired — unsaved changes were discarded. Reconnecting…"
             )
           }
-          setGeneration((current) => current + 1)
         },
-      })
-      if (cancelled) {
-        // Torn down mid-bootstrap with unmount saves in the buffer: flush
-        // them through this short-lived replica (fire-and-forget, like the
-        // classic path's unmount save), then let it go.
-        drainBuffer(created)
-        setTimeout(() => created.dispose(), 0)
-        return
-      }
-      instance = created
-      replicaRef.current = created
-      drainBuffer(created)
-      setReplica(created)
-    })
-
-    return () => {
-      cancelled = true
-      const teardown = instance
-      setReplica((current) => (current === teardown ? null : current))
-      // Deletion cleanups run PARENT-first: this provider-level cleanup runs
-      // before a dirty field's `useDebouncedAutoSave` unmount flush, whose
-      // fire-and-forget save must still find a live replica (Codex P1, PR
-      // #386). Teardown therefore yields one macrotask — the same-commit
-      // child cleanups land their mutations, the delivery microtasks
-      // dispatch the Server Action POST, and only then does disposal abort
-      // the already-sent wait. (The 2026-07-13 nested-root lesson: teardown
-      // yields when the outer lifecycle can still invoke it.)
-      setTimeout(() => {
-        if (replicaRef.current === teardown) replicaRef.current = null
-        teardown?.dispose()
-      }, 0)
-    }
-  }, [entityId, enabled, generation, bridge])
-
-  const snapshot = useSyncExternalStore(
-    (onStoreChange) => (replica ? replica.subscribe(onStoreChange) : () => {}),
-    () =>
-      replica && !replica.getSnapshot().expired ? replica.getSnapshot() : null,
-    () => null
+      }),
+    [entityId, bridge]
   )
 
-  function trackReceipt(receipt: EntityMutationReceipt): EntityMutationReceipt {
-    const remote = receipt.remote
-    unsettledRef.current.add(remote)
-    void remote.then(
-      (result) => {
-        if (!result.ok) settlementFailedRef.current = true
-        unsettledRef.current.delete(remote)
-      },
-      () => {
-        settlementFailedRef.current = true
-        unsettledRef.current.delete(remote)
-      }
-    )
-    return receipt
-  }
-
-  function mutate(invocation: EntityReplicaInvocation): EntityMutationReceipt {
-    const current = replicaRef.current
-    if (current) return trackReceipt(current.mutate(invocation))
-    if (!enabled) {
-      const refused: Result<never, { kind: "disposed" }> = err({
-        kind: "disposed",
-      })
-      return trackReceipt({
-        id: null,
-        local: Promise.resolve(refused),
-        remote: Promise.resolve(refused),
-      })
-    }
-    // Bootstrap window: hold the intent, replay in order once the replica
-    // exists. The proxied receipt settles from the real one.
-    let resolveReceipt!: (receipt: EntityMutationReceipt) => void
-    const receiptPromise = new Promise<EntityMutationReceipt>((resolve) => {
-      resolveReceipt = resolve
-    })
-    bufferRef.current.push({ invocation, resolve: resolveReceipt })
-    return trackReceipt({
-      id: null,
-      local: receiptPromise.then((receipt) => receipt.local),
-      remote: receiptPromise.then((receipt) => receipt.remote),
-    })
-  }
-
-  async function settleMutations(): Promise<
-    Result<void, "pending-write-failed">
-  > {
-    while (unsettledRef.current.size > 0) {
-      await Promise.allSettled([...unsettledRef.current])
-    }
-    const failed = settlementFailedRef.current
-    settlementFailedRef.current = false
-    if (failed) return err("pending-write-failed")
-    return ok(undefined)
-  }
+  const { snapshot, mutate, settleMutations } = useManagedReplica({
+    enabled,
+    create,
+  })
 
   return {
     snapshot,

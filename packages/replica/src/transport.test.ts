@@ -2,10 +2,59 @@ import { describe, expect, it } from "vitest"
 
 import type { Accepted } from "./protocol"
 import {
+  classifyPushDoorRefusal,
   createCausalAcceptanceGate,
   createPullGenerationGate,
   type CausalRelationship,
 } from "./transport"
+
+describe("classifyPushDoorRefusal", () => {
+  const INVALID_WRITE = "invalid-write"
+
+  /**
+   * The governing rule: `rejected` is terminal and consumes the local
+   * mutation ID, so it may only ever describe a refusal the authority
+   * RECORDED against the client's watermark. These two tables split the
+   * taxonomy on exactly that question.
+   */
+  it("maps recorded refusals to terminal rejections", () => {
+    expect(
+      classifyPushDoorRefusal({ kind: "rejected", error: "no" }, INVALID_WRITE)
+    ).toEqual({ kind: "rejected", error: "no" })
+    expect(
+      classifyPushDoorRefusal({ kind: "invalid", issues: [] }, INVALID_WRITE)
+    ).toEqual({ kind: "rejected", error: INVALID_WRITE })
+    expect(
+      classifyPushDoorRefusal(
+        { kind: "unknown-mutation", name: "nope" },
+        INVALID_WRITE
+      )
+    ).toEqual({ kind: "rejected", error: INVALID_WRITE })
+  })
+
+  it("never reports an UNRECORDED failure as rejected", () => {
+    // `invalid-input` is returned by the door BEFORE the processor opens a
+    // transaction, so no dedup outcome exists. Calling it `rejected` would
+    // advance the replica past an ID the authority's watermark never saw,
+    // and the next delivery would be a gap that wedges the stream.
+    expect(classifyPushDoorRefusal("invalid-input", INVALID_WRITE)).toEqual({
+      kind: "unknown-client",
+    })
+  })
+
+  it("collapses every stream-dead refusal into unknown-client", () => {
+    const dead = [
+      { kind: "unknown-client", received: 4 },
+      { kind: "gap", expected: 2, received: 7 },
+      { kind: "outcome-unavailable", mutationId: 3 },
+    ] as const
+    for (const refusal of dead) {
+      expect(classifyPushDoorRefusal(refusal, INVALID_WRITE)).toEqual({
+        kind: "unknown-client",
+      })
+    }
+  })
+})
 
 describe("createPullGenerationGate", () => {
   it("lets only the latest generation publish", () => {
