@@ -60,3 +60,29 @@ test("moves a placed combatant to an adjacent zone, persisted to the session", a
     .poll(async () => await target.getCombatantZone())
     .toBe(target.destinationZone.id)
 })
+
+test("a spatial edit converges in another tab without navigation", async ({
+  page,
+  context,
+}) => {
+  const other = await context.newPage()
+  await Promise.all([
+    page.goto(target.encounter.url),
+    other.goto(target.encounter.url),
+  ])
+
+  const detailName = `Open ${target.pc.name} detail`
+  await page.getByRole("button", { name: detailName }).click()
+  await other.getByRole("button", { name: detailName }).click()
+  await expect(other.getByRole("dialog").getByText("Courtyard")).toBeVisible()
+
+  await page
+    .getByRole("dialog")
+    .getByRole("combobox", { name: "Move to zone" })
+    .click()
+  await page.getByRole("option", { name: target.destinationZone.name }).click()
+
+  await expect(
+    other.getByRole("dialog").getByText(target.destinationZone.name)
+  ).toBeVisible({ timeout: 20_000 })
+})

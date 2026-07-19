@@ -14,8 +14,8 @@ import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
  * Instance (UNN-536, PR11c). The party + staged enemies are assembled **client-side**
  * (no persisted draft — the delve Instance already exists), so the wire carries the
  * party's `characterId`s and the staged `enemies` (each key placed on a zone), plus
- * the opening `advantage`/`firstSide` the DM declared. `expectedInstanceVersion`
- * guards the shared Instance the co-mint folds enemy tokens onto.
+ * the opening `advantage`/`firstSide` the DM declared. The authority locks the
+ * shared Instance and folds enemy tokens onto its current state.
  */
 /**
  * How many copies of one creature a single staged group may carry. The staging
@@ -30,7 +30,6 @@ export const StartDungeonEncounterSchema = z.object({
    *  action (D11, UNN-589), so it version-guards the dungeon row — that bump is
    *  what a racing finish conflicts with. */
   expectedVersion: z.number().int().nonnegative(),
-  expectedInstanceVersion: z.number().int().nonnegative(),
   name: z.string().trim().min(1).max(100),
   advantage: z.enum(COMBAT_ADVANTAGES),
   firstSide: z.enum(COMBAT_SIDES),

@@ -33,8 +33,10 @@ export function combatErrorMessage(
       return "This encounter is no longer live. Reload and try again."
     case "map-instance-not-found":
       return "This encounter's map is missing. Reload and try again."
-    case "missing-instance-version":
-      return "Something looks off with the map. Reload and try again."
+    case "map-instance-frozen":
+      return "This encounter's map is closed to further changes. Reload and try again."
+    case "invalid-state":
+      return "Something looks off with this encounter's map. Reload and try again."
     case "character-not-found":
       return "That character no longer exists."
     case "unknown-enemy":

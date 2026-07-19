@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm"
 
 import {
-  createMutationProcessor,
   type MutationProcessor,
   type ProcessorEvent,
 } from "@workspace/replica/server"
@@ -15,17 +14,16 @@ import {
   entityColumnPatch,
   entityReplicaMutations,
   type EntityReplicaInvocation,
-  type EntityReplicaState,
 } from "@/domain/entity/replica/mutations"
 import type { EntityReplicaRejection } from "@/domain/entity/replica/rejection"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { type WriteExecutor } from "@/lib/db/client"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import { entity } from "@/lib/db/schema/entity"
 import { replicaClient } from "@/lib/db/schema/replica-client"
 import type { VersionClass } from "@/lib/db/version-classes"
 
-import { createDrizzleMutationDedupAdapter } from "../../replica/drizzle-ledger"
+import { createDrizzleMutationProcessor } from "../../replica/drizzle-processor"
 import {
   entityVersionIncrement,
   VERSION_COLUMNS,
@@ -88,25 +86,13 @@ export type EntityPushProcessor = MutationProcessor<
 export function createEntityPushProcessor(
   entityId: string
 ): EntityPushProcessor {
-  return createMutationProcessor<
-    EntityReplicaState,
-    EntityReplicaInvocation,
-    WriteExecutor,
-    EntityPushContext,
-    EntityReplicaRejection,
-    void
-  >({
+  return createDrizzleMutationProcessor({
     mutations: entityReplicaMutations,
-    transact: (work) => db.transaction(work),
-    dedup: createDrizzleMutationDedupAdapter<
-      void,
-      EntityReplicaRejection,
-      typeof replicaClient
-    >({
+    ledger: {
       table: replicaClient,
       pinColumn: replicaClient.entityId,
       pinValue: entityId,
-    }),
+    },
     execute: executeEntityMutation,
     onEvent: logProcessorEvent,
   })

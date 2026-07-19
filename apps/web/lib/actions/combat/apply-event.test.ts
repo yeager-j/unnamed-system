@@ -29,10 +29,10 @@ const requireCampaignDM = vi.fn()
 const loadEncounterCampaignId = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
-const loadMapInstanceById = vi.fn()
+const loadMapInstanceForWriteLocked = vi.fn()
 const loadLiveEntityRowById = vi.fn()
 const saveEncounterSession = vi.fn()
-const saveMapInstanceState = vi.fn()
+const saveLockedMapInstanceState = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
 const publishEncounterPing = vi.fn()
@@ -48,9 +48,6 @@ vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
   loadLiveEncounterIdForCampaign: (id: string) =>
     loadLiveEncounterIdForCampaign(id),
-}))
-vi.mock("@/lib/db/queries/map-instance", () => ({
-  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
   loadLiveEntityRowById: (id: string) => loadLiveEntityRowById(id),
@@ -72,12 +69,13 @@ vi.mock("@/lib/db/writes/encounter", () => ({
   ) => saveEncounterSession(id, stored, v, tx),
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
-  saveMapInstanceState: (
+  loadMapInstanceForWriteLocked: (tx: unknown, id: string) =>
+    loadMapInstanceForWriteLocked(tx, id),
+  saveLockedMapInstanceState: (
     tx: unknown,
-    id: string,
-    state: MapInstanceState,
-    v: number
-  ) => saveMapInstanceState(tx, id, state, v),
+    locked: unknown,
+    state: MapInstanceState
+  ) => saveLockedMapInstanceState(tx, locked, state),
 }))
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
@@ -210,14 +208,17 @@ beforeEach(() => {
   loadEncounterCampaignId.mockReset().mockResolvedValue(CAMPAIGN_ID)
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded()))
   loadLiveEncounterIdForCampaign.mockReset().mockResolvedValue(null)
-  loadMapInstanceById.mockReset().mockResolvedValue({
-    id: MAP_INSTANCE_ID,
-    state: makeInstanceState(),
-    version: 0,
-  })
+  loadMapInstanceForWriteLocked.mockReset().mockResolvedValue(
+    ok({
+      id: MAP_INSTANCE_ID,
+      state: makeInstanceState(),
+      status: "open",
+      version: 0,
+    })
+  )
   loadLiveEntityRowById.mockReset().mockResolvedValue(null)
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
-  saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 1 }))
+  saveLockedMapInstanceState.mockReset().mockResolvedValue(ok({ version: 1 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
   revalidateEncounter.mockReset()
   publishEncounterPing.mockReset()
@@ -326,42 +327,11 @@ describe("applyCombatEventAction — generic session events", () => {
   })
 })
 
-describe("applyCombatEventAction — spatial events", () => {
-  it("routes a spatial event to the v2 spatial reducer + Instance write", async () => {
-    const result = await applyCombatEventAction({
-      encounterId: ENCOUNTER_ID,
-      expectedVersion: 0,
-      expectedInstanceVersion: 0,
-      event: { kind: "moveCombatant", tokenKey: PC_ID, toZoneId: "z" },
-    })
-
-    expect(result).toEqual(ok({ version: 1 }))
-    expect(saveEncounterSession).not.toHaveBeenCalled()
-    expect(saveMapInstanceState).toHaveBeenCalledWith(
-      "db",
-      MAP_INSTANCE_ID,
-      expect.anything(),
-      0
-    )
-    expect(publishEncounterInstancePing).toHaveBeenCalledWith("enc1", 1)
-  })
-
-  it("requires the Instance token for a spatial event", async () => {
-    const result = await applyCombatEventAction({
-      encounterId: ENCOUNTER_ID,
-      expectedVersion: 0,
-      event: { kind: "clearEnchantment" },
-    })
-    expect(result).toEqual(err("missing-instance-version"))
-  })
-})
-
 describe("applyCombatEventAction — paired roster cross-writes", () => {
   it("adds an inline participant: roster + token in one transaction, inline locator registered", async () => {
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      expectedInstanceVersion: 0,
       event: {
         kind: "addParticipant",
         setup: {
@@ -386,7 +356,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
         components: { vitals: { base: 10, damage: 0 } },
       },
     })
-    const savedInstance = saveMapInstanceState.mock
+    const savedInstance = saveLockedMapInstanceState.mock
       .calls[0]![2] as MapInstanceState
     expect(savedInstance.occupancy["c-new"]).toEqual({
       zoneId: "z",
@@ -400,7 +370,6 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      expectedInstanceVersion: 0,
       event: {
         kind: "addParticipant",
         setup: {
@@ -417,7 +386,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
     const blob = lastSavedBlob()
     const joiner = blob.participants.find((p) => p.id === "c-momo")!
     expect(joiner.locator).toEqual({ storage: "durable", entityId: "char-2" })
-    const savedInstance = saveMapInstanceState.mock
+    const savedInstance = saveLockedMapInstanceState.mock
       .calls[0]![2] as MapInstanceState
     expect(savedInstance.occupancy["c-momo"]).toEqual({
       zoneId: "z",
@@ -430,7 +399,6 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      expectedInstanceVersion: 0,
       event: {
         kind: "addParticipant",
         setup: { side: "players", zoneId: "z", entityId: "ghost" },
@@ -467,35 +435,33 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
         components: { vitals: { base: 10, damage: 0 } },
       },
     })
-    expect(saveMapInstanceState).not.toHaveBeenCalled()
+    expect(saveLockedMapInstanceState).not.toHaveBeenCalled()
   })
 
   it("removes a participant: roster slot + token drop together", async () => {
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      expectedInstanceVersion: 0,
       event: { kind: "removeParticipant", participantId: GOBLIN_ID },
     })
 
     expect(result).toEqual(ok({ version: 1, instanceVersion: 1 }))
     const blob = lastSavedBlob()
     expect(blob.participants.map((p) => p.id)).toEqual([PC_ID])
-    const savedInstance = saveMapInstanceState.mock
+    const savedInstance = saveLockedMapInstanceState.mock
       .calls[0]![2] as MapInstanceState
     expect(savedInstance.occupancy[GOBLIN_ID]).toBeUndefined()
     expect(savedInstance.occupancy[PC_ID]).toBeDefined()
   })
 
-  it("propagates a stale Instance write from inside the transaction", async () => {
-    saveMapInstanceState.mockResolvedValue(err("stale"))
+  it("propagates a failed Instance write from inside the transaction", async () => {
+    saveLockedMapInstanceState.mockResolvedValue(err("map-instance-frozen"))
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      expectedInstanceVersion: 5,
       event: { kind: "removeParticipant", participantId: GOBLIN_ID },
     })
-    expect(result).toEqual(err("stale"))
+    expect(result).toEqual(err("map-instance-frozen"))
     expect(publishEncounterPing).not.toHaveBeenCalled()
   })
 })
@@ -520,11 +486,14 @@ describe("applyCombatEventAction — startCombat", () => {
   it("rejects when zones are defined and a participant is unplaced", async () => {
     const state = makeInstanceState()
     delete state.occupancy[GOBLIN_ID]
-    loadMapInstanceById.mockResolvedValue({
-      id: MAP_INSTANCE_ID,
-      state,
-      version: 0,
-    })
+    loadMapInstanceForWriteLocked.mockResolvedValue(
+      ok({
+        id: MAP_INSTANCE_ID,
+        state,
+        status: "open",
+        version: 0,
+      })
+    )
 
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,

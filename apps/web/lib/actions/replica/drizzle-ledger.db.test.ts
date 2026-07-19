@@ -16,6 +16,7 @@ import { encounters } from "@/lib/db/schema/encounter"
 import { encounterReplicaClient } from "@/lib/db/schema/encounter-replica-client"
 import { entity } from "@/lib/db/schema/entity"
 import { mapInstances } from "@/lib/db/schema/map-instance"
+import { mapInstanceReplicaClient } from "@/lib/db/schema/map-instance-replica-client"
 import { replicaClient } from "@/lib/db/schema/replica-client"
 import { users } from "@/lib/db/schema/user"
 
@@ -123,6 +124,18 @@ async function createEncounterPins(): Promise<readonly [string, string]> {
   return [rows[0]!.id, rows[1]!.id]
 }
 
+async function createMapInstancePins(): Promise<readonly [string, string]> {
+  const suffix = randomUUID().slice(0, 8)
+  const rows = ["primary", "other"].map((kind) => ({
+    id: `ledger-map-instance-${kind}-${suffix}`,
+    state: emptyMapInstance(),
+    version: 0,
+  }))
+  await getDb().insert(mapInstances).values(rows)
+  mapInstanceIds.push(...rows.map(({ id }) => id))
+  return [rows[0]!.id, rows[1]!.id]
+}
+
 const cases: ReadonlyArray<LedgerCase> = [
   {
     name: "entity ledger",
@@ -187,6 +200,40 @@ const cases: ReadonlyArray<LedgerCase> = [
       return rows.map((row) => row.clientId)
     },
     recordedOutcome: ok({ version: 7 }),
+  },
+  {
+    name: "map instance ledger",
+    createPins: createMapInstancePins,
+    async insertRows(primaryPin, otherPin, rows) {
+      await getDb()
+        .insert(mapInstanceReplicaClient)
+        .values(
+          rows.map((row) => ({
+            clientGroupId: row.clientGroupId,
+            clientId: row.clientId,
+            mapInstanceId: row.pin === "primary" ? primaryPin : otherPin,
+            lastMutationId: 1,
+            updatedAt: row.updatedAt,
+          }))
+        )
+    },
+    createAdapter: (pinValue) =>
+      createDrizzleMutationDedupAdapter<
+        unknown,
+        string,
+        typeof mapInstanceReplicaClient
+      >({
+        table: mapInstanceReplicaClient,
+        pinColumn: mapInstanceReplicaClient.mapInstanceId,
+        pinValue,
+      }),
+    async listClientIds() {
+      const rows = await getDb()
+        .select({ clientId: mapInstanceReplicaClient.clientId })
+        .from(mapInstanceReplicaClient)
+      return rows.map((row) => row.clientId)
+    },
+    recordedOutcome: ok(undefined),
   },
 ]
 

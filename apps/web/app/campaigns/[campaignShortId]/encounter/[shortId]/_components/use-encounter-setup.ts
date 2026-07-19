@@ -15,11 +15,14 @@ import {
   type ConsoleOptimisticAction,
 } from "@/domain/combat/console-optimistic"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
+import { isMapInstanceReplicaEvent } from "@/domain/map/replica/mutations"
+import { useMapInstanceReplica } from "@/domain/map/replica/use-map-instance-replica"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { fetchEncounterVersion } from "@/lib/sync/fetch-encounter-version"
-import { fetchInstanceVersion } from "@/lib/sync/fetch-instance-version"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
+import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
+import { parseVersionPing } from "@/lib/sync/version-ping"
 
 /**
  * The encounter-**setup** owner-mode write surface (UNN-347), on engine v2
@@ -31,11 +34,8 @@ import { useQueuedWrite } from "@/lib/sync/use-queued-write"
  * onto `applyCombatEventAction` — no Save button; each edit persists per
  * interaction and the optimistic frame mirrors it instantly.
  *
- * Two {@link useQueuedWrite} version queues (encounter row / Instance row),
- * each with its own one-shot stale-retry refetch, exactly the console's
- * protocol — the ~30 shared lines are duplicated deliberately rather than
- * forced into a common hook (the console adds realtime + write-router wiring
- * this surface never grows).
+ * Encounter writes retain their serialized version queue. Spatial writes use
+ * the Map Instance Replica, whose transport owns rebasing and retries.
  */
 export function useEncounterSetup(data: EncounterForDM) {
   const router = useRouter()
@@ -49,30 +49,68 @@ export function useEncounterSetup(data: EncounterForDM) {
     reduceConsoleOptimistic
   )
 
+  const mapReplica = useMapInstanceReplica({
+    mapInstanceId: data.instance.id,
+    initial: {
+      state: data.instance.state,
+      status: data.instance.status,
+    },
+  })
+
   const encounterWrite = useQueuedWrite({
     serverVersion: data.encounter.version,
     refetchVersion: () => fetchEncounterVersion(data.encounter.shortId),
   })
-  const instanceWrite = useQueuedWrite({
-    serverVersion: data.instance.version,
-    refetchVersion: () => fetchInstanceVersion(data.encounter.shortId),
-  })
 
+  useRealtimeChannel({
+    domain: "encounter",
+    shortId: data.encounter.shortId,
+    onPing: (payload) => {
+      const ping = parseVersionPing(payload, "encounter")
+      if (!ping) return
+      if (ping.kind === "mapInstance") mapReplica.notify()
+      else if (ping.version > encounterWrite.versionRef.current)
+        router.refresh()
+    },
+    onReconnect: () => {
+      mapReplica.notify()
+      router.refresh()
+    },
+  })
   function dispatch(event: ConsoleDispatchEvent) {
     startTransition(() =>
       guardWriteTransition(
         async () => {
+          if (isMapInstanceReplicaEvent(event)) {
+            const result = await mapReplica.mutate(event).remote
+            if (!result.ok) {
+              toast.error("Couldn't update the map. Try again.")
+            }
+            return
+          }
+          if (
+            event.kind === "startCombat" ||
+            event.kind === "removeParticipant" ||
+            (event.kind === "addParticipant" &&
+              event.setup.zoneId !== undefined)
+          ) {
+            const settled = await mapReplica.settle()
+            if (!settled.ok) {
+              toast.error("Couldn't finish saving the map. Try again.")
+              return
+            }
+          }
           const result = await dispatchCombatEvent({
             event,
             encounterId: data.encounter.id,
             applyOptimistic,
             encounterWrite,
-            instanceWrite,
           })
           if (!result.ok) {
             toast.error(combatErrorMessage(result.error))
             return
           }
+          if (result.value.instanceVersion !== undefined) mapReplica.notify()
           router.refresh()
         },
         () => toast.error("Couldn't save. Try again.")
@@ -80,5 +118,9 @@ export function useEncounterSetup(data: EncounterForDM) {
     )
   }
 
-  return { state, isPending, dispatch }
+  return {
+    state: { ...state, mapInstance: mapReplica.state },
+    isPending,
+    dispatch,
+  }
 }

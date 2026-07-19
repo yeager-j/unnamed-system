@@ -75,7 +75,6 @@ export default async function DungeonPage({ params }: PageProps) {
       return (
         <DungeonPrep
           dungeon={dungeon}
-          instance={instance}
           placedCharacters={placedCharacters}
           zones={zones}
           campaignShortId={campaignShortId}

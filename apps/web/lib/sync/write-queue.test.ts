@@ -194,34 +194,6 @@ describe("createWriteQueue", () => {
     calls[1]!.resolve(ok({ version: 3 }))
     await expect(save).resolves.toEqual(ok({ version: 3 }))
   })
-
-  it("serializes unversioned steps on the same spine without changing the token", async () => {
-    const token = makeToken(1)
-    const queue = createWriteQueue({ token })
-    const { action, calls } = makeControlledAction()
-    const step = vi.fn(async () => "advanced")
-
-    const write = queue.enqueue(action)
-    const advanced = queue.enqueueStep(step)
-    await flush()
-
-    expect(step).not.toHaveBeenCalled()
-    calls[0]!.resolve(ok({ version: 2 }))
-    await write
-    await expect(advanced).resolves.toBe("advanced")
-    expect(token.read()).toBe(2)
-  })
-
-  it("continues to an unversioned step after a versioned refusal", async () => {
-    const queue = createWriteQueue({ token: makeToken(1) })
-
-    await expect(queue.enqueue(async () => err("stale"))).resolves.toEqual(
-      err("stale")
-    )
-    await expect(queue.enqueueStep(async () => "navigated")).resolves.toBe(
-      "navigated"
-    )
-  })
 })
 
 describe("runVersionedWrite", () => {

@@ -8,13 +8,15 @@ import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
-import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import {
   saveEncounterSession,
   setEncounterStatus,
 } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
 import {
   publishEncounterInstancePing,
   publishEncounterPing,
@@ -38,7 +40,7 @@ import {
  *    Enchantment; durable/PC tokens persist where the fight ended), and
  * 3. the encounter's status flips to `ended`,
  *
- * atomic over both version tokens, modeled on v1's `endDungeonCombatAction`.
+ * atomic behind the encounter guard and current Instance lock.
  * The prune keys generalize v1's "non-`pc` combatants" onto the **lifecycle
  * axis**: the pruned ids are exactly the participants whose locator is
  * `inline` — the ephemeral ones — read off the authoritative out-of-band map.
@@ -55,7 +57,7 @@ export async function endCombatAction(
   const parsed = EndCombatSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { encounterId, expectedVersion, expectedInstanceVersion } = parsed.data
+  const { encounterId, expectedVersion } = parsed.data
 
   const campaignId = await loadEncounterCampaignId(encounterId)
   if (campaignId === null) return err("encounter-not-found")
@@ -65,9 +67,6 @@ export async function endCombatAction(
   if (!loaded.ok) return loaded
   const { row, loaded: loadedSession } = loaded.value
   if (row.status !== "live") return err("encounter-not-live")
-
-  const instance = await loadMapInstanceById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
 
   const swept = sweepOverlay(loadedSession.session)
   const stored = saveSession(swept, loadedSession.locators)
@@ -79,12 +78,13 @@ export async function endCombatAction(
         loadedSession.locators.get(participant.id)?.storage === "inline"
     )
     .map((participant) => participant.id)
-  const pruned = pruneCombat(instance.state, ephemeralIds)
-
   const result = await guardMany<
     { encounterVersion: number; instanceVersion: number },
     EndCombatError
   >(async (tx: WriteExecutor) => {
+    const instance = await loadMapInstanceForWriteLocked(tx, row.mapInstanceId)
+    if (!instance.ok) return instance
+    const pruned = pruneCombat(instance.value.state, ephemeralIds)
     const saved = await saveEncounterSession(
       row.id,
       stored.value,
@@ -101,12 +101,9 @@ export async function endCombatAction(
     )
     if (!ended.ok) return ended
 
-    const inst = await saveMapInstanceState(
-      tx,
-      row.mapInstanceId,
-      pruned,
-      expectedInstanceVersion
-    )
+    const inst = await saveLockedMapInstanceState(tx, instance.value, pruned, {
+      freeze: true,
+    })
     if (!inst.ok) return inst
 
     return ok({

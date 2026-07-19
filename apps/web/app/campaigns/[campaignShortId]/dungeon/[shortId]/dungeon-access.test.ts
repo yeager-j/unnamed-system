@@ -83,6 +83,7 @@ const campaignRow = (dmUserId: string, id = "campaign-1"): CampaignRow =>
 const instanceRow: MapInstanceRow = {
   id: "mi-1",
   mapId: null,
+  status: "open",
   state: {
     geometry: {
       pages: { default: { id: "default", name: "Page 1" } },

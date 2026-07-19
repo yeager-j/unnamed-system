@@ -59,6 +59,17 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
   },
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
+  loadMapInstanceForWriteLocked: async (tx: unknown, id: string) => {
+    const row = await loadMapInstanceById(id, tx)
+    return row === null
+      ? err("map-instance-not-found")
+      : ok({ ...row, status: "open" })
+  },
+  saveLockedMapInstanceState: (
+    tx: unknown,
+    row: { id: string; version: number },
+    state: MapInstanceState
+  ) => saveMapInstanceState(tx, row.id, state, row.version),
   saveMapInstanceState: (
     tx: unknown,
     id: string,

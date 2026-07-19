@@ -41,61 +41,40 @@ export type ConsoleDispatchEvent =
  * The shared routing brain both combat write hooks (`useEncounterSetup`,
  * `useCombatConsole`) call from inside their pending transition — rewritten
  * onto engine v2 + {@link applyCombatEventAction} (UNN-535). It encodes the
- * dual-row protocol once: which optimistic arm an event mirrors, which version
- * queue serializes it, and how a cross-write reconciles both refs.
+ * encounter protocol once: which optimistic arm an event mirrors and which
+ * version queue serializes it. Spatial events are intercepted by the caller
+ * and travel through the Map Instance Replica instead.
  *
- * Routing (by parse — the spatial and combat unions share no `kind`):
- * - **Pure spatial event** → mirror `{ kind: "event" }` on the one container,
- *   enqueue on the **Instance** queue (the action returns the bumped Instance
- *   version, which `instanceWrite` folds into its own ref). The encounter
- *   token rides along read fresh off the encounter ref.
+ * Routing:
  * - **`addParticipant`** → the inline arm mirrors `{ kind: "addPaired" }`; the
  *   durable arm (`{ entityId }`) mirrors **nothing** — the client has no
  *   entity to build the roster row from (the server hydrates it, R6.2), so the
  *   joiner appears on the RSC revalidation instead. Enqueued on the
- *   **encounter** queue. A **placed** add commits both rows in one txn, so the
- *   Instance ref hand-advances by one on success; a **zone-less** add is a
- *   session-only write — the Instance row is untouched and its ref must not
- *   move.
+ *   **encounter** queue. A placed add still commits both rows in one server
+ *   transaction, then the Map Instance Replica is invalidated by the caller.
  * - **`removeParticipant`** → mirror `{ kind: "removePaired" }`, encounter
  *   queue. The server always persists **both** rows (the occupancy-sever runs
  *   even for a token-less participant — `applyRemoveParticipant` goes through
- *   `persistPaired` unconditionally), so the Instance ref always hand-advances
- *   by one on success.
+ *   `persistPaired` unconditionally), so success carries a Map Replica
+ *   invalidation cursor.
  * - **Any other combat event** → mirror `{ kind: "event" }`, encounter queue.
  *
- * Every action call carries **both** version tokens, read fresh inside the
- * queue's serialized dispatch — never a stale outer-scope value (the UNN-226
- * trap). Both queues one-shot stale-retry through their own refetch
- * (`fetchEncounterVersion` / `fetchInstanceVersion`), wired where the queues
- * are built. The `applyOptimistic` mirror runs *outside* the action so React
- * paints the edit immediately; the server reduces the same event on the loaded
- * row.
+ * Every action call carries the encounter token read fresh inside the queue's
+ * serialized dispatch. The map row is locked and settled from current state by
+ * the authority, so callers never coordinate it with a second client token.
  */
 export async function dispatchCombatEvent({
   event,
   encounterId,
   applyOptimistic,
   encounterWrite,
-  instanceWrite,
 }: {
   event: ConsoleDispatchEvent
   encounterId: string
   applyOptimistic: (action: ConsoleOptimisticAction) => void
   encounterWrite: UseQueuedWriteReturn
-  instanceWrite: UseQueuedWriteReturn
-}): Promise<Result<{ version: number }, ApplyCombatEventError>> {
-  if (isMapInstanceEvent(event)) {
-    applyOptimistic({ kind: "event", event })
-    return instanceWrite.enqueue((expectedInstanceVersion) =>
-      applyCombatEventAction({
-        encounterId,
-        expectedVersion: encounterWrite.versionRef.current,
-        expectedInstanceVersion,
-        event,
-      })
-    )
-  }
+}): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
+  if (isMapInstanceEvent(event)) return { ok: false, error: "invalid-input" }
 
   if (event.kind === "addParticipant") {
     return dispatchAddParticipant({
@@ -103,7 +82,6 @@ export async function dispatchCombatEvent({
       encounterId,
       applyOptimistic,
       encounterWrite,
-      instanceWrite,
     })
   }
 
@@ -116,11 +94,9 @@ export async function dispatchCombatEvent({
       applyCombatEventAction({
         encounterId,
         expectedVersion,
-        expectedInstanceVersion: instanceWrite.versionRef.current,
         event,
       })
     )
-    foldInstanceVersion(instanceWrite, result)
     return result
   }
 
@@ -129,7 +105,6 @@ export async function dispatchCombatEvent({
     applyCombatEventAction({
       encounterId,
       expectedVersion,
-      expectedInstanceVersion: instanceWrite.versionRef.current,
       event,
     })
   )
@@ -140,14 +115,12 @@ async function dispatchAddParticipant({
   encounterId,
   applyOptimistic,
   encounterWrite,
-  instanceWrite,
 }: {
   event: AddParticipantDispatch
   encounterId: string
   applyOptimistic: (action: ConsoleOptimisticAction) => void
   encounterWrite: UseQueuedWriteReturn
-  instanceWrite: UseQueuedWriteReturn
-}): Promise<Result<{ version: number }, ApplyCombatEventError>> {
+}): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
   const { setup } = event
   if ("entity" in setup) {
     applyOptimistic({
@@ -164,27 +137,10 @@ async function dispatchAddParticipant({
     applyCombatEventAction({
       encounterId,
       expectedVersion,
-      expectedInstanceVersion: instanceWrite.versionRef.current,
       event,
     })
   )
-  // Only a placed add writes the Instance row (the paired two-row txn) — the
-  // action says so by returning the bumped Instance version; a zone-less add
-  // is session-only, returns none, and the Instance ref doesn't move.
-  foldInstanceVersion(instanceWrite, result)
   return result
-}
-
-/** Folds a paired write's returned Instance version into the Instance queue's
- *  token (forward-only) — the server's word for which rows it bumped, replacing
- *  the hand-advanced `+= 1` assumption (UNN-567). */
-function foldInstanceVersion(
-  instanceWrite: UseQueuedWriteReturn,
-  result: Result<AppliedCombatEvent, ApplyCombatEventError>
-): void {
-  if (result.ok && result.value.instanceVersion !== undefined) {
-    instanceWrite.bump(result.value.instanceVersion)
-  }
 }
 
 /**

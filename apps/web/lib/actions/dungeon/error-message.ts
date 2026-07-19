@@ -11,7 +11,8 @@ export type DungeonActionError =
   | "dungeon-not-found"
   | "stale"
   | "map-instance-not-found"
-  | "missing-instance-version"
+  | "map-instance-frozen"
+  | "invalid-state"
   | "delve-not-draft"
   | "campaign-already-has-active-delve"
   | "map-not-found"
@@ -69,8 +70,10 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
       return "This delve no longer exists."
     case "map-instance-not-found":
       return "This delve's map is missing. Reload and try again."
-    case "missing-instance-version":
-      return "Something looks off with the map. Reload and try again."
+    case "map-instance-frozen":
+      return "This delve's map is closed to further changes. Reload and try again."
+    case "invalid-state":
+      return "Something looks off with this delve's map. Reload and try again."
     case "invalid-input":
       return "Something looks off. Try again."
   }

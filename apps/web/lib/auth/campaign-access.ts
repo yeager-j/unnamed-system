@@ -11,6 +11,10 @@ import {
   loadPlayerCharacterById,
   type LoadedPlayerCharacter,
 } from "@/lib/db/queries/load-player-character"
+import {
+  loadMapInstanceAccessEnvelope,
+  type MapInstanceAccessEnvelope,
+} from "@/lib/db/queries/map-instance-access"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { VersionClass } from "@/lib/db/version-classes"
 
@@ -136,6 +140,22 @@ export async function authorizeCampaignDMForEncounter(
   if (!campaign || campaign.dmUserId !== viewerId) return err("forbidden")
 
   return ok(encounter)
+}
+
+export async function authorizeCampaignDMForMapInstance(
+  mapInstanceId: string
+): Promise<
+  Result<MapInstanceAccessEnvelope, "forbidden" | "map-instance-not-found">
+> {
+  const session = await auth()
+  const viewerId = session?.user?.id
+  if (!viewerId) return err("forbidden")
+
+  const access = await loadMapInstanceAccessEnvelope(mapInstanceId)
+  if (!access) return err("map-instance-not-found")
+  const campaign = await loadCampaignRowById(access.campaignId)
+  if (!campaign || campaign.dmUserId !== viewerId) return err("forbidden")
+  return ok(access)
 }
 
 /**

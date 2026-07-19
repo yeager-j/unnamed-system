@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { templateSetContentSchema } from "@workspace/game-v2/generation"
 import {
   createDungeonState,
+  emptyMapInstance,
   type DungeonState,
   type MapGeometry,
   type MapInstanceState,
@@ -67,6 +68,15 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
   mapActivationRaceToActiveDelve: async (p: unknown) => p,
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
+  loadMapInstanceForWriteLocked: (_tx: unknown, id: string) =>
+    Promise.resolve(
+      ok({ id, state: emptyMapInstance(), status: "open", version: 0 })
+    ),
+  saveLockedMapInstanceState: (
+    tx: unknown,
+    row: { id: string; version: number },
+    state: MapInstanceState
+  ) => saveMapInstanceState(tx, row.id, state, row.version),
   saveMapInstanceState: (
     tx: unknown,
     id: string,

@@ -91,9 +91,8 @@ export async function setDungeonStatus(
  * Persists the dungeon's whole {@link DungeonState} blob in one version-guarded
  * write (the turn-loop `markActed`/`advanceTurn` reducers + the reminder-setting
  * merges write through here), returning the new version. Mirrors
- * {@link import("./encounter").saveEncounterSession} / `saveMapInstanceState`;
- * pass an `executor` to compose inside a `guardMany` (the search-that-reveals
- * cross-write).
+ * {@link import("./encounter").saveEncounterSession}; pass an `executor` to
+ * compose inside a `guardMany` lifecycle command.
  */
 export async function saveDungeonState(
   dungeonId: string,

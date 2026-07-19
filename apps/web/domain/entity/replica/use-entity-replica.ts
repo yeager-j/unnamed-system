@@ -4,12 +4,13 @@ import { useCallback, useState } from "react"
 import { toast } from "sonner"
 
 import {
+  createManagedBootstrap,
   createManagedReplica,
   type ManagedMutationReceipt,
   type ReplicaSnapshot,
 } from "@workspace/replica"
 import { useManagedReplica } from "@workspace/replica/react"
-import { err, ok, type Result } from "@workspace/result"
+import { type Result } from "@workspace/result"
 
 import {
   loadEntityAcceptedAction,
@@ -120,33 +121,20 @@ export function useEntityReplica({
         EntityAcceptedError
       >({
         mutations: entityReplicaMutations,
-        bootstrap: async () => {
-          const identity = mintEntityClientIdentity(entityId)
-          const result = await loadEntityAcceptedAction({
-            entityId,
-            ...identity,
-          })
-          // Both door codes are terminal: a malformed request and an
-          // unloadable entity row are not conditions a retry improves. A
-          // THROWN action (network, deploy) never reaches here — the managed
-          // layer classifies it retryable and backs off.
-          if (!result.ok) {
-            return err({ kind: "unavailable" as const, reason: result.error })
-          }
-          const source = createEntityReplicaSource({
-            entityId,
-            identity,
-            subscribe: bridge.subscribe,
-          })
-          return ok({
-            identity,
-            initial: result.value,
-            transport: createEntityReplicaTransport({
-              source,
-              initial: result.value,
+        bootstrap: createManagedBootstrap({
+          mintIdentity: () => mintEntityClientIdentity(entityId),
+          loadAccepted: (identity) =>
+            loadEntityAcceptedAction({ entityId, ...identity }),
+          createTransport: (identity, accepted) =>
+            createEntityReplicaTransport({
+              source: createEntityReplicaSource({
+                entityId,
+                identity,
+                subscribe: bridge.subscribe,
+              }),
+              initial: accepted,
             }),
-          })
-        },
+        }),
         onEvent: logEntityReplicaEvent,
         onExpired: ({ dropped }) => {
           if (dropped > 0) {

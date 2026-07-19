@@ -8,13 +8,10 @@ import { encounterMutationBase } from "../encounter/encounter-mutation.schema"
 
 /**
  * Input schema for the v2 {@link endCombatAction} (UNN-520). Combat-end is a
- * **composed** action over both aggregates (CD16), so the Instance token is
- * required — the overlay sweep writes the session blob and the spatial prune
- * writes the Instance, atomically.
+ * **composed** action over both aggregates (CD16). The wire guards the encounter;
+ * the authority locks the current Instance before applying the spatial prune.
  */
-export const EndCombatSchema = encounterMutationBase.extend({
-  expectedInstanceVersion: z.number().int().nonnegative(),
-})
+export const EndCombatSchema = encounterMutationBase
 
 export type EndCombatInput = z.input<typeof EndCombatSchema>
 

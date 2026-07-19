@@ -36,7 +36,9 @@ export {
 } from "./mutations"
 export type { StandardSchemaV1 } from "./standard-schema"
 export {
+  createManagedBootstrap,
   createManagedReplica,
+  type ManagedBootstrapOptions,
   type ManagedBootstrapFailure,
   type ManagedBootstrapResult,
   type ManagedMutationError,

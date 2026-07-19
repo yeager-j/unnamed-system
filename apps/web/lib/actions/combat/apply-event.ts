@@ -13,30 +13,28 @@ import {
 } from "@workspace/game-v2/encounter"
 import { loadEntity, type Entity } from "@workspace/game-v2/kernel"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import {
-  reduceMapInstance as createReduceMapInstance,
-  mapInstanceEventSchema,
-  type MapInstanceEvent,
-} from "@workspace/game-v2/spatial"
+import { type MapInstanceState } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import { db, type WriteExecutor } from "@/lib/db/client"
+import type { WriteExecutor } from "@/lib/db/client"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import {
   loadEncounterForWrite,
   loadLiveEncounterIdForCampaign,
 } from "@/lib/db/queries/load-encounter-session"
 import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
-import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   saveEncounterSession,
   setEncounterStatus,
 } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
 import {
   publishEncounterInstancePing,
   publishEncounterPing,
@@ -83,8 +81,7 @@ export async function applyCombatEventAction(
   const parsed = ApplyCombatEventSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { encounterId, expectedVersion, expectedInstanceVersion, event } =
-    parsed.data
+  const { encounterId, expectedVersion, event } = parsed.data
 
   const campaignId = await loadEncounterCampaignId(encounterId)
   if (campaignId === null) return err("encounter-not-found")
@@ -94,28 +91,12 @@ export async function applyCombatEventAction(
   if (!loaded.ok) return loaded
   const { row, loaded: loadedSession } = loaded.value
 
-  if (isMapInstanceEvent(event)) {
-    return applySpatialEvent(row, expectedInstanceVersion, event)
-  }
-
   if (event.kind === "addParticipant") {
-    return applyAddParticipant(
-      row,
-      loadedSession,
-      expectedVersion,
-      expectedInstanceVersion,
-      event
-    )
+    return applyAddParticipant(row, loadedSession, expectedVersion, event)
   }
 
   if (event.kind === "removeParticipant") {
-    return applyRemoveParticipant(
-      row,
-      loadedSession,
-      expectedVersion,
-      expectedInstanceVersion,
-      event
-    )
+    return applyRemoveParticipant(row, loadedSession, expectedVersion, event)
   }
 
   if (event.kind === "startCombat") {
@@ -134,15 +115,6 @@ export async function applyCombatEventAction(
 
 /** Server-side id mint shared by the reducer + paired helpers. */
 const newId = () => crypto.randomUUID()
-
-/**
- * Routes a parsed wire event to the spatial arm — the combat and spatial unions
- * share no `kind`, so the discriminated-union parse is a cheap discriminator
- * check (the engine's own routing doctrine, `reduce-encounter.ts`).
- */
-function isMapInstanceEvent(event: unknown): event is MapInstanceEvent {
-  return mapInstanceEventSchema.safeParse(event).success
-}
 
 /**
  * Serializes (fail-closed) + saves the reduced session, then fires the
@@ -174,37 +146,6 @@ async function persistSession(
 }
 
 /**
- * A pure spatial write: reduce the encounter's Instance with the v2 spatial
- * reducer, save the single Instance row guarded on `expectedInstanceVersion`,
- * ping the Instance stream on the encounter channel.
- */
-async function applySpatialEvent(
-  row: EncounterRow,
-  expectedInstanceVersion: number | undefined,
-  event: MapInstanceEvent
-): Promise<Result<{ version: number }, ApplyCombatEventError>> {
-  if (expectedInstanceVersion === undefined) {
-    return err("missing-instance-version")
-  }
-
-  const instance = await loadMapInstanceById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
-  const next = createReduceMapInstance(newId)(instance.state, event)
-  const saved = await saveMapInstanceState(
-    db,
-    row.mapInstanceId,
-    next,
-    expectedInstanceVersion
-  )
-  if (!saved.ok) return saved
-
-  publishEncounterInstancePing(row.shortId, saved.value.version)
-  revalidateEncounter(row)
-  return ok({ version: saved.value.version })
-}
-
-/**
  * `addParticipant`: resolves the joiner's entity from its wire source — inline
  * (`{ entity }`, validated through the {@link loadEntity} F6 seam) or durable
  * (`{ entityId }`, assembled from the `entity` row through
@@ -218,7 +159,6 @@ async function applyAddParticipant(
   row: EncounterRow,
   loadedSession: LoadedSession,
   expectedVersion: number,
-  expectedInstanceVersion: number | undefined,
   event:
     | AddParticipantWireEvent
     | Extract<CombatEvent, { kind: "addParticipant" }>
@@ -261,25 +201,12 @@ async function applyAddParticipant(
     return persistSession(row, next, loadedSession, expectedVersion, row.status)
   }
 
-  if (expectedInstanceVersion === undefined) {
-    return err("missing-instance-version")
-  }
-
-  const instance = await loadMapInstanceById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
-  const next = addParticipantPaired(newId)(
-    { session: loadedSession.session, mapInstance: instance.state },
-    addEvent,
-    zoneId
-  )
-
-  return persistPaired(
-    row,
-    next,
-    loadedSession,
-    expectedVersion,
-    expectedInstanceVersion
+  return persistPaired(row, loadedSession, expectedVersion, (mapInstance) =>
+    addParticipantPaired(newId)(
+      { session: loadedSession.session, mapInstance },
+      addEvent,
+      zoneId
+    )
   )
 }
 
@@ -293,27 +220,13 @@ async function applyRemoveParticipant(
   row: EncounterRow,
   loadedSession: LoadedSession,
   expectedVersion: number,
-  expectedInstanceVersion: number | undefined,
   event: Extract<CombatEvent, { kind: "removeParticipant" }>
 ): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
-  if (expectedInstanceVersion === undefined) {
-    return err("missing-instance-version")
-  }
-
-  const instance = await loadMapInstanceById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
-  const next = removeParticipantPaired(newId)(
-    { session: loadedSession.session, mapInstance: instance.state },
-    event
-  )
-
-  return persistPaired(
-    row,
-    next,
-    loadedSession,
-    expectedVersion,
-    expectedInstanceVersion
+  return persistPaired(row, loadedSession, expectedVersion, (mapInstance) =>
+    removeParticipantPaired(newId)(
+      { session: loadedSession.session, mapInstance },
+      event
+    )
   )
 }
 
@@ -327,18 +240,19 @@ async function applyRemoveParticipant(
  */
 async function persistPaired(
   row: EncounterRow,
-  next: EncounterState,
   loadedSession: LoadedSession,
   expectedVersion: number,
-  expectedInstanceVersion: number
+  reduce: (mapInstance: MapInstanceState) => EncounterState
 ): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
-  const stored = saveSession(next.session, loadedSession.locators)
-  if (!stored.ok) return err("locator-missing")
-
   const result = await guardMany<
     { version: number; instanceVersion: number },
     ApplyCombatEventError
   >(async (tx: WriteExecutor) => {
+    const instance = await loadMapInstanceForWriteLocked(tx, row.mapInstanceId)
+    if (!instance.ok) return instance
+    const next = reduce(instance.value.state)
+    const stored = saveSession(next.session, loadedSession.locators)
+    if (!stored.ok) return err("locator-missing")
     const enc = await saveEncounterSession(
       row.id,
       stored.value,
@@ -346,11 +260,10 @@ async function persistPaired(
       tx
     )
     if (!enc.ok) return enc
-    const inst = await saveMapInstanceState(
+    const inst = await saveLockedMapInstanceState(
       tx,
-      row.mapInstanceId,
-      next.mapInstance,
-      expectedInstanceVersion
+      instance.value,
+      next.mapInstance
     )
     if (!inst.ok) return inst
     return ok({
@@ -387,19 +300,20 @@ async function applyStartCombat(
     return err("campaign-already-has-live-encounter")
   }
 
-  const instance = await loadMapInstanceById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
-  if (!isRosterFullyPlaced(loadedSession.session, instance.state)) {
-    return err("encounter-has-unplaced-combatants")
-  }
-
   const next = createReduceSession(newId)(loadedSession.session, event)
   const stored = saveSession(next, loadedSession.locators)
   if (!stored.ok) return err("locator-missing")
 
   const result = await guardMany<{ version: number }, ApplyCombatEventError>(
     async (tx: WriteExecutor) => {
+      const instance = await loadMapInstanceForWriteLocked(
+        tx,
+        row.mapInstanceId
+      )
+      if (!instance.ok) return instance
+      if (!isRosterFullyPlaced(loadedSession.session, instance.value.state)) {
+        return err("encounter-has-unplaced-combatants")
+      }
       const saved = await saveEncounterSession(
         row.id,
         stored.value,

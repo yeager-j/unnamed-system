@@ -16,7 +16,6 @@ export const EndDungeonCombatSchema = z.object({
   encounterId: z.string(),
   dungeonId: z.string(),
   expectedEncounterVersion: z.number().int().nonnegative(),
-  expectedInstanceVersion: z.number().int().nonnegative(),
   expectedDungeonVersion: z.number().int().nonnegative(),
 })
 

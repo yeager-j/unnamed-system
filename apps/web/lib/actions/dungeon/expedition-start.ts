@@ -28,7 +28,10 @@ import {
   mapActivationRaceToActiveDelve,
 } from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
 import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import {
@@ -80,8 +83,7 @@ export async function startExpeditionAction(
   const parsed = StartExpeditionSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion, expectedInstanceVersion, placements } =
-    parsed.data
+  const { dungeonId, expectedVersion, placements } = parsed.data
 
   const variant = await loadDungeonVariantForWrite(dungeonId)
   if (variant === null) return err("dungeon-not-found")
@@ -159,11 +161,15 @@ export async function startExpeditionAction(
       )
       if (live !== null) return err("delve-has-live-encounter")
 
-      const inst = await saveMapInstanceState(
+      const currentInstance = await loadMapInstanceForWriteLocked(
         tx,
-        dungeon.mapInstanceId,
-        next,
-        expectedInstanceVersion
+        dungeon.mapInstanceId
+      )
+      if (!currentInstance.ok) return currentInstance
+      const inst = await saveLockedMapInstanceState(
+        tx,
+        currentInstance.value,
+        next
       )
       if (!inst.ok) return inst
       // One guarded bump flips the status AND persists the initial ledger —

@@ -13,7 +13,9 @@ are the production examples; `src/reference/` is the deliberately alien one.
   buffering during the bootstrap window, bootstrap retry/terminal classification, receipt
   settlement tracking, expiry rebuild under a fresh identity, and one-macrotask deferred
   disposal; `useManagedReplica` (`@workspace/replica/react`) wraps it for a single-replica
-  mount. Imperative callers (a keyed set of replicas) drive controllers directly.
+  mount. `createManagedBootstrap` composes the portable identity → accepted floor → transport
+  ordering while leaving all three operations application-owned. Imperative callers (a keyed
+  set of replicas) drive controllers directly.
 - `createPullTransport` (`@workspace/replica/transport`) — the pull-on-invalidation
   transport: pull-generation gate + causal-acceptance gate + subscribe-before-catch-up +
   push-throw→`retryable`, over your `{fetchAccepted, pushEnvelope, subscribe}` source seam.

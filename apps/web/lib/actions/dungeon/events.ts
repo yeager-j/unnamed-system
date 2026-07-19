@@ -1,32 +1,18 @@
 "use server"
 
-import {
-  reduceMapInstance as createReduceMapInstance,
-  reduceDungeon,
-  type MapInstanceEvent,
-} from "@workspace/game-v2/spatial"
+import { reduceDungeon } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import { db } from "@/lib/db/client"
-import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import {
   loadDungeonCampaignId,
   loadDungeonRowById,
 } from "@/lib/db/queries/load-dungeon"
-import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
-import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { saveDungeonState } from "@/lib/db/writes/dungeon"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import {
-  publishDungeonInstancePing,
-  publishDungeonPing,
-} from "@/lib/realtime/publish"
+import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import {
   ApplyDungeonEventSchema,
-  isDungeonEvent,
-  isGenerationEventKind,
   type ApplyDungeonEventError,
   type ApplyDungeonEventInput,
 } from "./events.schema"
@@ -45,10 +31,8 @@ import { revalidateDungeon } from "./revalidate"
  *
  * - **Turn-loop event** (`markActed`/`advanceTurn`) → `reduceDungeon`, single-row
  *   `saveDungeonState` guarded on `expectedVersion`. Returns the dungeon version.
- * - **Spatial event** (free-drag `moveCombatant`, reveal/hide/unlock) →
- *   {@link applySpatialEvent}: load the delve's Instance, `reduceMapInstance`,
- *   single-row `saveMapInstanceState` guarded on `expectedInstanceVersion`,
- *   returning the **Instance** version.
+ * Spatial events are intentionally absent: they travel through the Map
+ * Instance Replica.
  *
  * Each branch fires a `dungeon`-channel ping (UNN-468) — a `dungeon`-kind ping
  * for the turn-loop row, a `mapInstance`-kind ping for the spatial row — so the
@@ -63,15 +47,7 @@ export async function applyDungeonEvent(
   const parsed = ApplyDungeonEventSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion, expectedInstanceVersion, event } =
-    parsed.data
-
-  // The UNN-590 generation family never travels this single-row door — each of
-  // those events is one half of a paired two-row transaction (P3b's dedicated
-  // actions). Refused before any load; see isGenerationEventKind.
-  if (isGenerationEventKind(event)) {
-    return err("generation-event-not-supported")
-  }
+  const { dungeonId, expectedVersion, event } = parsed.data
 
   const campaignId = await loadDungeonCampaignId(dungeonId)
   if (campaignId === null) return err("dungeon-not-found")
@@ -87,70 +63,14 @@ export async function applyDungeonEvent(
   // its version guard, and the retry re-reads the status here and refuses.
   if (dungeon.status !== "active") return err("delve-not-active")
 
-  if (isDungeonEvent(event)) {
-    const next = reduceDungeon(dungeon.state, event)
-    const saved = await saveDungeonState(dungeonId, next, expectedVersion)
-    if (!saved.ok) return saved
-
-    publishDungeonPing(dungeon.shortId, {
-      version: saved.value.version,
-      status: dungeon.status,
-    })
-    revalidateDungeon(dungeon)
-    return ok({ version: saved.value.version })
-  }
-
-  return applySpatialEvent(dungeon, campaignId, expectedInstanceVersion, event)
-}
-
-const newId = () => crypto.randomUUID()
-
-/**
- * A pure spatial write on the delve's Map Instance: load it, reduce, save the
- * single Instance row guarded on `expectedInstanceVersion`, and fire a
- * `mapInstance`-kind ping (UNN-468) so the fog view picks up the move/reveal over
- * realtime. Returns the bumped **Instance** version (the token the
- * instance-mirroring console advances). In exploration the DM free-drags, so this
- * is the only movement path; once a fight is live, occupancy is written through
- * the Encounter's model (M4), not here.
- *
- * `placeCombatant` is the one spatial event that **mints** a token rather than
- * moving an existing one (UNN-487, the mid-delve joiner) — so it is the one that
- * needs an identity gate: the tokenKey must be a character finalized-placed in
- * this campaign, else a tampered call could stamp a phantom token onto the board.
- * The other spatial events target existing tokens/zones and guide-not-block, so
- * a stray key is a harmless reducer no-op and needs no check.
- */
-async function applySpatialEvent(
-  dungeon: DungeonRow,
-  campaignId: string,
-  expectedInstanceVersion: number | undefined,
-  event: MapInstanceEvent
-): Promise<Result<{ version: number }, ApplyDungeonEventError>> {
-  if (expectedInstanceVersion === undefined) {
-    return err("missing-instance-version")
-  }
-
-  if (event.kind === "placeCombatant") {
-    const placed = await loadPlacedCharactersForCampaign(campaignId)
-    if (!placed.some((character) => character.id === event.tokenKey)) {
-      return err("character-not-in-campaign")
-    }
-  }
-
-  const instance = await loadMapInstanceById(dungeon.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
-  const next = createReduceMapInstance(newId)(instance.state, event)
-  const saved = await saveMapInstanceState(
-    db,
-    dungeon.mapInstanceId,
-    next,
-    expectedInstanceVersion
-  )
+  const next = reduceDungeon(dungeon.state, event)
+  const saved = await saveDungeonState(dungeonId, next, expectedVersion)
   if (!saved.ok) return saved
 
-  publishDungeonInstancePing(dungeon.shortId, saved.value.version)
+  publishDungeonPing(dungeon.shortId, {
+    version: saved.value.version,
+    status: dungeon.status,
+  })
   revalidateDungeon(dungeon)
   return ok({ version: saved.value.version })
 }

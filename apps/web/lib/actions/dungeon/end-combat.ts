@@ -8,7 +8,6 @@ import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
-import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import {
   lockDungeonRowForLifecycle,
   saveDungeonState,
@@ -18,7 +17,10 @@ import {
   setEncounterStatus,
 } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
 import {
   publishDungeonInstancePing,
   publishDungeonPing,
@@ -68,7 +70,6 @@ export async function endDungeonCombatAction(
     encounterId,
     dungeonId,
     expectedEncounterVersion,
-    expectedInstanceVersion,
     expectedDungeonVersion,
   } = parsed.data
 
@@ -84,9 +85,6 @@ export async function endDungeonCombatAction(
     return err("encounter-not-on-dungeon")
   }
 
-  const instance = await loadMapInstanceById(dungeon.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
   const swept = sweepOverlay(loadedSession.session)
   const stored = saveSession(swept, loadedSession.locators)
   if (!stored.ok) return err("locator-missing")
@@ -97,8 +95,6 @@ export async function endDungeonCombatAction(
         loadedSession.locators.get(participant.id)?.storage === "inline"
     )
     .map((participant) => participant.id)
-  const pruned = pruneCombat(instance.state, ephemeralIds)
-
   // Lifecycle lock order (D11, UNN-589): dungeon → mapInstance → encounter.
   // Combat end used to write encounter-first; a finish (dungeon → instance)
   // racing that order is a textbook deadlock, so the dungeon lock now opens the
@@ -122,12 +118,13 @@ export async function endDungeonCombatAction(
       kind: "advanceTurn",
     })
 
-    const inst = await saveMapInstanceState(
+    const instance = await loadMapInstanceForWriteLocked(
       tx,
-      dungeon.mapInstanceId,
-      pruned,
-      expectedInstanceVersion
+      dungeon.mapInstanceId
     )
+    if (!instance.ok) return instance
+    const pruned = pruneCombat(instance.value.state, ephemeralIds)
+    const inst = await saveLockedMapInstanceState(tx, instance.value, pruned)
     if (!inst.ok) return inst
 
     const saved = await saveEncounterSession(

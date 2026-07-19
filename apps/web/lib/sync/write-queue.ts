@@ -47,8 +47,6 @@ export interface WriteQueue {
   enqueue<TSuccess extends { version: number }, TError>(
     action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   ): Promise<Result<TSuccess, TError>>
-  /** Serialize a step on this queue without reading or bumping its token. */
-  enqueueStep<T>(action: () => Promise<T>): Promise<T>
 }
 
 /**
@@ -109,6 +107,5 @@ export function createWriteQueue(options: {
     enqueue(action) {
       return enqueueStep(() => runVersionedWrite(token, refetchVersion, action))
     },
-    enqueueStep,
   }
 }

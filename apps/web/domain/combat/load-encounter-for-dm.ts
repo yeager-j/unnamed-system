@@ -13,6 +13,7 @@ import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-sessio
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
+import type { MapInstanceStatus } from "@/lib/db/schema/map-instance"
 
 /**
  * The DM console's spatially-complete view of an encounter on v2: the row
@@ -27,7 +28,12 @@ export interface EncounterForDM {
     "id" | "shortId" | "campaignId" | "name" | "notes" | "status" | "version"
   >
   session: Session
-  instance: { state: MapInstanceState; version: number }
+  instance: {
+    id: string
+    state: MapInstanceState
+    status: MapInstanceStatus
+    version: number
+  }
   participantMeta: Record<ParticipantId, ParticipantMeta>
 }
 
@@ -84,7 +90,12 @@ export const getEncounterForDM = cache(
         version: row.version,
       },
       session: loadedSession.session,
-      instance: { state: instance.state, version: instance.version },
+      instance: {
+        id: instance.id,
+        state: instance.state,
+        status: instance.status,
+        version: instance.version,
+      },
       participantMeta,
     }
   }

@@ -1,6 +1,5 @@
 import { createReduceSession, saveSession } from "@workspace/game-v2/encounter"
 import {
-  createMutationProcessor,
   type MutationProcessor,
   type ProcessorEvent,
 } from "@workspace/replica/server"
@@ -9,18 +8,17 @@ import { err, ok, type Result } from "@workspace/result"
 import {
   combatInlineMutations,
   type CombatInlineInvocation,
-  type CombatInlineState,
 } from "@/domain/combat/replica/mutations"
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
 import { applyEntityWrite } from "@/domain/entity/commit/writers"
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { type WriteExecutor } from "@/lib/db/client"
 import type { EncounterEnvelope } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { encounterReplicaClient } from "@/lib/db/schema/encounter-replica-client"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
 
-import { createDrizzleMutationDedupAdapter } from "../../replica/drizzle-ledger"
+import { createDrizzleMutationProcessor } from "../../replica/drizzle-processor"
 import { mintSessionEvent } from "../commit/mint-session-event"
 import type { CombatSessionRemote } from "./wire.schema"
 
@@ -72,25 +70,13 @@ export type CombatSessionPushProcessor = MutationProcessor<
 export function createCombatSessionPushProcessor(
   encounterId: string
 ): CombatSessionPushProcessor {
-  return createMutationProcessor<
-    CombatInlineState,
-    CombatInlineInvocation,
-    WriteExecutor,
-    CombatSessionPushContext,
-    CombatReplicaRejection,
-    CombatSessionRemote
-  >({
+  return createDrizzleMutationProcessor({
     mutations: combatInlineMutations,
-    transact: (work) => db.transaction(work),
-    dedup: createDrizzleMutationDedupAdapter<
-      CombatSessionRemote,
-      CombatReplicaRejection,
-      typeof encounterReplicaClient
-    >({
+    ledger: {
       table: encounterReplicaClient,
       pinColumn: encounterReplicaClient.encounterId,
       pinValue: encounterId,
-    }),
+    },
     execute: executeCombatSessionMutation,
     onEvent: logProcessorEvent,
   })

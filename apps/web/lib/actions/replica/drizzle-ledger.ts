@@ -17,7 +17,7 @@ import type { WriteExecutor } from "@/lib/db/client"
  */
 export const REPLICA_DEDUP_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
-type MutationLedgerTable = PgTable & {
+export type MutationLedgerTable = PgTable & {
   clientGroupId: PgColumn
   clientId: PgColumn
   lastMutationId: PgColumn

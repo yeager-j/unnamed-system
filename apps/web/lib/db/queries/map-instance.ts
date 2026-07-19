@@ -20,9 +20,8 @@ function withParsedState(row: MapInstanceRow): MapInstanceRow {
 }
 
 /** The `mapInstance` row by id (state parsed), or `null` when none matches.
- *  Takes an optional `executor` so a lifecycle transaction can read the row it
- *  just froze (UNN-589 D11: expedition finish folds the exact state its
- *  `freezeMapInstance` version-certified, so the read must share the tx). */
+ *  Takes an optional `executor` so lifecycle transactions can read the row
+ *  while holding the aggregate lock. */
 export async function loadMapInstanceById(
   mapInstanceId: string,
   executor: WriteExecutor = db

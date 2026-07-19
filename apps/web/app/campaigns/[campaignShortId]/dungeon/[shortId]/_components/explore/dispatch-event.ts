@@ -1,15 +1,9 @@
-import {
-  type DungeonEvent,
-  type MapInstanceEvent,
-} from "@workspace/game-v2/spatial"
+import type { DungeonEvent } from "@workspace/game-v2/spatial"
 import { type Result } from "@workspace/result"
 
 import type { DungeonConsoleAction } from "@/domain/dungeon/console-optimistic"
 import { applyDungeonEvent } from "@/lib/actions/dungeon/events"
-import {
-  isDungeonEvent,
-  type ApplyDungeonEventError,
-} from "@/lib/actions/dungeon/events.schema"
+import type { ApplyDungeonEventError } from "@/lib/actions/dungeon/events.schema"
 import type { UseQueuedWriteReturn } from "@/lib/sync/use-queued-write"
 
 /**
@@ -33,28 +27,14 @@ export async function dispatchDungeonEvent({
   dungeonId,
   applyOptimistic,
   dungeonWrite,
-  instanceWrite,
 }: {
-  event: DungeonEvent | MapInstanceEvent
+  event: DungeonEvent
   dungeonId: string
   applyOptimistic: (action: DungeonConsoleAction) => void
   dungeonWrite: UseQueuedWriteReturn
-  instanceWrite: UseQueuedWriteReturn
 }): Promise<Result<{ version: number }, ApplyDungeonEventError>> {
-  if (isDungeonEvent(event)) {
-    applyOptimistic({ kind: "dungeonEvent", event })
-    return dungeonWrite.enqueue((expectedVersion) =>
-      applyDungeonEvent({ dungeonId, expectedVersion, event })
-    )
-  }
-
-  applyOptimistic({ kind: "instanceEvent", event })
-  return instanceWrite.enqueue((expectedInstanceVersion) =>
-    applyDungeonEvent({
-      dungeonId,
-      expectedVersion: dungeonWrite.versionRef.current,
-      expectedInstanceVersion,
-      event,
-    })
+  applyOptimistic({ kind: "dungeonEvent", event })
+  return dungeonWrite.enqueue((expectedVersion) =>
+    applyDungeonEvent({ dungeonId, expectedVersion, event })
   )
 }
