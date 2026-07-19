@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { defaultOverlay, type SessionShell } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { PRISMA_BASE_CHARGES } from "@workspace/game-v2/resources/derive"
 import {
@@ -31,14 +32,15 @@ import {
 } from "../../entity/replica/cursor"
 import {
   combatDurableMutations,
-  combatInlineMutations,
+  encounterMutations,
   writeCombatEntity,
-  writeCombatInline,
+  writeEncounterInline,
   type CombatDurableInvocation,
   type CombatDurableState,
-  type CombatInlineInvocation,
-  type CombatInlineState,
   type CombatWriteRefusal,
+  type EncounterInvocation,
+  type EncounterReplicaState,
+  type EncounterWriteRefusal,
 } from "./mutations"
 
 const RETRY_BUDGET = 3
@@ -281,10 +283,10 @@ describe("replica contract — combat durable binding", () => {
   }
 })
 
-// ── Inline binding: collection-valued root, scalar cursor, recorded Remote ───
+// ── Encounter binding: storage-native root, scalar cursor, recorded Remote ───
 
-const inlineIdentity = {
-  clientGroupId: "combat-session:enc1",
+const encounterIdentity = {
+  clientGroupId: "encounter:enc1",
   clientId: "tab-1",
 }
 const p1 = asParticipantId("p-goblin")
@@ -293,27 +295,46 @@ const ghost = asParticipantId("p-vanished")
 
 type SessionRemote = { version: number }
 
-function createInlineWorld() {
-  const initialState: CombatInlineState = {
-    participants: {
-      [p1]: combatComponents,
-      [p2]: { vitals: { base: 30, damage: 0 } },
+function inlineShellParticipant(
+  id: ReturnType<typeof asParticipantId>,
+  components: Record<string, unknown>
+) {
+  return {
+    id,
+    entity: {
+      storage: "inline" as const,
+      entity: { id: `${id}-entity`, components },
     },
+    overlay: defaultOverlay({ side: "enemies" as const }),
   }
-  // The session door's non-void Remote: the committed encounter version.
+}
+
+function createEncounterWorld() {
+  const session: SessionShell = {
+    round: 1,
+    currentActorId: null,
+    advantage: null,
+    firstSide: null,
+    participants: [
+      inlineShellParticipant(p1, combatComponents),
+      inlineShellParticipant(p2, { vitals: { base: 30, damage: 0 } }),
+    ],
+  }
+  const initialState: EncounterReplicaState = { status: "live", session }
+  // The encounter door's non-void Remote: the committed encounter version.
   // The closure counter mirrors the authority's version — it advances only
   // when an execution commits, exactly like the locked row's bump.
   let commits = 0
   const authority = createInMemoryAuthority<
-    CombatInlineState,
-    CombatInlineInvocation,
-    CombatWriteRefusal,
+    EncounterReplicaState,
+    EncounterInvocation,
+    EncounterWriteRefusal,
     SessionRemote
   >({
-    mutations: combatInlineMutations,
+    mutations: encounterMutations,
     initial: initialState,
     execute: (state, invocation) => {
-      const definition = combatInlineMutations.get(invocation.name)
+      const definition = encounterMutations.get(invocation.name)
       if (!definition) throw new Error(`unknown ${invocation.name}`)
       const applied = definition.apply(state, invocation.args, {
         phase: "rebase",
@@ -323,9 +344,9 @@ function createInlineWorld() {
       return ok({ state: applied.value, remote: { version: commits } })
     },
   })
-  const handle = authority.transport(inlineIdentity)
+  const handle = authority.transport(encounterIdentity)
 
-  const currentAccepted = (): Accepted<CombatInlineState, number> => ({
+  const currentAccepted = (): Accepted<EncounterReplicaState, number> => ({
     value: authority.read(),
     through: handle.accepted().through,
     // The encounter row's scalar version — any committed write bumps it.
@@ -335,7 +356,7 @@ function createInlineWorld() {
   const wrapped = wrapAuthoritySource({
     accepted: currentAccepted,
     push: (
-      envelope: MutationEnvelope<CombatInlineInvocation>,
+      envelope: MutationEnvelope<EncounterInvocation>,
       signal: AbortSignal
     ) => handle.transport.push(envelope, signal),
   })
@@ -355,21 +376,21 @@ function createInlineWorld() {
       }),
     advance: () =>
       authority.commitExternal(
-        writeCombatInline({ participantId: p2, write: damage(1) })
+        writeEncounterInline({ participantId: p2, write: damage(1) })
       ),
   }
 }
 
-type InlineScenario = TransportContractScenario<
-  CombatInlineState,
-  CombatInlineInvocation,
-  CombatWriteRefusal,
+type EncounterScenario = TransportContractScenario<
+  EncounterReplicaState,
+  EncounterInvocation,
+  EncounterWriteRefusal,
   SessionRemote,
   number
 >
 
-function createInlineScenario(): InlineScenario {
-  const world = createInlineWorld()
+function createEncounterScenario(): EncounterScenario {
+  const world = createEncounterWorld()
   return {
     transport: world.transport(),
     rejectionError: "participant-not-found",
@@ -380,13 +401,16 @@ function createInlineScenario(): InlineScenario {
     makeEnvelope: () => {
       const executedIds = world.authority
         .executions()
-        .filter((envelope) => envelope.clientId === inlineIdentity.clientId)
+        .filter((envelope) => envelope.clientId === encounterIdentity.clientId)
         .map((envelope) => envelope.mutationId)
       const next = (executedIds.length ? Math.max(...executedIds) : 0) + 1
       return {
-        ...inlineIdentity,
+        ...encounterIdentity,
         mutationId: next,
-        invocation: writeCombatInline({ participantId: p1, write: damage(2) }),
+        invocation: writeEncounterInline({
+          participantId: p1,
+          write: damage(2),
+        }),
       }
     },
     received: world.authority.deliveries,
@@ -406,9 +430,9 @@ function createInlineScenario(): InlineScenario {
   }
 }
 
-describe("transport contract — combat inline adapter", () => {
+describe("transport contract — encounter adapter", () => {
   const laws = verifyTransportContract({
-    create: createInlineScenario,
+    create: createEncounterScenario,
     omit: ["incomparable-cursors"],
   })
 
@@ -426,18 +450,18 @@ describe("transport contract — combat inline adapter", () => {
   }
 })
 
-describe("replica contract — combat inline binding (recorded Remote)", () => {
+describe("replica contract — encounter binding (recorded Remote)", () => {
   function createContext(): ReplicaContractContext<
-    CombatInlineState,
-    CombatInlineInvocation,
-    CombatWriteRefusal,
+    EncounterReplicaState,
+    EncounterInvocation,
+    EncounterWriteRefusal,
     unknown
   > {
-    const world = createInlineWorld()
+    const world = createEncounterWorld()
     const replica = createReplica({
-      identity: inlineIdentity,
+      identity: encounterIdentity,
       initial: world.initial,
-      mutations: combatInlineMutations,
+      mutations: encounterMutations,
       transport: world.transport(),
       delivery: { retryBudget: RETRY_BUDGET },
     })
@@ -452,20 +476,29 @@ describe("replica contract — combat inline binding (recorded Remote)", () => {
 
     return {
       replica,
-      registry: combatInlineMutations,
-      identity: inlineIdentity,
+      registry: encounterMutations,
+      identity: encounterIdentity,
       retryBudget: RETRY_BUDGET,
       fixtures: {
         writes: [
-          writeCombatInline({ participantId: p1, write: damage(3) }),
-          writeCombatInline({ participantId: p1, write: damage(5) }),
+          writeEncounterInline({ participantId: p1, write: damage(3) }),
+          writeEncounterInline({ participantId: p1, write: damage(5) }),
         ],
         // Against the initial roster: the participant never existed.
-        refused: writeCombatInline({ participantId: ghost, write: damage(1) }),
-        external: writeCombatInline({ participantId: p2, write: damage(1) }),
+        refused: writeEncounterInline({
+          participantId: ghost,
+          write: damage(1),
+        }),
+        external: writeEncounterInline({ participantId: p2, write: damage(1) }),
         conflicting: {
-          pending: writeCombatInline({ participantId: p1, write: usePrisma }),
-          external: writeCombatInline({ participantId: p1, write: usePrisma }),
+          pending: writeEncounterInline({
+            participantId: p1,
+            write: usePrisma,
+          }),
+          external: writeEncounterInline({
+            participantId: p1,
+            write: usePrisma,
+          }),
         },
         vetoError: "capability-missing",
         expectedRemote: { version: 1 },
@@ -485,7 +518,7 @@ describe("replica contract — combat inline binding (recorded Remote)", () => {
         pause: world.authority.pause,
         flush: world.authority.flush,
         resume: world.authority.resume,
-        forgetClient: () => world.authority.forgetClient(inlineIdentity),
+        forgetClient: () => world.authority.forgetClient(encounterIdentity),
       },
     }
   }

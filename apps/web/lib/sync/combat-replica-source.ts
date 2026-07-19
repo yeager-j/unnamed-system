@@ -5,8 +5,8 @@ import { err, ok } from "@workspace/result"
 import type {
   CombatDurableInvocation,
   CombatDurableState,
-  CombatInlineInvocation,
-  CombatInlineState,
+  EncounterInvocation,
+  EncounterReplicaState,
 } from "@/domain/combat/replica/mutations"
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
 import type { EntityVersionVector } from "@/domain/entity/replica/cursor"
@@ -27,9 +27,9 @@ export type CombatDurableSource = PullTransportSource<
   EntityVersionVector
 >
 
-export type CombatInlineSource = PullTransportSource<
-  CombatInlineState,
-  CombatInlineInvocation,
+export type EncounterSource = PullTransportSource<
+  EncounterReplicaState,
+  EncounterInvocation,
   CombatReplicaRejection,
   CombatSessionRemote,
   number
@@ -83,31 +83,31 @@ export function createCombatDurableSource(
   })
 }
 
-export function createCombatInlineSource(
+export function createEncounterSource(
   options: CombatSourceOptions
-): CombatInlineSource {
+): EncounterSource {
   const { encounterId, identity, subscribe } = options
   return createActionReplicaSource({
     async loadAccepted() {
       const result = await loadCombatAcceptedAction({
         encounterId,
-        inline: identity,
+        encounter: identity,
       })
       if (!result.ok) {
         return err(`refused:${result.error}` as const)
       }
-      if (!result.value.inline) {
-        return err("missing-inline-root" as const)
+      if (!result.value.encounter) {
+        return err("missing-encounter-root" as const)
       }
-      return ok(result.value.inline)
+      return ok(result.value.encounter)
     },
     send: (envelope) =>
       pushCombatSessionMutationAction({ encounterId, envelope }),
     subscribe,
     invalidWrite: "invalid-write" as const,
     describeReadFailure: (failure) =>
-      failure === "missing-inline-root"
-        ? "combat accepted read served no inline root"
+      failure === "missing-encounter-root"
+        ? "combat accepted read served no encounter root"
         : `combat accepted read ${failure}`,
   })
 }

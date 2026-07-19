@@ -33,7 +33,7 @@ import {
 import {
   loadCombatAcceptedAction,
   type CombatDurableAccepted,
-  type CombatInlineAccepted,
+  type EncounterAccepted,
 } from "@/lib/actions/combat/replica/snapshot"
 import { getDb } from "@/lib/db/client"
 import { campaigns } from "@/lib/db/schema/campaign"
@@ -46,7 +46,7 @@ import { replicaClient } from "@/lib/db/schema/replica-client"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
 import {
   createCombatDurableSource,
-  createCombatInlineSource,
+  createEncounterSource,
 } from "@/lib/sync/combat-replica-source"
 
 import {
@@ -55,11 +55,11 @@ import {
 } from "../../entity/replica/cursor"
 import {
   writeCombatEntity,
-  writeCombatInline,
+  writeEncounterInline,
   type CombatDurableInvocation,
   type CombatDurableState,
-  type CombatInlineInvocation,
-  type CombatInlineState,
+  type EncounterInvocation,
+  type EncounterReplicaState,
 } from "./mutations"
 import type { CombatReplicaRejection } from "./rejection"
 
@@ -409,8 +409,8 @@ async function createDurableDoorScenario(): Promise<DurableScenario> {
 // ── Session door ─────────────────────────────────────────────────────────────
 
 type SessionScenario = TransportContractScenario<
-  CombatInlineState,
-  CombatInlineInvocation,
+  EncounterReplicaState,
+  EncounterInvocation,
   CombatReplicaRejection,
   { version: number },
   number
@@ -429,31 +429,31 @@ async function createSessionDoorScenario(): Promise<SessionScenario> {
   const fixture = await createFixture()
   const { encounterId, inlineParticipantId } = fixture
   const identity = {
-    clientGroupId: `combat-session:${encounterId}`,
+    clientGroupId: `encounter:${encounterId}`,
     clientId: `tab-${randomUUID()}`,
   }
-  const received: MutationEnvelope<CombatInlineInvocation>[] = []
-  const executed: MutationEnvelope<CombatInlineInvocation>[] = []
+  const received: MutationEnvelope<EncounterInvocation>[] = []
+  const executed: MutationEnvelope<EncounterInvocation>[] = []
   let nextPrime: PushPrime<CombatReplicaRejection> | undefined
 
-  const fetchInline = async (): Promise<CombatInlineAccepted> => {
+  const fetchEncounter = async (): Promise<EncounterAccepted> => {
     const result = await loadCombatAcceptedAction({
       encounterId,
-      inline: identity,
+      encounter: identity,
     })
     if (!result.ok) throw new Error(`accepted refused: ${result.error}`)
-    if (!result.value.inline) throw new Error("no inline root")
-    return result.value.inline
+    if (!result.value.encounter) throw new Error("no encounter root")
+    return result.value.encounter
   }
 
-  const controls = scenarioControls<CombatInlineAccepted>({
-    fetch: fetchInline,
+  const controls = scenarioControls<EncounterAccepted>({
+    fetch: fetchEncounter,
     // Scalar cursors are totally ordered; the capability is omitted below.
     doctor: (accepted) => accepted,
   })
-  controls.seed(await fetchInline())
+  controls.seed(await fetchEncounter())
 
-  const production = createCombatInlineSource({
+  const production = createEncounterSource({
     encounterId,
     identity,
     subscribe: controls.subscribe,
@@ -465,7 +465,7 @@ async function createSessionDoorScenario(): Promise<SessionScenario> {
       return controls.fetchAccepted()
     },
     async pushEnvelope(
-      envelope: MutationEnvelope<CombatInlineInvocation>,
+      envelope: MutationEnvelope<EncounterInvocation>,
       signal: AbortSignal
     ): Promise<Result<{ version: number }, PushError<CombatReplicaRejection>>> {
       received.push(envelope)
@@ -509,7 +509,7 @@ async function createSessionDoorScenario(): Promise<SessionScenario> {
     makeEnvelope: () => ({
       ...identity,
       mutationId: 1,
-      invocation: writeCombatInline({
+      invocation: writeEncounterInline({
         participantId: inlineParticipantId,
         write: damage(1),
       }),
@@ -561,7 +561,7 @@ describe("transport contract — real combat durable door + Postgres", () => {
   }
 })
 
-describe("transport contract — real combat session door + Postgres", () => {
+describe("transport contract — real encounter door + Postgres", () => {
   const laws = verifyTransportContract({
     create: createSessionDoorScenario,
     omit: ["incomparable-cursors"],
@@ -619,14 +619,14 @@ describe("combat replica SQL serialization", () => {
   it("session door: a duplicate reproduces the recorded Remote; a classic bump stays monotone", async () => {
     const { encounterId, inlineParticipantId } = await createFixture()
     const identity = {
-      clientGroupId: `combat-session:${encounterId}`,
+      clientGroupId: `encounter:${encounterId}`,
       clientId: `tab-${randomUUID()}`,
     }
-    await loadCombatAcceptedAction({ encounterId, inline: identity })
+    await loadCombatAcceptedAction({ encounterId, encounter: identity })
     const envelope = {
       ...identity,
       mutationId: 1,
-      invocation: writeCombatInline({
+      invocation: writeEncounterInline({
         participantId: inlineParticipantId,
         write: damage(2),
       }),
@@ -656,6 +656,94 @@ describe("combat replica SQL serialization", () => {
 })
 
 /**
+ * The storage-native tuple's atomicity claim (UNN-655): the encounter value
+ * contains ONLY facts stored under the encounter row — durable participants
+ * as references — so the watermark/version can never be paired with
+ * separately hydrated stale entity state, and an inline commit moves value
+ * and cursor together in one observation.
+ */
+describe("encounter accepted-tuple atomicity", () => {
+  it("is byte-identical across a durable entity-row write; durable participants stay references", async () => {
+    const { encounterId, pcEntityId } = await createFixture()
+    const identity = {
+      clientGroupId: `encounter:${encounterId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    const first = await loadCombatAcceptedAction({
+      encounterId,
+      encounter: identity,
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+
+    // A durable write lands on the ENTITY row — the encounter root must not
+    // observe it in any dimension: not value, not watermark, not cursor.
+    await getDb()
+      .update(entity)
+      .set({
+        vitals: { base: 20, damage: 13 },
+        vitalsVersion: sql`${entity.vitalsVersion} + 1`,
+      })
+      .where(eq(entity.id, pcEntityId))
+
+    const second = await loadCombatAcceptedAction({
+      encounterId,
+      encounter: identity,
+    })
+    expect(second.ok).toBe(true)
+    if (!second.ok) return
+    expect(JSON.stringify(second.value.encounter)).toBe(
+      JSON.stringify(first.value.encounter)
+    )
+
+    const pc = first.value.encounter!.value.session.participants.find(
+      (participant) => participant.entity.storage === "durable"
+    )
+    expect(pc?.entity).toEqual({ storage: "durable", entityId: pcEntityId })
+  })
+
+  it("moves value and cursor together for an inline commit", async () => {
+    const { encounterId, inlineParticipantId } = await createFixture()
+    const identity = {
+      clientGroupId: `encounter:${encounterId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    await loadCombatAcceptedAction({ encounterId, encounter: identity })
+
+    const pushed = await pushCombatSessionMutationAction({
+      encounterId,
+      envelope: {
+        ...identity,
+        mutationId: 1,
+        invocation: writeEncounterInline({
+          participantId: inlineParticipantId,
+          write: damage(6),
+        }),
+      },
+    })
+    expect(pushed).toEqual(ok({ version: 1 }))
+
+    const after = await loadCombatAcceptedAction({
+      encounterId,
+      encounter: identity,
+    })
+    expect(after.ok).toBe(true)
+    if (!after.ok) return
+    const tuple = after.value.encounter!
+    expect(tuple.cursor).toBe(1)
+    expect(tuple.through).toBe(1)
+    const goblin = tuple.value.session.participants.find(
+      (participant) => participant.id === inlineParticipantId
+    )
+    expect(
+      goblin?.entity.storage === "inline"
+        ? goblin.entity.entity.components.vitals?.damage
+        : undefined
+    ).toBe(6)
+  })
+})
+
+/**
  * The two preconditions a combat write is licensed by that live on the
  * ENCOUNTER row, not the row each door locks by default. Both were checked
  * outside the committing transaction before the UNN-646 review — liveness not
@@ -667,10 +755,10 @@ describe("combat replica encounter preconditions", () => {
   it("session door: refuses a write against an encounter that has ended", async () => {
     const { encounterId, inlineParticipantId } = await createFixture()
     const identity = {
-      clientGroupId: `combat-session:${encounterId}`,
+      clientGroupId: `encounter:${encounterId}`,
       clientId: `tab-${randomUUID()}`,
     }
-    await loadCombatAcceptedAction({ encounterId, inline: identity })
+    await loadCombatAcceptedAction({ encounterId, encounter: identity })
     const versionBefore = await encounterVersion(encounterId)
 
     // End Combat wins the race and commits its sweep plus the status flip.
@@ -684,7 +772,7 @@ describe("combat replica encounter preconditions", () => {
       envelope: {
         ...identity,
         mutationId: 1,
-        invocation: writeCombatInline({
+        invocation: writeEncounterInline({
           participantId: inlineParticipantId,
           write: damage(4),
         }),
@@ -792,8 +880,8 @@ describe("combat replica encounter preconditions", () => {
     }
     const result = await loadCombatAcceptedAction({
       encounterId,
-      inline: {
-        clientGroupId: `combat-session:${encounterId}`,
+      encounter: {
+        clientGroupId: `encounter:${encounterId}`,
         clientId: `tab-${randomUUID()}`,
       },
       durable: [{ entityId: pcEntityId, identity }],

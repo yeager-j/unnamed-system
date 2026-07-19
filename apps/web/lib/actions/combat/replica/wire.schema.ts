@@ -28,7 +28,8 @@ export const CombatDurablePushSchema = z.object({
 
 export type CombatDurablePushInput = z.input<typeof CombatDurablePushSchema>
 
-/** Inline home: one `combat.session.write` delivery against the session blob. */
+/** Encounter home: one `encounter.writeInline` delivery against the
+ *  storage-native encounter root (UNN-655). */
 export const CombatSessionPushSchema = z.object({
   encounterId: z.string().min(1),
   envelope: ReplicaMutationEnvelopeSchema,
@@ -40,10 +41,14 @@ export type CombatPushError =
   | "invalid-input"
   | ProcessRefusal<CombatReplicaRejection>
 
-/** The session door's non-void Remote: the encounter version this commit
+/** The encounter door's non-void Remote: the encounter version this commit
  *  produced, folded into the console's surviving event-queue token so the two
  *  protocols sharing the encounter row keep each other fresh (UNN-646; design
- *  Open decision 6's first recorded-remote use). */
+ *  Open decision 6's first recorded-remote use). Kept by UNN-655 because the
+ *  classic event wire (`useQueuedWrite`) still shares the row and its token
+ *  cannot be kept fresh by the asynchronous accepted pull; **removal
+ *  condition: UNN-656 retiring the encounter event queue**, at which point
+ *  this becomes the default `Remote = void`. */
 export interface CombatSessionRemote {
   readonly version: number
 }
@@ -54,7 +59,7 @@ const identitySchema = z.object({
 })
 
 /**
- * The batched bootstrap request: one action registers the inline identity
+ * The batched bootstrap request: one action registers the encounter identity
  * plus every durable identity and returns all accepted tuples. Server Actions
  * execute serially per tab, so N per-root reads at console mount would be
  * sequential round-trips; late joiners and expiry rebuilds call this with a
@@ -62,7 +67,7 @@ const identitySchema = z.object({
  */
 export const CombatAcceptedRequestSchema = z.object({
   encounterId: z.string().min(1),
-  inline: identitySchema.optional(),
+  encounter: identitySchema.optional(),
   durable: z
     .array(z.object({ entityId: z.string().min(1), identity: identitySchema }))
     .default([]),
