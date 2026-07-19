@@ -18,7 +18,6 @@ import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 export const StartDelveSchema = z.object({
   dungeonId: z.string(),
   expectedVersion: z.number().int().nonnegative(),
-  expectedInstanceVersion: z.number().int().nonnegative(),
   placements: z.array(
     z.object({ characterId: z.string(), zoneId: z.string() })
   ),

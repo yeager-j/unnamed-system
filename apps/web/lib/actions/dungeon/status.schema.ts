@@ -1,6 +1,7 @@
 import { z } from "zod/v4"
 
 import type { DungeonWriteError } from "@/lib/db/writes/dungeon"
+import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
 /**
  * Input schema for {@link import("./status").setDungeonStatusAction} (UNN-465): the
@@ -27,3 +28,4 @@ export type SetDungeonStatusError =
   | "delve-not-draft"
   | "delve-not-active"
   | DungeonWriteError
+  | MapInstanceWriteError

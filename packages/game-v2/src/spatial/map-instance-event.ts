@@ -40,6 +40,7 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
     zoneIdA: z.string(),
     zoneIdB: z.string(),
     adjacent: z.boolean(),
+    connectionId: z.string().optional(),
   }),
   z.object({
     kind: z.literal("renameZone"),
@@ -131,3 +132,10 @@ export const GENERATION_INSTANCE_EVENT_KINDS = [
   "retractZone",
   "resolveDeadEnd",
 ] as const satisfies readonly MapInstanceEvent["kind"][]
+
+/** Events that may be applied directly to one Map Instance. Generation events
+ * are excluded because they require a paired Dungeon transaction. */
+export type DirectMapInstanceEvent = Exclude<
+  MapInstanceEvent,
+  { kind: (typeof GENERATION_INSTANCE_EVENT_KINDS)[number] }
+>

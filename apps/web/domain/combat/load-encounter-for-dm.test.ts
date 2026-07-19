@@ -72,6 +72,7 @@ const campaignRow = (dmUserId: string, id = "campaign-1"): CampaignRow =>
 const instanceRow: MapInstanceRow = {
   id: "mi-1",
   mapId: null,
+  status: "open",
   state: {
     geometry: {
       pages: { default: { id: "default", name: "Page 1" } },
@@ -107,7 +108,12 @@ describe("getEncounterForDM", () => {
     const result = await getEncounterForDM("camp-1", "ok-dm")
 
     expect(result?.encounter.shortId).toBe("ok-dm")
-    expect(result?.instance).toEqual({ state: instanceRow.state, version: 0 })
+    expect(result?.instance).toEqual({
+      id: instanceRow.id,
+      state: instanceRow.state,
+      status: "open",
+      version: 0,
+    })
   })
 
   it("returns null when signed out (no leak of existence)", async () => {

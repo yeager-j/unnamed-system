@@ -1,5 +1,6 @@
 import type { ClientIdentity } from "@workspace/replica"
 import type { PullTransportSource } from "@workspace/replica/transport"
+import { err, ok } from "@workspace/result"
 
 import type {
   CombatDurableInvocation,
@@ -16,7 +17,7 @@ import {
 import { loadCombatAcceptedAction } from "@/lib/actions/combat/replica/snapshot"
 import type { CombatSessionRemote } from "@/lib/actions/combat/replica/wire.schema"
 
-import { createPacedPushEnvelope } from "./replica-push"
+import { createActionReplicaSource } from "./action-replica-source"
 
 export type CombatDurableSource = PullTransportSource<
   CombatDurableState,
@@ -53,60 +54,60 @@ export function createCombatDurableSource(
   options: CombatSourceOptions & { readonly entityId: string }
 ): CombatDurableSource {
   const { encounterId, entityId, identity, subscribe } = options
-  return {
-    async fetchAccepted(_signal) {
+  return createActionReplicaSource({
+    async loadAccepted() {
       const result = await loadCombatAcceptedAction({
         encounterId,
         durable: [{ entityId, identity }],
       })
       if (!result.ok) {
-        throw new Error(`combat accepted read refused: ${result.error}`)
+        return err(`refused:${result.error}` as const)
       }
       const accepted = result.value.durable[entityId]
       if (!accepted) {
         // Not served: the entity is no longer a durable participant of this
         // encounter. A throw is a failed pull (transport `down`), and the
         // roster diff disposes this replica on the next frame.
-        throw new Error("combat accepted read: entity not in encounter")
+        return err("entity-not-in-encounter" as const)
       }
-      return accepted
+      return ok(accepted)
     },
-
-    pushEnvelope: createPacedPushEnvelope({
-      send: (envelope) =>
-        pushCombatDurableMutationAction({ encounterId, entityId, envelope }),
-      invalidWrite: "invalid-write",
-    }),
-
+    send: (envelope) =>
+      pushCombatDurableMutationAction({ encounterId, entityId, envelope }),
     subscribe,
-  }
+    invalidWrite: "invalid-write" as const,
+    describeReadFailure: (failure) =>
+      failure === "entity-not-in-encounter"
+        ? "combat accepted read: entity not in encounter"
+        : `combat accepted read ${failure}`,
+  })
 }
 
 export function createCombatInlineSource(
   options: CombatSourceOptions
 ): CombatInlineSource {
   const { encounterId, identity, subscribe } = options
-  return {
-    async fetchAccepted(_signal) {
+  return createActionReplicaSource({
+    async loadAccepted() {
       const result = await loadCombatAcceptedAction({
         encounterId,
         inline: identity,
       })
       if (!result.ok) {
-        throw new Error(`combat accepted read refused: ${result.error}`)
+        return err(`refused:${result.error}` as const)
       }
       if (!result.value.inline) {
-        throw new Error("combat accepted read served no inline root")
+        return err("missing-inline-root" as const)
       }
-      return result.value.inline
+      return ok(result.value.inline)
     },
-
-    pushEnvelope: createPacedPushEnvelope({
-      send: (envelope) =>
-        pushCombatSessionMutationAction({ encounterId, envelope }),
-      invalidWrite: "invalid-write",
-    }),
-
+    send: (envelope) =>
+      pushCombatSessionMutationAction({ encounterId, envelope }),
     subscribe,
-  }
+    invalidWrite: "invalid-write" as const,
+    describeReadFailure: (failure) =>
+      failure === "missing-inline-root"
+        ? "combat accepted read served no inline root"
+        : `combat accepted read ${failure}`,
+  })
 }

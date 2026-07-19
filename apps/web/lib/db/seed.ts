@@ -178,6 +178,7 @@ async function seedEncounterFixtures(): Promise<void> {
     const instanceRow = {
       id: encounter.mapInstanceId,
       state: encounter.mapInstanceState,
+      status: encounter.mapInstanceStatus,
       version: 0,
     }
     await db

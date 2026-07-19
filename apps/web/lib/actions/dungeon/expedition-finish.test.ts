@@ -51,6 +51,16 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
     setDungeonStatus(id, status, v, tx),
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
+  loadMapInstanceForWriteLocked: async (tx: unknown, id: string) => {
+    const row = await loadMapInstanceById(id, tx)
+    return row === null
+      ? err("map-instance-not-found")
+      : ok({ ...row, status: "open" })
+  },
+  saveLockedMapInstanceState: (
+    tx: unknown,
+    row: { id: string; version: number }
+  ) => freezeMapInstance(tx, row.id, row.version),
   freezeMapInstance: (tx: unknown, id: string, v: number) =>
     freezeMapInstance(tx, id, v),
 }))
@@ -171,6 +181,7 @@ beforeEach(() => {
   loadMapInstanceById.mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: instanceState(),
+    version: 0,
   })
   loadRegionRowById.mockResolvedValue(makeRegion())
   foldRegionStaticReveal.mockResolvedValue(ok({ version: 4 }))

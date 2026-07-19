@@ -22,12 +22,10 @@ import {
  * 1. **A monotonic version ref** ({@link useMonotonicVersionRef}) synced
  *    forward-only from `serverVersion`, exposed as `versionRef` so callers can
  *    read it for an optimistic frame's expected version, hand it to the
- *    realtime ping compare, or ride it as the *other* row's token in a paired
- *    write (`dispatch-event.ts` reads both).
+ *    realtime ping compare.
  * 2. **The token port + spine** handed to the core — the port's `bump` is the
  *    forward-only set, also returned as {@link UseQueuedWriteReturn.bump} for
- *    folding a paired action's returned sibling version (never hand-advance by
- *    `+= 1`; fold what the server returned).
+ *    folding a server-returned version (never hand-advance by `+= 1`).
  *
  * The hook owns **no** `useTransition`, `useOptimistic`, toast,
  * `router.refresh()`, or disabling — those stay the caller's.
@@ -52,20 +50,11 @@ export interface UseQueuedWriteArgs {
 
 export interface UseQueuedWriteReturn {
   versionRef: RefObject<number>
-  /** Forward-only fold of a server-returned version into the token — for
-   *  paired writes whose action bumped this row as a side effect. */
+  /** Forward-only fold of a server-returned version into the token. */
   bump: (version: number) => void
   enqueue: <TSuccess extends { version: number }, TError extends string>(
     action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   ) => Promise<Result<TSuccess, TError>>
-  /** Serialize a step on this lane without reading or bumping its token — the
-   *  cross-row combined spine (UNN-589 D11): a two-row gesture acquires the
-   *  dungeon lane and, inside it, the instance lane, then runs
-   *  `runDualVersionedWrite` with both token ports. */
-  enqueueStep: <T>(action: () => Promise<T>) => Promise<T>
-  /** The lane's token port — read/bump for a cross-row protocol pass that this
-   *  lane's own `enqueue` can't drive (it only knows one token). */
-  token: WriteQueueTokenPort
 }
 
 export function useQueuedWrite({
@@ -87,10 +76,5 @@ export function useQueuedWrite({
   }
   const enqueue: WriteQueue["enqueue"] = (action) =>
     createWriteQueue({ token, refetchVersion, chain: chainRef }).enqueue(action)
-  const enqueueStep: WriteQueue["enqueueStep"] = (action) =>
-    createWriteQueue({ token, refetchVersion, chain: chainRef }).enqueueStep(
-      action
-    )
-
-  return { versionRef, bump: token.bump, enqueue, enqueueStep, token }
+  return { versionRef, bump: token.bump, enqueue }
 }

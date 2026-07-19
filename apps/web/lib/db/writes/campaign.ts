@@ -7,6 +7,7 @@ import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-session"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { campaignNpc } from "@/lib/db/schema/campaign-world"
+import { dungeons } from "@/lib/db/schema/dungeon"
 import { encounters } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
 import { mapInstances } from "@/lib/db/schema/map-instance"
@@ -163,6 +164,10 @@ export async function deleteCampaign(
       .select({ mapInstanceId: encounters.mapInstanceId })
       .from(encounters)
       .where(eq(encounters.campaignId, campaignId))
+    const dungeonInstanceRows = await tx
+      .select({ mapInstanceId: dungeons.mapInstanceId })
+      .from(dungeons)
+      .where(eq(dungeons.campaignId, campaignId))
 
     await tx
       .update(entity)
@@ -179,7 +184,13 @@ export async function deleteCampaign(
 
     await tx.delete(campaigns).where(eq(campaigns.id, campaignId))
 
-    const mapInstanceIds = instanceRows.map((row) => row.mapInstanceId)
+    const mapInstanceIds = [
+      ...new Set(
+        [...instanceRows, ...dungeonInstanceRows].map(
+          (row) => row.mapInstanceId
+        )
+      ),
+    ]
     if (mapInstanceIds.length > 0) {
       await tx
         .delete(mapInstances)

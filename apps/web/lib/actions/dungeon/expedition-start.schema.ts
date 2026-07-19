@@ -12,7 +12,6 @@ import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 export const StartExpeditionSchema = z.object({
   dungeonId: z.string(),
   expectedVersion: z.number().int().nonnegative(),
-  expectedInstanceVersion: z.number().int().nonnegative(),
   placements: z.array(
     z.object({ characterId: z.string(), zoneId: z.string() })
   ),

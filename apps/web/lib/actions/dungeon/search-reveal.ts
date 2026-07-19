@@ -9,11 +9,19 @@ import { err, ok, type Result } from "@workspace/result"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
-import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
-import { saveDungeonState } from "@/lib/db/writes/dungeon"
+import {
+  lockDungeonRowForLifecycle,
+  saveDungeonState,
+} from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import { publishDungeonPing } from "@/lib/realtime/publish"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
+import {
+  publishDungeonInstancePing,
+  publishDungeonPing,
+} from "@/lib/realtime/publish"
 
 import { revalidateDungeon } from "./revalidate"
 import {
@@ -42,13 +50,7 @@ export async function searchRevealAction(
   const parsed = SearchRevealSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const {
-    dungeonId,
-    expectedVersion,
-    expectedInstanceVersion,
-    characterId,
-    event,
-  } = parsed.data
+  const { dungeonId, expectedVersion, characterId, event } = parsed.data
 
   const dungeon = await loadDungeonRowById(dungeonId)
   if (dungeon === null) return err("dungeon-not-found")
@@ -58,19 +60,31 @@ export async function searchRevealAction(
   // the same finish-freeze closure of the read's race window) as the event path.
   if (dungeon.status !== "active") return err("delve-not-active")
 
-  const instance = await loadMapInstanceById(dungeon.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
-
-  const nextDungeon = reduceDungeon(dungeon.state, {
-    kind: "markActed",
-    characterId,
-  })
-  const nextInstance = createReduceMapInstance(newId)(instance.state, event)
-
   const result = await guardMany<
     { version: number; instanceVersion: number },
     SearchRevealError
   >(async (tx: WriteExecutor) => {
+    const locked = await lockDungeonRowForLifecycle(
+      tx,
+      dungeon.id,
+      expectedVersion
+    )
+    if (!locked.ok) return locked
+    if (locked.value.status !== "active") return err("delve-not-active")
+    const nextDungeon = reduceDungeon(locked.value.state, {
+      kind: "markActed",
+      characterId,
+    })
+
+    const instance = await loadMapInstanceForWriteLocked(
+      tx,
+      dungeon.mapInstanceId
+    )
+    if (!instance.ok) return instance
+    const nextInstance = createReduceMapInstance(newId)(
+      instance.value.state,
+      event
+    )
     const dng = await saveDungeonState(
       dungeon.id,
       nextDungeon,
@@ -78,11 +92,10 @@ export async function searchRevealAction(
       tx
     )
     if (!dng.ok) return dng
-    const inst = await saveMapInstanceState(
+    const inst = await saveLockedMapInstanceState(
       tx,
-      dungeon.mapInstanceId,
-      nextInstance,
-      expectedInstanceVersion
+      instance.value,
+      nextInstance
     )
     if (!inst.ok) return inst
     return ok({
@@ -92,8 +105,7 @@ export async function searchRevealAction(
   })
   if (!result.ok) return result
 
-  // The dungeon row bumped (acted-flag) alongside the Instance reveal; pinging
-  // the dungeon version triggers the fog view's refetch, which carries the reveal.
+  publishDungeonInstancePing(dungeon.shortId, result.value.instanceVersion)
   publishDungeonPing(dungeon.shortId, {
     version: result.value.version,
     status: dungeon.status,

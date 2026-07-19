@@ -46,6 +46,79 @@ export type ManagedBootstrapResult<
   ManagedBootstrapFailure<UnavailableReason>
 >
 
+/**
+ * The application adapter for one managed bootstrap attempt. Identity naming,
+ * accepted-state I/O, transport construction, and thrown-error classification
+ * remain caller-owned; this module owns their invariant ordering.
+ */
+export interface ManagedBootstrapOptions<
+  State,
+  Invocation extends MutationInvocation,
+  ApplyError,
+  Remote = void,
+  Cursor = unknown,
+  UnavailableReason = unknown,
+> {
+  mintIdentity(): ClientIdentity
+  loadAccepted(
+    identity: ClientIdentity,
+    signal: AbortSignal
+  ): Promise<Result<Accepted<State, Cursor>, UnavailableReason>>
+  createTransport(
+    identity: ClientIdentity,
+    accepted: Accepted<State, Cursor>
+  ): ReplicaTransport<State, Invocation, ApplyError, Remote, Cursor>
+}
+
+/**
+ * Composes the portable bootstrap protocol: mint one identity, register/load
+ * its accepted floor, then construct the transport against that exact floor.
+ * A typed unavailable result stays typed; thrown adapter failures escape to
+ * the caller's policy boundary. No framework, persistence, or application
+ * policy is assumed.
+ */
+export function createManagedBootstrap<
+  State,
+  Invocation extends MutationInvocation,
+  ApplyError,
+  Remote = void,
+  Cursor = unknown,
+  UnavailableReason = unknown,
+>(
+  options: ManagedBootstrapOptions<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    Cursor,
+    UnavailableReason
+  >
+): (
+  signal: AbortSignal
+) => Promise<
+  ManagedBootstrapResult<
+    State,
+    Invocation,
+    ApplyError,
+    Remote,
+    Cursor,
+    UnavailableReason
+  >
+> {
+  return async (signal) => {
+    const identity = options.mintIdentity()
+    const loaded = await options.loadAccepted(identity, signal)
+    if (!loaded.ok) {
+      return err({ kind: "unavailable", reason: loaded.error })
+    }
+    return ok({
+      identity,
+      initial: loaded.value,
+      transport: options.createTransport(identity, loaded.value),
+    })
+  }
+}
+
 export type ManagedUnavailable<UnavailableReason = unknown> =
   | {
       readonly kind: "terminal"

@@ -209,7 +209,7 @@ function reduceZoneGraphEvent(
         )
         if (event.adjacent) {
           if (existing !== undefined) return
-          const id = newId()
+          const id = event.connectionId ?? newId()
           const connection: MapConnection = {
             id,
             fromZoneId: event.zoneIdA,

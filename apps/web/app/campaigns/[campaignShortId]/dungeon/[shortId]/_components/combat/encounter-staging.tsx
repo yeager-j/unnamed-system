@@ -69,7 +69,6 @@ export function DungeonEncounterStaging({
   campaignShortId,
   dungeonName,
   expectedVersion,
-  expectedInstanceVersion,
   partyCharacterIds,
   zones,
 }: {
@@ -80,7 +79,6 @@ export function DungeonEncounterStaging({
   /** Dungeon-row token: combat start is a lifecycle action (D11, UNN-589), so
    *  the mint version-guards the dungeon row alongside the Instance. */
   expectedVersion: number
-  expectedInstanceVersion: number
   partyCharacterIds: string[]
   zones: StagingZone[]
 }) {
@@ -127,7 +125,6 @@ export function DungeonEncounterStaging({
           const result = await startDungeonEncounterAction({
             dungeonId,
             expectedVersion,
-            expectedInstanceVersion,
             name: dungeonName.trim() || "Encounter",
             advantage,
             firstSide: resolveFirstSide(advantage, neutralFirstSide),

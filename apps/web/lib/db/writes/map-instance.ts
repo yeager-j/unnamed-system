@@ -1,17 +1,20 @@
-import type { MapInstanceState } from "@workspace/game-v2/spatial"
-import { type Result } from "@workspace/result"
+import { and, eq, sql } from "drizzle-orm"
+
+import {
+  mapInstanceStateSchema,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/result"
 
 import { type WriteExecutor } from "@/lib/db/client"
-import { mapInstances } from "@/lib/db/schema/map-instance"
-import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
+import { mapInstances, type MapInstanceRow } from "@/lib/db/schema/map-instance"
 
 /**
  * Persistence for a Map Instance and its serialized {@link MapInstanceState}
- * (Dungeon Map ADR — *Persistence & concurrency*). A single `version` token
- * guards every mutation through the shared {@link guardedVersionUpdate}. Every
- * write takes a {@link WriteExecutor} so it can run standalone **or** inside a
- * {@link import("./guard-many").guardMany} transaction that composes it with an
- * encounter/dungeon write (the few genuinely-atomic gestures — ADR *Atomicity*).
+ * (Dungeon Map ADR — *Persistence & concurrency*). Writers lock the aggregate,
+ * reduce from its current state, and bump the cursor in the same transaction.
+ * Cross-root commands use the same lock before composing encounter or dungeon
+ * changes, so callers never coordinate a second client-side version token.
  *
  * No realtime ping fires here: a Map Instance has no channel of its own (it is
  * reached through its Encounter/Dungeon), and the version-kind ping tag is a
@@ -19,7 +22,10 @@ import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
  * Server Action boundary, as with the other writes.
  */
 
-export type MapInstanceWriteError = "map-instance-not-found" | "stale"
+export type MapInstanceWriteError =
+  | "map-instance-not-found"
+  | "map-instance-frozen"
+  | "invalid-state"
 
 /**
  * Inserts a fresh Map Instance at `version: 0` with the caller-minted `id` and
@@ -45,64 +51,45 @@ export async function insertMapInstance(
   await executor.insert(mapInstances).values({ id, state, mapId })
 }
 
-/**
- * The core guarded write: replaces the whole `state` blob and bumps `version`,
- * conditioned on the caller's `expectedVersion`. Returns the new version on
- * success. Runs on the supplied `executor` so an in-transaction caller writes
- * against its own snapshot.
- */
-export async function saveMapInstanceState(
+export async function loadMapInstanceForWriteLocked(
   executor: WriteExecutor,
-  mapInstanceId: string,
+  mapInstanceId: string
+): Promise<Result<MapInstanceRow, MapInstanceWriteError>> {
+  const [row] = await executor
+    .select()
+    .from(mapInstances)
+    .where(eq(mapInstances.id, mapInstanceId))
+    .for("update")
+  if (!row) return err("map-instance-not-found")
+  if (row.status !== "open") return err("map-instance-frozen")
+  const state = mapInstanceStateSchema.safeParse(row.state)
+  if (!state.success) return err("invalid-state")
+  return ok({ ...row, state: state.data })
+}
+
+/** Commits against a row locked by {@link loadMapInstanceForWriteLocked}.
+ * `freeze` is the terminal aggregate transition and shares the state write's
+ * single bump, making lifecycle and spatial history indivisible. */
+export async function saveLockedMapInstanceState(
+  executor: WriteExecutor,
+  row: MapInstanceRow,
   state: MapInstanceState,
-  expectedVersion: number
+  options: { freeze?: boolean } = {}
 ): Promise<Result<{ version: number }, MapInstanceWriteError>> {
-  return bumpMapInstanceVersionGuarded(
-    executor,
-    mapInstanceId,
-    expectedVersion,
-    {
+  const [updated] = await executor
+    .update(mapInstances)
+    .set({
       state,
-    }
-  )
-}
-
-/**
- * The **freeze** (UNN-589 D5/D11): a version-guarded bump with no state change,
- * taken by `finishExpeditionAction` inside its transaction. The bump — not a
- * read-compare — is load-bearing: it makes every in-flight instance token stale
- * by construction, so a spatial write racing the finish loses on one side or
- * the other. Whichever commits second fails its own guard; the spatial retry's
- * status read then sees `done` and refuses, and the finish retry re-folds the
- * post-reveal state. A committed `done` expedition's instance is never written
- * again — that is what makes frozen campaign history true rather than assumed.
- */
-export async function freezeMapInstance(
-  executor: WriteExecutor,
-  mapInstanceId: string,
-  expectedVersion: number
-): Promise<Result<{ version: number }, MapInstanceWriteError>> {
-  return bumpMapInstanceVersionGuarded(
-    executor,
-    mapInstanceId,
-    expectedVersion,
-    {}
-  )
-}
-
-/** The shared single-version guard, bound to this aggregate's table + error. */
-async function bumpMapInstanceVersionGuarded(
-  executor: WriteExecutor,
-  mapInstanceId: string,
-  expectedVersion: number,
-  patch: Partial<typeof mapInstances.$inferInsert>
-): Promise<Result<{ version: number }, MapInstanceWriteError>> {
-  return guardedVersionUpdate({
-    table: mapInstances,
-    id: mapInstanceId,
-    expectedVersion,
-    patch,
-    notFound: "map-instance-not-found",
-    executor,
-  })
+      ...(options.freeze ? { status: "frozen" as const } : {}),
+      version: sql`${mapInstances.version} + 1`,
+    })
+    .where(
+      and(
+        eq(mapInstances.id, row.id),
+        eq(mapInstances.version, row.version),
+        eq(mapInstances.status, "open")
+      )
+    )
+    .returning({ version: mapInstances.version })
+  return updated ? ok({ version: updated.version }) : err("map-instance-frozen")
 }

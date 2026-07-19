@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm"
 
 import {
-  createMutationProcessor,
   type MutationProcessor,
   type ProcessorEvent,
 } from "@workspace/replica/server"
@@ -10,7 +9,6 @@ import { err, ok, type Result } from "@workspace/result"
 import {
   combatDurableMutations,
   type CombatDurableInvocation,
-  type CombatDurableState,
 } from "@/domain/combat/replica/mutations"
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
 import {
@@ -18,7 +16,7 @@ import {
   ENTITY_WRITERS,
 } from "@/domain/entity/commit/writers"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterRosterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import { entity } from "@/lib/db/schema/entity"
@@ -29,7 +27,7 @@ import {
   entityVersionIncrement,
   VERSION_COLUMNS,
 } from "../../entity/version-guard"
-import { createDrizzleMutationDedupAdapter } from "../../replica/drizzle-ledger"
+import { createDrizzleMutationProcessor } from "../../replica/drizzle-processor"
 
 /**
  * Per-delivery trusted context, assembled by the push action **outside** the
@@ -84,25 +82,13 @@ export type CombatDurablePushProcessor = MutationProcessor<
 export function createCombatDurablePushProcessor(
   entityId: string
 ): CombatDurablePushProcessor {
-  return createMutationProcessor<
-    CombatDurableState,
-    CombatDurableInvocation,
-    WriteExecutor,
-    CombatDurablePushContext,
-    CombatReplicaRejection,
-    void
-  >({
+  return createDrizzleMutationProcessor({
     mutations: combatDurableMutations,
-    transact: (work) => db.transaction(work),
-    dedup: createDrizzleMutationDedupAdapter<
-      void,
-      CombatReplicaRejection,
-      typeof replicaClient
-    >({
+    ledger: {
       table: replicaClient,
       pinColumn: replicaClient.entityId,
       pinValue: entityId,
-    }),
+    },
     execute: executeCombatDurableMutation,
     onEvent: logProcessorEvent,
   })

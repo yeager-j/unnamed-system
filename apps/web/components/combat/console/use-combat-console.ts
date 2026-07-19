@@ -27,11 +27,12 @@ import { buildConsoleView } from "@/domain/combat/view/console-view"
 import { buildRosterView } from "@/domain/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/domain/combat/view/zone-overview"
 import { resolveSession } from "@/domain/game-engine-v2"
+import { isMapInstanceReplicaEvent } from "@/domain/map/replica/mutations"
+import { useMapInstanceReplica } from "@/domain/map/replica/use-map-instance-replica"
 import { endCombatAction } from "@/lib/actions/combat/end-combat"
 import { type EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { fetchEncounterVersion } from "@/lib/sync/fetch-encounter-version"
-import { fetchInstanceVersion } from "@/lib/sync/fetch-instance-version"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
@@ -50,25 +51,22 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * `{ session, mapInstance }` reduced by {@link reduceConsoleOptimistic} — the
  * same composition root the server runs, plus the paired roster arms. Combat
  * components are composed over that frame from Replica projections; the
- * container no longer predicts them. The **two version queues** survive: the
- * encounter row and the Instance row still version independently, so
- * {@link dispatchCombatEvent} routes each event to the queue owning the row it
- * writes, both with one-shot stale-retry (`fetchEncounterVersion` /
- * `fetchInstanceVersion`).
+ * container no longer predicts them. Encounter events retain one serialized
+ * version queue; spatial intent is owned by the Map Instance Replica.
  *
  * **Component writes** (HP/SP damage & heal — on inline enemies *and* durable
  * PCs, deliberately superseding UNN-482's read-only PC vitals per UNN-535's
  * AC) go through {@link useCombatantWrite}, over the combat replicas
  * (UNN-646). {@link useCombatReplicas} resolves `participantMeta` into
  * per-participant write handles once, so this hook never reads a storage tag.
- * **Those writes do NOT ride the two version queues** — each replica owns its
+ * **Those writes do NOT ride the encounter version queue** — each replica owns its
  * own ordering, delivery, dedup, retry, and projection. Anything that must
  * not overtake them says so explicitly by awaiting `replicas.settleAll()`
  * (see {@link endEncounter}); the encounter queue serializes only the event
  * wire.
  *
  * **Realtime (UNN-373):** the encounter channel's ping still carries the
- * version compare for the two queues (encounter vs mapInstance streams) and
+ * encounter version compare plus Map Replica invalidations and
  * feeds the microtask-deduped `scheduleRefresh`. The per-PC channels no
  * longer classify anything — a ping reaching a replica is only an
  * invalidation signal, and the transport's causal gate decides causality.
@@ -86,7 +84,6 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  */
 export type EndCombatPerformer = (expected: {
   encounterVersion: number
-  instanceVersion: number
 }) => Promise<
   Result<{ version: number; instanceVersion: number }, EndCombatError>
 >
@@ -107,13 +104,17 @@ export function useCombatConsole(
     reduceConsoleOptimistic
   )
 
+  const mapReplica = useMapInstanceReplica({
+    mapInstanceId: data.instance.id,
+    initial: {
+      state: data.instance.state,
+      status: data.instance.status,
+    },
+  })
+
   const encounterWrite = useQueuedWrite({
     serverVersion: encounter.version,
     refetchVersion: () => fetchEncounterVersion(encounter.shortId),
-  })
-  const instanceWrite = useQueuedWrite({
-    serverVersion: data.instance.version,
-    refetchVersion: () => fetchInstanceVersion(encounter.shortId),
   })
   const { versionRef } = encounterWrite
 
@@ -139,7 +140,7 @@ export function useCombatConsole(
   })
 
   const state = composeCombatModel({
-    eventFrame,
+    eventFrame: { ...eventFrame, mapInstance: mapReplica.state },
     inlineReplicaSnapshot: replicas.inlineReplicaSnapshot,
     durableReplicaSnapshots: replicas.durableReplicaSnapshots,
     participantMeta,
@@ -152,31 +153,26 @@ export function useCombatConsole(
       // The inline replica treats every encounter ping as an invalidation;
       // its causal gate decides what the pull means.
       replicas.notifyEncounterPing()
+      mapReplica.notify()
       const ping = parseVersionPing(data, "encounter")
       if (!ping) return
-      // The encounter channel carries two version streams (UNN-468): an
-      // `encounter` ping compares against the encounter ref, a `mapInstance`
-      // ping (a concurrent spatial write) against the Instance ref.
-      const ref =
-        ping.kind === "mapInstance" ? instanceWrite.versionRef : versionRef
-      if (ping.version <= ref.current) return
+      // The channel carries both aggregates. Map pings already invalidated the
+      // Replica above; only encounter pings participate in this version check.
+      if (ping.kind === "mapInstance") return
+      if (ping.version <= versionRef.current) return
       scheduleRefresh()
     },
     onReconnect: () => {
       replicas.notifyReconnect()
+      mapReplica.notify()
       router.refresh()
     },
   })
 
   /**
    * Dispatches a run of events **serially** in one transition — each awaited to
-   * completion (including its `foldInstanceVersion` bump) before the next
-   * begins, then stopping on the first failure. Serial is load-bearing for a
-   * batch of **placed** `addParticipant`s (mid-combat reinforcements into a
-   * zone): each paired write bumps the Instance row, and the fold advancing
-   * `instanceWrite`'s token runs *after* the enqueue resolves — so firing them
-   * concurrently would let the second add read a stale `expectedInstanceVersion`
-   * and fail. Awaiting each dispatch orders the fold before the next read.
+   * completion before the next begins, then stopping on the first failure.
+   * Serial ordering remains load-bearing for encounter-roster edits.
    *
    * No client `router.refresh()` per dispatch (UNN-482): the combat actions call
    * `revalidateEncounter`, whose RSC payload rides this transition's action
@@ -189,16 +185,38 @@ export function useCombatConsole(
       guardWriteTransition(
         async () => {
           for (const event of events) {
+            if (isMapInstanceReplicaEvent(event)) {
+              const result = await mapReplica.mutate(event).remote
+              if (!result.ok) {
+                toast.error("Couldn't update the map. Try again.")
+                return
+              }
+              continue
+            }
+            if (
+              event.kind === "startCombat" ||
+              event.kind === "removeParticipant" ||
+              (event.kind === "addParticipant" &&
+                event.setup.zoneId !== undefined)
+            ) {
+              const settled = await mapReplica.settle()
+              if (!settled.ok) {
+                toast.error("Couldn't finish saving the map. Try again.")
+                return
+              }
+            }
             const result = await dispatchCombatEvent({
               event,
               encounterId: encounter.id,
               applyOptimistic,
               encounterWrite,
-              instanceWrite,
             })
             if (!result.ok) {
               toast.error(combatErrorMessage(result.error))
               return
+            }
+            if (result.value.instanceVersion !== undefined) {
+              mapReplica.notify()
             }
           }
         },
@@ -220,20 +238,18 @@ export function useCombatConsole(
 
   const endCombat: EndCombatPerformer =
     options.endCombat ??
-    (({ encounterVersion, instanceVersion }) =>
+    (({ encounterVersion }) =>
       endCombatAction({
         encounterId: encounter.id,
         expectedVersion: encounterVersion,
-        expectedInstanceVersion: instanceVersion,
       }))
 
   /**
    * Ends the encounter: the composed v2 combat-end (overlay sweep + occupancy
-   * prune + `ended` status flip, one transaction over the version tokens — plus
+   * prune + `ended` status flip, one transaction — plus
    * the dungeon turn advance when {@link options.endCombat} is the delve
-   * performer). The Instance token reads its own ref (no in-flight move at
-   * end-time in practice). The action returns the bumped Instance version,
-   * folded forward-only into its queue's token (UNN-567).
+   * performer). The authority locks and settles the current Map Instance before
+   * pruning it; its returned cursor is only an invalidation signal.
    *
    * **`settleAll()` first.** Component writes ride the replicas, which own
    * their own delivery loops and never touch `encounterWrite` — so the encounter
@@ -248,17 +264,21 @@ export function useCombatConsole(
       guardWriteTransition(
         async () => {
           await replicas.settleAll()
+          const mapSettled = await mapReplica.settle()
+          if (!mapSettled.ok) {
+            toast.error("Couldn't finish saving the map. Try again.")
+            return
+          }
           const result = await encounterWrite.enqueue((expectedVersion) =>
             endCombat({
               encounterVersion: expectedVersion,
-              instanceVersion: instanceWrite.versionRef.current,
             })
           )
           if (!result.ok) {
             toast.error(combatErrorMessage(result.error))
             return
           }
-          instanceWrite.bump(result.value.instanceVersion)
+          mapReplica.notify()
           router.refresh()
         },
         () => toast.error("Couldn't save. Try again.")

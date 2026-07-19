@@ -20,6 +20,9 @@ const setDungeonStatus = vi.fn()
 const revalidatePath = vi.fn()
 const revalidateDungeon = vi.fn()
 const publishDungeonPing = vi.fn()
+const publishDungeonInstancePing = vi.fn()
+const loadMapInstanceForWriteLocked = vi.fn()
+const saveLockedMapInstanceState = vi.fn()
 
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonVariantForWrite: (id: string) => loadDungeonVariantForWrite(id),
@@ -43,12 +46,24 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
 }))
+vi.mock("@/lib/db/writes/map-instance", () => ({
+  loadMapInstanceForWriteLocked: (tx: unknown, id: string) =>
+    loadMapInstanceForWriteLocked(tx, id),
+  saveLockedMapInstanceState: (
+    tx: unknown,
+    row: unknown,
+    state: unknown,
+    options: unknown
+  ) => saveLockedMapInstanceState(tx, row, state, options),
+}))
 vi.mock("next/cache", () => ({
   revalidatePath: (path: string) => revalidatePath(path),
 }))
 vi.mock("@/lib/realtime/publish", () => ({
   publishDungeonPing: (shortId: string, ping: unknown) =>
     publishDungeonPing(shortId, ping),
+  publishDungeonInstancePing: (shortId: string, version: number) =>
+    publishDungeonInstancePing(shortId, version),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -60,6 +75,7 @@ const dungeonRow = {
   campaignId: CAMPAIGN_ID,
   shortId: "dng-short",
   status: "draft" as const,
+  mapInstanceId: "mi-1",
 }
 
 /** A locked row carrying the given status — only `.status` is read on it. */
@@ -89,6 +105,10 @@ beforeEach(() => {
   // The locked row defaults to `draft`, so `draft → active` is a legal flip.
   lockDungeonRowForLifecycle.mockResolvedValue(ok(lockedRow("draft")))
   setDungeonStatus.mockResolvedValue(ok({ version: 1 }))
+  loadMapInstanceForWriteLocked.mockResolvedValue(
+    ok({ id: "mi-1", state: {}, status: "open", version: 0 })
+  )
+  saveLockedMapInstanceState.mockResolvedValue(ok({ version: 1 }))
 })
 
 describe("setDungeonStatusAction", () => {
@@ -187,14 +207,23 @@ describe("setDungeonStatusAction", () => {
     })
   })
 
-  it("does not run the one-active guard when going done", async () => {
+  it("freezes the map when going done without running the one-active guard", async () => {
     lockDungeonRowForLifecycle.mockResolvedValue(ok(lockedRow("active")))
 
     const result = await setDungeonStatusAction({ ...goActive, status: "done" })
 
-    expect(result).toEqual({ ok: true, value: { version: 1 } })
+    expect(result).toEqual({
+      ok: true,
+      value: { version: 1, instanceVersion: 1 },
+    })
     expect(loadActiveDungeonForCampaign).not.toHaveBeenCalled()
     expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "done", 0, "tx")
+    expect(saveLockedMapInstanceState).toHaveBeenCalledWith(
+      "tx",
+      expect.objectContaining({ id: "mi-1" }),
+      {},
+      { freeze: true }
+    )
   })
 
   it("propagates a stale guarded-write error", async () => {

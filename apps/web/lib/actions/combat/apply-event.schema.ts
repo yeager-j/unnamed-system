@@ -6,7 +6,6 @@ import {
 } from "@workspace/game-v2/encounter"
 import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
 import { COMBAT_SIDES } from "@workspace/game-v2/kernel/vocab/combat"
-import { mapInstanceEventSchema } from "@workspace/game-v2/spatial"
 
 import type { LoadEncounterSessionError } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
@@ -51,12 +50,7 @@ const addParticipantWireSchema = z.object({
 export type AddParticipantWireEvent = z.infer<typeof addParticipantWireSchema>
 
 export const ApplyCombatEventSchema = encounterMutationBase.extend({
-  expectedInstanceVersion: z.number().int().nonnegative().optional(),
-  event: z.union([
-    addParticipantWireSchema,
-    combatEventSchema,
-    mapInstanceEventSchema,
-  ]),
+  event: z.union([addParticipantWireSchema, combatEventSchema]),
 })
 
 export type ApplyCombatEventInput = z.input<typeof ApplyCombatEventSchema>
@@ -75,7 +69,7 @@ export interface AppliedCombatEvent {
 
 /**
  * The v1 error surface carried over (single-live guard, placement enforcement,
- * missing Instance token, write staleness) plus the v2 loader's data-integrity
+ * write staleness) plus the v2 loader's data-integrity
  * codes and the wire-specific rejections: `character-not-found` /
  * `invalid-entity` (a joiner that fails to hydrate), and `locator-missing`
  * (the fail-closed saver refused — a durable joiner was minted without
@@ -85,7 +79,6 @@ export type ApplyCombatEventError =
   | "invalid-input"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
-  | "missing-instance-version"
   | "character-not-found"
   | "invalid-entity"
   | "locator-missing"

@@ -66,15 +66,11 @@ export function DungeonCombatBody({
   combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
   campaignShortId: string
 }) {
-  const endCombat: EndCombatPerformer = async ({
-    encounterVersion,
-    instanceVersion,
-  }) => {
+  const endCombat: EndCombatPerformer = async ({ encounterVersion }) => {
     const result = await endDungeonCombatAction({
       encounterId: data.encounter.id,
       dungeonId: dungeon.id,
       expectedEncounterVersion: encounterVersion,
-      expectedInstanceVersion: instanceVersion,
       expectedDungeonVersion: dungeon.version,
     })
     return result.ok ? result : err(toEndCombatError(result.error))

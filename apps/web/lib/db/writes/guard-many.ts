@@ -4,11 +4,10 @@ import { db, type WriteExecutor } from "@/lib/db/client"
 
 /**
  * Composes several version-guarded writes into **one transaction** for the few
- * genuinely-atomic, cross-row gestures the Dungeon Map model needs — delve-start
- * (Dungeon + Instance), combat-start/end (Encounter + Instance [+ Dungeon]),
- * add/remove combatant (Encounter + Instance) — where a partial commit would
- * strand state (ADR — *Atomicity (Decision 5)*). The hot single-row paths do
- * **not** use this; they stay one guarded write.
+ * genuinely-atomic, cross-row gestures the Dungeon Map model needs — such as
+ * lifecycle commands that change both a dungeon or encounter and its map —
+ * where a partial commit would strand state. Hot single-row paths do **not**
+ * use this; they stay one guarded write.
  *
  * The novel bit over a bare `db.transaction`: the per-row guards report failure
  * by **returning** `err("stale" | "...-not-found")`, not by throwing — but the
@@ -20,17 +19,16 @@ import { db, type WriteExecutor } from "@/lib/db/client"
  * commits. A non-guard exception propagates unchanged (a real failure, not a
  * guard verdict).
  *
- * `body` receives the transaction executor; pass it to each guarded write
- * (`saveEncounterSession(…, tx)`, `saveMapInstanceState(tx, …)`) so they share
- * the one snapshot.
+ * `body` receives the transaction executor; pass it to each guarded write so
+ * they share the one snapshot.
  *
  * @example
  * guardMany(async (tx) => {
- *   const enc = await saveEncounterSession(encounterId, session, encVersion, tx)
- *   if (!enc.ok) return enc
- *   const inst = await saveMapInstanceState(tx, instanceId, state, instVersion)
- *   if (!inst.ok) return inst
- *   return ok({ encounter: enc.value, instance: inst.value })
+ *   const map = await loadMapInstanceForWriteLocked(tx, mapInstanceId)
+ *   if (!map.ok) return map
+ *   const encounter = await setEncounterStatus(id, "live", version, tx)
+ *   if (!encounter.ok) return encounter
+ *   return saveLockedMapInstanceState(tx, map.value, nextState)
  * })
  */
 export async function guardMany<T, E>(

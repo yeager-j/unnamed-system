@@ -14,10 +14,12 @@ import { searchRevealAction } from "./search-reveal"
 // search-that-reveals orchestration: markActed + reveal composed atomically.
 const requireCampaignDM = vi.fn()
 const loadDungeonRowById = vi.fn()
+const lockDungeonRowForLifecycle = vi.fn()
 const loadMapInstanceById = vi.fn()
 const saveDungeonState = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
+const publishDungeonInstancePing = vi.fn()
 const publishDungeonPing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
@@ -30,10 +32,23 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/writes/dungeon", () => ({
+  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
+    lockDungeonRowForLifecycle(tx, id, v),
   saveDungeonState: (id: string, state: DungeonState, v: number, tx: unknown) =>
     saveDungeonState(id, state, v, tx),
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
+  loadMapInstanceForWriteLocked: async (tx: unknown, id: string) => {
+    const row = await loadMapInstanceById(id, tx)
+    return row === null
+      ? err("map-instance-not-found")
+      : ok({ ...row, status: "open" })
+  },
+  saveLockedMapInstanceState: (
+    tx: unknown,
+    row: { id: string; version: number },
+    state: MapInstanceState
+  ) => saveMapInstanceState(tx, row.id, state, row.version),
   saveMapInstanceState: (
     tx: unknown,
     id: string,
@@ -49,6 +64,8 @@ vi.mock("./revalidate", () => ({
     revalidateDungeon(dungeon),
 }))
 vi.mock("@/lib/realtime/publish", () => ({
+  publishDungeonInstancePing: (shortId: string, version: number) =>
+    publishDungeonInstancePing(shortId, version),
   publishDungeonPing: (shortId: string, ping: unknown) =>
     publishDungeonPing(shortId, ping),
 }))
@@ -112,6 +129,7 @@ const searchInput = {
 beforeEach(() => {
   vi.clearAllMocks()
   loadDungeonRowById.mockResolvedValue(dungeonRow())
+  lockDungeonRowForLifecycle.mockResolvedValue(ok(dungeonRow()))
   loadMapInstanceById.mockResolvedValue(instanceRow())
   requireCampaignDM.mockResolvedValue({ id: CAMPAIGN_ID })
   saveDungeonState.mockResolvedValue(ok({ version: 1 }))
@@ -149,9 +167,12 @@ describe("searchRevealAction", () => {
       (instanceState as MapInstanceState).reveal.revealedConnectionIds
     ).toEqual(["c1"])
 
+    expect(lockDungeonRowForLifecycle).toHaveBeenCalledWith("tx", DUNGEON_ID, 0)
+    expect(lockDungeonRowForLifecycle.mock.invocationCallOrder[0]).toBeLessThan(
+      loadMapInstanceById.mock.invocationCallOrder[0]!
+    )
     expect(revalidateDungeon).toHaveBeenCalled()
-    // The cross-write bumps the dungeon row → a dungeon ping triggers the
-    // fog-view refetch that carries the reveal (UNN-468).
+    expect(publishDungeonInstancePing).toHaveBeenCalledWith("dng-short", 5)
     expect(publishDungeonPing).toHaveBeenCalledOnce()
   })
 
@@ -175,5 +196,17 @@ describe("searchRevealAction", () => {
     expect(result).toEqual({ ok: false, error: "delve-not-active" })
     expect(saveDungeonState).not.toHaveBeenCalled()
     expect(saveMapInstanceState).not.toHaveBeenCalled()
+  })
+
+  it("rechecks active status on the locked row", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(
+      ok({ ...dungeonRow(), status: "done" as const })
+    )
+
+    const result = await searchRevealAction(searchInput)
+
+    expect(result).toEqual({ ok: false, error: "delve-not-active" })
+    expect(loadMapInstanceById).not.toHaveBeenCalled()
+    expect(saveDungeonState).not.toHaveBeenCalled()
   })
 })

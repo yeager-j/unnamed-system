@@ -21,14 +21,16 @@ import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-session"
 import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
-import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import {
   lockDungeonRowForLifecycle,
   touchDungeonLifecycle,
 } from "@/lib/db/writes/dungeon"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
 import {
   publishDungeonInstancePing,
   publishDungeonPing,
@@ -71,7 +73,6 @@ export async function startDungeonEncounterAction(
   const {
     dungeonId,
     expectedVersion,
-    expectedInstanceVersion,
     name,
     advantage,
     firstSide,
@@ -87,9 +88,6 @@ export async function startDungeonEncounterAction(
 
   const liveId = await loadLiveEncounterIdForCampaign(dungeon.campaignId)
   if (liveId !== null) return err("campaign-already-has-live-encounter")
-
-  const instance = await loadMapInstanceById(dungeon.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
 
   const setups: ParticipantSetup[] = []
   const locators = new Map<ParticipantId, StoredEntityLocator>()
@@ -142,11 +140,6 @@ export async function startDungeonEncounterAction(
 
   // Co-mint enemy tokens onto the delve's existing geometry; PC tokens (absent
   // from `placement`) survive from `base` exactly where exploration left them.
-  const nextInstance = comintMapInstance(session, placement, instance.state)
-  if (!isRosterFullyPlaced(session, nextInstance)) {
-    return err("encounter-has-unplaced-combatants")
-  }
-
   const stored = saveSession(session, locators)
   if (!stored.ok) return err("locator-missing")
 
@@ -174,11 +167,23 @@ export async function startDungeonEncounterAction(
     )
     if (liveInTx !== null) return err("campaign-already-has-live-encounter")
 
-    const inst = await saveMapInstanceState(
+    const instance = await loadMapInstanceForWriteLocked(
       tx,
-      dungeon.mapInstanceId,
-      nextInstance,
-      expectedInstanceVersion
+      dungeon.mapInstanceId
+    )
+    if (!instance.ok) return instance
+    const nextInstance = comintMapInstance(
+      session,
+      placement,
+      instance.value.state
+    )
+    if (!isRosterFullyPlaced(session, nextInstance)) {
+      return err("encounter-has-unplaced-combatants")
+    }
+    const inst = await saveLockedMapInstanceState(
+      tx,
+      instance.value,
+      nextInstance
     )
     if (!inst.ok) return inst
 

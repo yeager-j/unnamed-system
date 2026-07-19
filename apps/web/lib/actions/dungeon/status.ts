@@ -16,7 +16,14 @@ import {
   setDungeonStatus,
 } from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
-import { publishDungeonPing } from "@/lib/realtime/publish"
+import {
+  loadMapInstanceForWriteLocked,
+  saveLockedMapInstanceState,
+} from "@/lib/db/writes/map-instance"
+import {
+  publishDungeonInstancePing,
+  publishDungeonPing,
+} from "@/lib/realtime/publish"
 
 import { revalidateDungeon } from "./revalidate"
 import {
@@ -45,15 +52,14 @@ import {
  * {@link import("./delve-start").startDelveAction} (which also snapshots
  * geometry + places tokens); this action backs the `active → done` finish.
  *
- * Known residual (accepted): an ordinary finish carries no instance token, so a
- * spatial write already in flight across it can still land after `done` — the
- * DM is the sole writer today and the window is one round trip. Expeditions
- * close it with `freezeMapInstance`; extending the freeze here would change
- * this action's envelope for a pre-existing, low-stakes window.
+ * An ordinary finish locks and freezes its Map Instance in the same transaction,
+ * so no Replica mutation can land after `done`.
  */
 export async function setDungeonStatusAction(
   input: SetDungeonStatusInput
-): Promise<Result<{ version: number }, SetDungeonStatusError>> {
+): Promise<
+  Result<{ version: number; instanceVersion?: number }, SetDungeonStatusError>
+> {
   const parsed = SetDungeonStatusSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -73,30 +79,60 @@ export async function setDungeonStatusAction(
   }
 
   const result = await mapActivationRaceToActiveDelve(
-    guardMany<{ version: number }, SetDungeonStatusError>(
-      async (tx: WriteExecutor) => {
-        const locked = await lockDungeonRowForLifecycle(
-          tx,
-          dungeonId,
-          expectedVersion
-        )
-        if (!locked.ok) return locked
-        if (status === "active" && locked.value.status !== "draft") {
-          return err("delve-not-draft")
-        }
-        if (status === "done" && locked.value.status !== "active") {
-          return err("delve-not-active")
-        }
+    guardMany<
+      { version: number; instanceVersion?: number },
+      SetDungeonStatusError
+    >(async (tx: WriteExecutor) => {
+      const locked = await lockDungeonRowForLifecycle(
+        tx,
+        dungeonId,
+        expectedVersion
+      )
+      if (!locked.ok) return locked
+      if (status === "active" && locked.value.status !== "draft") {
+        return err("delve-not-draft")
+      }
+      if (status === "done" && locked.value.status !== "active") {
+        return err("delve-not-active")
+      }
 
+      if (status === "active") {
         return setDungeonStatus(dungeonId, status, expectedVersion, tx)
       }
-    )
+
+      const instance = await loadMapInstanceForWriteLocked(
+        tx,
+        dungeon.mapInstanceId
+      )
+      if (!instance.ok) return instance
+      const finished = await setDungeonStatus(
+        dungeonId,
+        status,
+        expectedVersion,
+        tx
+      )
+      if (!finished.ok) return finished
+      const frozen = await saveLockedMapInstanceState(
+        tx,
+        instance.value,
+        instance.value.state,
+        { freeze: true }
+      )
+      if (!frozen.ok) return frozen
+      return ok({
+        version: finished.value.version,
+        instanceVersion: frozen.value.version,
+      })
+    })
   )
   if (!result.ok) return result
 
   publishDungeonPing(dungeon.shortId, { version: result.value.version, status })
+  if (result.value.instanceVersion !== undefined) {
+    publishDungeonInstancePing(dungeon.shortId, result.value.instanceVersion)
+  }
   revalidatePath(`/campaigns/${campaign.shortId}`)
   revalidateDungeon(dungeon)
 
-  return ok({ version: result.value.version })
+  return ok(result.value)
 }

@@ -15,7 +15,6 @@ import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { startExpeditionAction } from "@/lib/actions/dungeon/expedition-start"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
-import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /** A starting Zone the prep view offers, from the source Map template. */
@@ -37,13 +36,11 @@ export interface PrepZone {
  */
 export function DungeonPrep({
   dungeon,
-  instance,
   placedCharacters,
   zones,
   campaignShortId,
 }: {
   dungeon: DungeonRow
-  instance: MapInstanceRow
   placedCharacters: CharacterSummary[]
   zones: PrepZone[]
   campaignShortId: string
@@ -68,7 +65,6 @@ export function DungeonPrep({
           const input = {
             dungeonId: dungeon.id,
             expectedVersion: dungeon.version,
-            expectedInstanceVersion: instance.version,
             placements: list,
           }
           const result =
