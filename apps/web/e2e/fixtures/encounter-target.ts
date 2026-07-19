@@ -21,7 +21,10 @@ import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, entity, getDb } from "@/lib/db"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
-import { mapInstances } from "@/lib/db/schema/map-instance"
+import {
+  mapInstances,
+  type MapInstanceStatus,
+} from "@/lib/db/schema/map-instance"
 import { encounterConsolePath } from "@/lib/paths"
 
 /**
@@ -171,6 +174,7 @@ interface SeededEncounter {
    *  seed unplaced, so its occupancy starts empty. */
   mapInstanceId: string
   mapInstanceState: MapInstanceState
+  mapInstanceStatus: MapInstanceStatus
 }
 
 /** Resolves one setup to its stored participant (durable reference or live
@@ -226,6 +230,7 @@ function seededEncounter(
     session,
     mapInstanceId: `seed-mi-encounter-${slug}`,
     mapInstanceState: emptyMapInstance(),
+    mapInstanceStatus: status === "ended" ? "frozen" : "open",
   }
 }
 
@@ -273,7 +278,8 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  *     campaigns (random `shortId`s `db:seed` can't reach) — otherwise a prior
  *     run's started encounter leaves Campaign A with a `live` row and the
  *     single-live guard blocks every subsequent happy-path Start.
- *  2. **Resets** each known seeded encounter's `status`, `version`, and `session`
+ *  2. **Resets** each known seeded encounter and Map Instance to their canonical
+ *     lifecycle status, version, session, and spatial state
  *     so a prior test's per-edit setup writes / "Start" don't carry over.
  *
  * The spec runs `serial` so these resets aren't racing a parallel test mutating
@@ -404,7 +410,11 @@ export async function resetEncounterFixtures(): Promise<void> {
     SEEDED_ENCOUNTERS.map((encounter) =>
       db
         .update(mapInstances)
-        .set({ state: encounter.mapInstanceState, version })
+        .set({
+          state: encounter.mapInstanceState,
+          status: encounter.mapInstanceStatus,
+          version,
+        })
         .where(eq(mapInstances.id, encounter.mapInstanceId))
     )
   )
