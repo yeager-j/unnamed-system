@@ -59,47 +59,6 @@ let sequence = 0
 const newId = () => `test-id-${++sequence}`
 
 describe("reduceConsoleOptimistic", () => {
-  it("sums two back-to-back damage writes on one participant (the UNN-226 regression)", () => {
-    const reduce = createReduceConsoleOptimistic(newId)
-    const state = makeState()
-
-    const afterFirst = reduce(state, {
-      kind: "write",
-      participantId: goblinId,
-      write: { component: "vitals", op: "damage", amount: 3 },
-    })
-    const afterSecond = reduce(afterFirst, {
-      kind: "write",
-      participantId: goblinId,
-      write: { component: "vitals", op: "damage", amount: 4 },
-    })
-
-    const vitals = afterSecond.session.participants[0]!.entity.components.vitals
-    expect(vitals).toEqual({ base: 20, damage: 7 })
-    // The input frames are untouched (immutability contract).
-    expect(state.session.participants[0]!.entity.components.vitals).toEqual({
-      base: 20,
-      damage: 0,
-    })
-    expect(
-      afterFirst.session.participants[0]!.entity.components.vitals
-    ).toEqual({ base: 20, damage: 3 })
-  })
-
-  it("returns the frame unchanged on a Writer refusal", () => {
-    const reduce = createReduceConsoleOptimistic(newId)
-    const state = makeState()
-
-    const next = reduce(state, {
-      kind: "write",
-      participantId: goblinId,
-      // The goblin carries no skillPool — capability-missing refusal.
-      write: { component: "skillPool", op: "damage", amount: 2 },
-    })
-
-    expect(next).toBe(state)
-  })
-
   it("appends a roster slot without an occupancy token on a zone-less addPaired", () => {
     const reduce = createReduceConsoleOptimistic(newId)
     const state = makeState()

@@ -40,15 +40,15 @@ const meta: Record<string, ParticipantMeta> = {
 
 const damage = { component: "vitals", op: "damage", amount: 2 } as const
 
-const durableAccepted = (through: number, vitals: number) => ({
-  value: { components: { vitals: { base: 20, damage: 0 } } },
+const durableAccepted = (through: number, vitals: number, damage = 0) => ({
+  value: { components: { vitals: { base: 20, damage } } },
   through,
   cursor: { vitals },
 })
 
-const inlineAccepted = (through: number, version: number) => ({
+const inlineAccepted = (through: number, version: number, damage = 0) => ({
   value: {
-    participants: { [goblinParticipant]: { vitals: { base: 8, damage: 0 } } },
+    participants: { [goblinParticipant]: { vitals: { base: 8, damage } } },
   },
   through,
   cursor: version,
@@ -70,18 +70,26 @@ const flush = async () => {
   })
 }
 
-function renderReplicas(onExternalChange = vi.fn()) {
+function renderReplicas(onEncounterUnavailable = vi.fn()) {
   const rendered = renderHook(
-    (props: { meta: Record<string, ParticipantMeta> }) =>
+    (props: {
+      meta: Record<string, ParticipantMeta>
+      rosterIds: ReturnType<typeof asParticipantId>[]
+    }) =>
       useCombatReplicas({
         encounterId: "enc1",
         participantMeta: props.meta,
-        rosterIds: [pcParticipant, goblinParticipant],
-        onExternalChange,
+        rosterIds: props.rosterIds,
+        onEncounterUnavailable,
       }),
-    { initialProps: { meta } }
+    {
+      initialProps: {
+        meta,
+        rosterIds: [pcParticipant, goblinParticipant],
+      },
+    }
   )
-  return { rendered, onExternalChange }
+  return { rendered, onEncounterUnavailable }
 }
 
 beforeEach(() => {
@@ -233,6 +241,139 @@ describe("useCombatReplicas", () => {
     expect(pushCombatDurableMutationAction).not.toHaveBeenCalled()
   })
 
+  it("publishes synchronous local projection and accumulates back-to-back writes once", async () => {
+    const { rendered } = renderReplicas()
+    await flush()
+
+    act(() => {
+      rendered.result.current.handleOf(pcParticipant)!.mutate(damage)
+      rendered.result.current.handleOf(pcParticipant)!.mutate(damage)
+    })
+
+    expect(
+      rendered.result.current.durableReplicaSnapshots.get("e1")?.value
+        .components.vitals?.damage
+    ).toBe(4)
+  })
+
+  it("rolls back the replica projection after terminal rejection", async () => {
+    pushCombatDurableMutationAction.mockResolvedValue(
+      err({ kind: "rejected", error: "forbidden" })
+    )
+    const { rendered } = renderReplicas()
+    await flush()
+
+    let remote!: Promise<unknown>
+    act(() => {
+      const receipt = rendered.result.current
+        .handleOf(pcParticipant)!
+        .mutate(damage)
+      remote = receipt.remote
+    })
+    expect(
+      rendered.result.current.durableReplicaSnapshots.get("e1")?.value
+        .components.vitals?.damage
+    ).toBe(2)
+    await act(async () => {
+      await remote
+    })
+
+    expect(
+      rendered.result.current.durableReplicaSnapshots.get("e1")?.value
+        .components.vitals?.damage
+    ).toBe(0)
+  })
+
+  it("removes a replay-conflicted prediction before its terminal outcome arrives", async () => {
+    let resolvePush!: (value: ReturnType<typeof err>) => void
+    pushCombatDurableMutationAction.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePush = resolve
+        })
+    )
+    const { rendered } = renderReplicas()
+    await flush()
+
+    let remote!: Promise<unknown>
+    act(() => {
+      remote = rendered.result.current
+        .handleOf(pcParticipant)!
+        .mutate(damage).remote
+    })
+    expect(
+      rendered.result.current.durableReplicaSnapshots.get("e1")?.value
+        .components.vitals?.damage
+    ).toBe(2)
+
+    loadCombatAcceptedAction.mockResolvedValue(
+      ok({
+        durable: {
+          e1: {
+            value: { components: {} },
+            through: 0,
+            cursor: { vitals: 2 },
+          },
+        },
+      })
+    )
+    act(() => rendered.result.current.onPcPing("e1", {}))
+    await flush()
+
+    const conflicted = rendered.result.current.durableReplicaSnapshots.get("e1")
+    expect(conflicted?.value.components.vitals).toBeUndefined()
+    expect(conflicted?.conflicts).toHaveLength(1)
+
+    await act(async () => {
+      resolvePush(err({ kind: "rejected", error: "capability-missing" }))
+      await remote
+    })
+  })
+
+  it("drops an expired projection until a fresh identity becomes ready", async () => {
+    const { rendered } = renderReplicas()
+    await flush()
+
+    let resolveBootstrap!: (value: ReturnType<typeof ok>) => void
+    loadCombatAcceptedAction.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBootstrap = resolve
+        })
+    )
+    pushCombatDurableMutationAction.mockResolvedValueOnce(
+      err({ kind: "unknown-client", received: 1 })
+    )
+
+    let remote!: Promise<unknown>
+    act(() => {
+      remote = rendered.result.current
+        .handleOf(pcParticipant)!
+        .mutate(damage).remote
+    })
+    await act(async () => {
+      await remote
+    })
+
+    expect(rendered.result.current.durableReplicaSnapshots.has("e1")).toBe(
+      false
+    )
+
+    await act(async () => {
+      resolveBootstrap(
+        ok({ durable: { e1: durableAccepted(0, 1, 0) } }) as ReturnType<
+          typeof ok
+        >
+      )
+    })
+    await flush()
+
+    expect(
+      rendered.result.current.durableReplicaSnapshots.get("e1")?.value
+        .components.vitals?.damage
+    ).toBe(0)
+  })
+
   it("exposes channel keys from meta and none for inline participants", async () => {
     const { rendered } = renderReplicas()
     expect(rendered.result.current.pcChannels).toEqual([
@@ -244,58 +385,55 @@ describe("useCombatReplicas", () => {
     )
   })
 
-  it("refreshes on an accepted advance whose watermark ALSO advanced", async () => {
-    const { rendered, onExternalChange } = renderReplicas()
+  it("publishes an accepted advance without requesting a route refresh", async () => {
+    const { rendered, onEncounterUnavailable } = renderReplicas()
     await flush()
-    expect(onExternalChange).not.toHaveBeenCalled()
+    expect(onEncounterUnavailable).not.toHaveBeenCalled()
 
-    // The case the old watermark rule got wrong. `through` advancing says our
-    // own mutation was incorporated; it says NOTHING about whether the same
-    // accepted tuple also carries another identity's change — and here it
-    // does (the cursor jumped two versions, not one). Suppressing the refresh
-    // left the console's separate RSC container on a frame that predates the
-    // other writer, with no later event to correct it.
     loadCombatAcceptedAction.mockResolvedValue(
-      ok({ durable: { e1: durableAccepted(1, 3) } })
+      ok({ durable: { e1: durableAccepted(1, 3, 5) } })
     )
     await act(async () => {
       rendered.result.current.onPcPing("e1", {})
     })
     await flush()
-    expect(onExternalChange).toHaveBeenCalledTimes(1)
+    expect(
+      rendered.result.current.durableReplicaSnapshots.get("e1")?.value
+        .components.vitals?.damage
+    ).toBe(5)
+    expect(onEncounterUnavailable).not.toHaveBeenCalled()
   })
 
-  it("refreshes on an accepted advance whose watermark held", async () => {
-    const { rendered, onExternalChange } = renderReplicas()
+  it("publishes the bootstrap projections without a route refresh", async () => {
+    const { rendered, onEncounterUnavailable } = renderReplicas()
     await flush()
+    expect(rendered.result.current.inlineReplicaSnapshot).not.toBeNull()
+    expect(rendered.result.current.durableReplicaSnapshots.has("e1")).toBe(true)
+    expect(onEncounterUnavailable).not.toHaveBeenCalled()
+  })
 
-    loadCombatAcceptedAction.mockResolvedValue(
-      ok({ durable: { e1: durableAccepted(0, 2) } })
-    )
-    await act(async () => {
-      rendered.result.current.onPcPing("e1", {})
+  it("keeps ready controllers across an unchanged parent rerender", async () => {
+    const { rendered } = renderReplicas()
+    await flush()
+    const bootstrapCalls = loadCombatAcceptedAction.mock.calls.length
+
+    rendered.rerender({
+      meta: { ...meta },
+      rosterIds: [pcParticipant, goblinParticipant],
     })
     await flush()
-    expect(onExternalChange).toHaveBeenCalledTimes(1)
-  })
 
-  it("stays quiet at mount — the bootstrap tuple is not an advance", async () => {
-    const { onExternalChange } = renderReplicas()
-    await flush()
-    // The accepted floor arrives as the replica's `initial`, never as a
-    // snapshot event, and the transport's causal gate drops the catch-up
-    // pull as a duplicate. Unconditional refresh therefore costs nothing at
-    // mount — the bound that makes dropping the watermark rule affordable.
-    expect(onExternalChange).not.toHaveBeenCalled()
+    expect(loadCombatAcceptedAction).toHaveBeenCalledTimes(bootstrapCalls)
+    expect(rendered.result.current.handleOf(pcParticipant)).toBeDefined()
   })
 
   it("refreshes after terminal encounter unavailability is published", async () => {
     loadCombatAcceptedAction.mockResolvedValue(err("encounter-not-live"))
-    const { onExternalChange } = renderReplicas()
+    const { onEncounterUnavailable } = renderReplicas()
 
     await flush()
 
-    expect(onExternalChange).toHaveBeenCalled()
+    expect(onEncounterUnavailable).toHaveBeenCalled()
   })
 
   it("disposes a removed durable participant's replica and refuses its handle", async () => {
@@ -305,11 +443,28 @@ describe("useCombatReplicas", () => {
 
     rendered.rerender({
       meta: { [goblinParticipant]: { storage: "inline" } },
+      rosterIds: [goblinParticipant],
     })
     await flush()
 
     expect(rendered.result.current.handleOf(pcParticipant)).toBeUndefined()
     expect(rendered.result.current.handleOf(goblinParticipant)).toBeDefined()
+    expect(rendered.result.current.durableReplicaSnapshots.has("e1")).toBe(
+      false
+    )
+  })
+
+  it("removes a participant handle from the active roster before loader meta catches up", async () => {
+    const { rendered } = renderReplicas()
+    await flush()
+
+    rendered.rerender({ meta, rosterIds: [goblinParticipant] })
+    await flush()
+
+    expect(rendered.result.current.handleOf(pcParticipant)).toBeUndefined()
+    expect(rendered.result.current.durableReplicaSnapshots.has("e1")).toBe(
+      false
+    )
   })
 
   it("bootstraps a late joiner without touching existing replicas", async () => {
@@ -330,6 +485,7 @@ describe("useCombatReplicas", () => {
           characterShortId: "late-short",
         },
       },
+      rosterIds: [pcParticipant, goblinParticipant, joiner],
     })
     await flush()
 

@@ -22,7 +22,7 @@ auth boundary — never the UI's dispatch scope.**
   and a group auth gate that doesn't exist.
 
   **Correction earned in review — the commit scope is wider than one row.** The
-  first version of this record said the durable root's authority boundary *was*
+  first version of this record said the durable root's authority boundary _was_
   the entity row's lock. It isn't: a durable combat write is licensed by the
   encounter being live and the entity still being on its roster, and both facts
   live on the encounter row. They were checked outside the committing
@@ -30,10 +30,11 @@ auth boundary — never the UI's dispatch scope.**
   delivery would still write to the character. The durable transaction now locks
   **`replicaClient` → `encounters` → `entity`**. The granularity conclusion
   survives (per-entity roots, per-entity cursors) but the rule it rests on has
-  to be read strictly: *follow the authority's commit scope* means every lock
+  to be read strictly: _follow the authority's commit scope_ means every lock
   the commit actually needs, not the most obvious one. A precondition checked
   outside the transaction that acts on it is not a precondition — rebase can
   correct a client projection, never an authority commit.
+
 - **Inline home → ONE collection-valued replica per encounter.** All inline
   participants share one row (the session blob), one scalar version, one gate
   (campaign-DM), one lifetime (the encounter). Per-participant inline replicas
@@ -96,45 +97,58 @@ campaign-DM-gated and roster-scoped; the entity snapshot door's strict-owner
 reservation ("a DM-facing replica needs a narrower root, not this bag behind
 a wider gate") is answered by this root, not widened around.
 
-## The refresh rule (corrected in review)
+## Render authority and fallback (UNN-653)
 
-**Every accepted advance refreshes the route.** The original rule suppressed
-`router.refresh()` when the incorporation watermark advanced, on the theory that
-such a snapshot only incorporated our own push, whose Server Action response had
-already carried the revalidated RSC payload. That inference is unsound:
-`through` answers "which of MY mutations are in", never "is this tuple free of
-anyone else's changes". A second tab committing between our push and our next
-pull produces an advancing watermark over a value the console's separate RSC
-container has never seen, and — since the PC channel now only invalidates the
-transport — nothing later corrects the frame.
+Replica projections are the sole render and prediction authority for the four
+combat-writable components. `useCombatReplicas` publishes only ready roots
+through an application-owned external store; `composeCombatModel` joins those
+roots onto the classic event frame by durable entity ID or inline participant
+ID. The join replaces the complete four-key subset, so an absent capability in
+accepted state cannot survive from an older RSC frame. Identity, presentation,
+other components, roster, turns, overlays, and spatial state remain owned by
+the event frame.
 
-The refresh rides `onAccepted`, a first-class semantic hook, **not** `onEvent`.
-`onEvent` is a metrics sink whose failure the package is entitled to swallow;
-reconciliation must never ride an observability seam. The cost of refreshing
-unconditionally is bounded: the transport's causal gate drops duplicate and
-stale observations, and the bootstrap tuple arrives as `initial` rather than as
-a snapshot event, so this is one spare refresh after some local writes and
-nothing at mount.
+Fallback is per root. Before bootstrap, when loader metadata is absent, or when
+an accepted inline collection does not contain a participant, the current RSC
+participant remains unchanged. Identity expiry removes the retired projection
+immediately and falls back to that frame while a fresh identity bootstraps; the
+old projection may contain discarded predictions and must not remain visible.
+Removing a participant gates its handle and controller membership from the
+current roster even if loader metadata is temporarily stale.
 
-## Container convergence (Open Q5) — still deferred, now priced
+Accepted component advances do not refresh the route: the external-store
+subscription is the reconciliation path and the first visible update never
+depends on an RSC replacement. Encounter and reconnect refreshes remain for
+roster, turns, overlays, and spatial facts still owned by the classic event
+protocol. The inline replica still returns `{ version }` so
+`useCombatantWrite` can advance that protocol's encounter-row token; UNN-656 is
+the removal condition.
 
-The console's single `useOptimistic` container remains the render frame; the
-replica is the coordination layer (ordering, delivery, dedup, retry, rebase).
-Costs recorded in `domain/entity/commit/AGENTS.md` §The two optimistic hooks:
-double prediction per write, and the dispatch transition held until `remote`
-settles.
+Replay refusal removes the prediction immediately during Replica rebase and is
+logged as a conflict. It does not toast at that intermediate point. The later
+authoritative terminal rejection travels through the mutation receipt and
+produces the one user-facing combat-error toast.
+
+## Container convergence (Open Q5) — resolved by UNN-653
+
+The console's `useOptimistic` container now predicts only event, paired-roster,
+and spatial actions. Combat component state is composed from Replica snapshots,
+which deletes the duplicate Writer prediction and the transition formerly held
+until `remote` settled. This is a Showtime composition seam, not a generic
+managed-replica-set abstraction in `@workspace/replica`.
 
 ## Files
 
-| File | Role |
-|---|---|
-| `mutations.ts` | The two roots + registries (`combat.entity.write`, `combat.session.write`) and `pickCombatComponents` |
-| `rejection.ts` | `CombatReplicaRejection` + `CombatWriteDispatchError` |
-| `identity.ts` | `combat-entity:{entityId}` / `combat-session:{encounterId}` mints |
-| `events.ts` | Client observability (anomalies warn; routine traffic quiet) |
-| `use-combat-replicas.ts` | Keyed lifecycle over `createManagedReplica` + `createPullTransport`; batched bootstrap + failure classification; roster diff; `settleAll`; the refresh rule |
-| `replica-binding.test.ts` | Both contract suites over in-memory worlds (full law lists asserted by name) |
-| `real-door-transport.db.test.ts` | Transport contract + SQL serialization against the real doors (run via `npm run test:replica-db`) |
+| File                             | Role                                                                                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mutations.ts`                   | The two roots + registries (`combat.entity.write`, `combat.session.write`) and `pickCombatComponents`                                                                    |
+| `rejection.ts`                   | `CombatReplicaRejection` + `CombatWriteDispatchError`                                                                                                                    |
+| `identity.ts`                    | `combat-entity:{entityId}` / `combat-session:{encounterId}` mints                                                                                                        |
+| `events.ts`                      | Client observability (anomalies warn; routine traffic quiet)                                                                                                             |
+| `use-combat-replicas.ts`         | Keyed lifecycle over `createManagedReplica` + `createPullTransport`; batched bootstrap + failure classification; roster diff; ready-snapshot external store; `settleAll` |
+| `../compose-combat-model.ts`     | Pure join from per-root Replica projections onto the event-owned encounter frame                                                                                         |
+| `replica-binding.test.ts`        | Both contract suites over in-memory worlds (full law lists asserted by name)                                                                                             |
+| `real-door-transport.db.test.ts` | Transport contract + SQL serialization against the real doors (run via `npm run test:replica-db`)                                                                        |
 
 The authority half lives in `lib/actions/combat/replica/` (see
 `lib/actions/AGENTS.md`); the sources in `lib/sync/combat-replica-source.ts`

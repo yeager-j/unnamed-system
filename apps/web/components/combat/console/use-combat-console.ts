@@ -16,6 +16,7 @@ import {
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
+import { composeCombatModel } from "@/domain/combat/compose-combat-model"
 import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
@@ -47,12 +48,12 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * instance, each with its own reducer) collapse into a single
  * `useOptimistic<EncounterState, ConsoleOptimisticAction>` over
  * `{ session, mapInstance }` reduced by {@link reduceConsoleOptimistic} — the
- * same composition root the server runs, plus the paired roster arms and the
- * `write` arm (the Writers' predictor applied to the participant **in the
- * current frame**, the structural UNN-226 fix). The **two version queues**
- * survive: the encounter row and the Instance row still version independently,
- * so {@link dispatchCombatEvent} routes each event to the queue owning the row
- * it writes, both with one-shot stale-retry (`fetchEncounterVersion` /
+ * same composition root the server runs, plus the paired roster arms. Combat
+ * components are composed over that frame from Replica projections; the
+ * container no longer predicts them. The **two version queues** survive: the
+ * encounter row and the Instance row still version independently, so
+ * {@link dispatchCombatEvent} routes each event to the queue owning the row it
+ * writes, both with one-shot stale-retry (`fetchEncounterVersion` /
  * `fetchInstanceVersion`).
  *
  * **Component writes** (HP/SP damage & heal — on inline enemies *and* durable
@@ -61,7 +62,7 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * (UNN-646). {@link useCombatReplicas} resolves `participantMeta` into
  * per-participant write handles once, so this hook never reads a storage tag.
  * **Those writes do NOT ride the two version queues** — each replica owns its
- * own ordering, delivery, dedup, retry, and transition. Anything that must
+ * own ordering, delivery, dedup, retry, and projection. Anything that must
  * not overtake them says so explicitly by awaiting `replicas.settleAll()`
  * (see {@link endEncounter}); the encounter queue serializes only the event
  * wire.
@@ -98,7 +99,7 @@ export function useCombatConsole(
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const [state, applyOptimistic] = useOptimistic<
+  const [eventFrame, applyOptimistic] = useOptimistic<
     EncounterState,
     ConsoleOptimisticAction
   >(
@@ -125,6 +126,24 @@ export function useCombatConsole(
       router.refresh()
     })
   }
+
+  // The app's ownership decision point (UNN-646) now also exposes the ready
+  // projections that own component rendering (UNN-653). Controller membership
+  // follows the event frame's current roster, while participantMeta supplies
+  // only storage/addressing facts.
+  const replicas = useCombatReplicas({
+    encounterId: encounter.id,
+    participantMeta,
+    rosterIds: eventFrame.session.participants.map((p) => p.id),
+    onEncounterUnavailable: scheduleRefresh,
+  })
+
+  const state = composeCombatModel({
+    eventFrame,
+    inlineReplicaSnapshot: replicas.inlineReplicaSnapshot,
+    durableReplicaSnapshots: replicas.durableReplicaSnapshots,
+    participantMeta,
+  })
 
   useRealtimeChannel({
     domain: "encounter",
@@ -192,23 +211,8 @@ export function useCombatConsole(
     dispatchSequence([event])
   }
 
-  // The app's ownership decision point (UNN-646, succeeding the CD19 lanes):
-  // participantMeta resolved once into per-participant replica handles; the
-  // channel list + ping fan-in ride along, so no `meta.storage` read
-  // survives in this hook.
-  const replicas = useCombatReplicas({
-    encounterId: encounter.id,
-    participantMeta,
-    rosterIds: state.session.participants.map((p) => p.id),
-    onExternalChange: scheduleRefresh,
-  })
-
   const { dispatchWrite } = useCombatantWrite({
     handleOf: replicas.handleOf,
-    componentsOf: (participantId) =>
-      state.session.participants.find((p) => p.id === participantId)?.entity
-        .components,
-    applyOptimistic,
     // The inline door's committed encounter version keeps the surviving
     // event queue's token fresh across the two protocols sharing the row.
     onRemoteVersion: (version) => encounterWrite.bump(version),
@@ -232,7 +236,7 @@ export function useCombatConsole(
    * folded forward-only into its queue's token (UNN-567).
    *
    * **`settleAll()` first.** Component writes ride the replicas, which own
-   * their own transitions and never touch `encounterWrite` — so the encounter
+   * their own delivery loops and never touch `encounterWrite` — so the encounter
    * queue does NOT serialize them, and without this barrier End Combat could
    * commit its sweep while a replica mutation was still in flight. The
    * authority refuses a post-end write outright (`encounter-not-live`, under

@@ -50,23 +50,19 @@ ONLY for state a combat surface genuinely writes; the rejection test pins the
 subset. A multi-component patch (rest, levelUp) must keep its columns inside
 one version class — CH15's disjoint-footprint guarantee is per class.
 
-## The two optimistic hooks (Open Q5 — container split stays, now priced)
+## The two Replica-rendered hooks (Open Q5 resolved by UNN-653)
 
 `useEntityWrite` (character routes) and `useCombatantWrite` (encounters) both
-predict via the same Writers but reconcile differently: the entity replica
-re-folds `resolveEntity` client-side and catches up through accepted snapshots;
-the console pushes the patch into its session-frame reducer and reconciles via
-the push response's revalidated RSC payload plus the replica's watermark rule.
-That **container** split stays deliberate (the reconcile channels genuinely
-differ); converge only if one channel wins.
+delegate prediction, accepted-state reconciliation, rollback, and rebase to a
+Replica. Their composition shapes remain application-specific: the entity
+binding re-folds one owner root through `resolveEntity`; combat joins one
+inline collection plus a dynamic set of durable roots onto the event-owned
+encounter frame. The four combat-writable component keys come only from ready
+Replica projections, while roster, turns, overlays, and spatial state stay in
+the classic frame.
 
-Both doors now coordinate through the predicted replica (entity in UNN-645,
-combat in UNN-646): ordered delivery, rebase, and typed conflicts replaced the
-token/queue stale policy on each. **Priced Open-Q5 evidence from the combat
-binding**: with the console container un-converged, every combat write is
-predicted twice — once by `reduceConsoleOptimistic`'s `write` arm against the
-frame, once by the replica's `apply` against its base — by the same pure
-`applyEntityWrite`, and the dispatch transition must be held until `remote`
-settles so the prediction outlives the un-fed container. That duplication is
-the standing cost of deferral; converging would delete it, at the price of
-re-plumbing the console's frame onto replica snapshots.
+The former console `write` reducer arm and independent Writer precheck are
+gone. `useCombatantWrite` now resolves a handle, calls `mutate`, maps receipt
+errors, and temporarily folds the inline `{ version }` result into the classic
+encounter queue. The join is deliberately Showtime-specific; the generic
+package does not coordinate or normalize a managed replica set.

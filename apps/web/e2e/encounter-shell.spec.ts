@@ -161,8 +161,9 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
   ).toBeVisible()
 
   // The UNN-226 regression case: two back-to-back 3-damage writes on the
-  // inline goblin must SUM — the second predicts off the current optimistic
-  // frame, never a stale closure. Only the DB knows the persisted truth.
+  // inline goblin must SUM immediately — both predictions fold through the
+  // Replica projection, never a stale RSC frame. The DB then proves the same
+  // result persisted.
   await page.getByRole("button", { name: "Open Goblin detail" }).click()
   const drawer = combatantDrawer(page)
   for (let hit = 0; hit < 2; hit++) {
@@ -190,10 +191,8 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
     .poll(async () => await getCharacterCurrentHP(pcId))
     .toBe(pcHpBefore - 5)
 
-  // The durable write's optimistic transition defers the adjust-pool popover's
-  // close (it settles when the round-trip completes, ~0.5s); wait for it before
-  // Escaping the drawer, else Escape closes the still-open popover, not the
-  // drawer. (Cosmetic combat-only delay, revisited with the S2 optimistic model.)
+  // Wait for the adjust-pool popover to close before Escaping the drawer, else
+  // Escape may close the still-open popover rather than the drawer.
   await expect(page.getByRole("button", { name: "Take damage" })).toBeHidden()
 
   // End the encounter → the read-only ended stub.
