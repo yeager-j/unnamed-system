@@ -296,10 +296,13 @@ export function useCombatReplicas({
       bootstrap: async () => {
         let identity: typeof firstIdentity
         let batch: BatchedBootstrap
-        if (pending) {
-          identity = pending.identity
-          batch = await pending.shared
-          pending = null
+        const initial = pending
+        pending = null
+        if (initial) {
+          // Claim the one-shot handoff before awaiting it. If this shared call
+          // times out, the managed retry must mint an identity and fetch anew.
+          identity = initial.identity
+          batch = await initial.shared
         } else {
           // Expiry rebuild: a fresh identity, a single-root fetch.
           identity = mintCombatEntityIdentity(entityId)
@@ -360,10 +363,13 @@ export function useCombatReplicas({
       bootstrap: async () => {
         let identity: typeof firstIdentity
         let batch: BatchedBootstrap
-        if (pending) {
-          identity = pending.identity
-          batch = await pending.shared
-          pending = null
+        const initial = pending
+        pending = null
+        if (initial) {
+          // Claim the one-shot handoff before awaiting it. If this shared call
+          // times out, the managed retry must mint an identity and fetch anew.
+          identity = initial.identity
+          batch = await initial.shared
         } else {
           identity = mintCombatSessionIdentity(encounterId)
           batch = await fetchAccepted({ encounterId, inline: identity })
