@@ -1,11 +1,9 @@
-import { and, eq, lt } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import {
   createMutationProcessor,
-  type MutationDedupAdapter,
   type MutationProcessor,
   type ProcessorEvent,
-  type RecordedOutcome,
 } from "@workspace/replica/server"
 import { err, ok, type Result } from "@workspace/result"
 
@@ -27,23 +25,12 @@ import { entity } from "@/lib/db/schema/entity"
 import { replicaClient } from "@/lib/db/schema/replica-client"
 import type { VersionClass } from "@/lib/db/version-classes"
 
+import { createDrizzleMutationDedupAdapter } from "../../replica/drizzle-ledger"
 import {
   entityVersionIncrement,
   VERSION_COLUMNS,
   type EntityRowPatch,
 } from "../version-guard"
-
-/**
- * Dedup rows idle past this window are swept opportunistically inside the
- * processor's transaction (UNN-645 retention decision: last-outcome-only rows,
- * cleanup pressure riding write traffic — no cron). Consequence, documented
- * rather than hidden: a tab that stays open but silent past the TTL loses its
- * row, and its next push is a `gap` refusal — the client must rebootstrap
- * from a fresh accepted snapshot (the same recovery a lost local state needs).
- * Shared with the combat ledgers (UNN-646) so every dedup row ages by one
- * policy.
- */
-export const DEDUP_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 /**
  * Per-delivery trusted context, assembled by the push action **outside** the
@@ -111,86 +98,18 @@ export function createEntityPushProcessor(
   >({
     mutations: entityReplicaMutations,
     transact: (work) => db.transaction(work),
-    dedup: createEntityLedgerDedupAdapter(entityId),
+    dedup: createDrizzleMutationDedupAdapter<
+      void,
+      EntityReplicaRejection,
+      typeof replicaClient
+    >({
+      table: replicaClient,
+      pinColumn: replicaClient.entityId,
+      pinValue: entityId,
+    }),
     execute: executeEntityMutation,
     onEvent: logProcessorEvent,
   })
-}
-
-/**
- * The `replicaClient` ledger adapter, exported for the combat durable door
- * (UNN-646): durable combat clients register in the same entity-pinned ledger
- * — their identity is one ordered stream against one entity, exactly like an
- * owner tab's.
- */
-export function createEntityLedgerDedupAdapter<Rejection>(
-  entityId: string
-): MutationDedupAdapter<WriteExecutor, void, Rejection> {
-  return {
-    async acquire(tx, client) {
-      // The row is minted at the client's BOOTSTRAP — the personalized
-      // snapshot read — never here (Codex P2, PR #385): with an evicting
-      // sweep, an absent row must mean "swept or never bootstrapped", so a
-      // redelivered first mutation that may have committed before the sweep
-      // is refused `unknown-client` instead of silently re-executed. The
-      // bootstrap-minted row is also what `FOR UPDATE` serializes on for a
-      // client's first delivery.
-      const [row] = await tx
-        .select()
-        .from(replicaClient)
-        .where(
-          and(
-            eq(replicaClient.clientGroupId, client.clientGroupId),
-            eq(replicaClient.clientId, client.clientId)
-          )
-        )
-        .for("update")
-      if (!row) return null
-      if (row.entityId !== entityId) {
-        // A client identity is one ordered stream against ONE entity; reuse
-        // across entities is a client bug. Throwing aborts the transaction
-        // (ambiguous, no state advanced) instead of corrupting the ledger.
-        throw new Error(
-          `replica client ${client.clientGroupId}/${client.clientId} is pinned to another entity`
-        )
-      }
-      return {
-        lastMutationId: row.lastMutationId,
-        // Written exclusively by `record` below under the same schema; the
-        // stored shape is this door's own recorded outcome, not foreign input.
-        lastOutcome: (row.lastOutcome ?? undefined) as
-          | RecordedOutcome<void, Rejection>
-          | undefined,
-      }
-    },
-
-    async record(tx, client, mutationId, outcome) {
-      await tx
-        .update(replicaClient)
-        .set({
-          lastMutationId: mutationId,
-          lastOutcome: outcome,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(replicaClient.clientGroupId, client.clientGroupId),
-            eq(replicaClient.clientId, client.clientId)
-          )
-        )
-      // Opportunistic sweep: abandoned tabs' rows for this entity, idle past
-      // the TTL. Rides the same transaction — cleanup can never outrun the
-      // write that funds it.
-      await tx
-        .delete(replicaClient)
-        .where(
-          and(
-            eq(replicaClient.entityId, entityId),
-            lt(replicaClient.updatedAt, new Date(Date.now() - DEDUP_TTL_MS))
-          )
-        )
-    },
-  }
 }
 
 async function executeEntityMutation(

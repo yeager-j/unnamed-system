@@ -157,7 +157,10 @@ Public entry points:
 ```ts
 import { createReplica, defineMutation, defineMutations } from "@scope/replica"
 import { useReplica } from "@scope/replica/react"
-import { createMutationProcessor } from "@scope/replica/server"
+import {
+  createMutationProcessor,
+  createMutationPushDoor,
+} from "@scope/replica/server"
 import {
   createInMemoryAuthority,
   verifyReplicaContract,
@@ -502,6 +505,24 @@ Inside one application transaction, the processor:
 
 Unexpected exceptions abort the transaction and do not advance the watermark. They are
 retryable only when the production adapter classifies them that way.
+
+### Authority adapter deepening (UNN-650)
+
+The entity and combat bindings supplied the second production examples needed to separate
+protocol knowledge from Showtime vendor code:
+
+| Scaffolding             | Home                           | Decision                                                                                                                                                                                                                                                                                                       |
+| ----------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Push-door ordering      | `@workspace/replica/server`    | `createMutationPushDoor` composes Standard Schema wire validation, application context/verdict preparation, the processor, and committed-only effects. It has no Next.js, Zod, database, auth, or realtime dependency.                                                                                         |
+| Dedup storage           | Showtime `lib/actions/replica` | One Drizzle adapter factory is configured by table, pin column, and pin value. The package continues to own only `MutationDedupAdapter`; importing Drizzle there would turn the package into a framework/vendor collection.                                                                                    |
+| Wire envelope schema    | Showtime `lib/actions/replica` | One Zod schema owns the transport envelope and the `args: unknown` rule. Mutation decoding remains inside the processor so deploy-skew refusals are recorded.                                                                                                                                                  |
+| Accepted snapshot doors | Separate Showtime doors        | Keep rather than extract. Entity is one strict-owner registration and joined read; combat adds live-encounter admission, redaction, optional inline registration, and batched independent roots. A callback facade over those differences would be shallow and would leak application policy into the package. |
+
+The commit marker in a push context is deliberately application-owned metadata, not part of
+the recorded remote result. It proves that `execute` ran in this delivery, allowing pings and
+revalidation after the transaction while deduplicated replay stays silent. Throws from wire
+validation, context preparation, processing, or committed effects remain unexpected and
+propagate for the transport adapter to classify.
 
 ### Remote result modes
 

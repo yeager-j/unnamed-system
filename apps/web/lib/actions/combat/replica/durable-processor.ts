@@ -22,13 +22,14 @@ import { db, type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterRosterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import { entity } from "@/lib/db/schema/entity"
+import { replicaClient } from "@/lib/db/schema/replica-client"
 import type { VersionClass } from "@/lib/db/version-classes"
 
-import { createEntityLedgerDedupAdapter } from "../../entity/replica/processor"
 import {
   entityVersionIncrement,
   VERSION_COLUMNS,
 } from "../../entity/version-guard"
+import { createDrizzleMutationDedupAdapter } from "../../replica/drizzle-ledger"
 
 /**
  * Per-delivery trusted context, assembled by the push action **outside** the
@@ -93,7 +94,15 @@ export function createCombatDurablePushProcessor(
   >({
     mutations: combatDurableMutations,
     transact: (work) => db.transaction(work),
-    dedup: createEntityLedgerDedupAdapter(entityId),
+    dedup: createDrizzleMutationDedupAdapter<
+      void,
+      CombatReplicaRejection,
+      typeof replicaClient
+    >({
+      table: replicaClient,
+      pinColumn: replicaClient.entityId,
+      pinValue: entityId,
+    }),
     execute: executeCombatDurableMutation,
     onEvent: logProcessorEvent,
   })

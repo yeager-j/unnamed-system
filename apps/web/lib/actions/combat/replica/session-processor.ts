@@ -1,12 +1,8 @@
-import { and, eq, lt } from "drizzle-orm"
-
 import { createReduceSession, saveSession } from "@workspace/game-v2/encounter"
 import {
   createMutationProcessor,
-  type MutationDedupAdapter,
   type MutationProcessor,
   type ProcessorEvent,
-  type RecordedOutcome,
 } from "@workspace/replica/server"
 import { err, ok, type Result } from "@workspace/result"
 
@@ -18,12 +14,13 @@ import {
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
 import { applyEntityWrite } from "@/domain/entity/commit/writers"
 import { db, type WriteExecutor } from "@/lib/db/client"
+import type { EncounterEnvelope } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { encounterReplicaClient } from "@/lib/db/schema/encounter-replica-client"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
 
-import { DEDUP_TTL_MS } from "../../entity/replica/processor"
+import { createDrizzleMutationDedupAdapter } from "../../replica/drizzle-ledger"
 import { mintSessionEvent } from "../commit/mint-session-event"
 import type { CombatSessionRemote } from "./wire.schema"
 
@@ -37,7 +34,7 @@ const newId = () => crypto.randomUUID()
  */
 export interface CombatSessionPushContext {
   readonly encounterId: string
-  readonly authorization: Result<unknown, CombatReplicaRejection>
+  readonly authorization: Result<EncounterEnvelope, CombatReplicaRejection>
   committed?: CombatSessionCommit
 }
 
@@ -85,81 +82,18 @@ export function createCombatSessionPushProcessor(
   >({
     mutations: combatInlineMutations,
     transact: (work) => db.transaction(work),
-    dedup: createEncounterLedgerDedupAdapter(encounterId),
+    dedup: createDrizzleMutationDedupAdapter<
+      CombatSessionRemote,
+      CombatReplicaRejection,
+      typeof encounterReplicaClient
+    >({
+      table: encounterReplicaClient,
+      pinColumn: encounterReplicaClient.encounterId,
+      pinValue: encounterId,
+    }),
     execute: executeCombatSessionMutation,
     onEvent: logProcessorEvent,
   })
-}
-
-/**
- * The `encounterReplicaClient` twin of the entity door's ledger adapter —
- * same semantics (bootstrap-minted rows so absence ⇒ `unknown-client`, pin
- * check thrown as an ambiguous abort, last-outcome-only retention, TTL sweep
- * riding the write's transaction), scoped to the encounter pin. Kept as a
- * per-table adapter rather than a drizzle-generic factory: the two ledgers
- * are deliberately separate tables with honest FKs, and the shared knowledge
- * — the dedup protocol — lives in `createMutationProcessor`, not here.
- */
-function createEncounterLedgerDedupAdapter(
-  encounterId: string
-): MutationDedupAdapter<
-  WriteExecutor,
-  CombatSessionRemote,
-  CombatReplicaRejection
-> {
-  return {
-    async acquire(tx, client) {
-      const [row] = await tx
-        .select()
-        .from(encounterReplicaClient)
-        .where(
-          and(
-            eq(encounterReplicaClient.clientGroupId, client.clientGroupId),
-            eq(encounterReplicaClient.clientId, client.clientId)
-          )
-        )
-        .for("update")
-      if (!row) return null
-      if (row.encounterId !== encounterId) {
-        throw new Error(
-          `combat session client ${client.clientGroupId}/${client.clientId} is pinned to another encounter`
-        )
-      }
-      return {
-        lastMutationId: row.lastMutationId,
-        lastOutcome: (row.lastOutcome ?? undefined) as
-          | RecordedOutcome<CombatSessionRemote, CombatReplicaRejection>
-          | undefined,
-      }
-    },
-
-    async record(tx, client, mutationId, outcome) {
-      await tx
-        .update(encounterReplicaClient)
-        .set({
-          lastMutationId: mutationId,
-          lastOutcome: outcome,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(encounterReplicaClient.clientGroupId, client.clientGroupId),
-            eq(encounterReplicaClient.clientId, client.clientId)
-          )
-        )
-      await tx
-        .delete(encounterReplicaClient)
-        .where(
-          and(
-            eq(encounterReplicaClient.encounterId, encounterId),
-            lt(
-              encounterReplicaClient.updatedAt,
-              new Date(Date.now() - DEDUP_TTL_MS)
-            )
-          )
-        )
-    },
-  }
 }
 
 async function executeCombatSessionMutation(

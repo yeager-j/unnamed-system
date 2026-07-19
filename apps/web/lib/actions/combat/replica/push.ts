@@ -1,6 +1,7 @@
 "use server"
 
-import { err, ok, type Result } from "@workspace/result"
+import { createMutationPushDoor } from "@workspace/replica/server"
+import { err, type Result } from "@workspace/result"
 
 import { combatDurableMutations } from "@/domain/combat/replica/mutations"
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
@@ -73,30 +74,37 @@ import {
 export async function pushCombatDurableMutationAction(
   input: CombatDurablePushInput
 ): Promise<Result<void, CombatPushError>> {
-  const parsed = CombatDurablePushSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-  const { encounterId, entityId, envelope } = parsed.data
+  return pushCombatDurableMutation(input)
+}
 
-  const context: CombatDurablePushContext = {
-    entityId,
+const pushCombatDurableMutation = createMutationPushDoor({
+  schema: CombatDurablePushSchema,
+  invalidInput: "invalid-input" as const,
+  async prepare({
     encounterId,
-    authorization: await authorizeDurableEnvelope(
+    entityId,
+    envelope,
+  }): Promise<CombatDurablePushContext> {
+    return {
       entityId,
-      envelope.invocation
-    ),
-  }
-  const processor = createCombatDurablePushProcessor(entityId)
-  const result = await processor(envelope, context)
-
-  if (context.committed) {
-    const { shortId, durableClass, version } = context.committed
+      encounterId,
+      authorization: await authorizeDurableEnvelope(
+        entityId,
+        envelope.invocation
+      ),
+    }
+  },
+  createProcessor: ({ entityId }) => createCombatDurablePushProcessor(entityId),
+  async afterCommit(
+    { shortId, durableClass, version },
+    { encounterId },
+    context
+  ) {
     publishCharacterPing(shortId, "entity", { [durableClass]: version })
     revalidateEntity({ shortId })
     await revalidateEncounterIfPlaced(encounterId, context.authorization)
-  }
-
-  return result.ok ? ok(undefined) : err(result.error)
-}
+  },
+})
 
 /**
  * One delivery against the encounter session blob. The gate is the session
@@ -109,26 +117,29 @@ export async function pushCombatDurableMutationAction(
 export async function pushCombatSessionMutationAction(
   input: CombatSessionPushInput
 ): Promise<Result<CombatSessionRemote, CombatPushError>> {
-  const parsed = CombatSessionPushSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-  const { encounterId, envelope } = parsed.data
-
-  const authorized = await authorizeCampaignDMForEncounter(encounterId)
-  const context: CombatSessionPushContext = {
-    encounterId,
-    authorization: authorized,
-  }
-  const processor = createCombatSessionPushProcessor(encounterId)
-  const result = await processor(envelope, context)
-
-  if (context.committed && authorized.ok) {
-    const { version, status } = context.committed
-    publishEncounterPing(authorized.value.shortId, { version, status })
-    revalidateEncounter(authorized.value)
-  }
-
-  return result.ok ? ok(result.value) : err(result.error)
+  return pushCombatSessionMutation(input)
 }
+
+const pushCombatSessionMutation = createMutationPushDoor({
+  schema: CombatSessionPushSchema,
+  invalidInput: "invalid-input" as const,
+  async prepare({ encounterId }): Promise<CombatSessionPushContext> {
+    return {
+      encounterId,
+      authorization: await authorizeCampaignDMForEncounter(encounterId),
+    }
+  },
+  createProcessor: ({ encounterId }) =>
+    createCombatSessionPushProcessor(encounterId),
+  afterCommit({ version, status }, _parsed, context) {
+    if (!context.authorization.ok) return
+    publishEncounterPing(context.authorization.value.shortId, {
+      version,
+      status,
+    })
+    revalidateEncounter(context.authorization.value)
+  },
+})
 
 /**
  * The durable door's viewer verdict: the class → posture gate over the

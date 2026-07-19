@@ -102,6 +102,18 @@ concurrency token, and envelope:
 > or app columns (the entity snapshot door's strict-owner reservation,
 > answered).
 
+> **Authority adapter homes (UNN-650).** `@workspace/replica/server` owns the
+> vendor-neutral push-door ordering (`createMutationPushDoor`) and dedup
+> protocol (`createMutationProcessor` / `MutationDedupAdapter`). Showtime owns
+> the Zod envelope and Drizzle ledger implementations in `actions/replica/`;
+> entity and combat supply only their root pins, typed authorization verdicts,
+> execute bodies, and committed effects. The accepted-snapshot doors remain
+> separate deliberately: entity is one strict-owner registration + joined
+> read, while combat performs live-encounter admission, structural redaction,
+> optional inline registration, and a batch of independently atomic roots.
+> Abstracting their common verbs would expose those policies as callbacks and
+> create a shallow interface rather than shared knowledge.
+
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` aggregate's replica/combat
 > doors described above; there is no `requireOwner` / `characterMutationBase` /
