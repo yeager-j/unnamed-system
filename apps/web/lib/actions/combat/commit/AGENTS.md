@@ -69,10 +69,14 @@ the sheet buttons, the console, and an inline enemy all agree.
 
 ## Containment of the router-only constructors
 
-`stores.ts` is the one sanctioned deep-path importer of
+`mint-session-event.ts` is the one sanctioned deep-path importer of
 `@workspace/game-v2/encounter/session-event` (`toSessionEvent`,
-`toMechanicTransitionEvent`, `toUseResourceEvent`) — the **session arm's** event
-mint. Enforced in layers: the barrel omission, the generic wire's schema
-exclusion, the contract tests, and an apps/web `no-restricted-imports` tripwire
+`toMechanicTransitionEvent`, `toUseResourceEvent`) — the event mint, extracted
+from `stores.ts` in UNN-646 so the combat replica's session processor
+(`../replica/session-processor.ts`) and the classic session Store share the one
+decision point from write vocabulary to event vocabulary. It lives inside this
+directory because the import fence's exemption covers `combat/commit/**`.
+Enforced in layers: the barrel omission, the generic wire's schema exclusion,
+the contract tests, and an apps/web `no-restricted-imports` tripwire
 (warning-only under `only-warn`). The durable arm imports none of it — it forwards
 to `lib/actions/entity`, which never touches session-event.

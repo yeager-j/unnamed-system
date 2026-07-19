@@ -3,12 +3,6 @@ import {
   saveSession,
   type LoadedSession,
 } from "@workspace/game-v2/encounter"
-import {
-  toMechanicTransitionEvent,
-  toSessionEvent,
-  toUseResourceEvent,
-  type SessionEvent,
-} from "@workspace/game-v2/encounter/session-event"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok, type Result } from "@workspace/result"
 
@@ -22,6 +16,7 @@ import { publishEncounterPing } from "@/lib/realtime/publish"
 import { revalidateEncounter } from "../../encounter/revalidate"
 import { commitEntityWrite } from "../../entity/entity-row-store"
 import type { ApplyCombatantWriteError } from "./apply-combatant-write.schema"
+import { mintSessionEvent } from "./mint-session-event"
 
 /**
  * The two **Stores** (UNN-520; ADR §2.9, amended CD19) — one per storage home,
@@ -54,36 +49,6 @@ export interface CommittedWrite {
 
 /** Server-side id mint for the session reducer (unused by these event kinds). */
 const newId = () => crypto.randomUUID()
-
-/**
- * Translates a validated descriptor into the router-only reducer event — the
- * deep-path constructors' one call site (the import fence + barrel omission
- * keep it that way). The single decision point from write vocabulary to event
- * vocabulary.
- */
-function mintSessionEvent(
-  participantId: ParticipantId,
-  write: CombatEntityWrite
-): SessionEvent {
-  switch (write.component) {
-    case "vitals":
-    case "skillPool":
-      return toSessionEvent({
-        participantId,
-        component: write.component,
-        op: write.op,
-        amount: write.amount,
-      })
-    case "resources":
-      return toUseResourceEvent({ participantId, resource: "prisma" })
-    case "mechanics":
-      return toMechanicTransitionEvent({
-        participantId,
-        mechanic: write.mechanic,
-        transition: write.transition,
-      })
-  }
-}
 
 /**
  * The **ephemeral** home: the participant lives in the session blob, so the
