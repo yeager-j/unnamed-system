@@ -12,6 +12,7 @@ import {
   TRANSPORT_CONTRACT_LAW_NAMES,
   verifyReplicaContract,
   verifyTransportContract,
+  wrapAuthoritySource,
   type ReplicaContractContext,
   type TransportContractScenario,
 } from "@workspace/replica/testing"
@@ -93,13 +94,6 @@ function createEntityWorld() {
     inventory: 1,
     progression: 1,
   }
-  const observations: Accepted<EntityReplicaState, EntityVersionVector>[] = []
-  const pingHandlers = new Set<{ onPing(): void; onReconnect(): void }>()
-  const held: Array<{ released: boolean; resolve(): void }> = []
-  let severed = false
-  let gating = false
-  let incomparableNext = false
-  let resolvedReads = 0
 
   const bumpFor = (invocation: EntityReplicaInvocation): void => {
     const durableClass =
@@ -119,7 +113,6 @@ function createEntityWorld() {
   })
 
   const initial = currentAccepted()
-  observations.push(initial)
 
   /** Executes state changes bump the vector by the write's class; duplicates,
    *  vetoes, and gaps leave it untouched (the authority cursor tells us). */
@@ -133,43 +126,18 @@ function createEntityWorld() {
     return result
   }
 
+  const wrapped = wrapAuthoritySource({
+    accepted: currentAccepted,
+    push: trackingPush,
+  })
+
   const source = {
-    fetchAccepted(_signal: AbortSignal) {
-      if (severed) return Promise.reject(new Error("network severed"))
-      let accepted = currentAccepted()
-      if (incomparableNext) {
-        // A doctored racing-read observation: one class ahead of, one class
-        // behind, the truth — incomparable under the product order.
-        incomparableNext = false
-        accepted = {
-          ...accepted,
-          cursor: {
-            ...accepted.cursor,
-            identity: (accepted.cursor.identity ?? 0) + 1,
-            vitals: Math.max(0, (accepted.cursor.vitals ?? 1) - 1),
-          },
-        }
-      }
-      observations.push(accepted)
-      if (gating) {
-        return new Promise<typeof accepted>((resolve) => {
-          held.push({
-            released: false,
-            resolve: () => {
-              resolvedReads += 1
-              resolve(accepted)
-            },
-          })
-        })
-      }
-      resolvedReads += 1
-      return Promise.resolve(accepted)
-    },
-    pushEnvelope: trackingPush,
-    subscribe(events: { onPing(): void; onReconnect(): void }) {
-      pingHandlers.add(events)
-      return () => pingHandlers.delete(events)
-    },
+    fetchAccepted: wrapped.source.fetchAccepted,
+    pushEnvelope: wrapped.source.pushEnvelope,
+    // The production seam distinguishes ping from reconnect; the transport
+    // maps both to the same invalidation pull, so the harness carries one.
+    subscribe: (events: { onPing(): void; onReconnect(): void }) =>
+      wrapped.source.subscribe(events.onPing),
   }
 
   return {
@@ -178,15 +146,11 @@ function createEntityWorld() {
     source,
     initial,
     seededItemId,
-    observations,
+    observations: () => [initial, ...wrapped.observations()],
     currentAccepted,
-    reads: () => resolvedReads,
-    ping: () => {
-      for (const handlers of [...pingHandlers]) handlers.onPing()
-    },
-    reconnect: () => {
-      for (const handlers of [...pingHandlers]) handlers.onReconnect()
-    },
+    reads: wrapped.reads,
+    ping: wrapped.signal,
+    reconnect: wrapped.signal,
     advance: async () => {
       const external = currency("addCurrency", 1)
       await authority.commitExternal(external)
@@ -202,39 +166,20 @@ function createEntityWorld() {
       if (authority.cursor() > before) bumpFor(envelope.invocation)
       return result
     },
-    sever: () => {
-      severed = true
-    },
-    restore: () => {
-      severed = false
-      for (const handlers of [...pingHandlers]) handlers.onReconnect()
-    },
-    markIncomparable: () => {
-      incomparableNext = true
-    },
-    gate: () => {
-      gating = true
-      return {
-        count: () => held.length,
-        release: async (index: number) => {
-          const entry = held[index]
-          if (entry && !entry.released) {
-            entry.released = true
-            entry.resolve()
-          }
-          await settle(2)
+    sever: wrapped.sever,
+    restore: wrapped.restore,
+    markIncomparable: () =>
+      // A doctored racing-read observation: one class ahead of, one class
+      // behind, the truth — incomparable under the product order.
+      wrapped.doctorNext((accepted) => ({
+        ...accepted,
+        cursor: {
+          ...accepted.cursor,
+          identity: (accepted.cursor.identity ?? 0) + 1,
+          vitals: Math.max(0, (accepted.cursor.vitals ?? 1) - 1),
         },
-        releaseAll: async () => {
-          for (const entry of held) {
-            if (!entry.released) {
-              entry.released = true
-              entry.resolve()
-            }
-          }
-          await settle(2)
-        },
-      }
-    },
+      })),
+    gate: wrapped.gate,
   }
 }
 
@@ -257,7 +202,7 @@ function createEntityScenario(): EntityScenario {
     transport,
     rejectionError: "capability-missing",
     authoritative: () => world.currentAccepted(),
-    observations: () => [...world.observations],
+    observations: world.observations,
     advance: () => world.advance(),
     signal: () => world.ping(),
     makeEnvelope: () => {

@@ -35,6 +35,12 @@ export {
   type InvocationOf,
 } from "./mutations"
 export type { StandardSchemaV1 } from "./standard-schema"
+export {
+  createManagedReplica,
+  type ManagedReplica,
+  type ManagedReplicaOptions,
+  type ManagedReplicaSetup,
+} from "./managed"
 
 /**
  * The caller-visible failure taxonomy. `refused` is a local prediction refusal

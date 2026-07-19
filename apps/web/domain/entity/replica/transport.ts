@@ -1,12 +1,11 @@
 import {
-  createCausalAcceptanceGate,
-  createPullGenerationGate,
+  createPullTransport,
   type Accepted,
   type MutationEnvelope,
   type PushError,
   type ReplicaTransport,
 } from "@workspace/replica/transport"
-import { err, type Result } from "@workspace/result"
+import type { Result } from "@workspace/result"
 
 import { compareEntityVersionVectors, type EntityVersionVector } from "./cursor"
 import type { EntityReplicaInvocation, EntityReplicaState } from "./mutations"
@@ -52,12 +51,11 @@ export interface EntityReplicaTransportOptions<Remote = void> {
 }
 
 /**
- * Showtime's entity transport: Ably pings and reconnects trigger snapshot
- * refetches; every refetch runs through a pull generation (the "older
- * response finished last" race) and the causal acceptance gate keyed on the
- * per-class version vector. A ping is only ever an invalidation signal — the
- * gate, not the ping payload, decides causality, so a stale or echoed ping
- * costs one suppressed read instead of a wrong emission.
+ * Showtime's entity transport: `createPullTransport` keyed on the per-class
+ * version vector, with Ably pings and reconnects both mapped to the same
+ * invalidation signal — the gate, not the ping payload, decides causality,
+ * so a stale or echoed ping costs one suppressed read instead of a wrong
+ * emission.
  */
 export function createEntityReplicaTransport<Remote = void>(
   options: EntityReplicaTransportOptions<Remote>
@@ -68,62 +66,15 @@ export function createEntityReplicaTransport<Remote = void>(
   Remote,
   EntityVersionVector
 > {
-  return {
-    connect(sink) {
-      let active = true
-      const generations = createPullGenerationGate()
-      const acceptance = createCausalAcceptanceGate<
-        EntityReplicaState,
-        EntityVersionVector
-      >({
-        initial: options.initial,
-        classify: compareEntityVersionVectors,
-        recover: (signal) => options.source.fetchAccepted(signal),
-        emit: (accepted) => {
-          if (active) sink.accept(accepted)
-        },
-      })
-
-      const pull = (): void => {
-        const generation = generations.begin()
-        options.source.fetchAccepted(generation.signal).then(
-          (snapshot) => {
-            generation.publish(() => {
-              // Emit (via the gate) before the liveness signal, so the sink
-              // holds current accepted state before delivery resumes.
-              acceptance.offer(snapshot)
-              if (active) sink.alive()
-            })
-          },
-          () => {
-            if (active && !generation.signal.aborted) sink.down()
-          }
-        )
-      }
-
-      // Subscribe BEFORE the catch-up read (Codex P2, PR #382): a ping
-      // landing while the catch-up is in flight schedules another
-      // generation-gated pull instead of vanishing into the gap between
-      // read and subscription — missed changes are closed by the read.
-      const unsubscribe = options.source.subscribe({
-        onPing: pull,
-        onReconnect: pull,
-      })
-      pull()
-      return () => {
-        active = false
-        unsubscribe()
-        generations.cancel()
-        acceptance.dispose()
-      }
+  const { source } = options
+  return createPullTransport({
+    source: {
+      fetchAccepted: (signal) => source.fetchAccepted(signal),
+      pushEnvelope: (envelope, signal) => source.pushEnvelope(envelope, signal),
+      subscribe: (invalidate) =>
+        source.subscribe({ onPing: invalidate, onReconnect: invalidate }),
     },
-
-    async push(envelope, signal) {
-      try {
-        return await options.source.pushEnvelope(envelope, signal)
-      } catch (cause) {
-        return err({ kind: "retryable", cause })
-      }
-    },
-  }
+    initial: options.initial,
+    classify: compareEntityVersionVectors,
+  })
 }

@@ -31,6 +31,11 @@ export {
   type ContractLaw,
 } from "./contract/support"
 export {
+  wrapAuthoritySource,
+  type WrapAuthoritySourceOptions,
+  type WrappedAuthoritySource,
+} from "./harness"
+export {
   addEntry,
   dropEntry,
   LEDGER_INITIAL,
