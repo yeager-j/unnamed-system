@@ -67,9 +67,11 @@ export type CombatAcceptedError =
  * narrative or app columns — the redacted-root answer to the entity snapshot
  * door's strict-owner reservation (its doc: "the DM's in-play writes ride
  * the combat binding, whose root is scoped to state the DM may hold").
- * A requested entity is served only when it is a durable participant of THIS
- * encounter (locator-verified), so the door cannot be used to read arbitrary
- * entities the DM doesn't run.
+ * A requested entity is REGISTERED and served only when it is a durable
+ * participant of THIS encounter (locator-verified), so the door can neither
+ * read arbitrary entities the DM doesn't run nor mint ledger rows for them —
+ * registration is the license the push door's absent-row ⇒ `unknown-client`
+ * invariant leans on.
  */
 export async function loadCombatAcceptedAction(
   input: CombatAcceptedRequest
@@ -82,9 +84,12 @@ export async function loadCombatAcceptedAction(
   if (!envelope) return err("encounter-not-found")
   await requireCampaignDM(envelope.campaignId)
 
-  // Bootstrap registration (same invariant as the entity door: a client
-  // identity exists at a push door only if it passed through here first, so
-  // an absent ledger row there means swept-or-never-bootstrapped, never new).
+  // Inline bootstrap registration (same invariant as the entity door: a
+  // client identity exists at a push door only if it passed through here
+  // first, so an absent ledger row there means swept-or-never-bootstrapped,
+  // never new). The inline root IS the encounter, so the DM gate above is
+  // its whole license; durable registration waits below until the roster
+  // has licensed each entity (Codex P2, PR #390).
   if (inline) {
     await db
       .insert(encounterReplicaClient)
@@ -94,21 +99,6 @@ export async function loadCombatAcceptedAction(
           encounterReplicaClient.clientGroupId,
           encounterReplicaClient.clientId,
         ],
-        set: { updatedAt: new Date() },
-      })
-  }
-  if (durable.length > 0) {
-    await db
-      .insert(replicaClient)
-      .values(
-        durable.map((request) => ({
-          ...request.identity,
-          entityId: request.entityId,
-          lastMutationId: 0,
-        }))
-      )
-      .onConflictDoUpdate({
-        target: [replicaClient.clientGroupId, replicaClient.clientId],
         set: { updatedAt: new Date() },
       })
   }
@@ -161,16 +151,38 @@ export async function loadCombatAcceptedAction(
     : undefined
 
   // The encounter's durable roster — the membership check that scopes which
-  // entities this door will serve.
+  // entities this door will REGISTER or serve. Registration is the license
+  // the push door's absent-row ⇒ unknown-client invariant leans on, so an
+  // identity for an entity outside this roster must never reach the ledger
+  // (Codex P2, PR #390): a request for one is simply not admitted — no row,
+  // no value, and the batch never fails for the straggler.
   const rosterEntityIds = new Set(
     [...loaded.locators.values()].flatMap((locator) =>
       locator.storage === "durable" ? [locator.entityId] : []
     )
   )
+  const admitted = durable.filter((request) =>
+    rosterEntityIds.has(request.entityId)
+  )
+
+  if (admitted.length > 0) {
+    await db
+      .insert(replicaClient)
+      .values(
+        admitted.map((request) => ({
+          ...request.identity,
+          entityId: request.entityId,
+          lastMutationId: 0,
+        }))
+      )
+      .onConflictDoUpdate({
+        target: [replicaClient.clientGroupId, replicaClient.clientId],
+        set: { updatedAt: new Date() },
+      })
+  }
 
   const durableAccepted: Record<string, CombatDurableAccepted> = {}
-  for (const request of durable) {
-    if (!rosterEntityIds.has(request.entityId)) continue
+  for (const request of admitted) {
     const [row] = await db
       .select({ entity, lastMutationId: replicaClient.lastMutationId })
       .from(entity)

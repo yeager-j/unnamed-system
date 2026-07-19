@@ -187,7 +187,7 @@ describe("loadCombatAcceptedAction", () => {
     expect("columns" in durable.value).toBe(false)
   })
 
-  it("serves nothing for an entity that is not a durable participant of this encounter", async () => {
+  it("neither serves NOR registers an entity that is not a durable participant of this encounter", async () => {
     const result = await loadCombatAcceptedAction({
       ...request,
       durable: [{ entityId: "e-not-here", identity: durableIdentity }],
@@ -195,6 +195,14 @@ describe("loadCombatAcceptedAction", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.value.durable).toEqual({})
+    // Only the inline identity reached a ledger — an unadmitted entity must
+    // not get a `replicaClient` row (registration is the push door's license).
+    expect(registered).toHaveBeenCalledTimes(1)
+    expect(registered).toHaveBeenCalledWith({
+      ...inlineIdentity,
+      encounterId: "enc1",
+      lastMutationId: 0,
+    })
   })
 
   it("reads `through: 0` for freshly registered clients", async () => {

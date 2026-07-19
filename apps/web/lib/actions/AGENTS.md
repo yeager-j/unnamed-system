@@ -85,9 +85,12 @@ concurrency token, and envelope:
 > `encounterReplicaClient` ledger; lock order `encounterReplicaClient →
 > encounters`; `Remote = { version }` is recorded with the outcome and
 > reproduced verbatim on a deduplicated redelivery. The **batched bootstrap**
-> (`loadCombatAcceptedAction`) registers the inline identity plus N durable
-> identities in one action (Server Actions serialize per tab) and serves each
-> root's tuple from one joined statement; the durable value is the redacted
+> (`loadCombatAcceptedAction`) registers the inline identity plus the
+> roster-admitted durable identities in one action (Server Actions serialize
+> per tab) and serves each root's tuple from one joined statement; an entity
+> outside the encounter's durable roster is not admitted — neither registered
+> nor served (registration is the license the push doors' absent-row ⇒
+> `unknown-client` invariant leans on). The durable value is the redacted
 > combat root — exactly the four combat-writable components, never narrative
 > or app columns (the entity snapshot door's strict-owner reservation,
 > answered).
