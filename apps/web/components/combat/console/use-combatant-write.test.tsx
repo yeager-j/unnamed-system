@@ -8,7 +8,6 @@ import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema
 import type { ManagedMutationReceipt } from "@workspace/replica"
 import { err, ok, type Result } from "@workspace/result"
 
-import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
 import type {
   CombatReplicaRejection,
   CombatWriteDispatchError,
@@ -43,17 +42,14 @@ function renderWriteHook(
   mutate: (write: EntityWrite) => Receipt,
   onRemoteVersion?: (version: number) => void
 ) {
-  const mirrored: ConsoleOptimisticAction[] = []
   const handle: CombatWriteHandle = { channel: null, mutate }
   const rendered = renderHook(() =>
     useCombatantWrite({
       handleOf: (id) => (id === participantId ? handle : undefined),
-      componentsOf: () => ({ vitals: { base: 20, damage: 0 } }),
-      applyOptimistic: (action) => mirrored.push(action),
       onRemoteVersion,
     })
   )
-  return { rendered, mirrored }
+  return { rendered }
 }
 
 beforeEach(() => {
@@ -61,13 +57,13 @@ beforeEach(() => {
 })
 
 describe("useCombatantWrite", () => {
-  it("predicts, mirrors into the container, then holds the transition until remote settles", async () => {
+  it("mutates immediately, then waits for the receipt to settle", async () => {
     const order: string[] = []
     const mutate = vi.fn((write: EntityWrite) => {
       order.push(`mutate:${write.component}`)
       return okReceipt()
     })
-    const { rendered, mirrored } = renderWriteHook(mutate)
+    const { rendered } = renderWriteHook(mutate)
 
     let result: DispatchResult
     await act(async () => {
@@ -80,7 +76,6 @@ describe("useCombatantWrite", () => {
 
     expect(result!).toEqual(ok(undefined))
     expect(mutate).toHaveBeenCalledWith(damage)
-    expect(mirrored).toEqual([{ kind: "write", participantId, write: damage }])
     expect(order).toEqual(["mutate:vitals", "resolved"])
   })
 
@@ -98,28 +93,9 @@ describe("useCombatantWrite", () => {
     expect(versions).toEqual([12])
   })
 
-  it("short-circuits on a Writer refusal without dispatching or mirroring", async () => {
+  it("refuses an unknown participant before dispatch", async () => {
     const mutate = vi.fn()
-    const { rendered, mirrored } = renderWriteHook(mutate)
-
-    let result: DispatchResult
-    await act(async () => {
-      // The frame's components carry no skillPool → capability-missing.
-      result = await rendered.result.current.dispatchWrite(participantId, {
-        component: "skillPool",
-        op: "damage",
-        amount: 1,
-      })
-    })
-
-    expect(result!).toEqual(err("capability-missing"))
-    expect(mutate).not.toHaveBeenCalled()
-    expect(mirrored).toEqual([])
-  })
-
-  it("refuses an unknown participant (no handle) before any mirror", async () => {
-    const mutate = vi.fn()
-    const { rendered, mirrored } = renderWriteHook(mutate)
+    const { rendered } = renderWriteHook(mutate)
 
     let result: DispatchResult
     await act(async () => {
@@ -131,11 +107,10 @@ describe("useCombatantWrite", () => {
 
     expect(result!).toEqual(err("participant-not-found"))
     expect(mutate).not.toHaveBeenCalled()
-    expect(mirrored).toEqual([])
   })
 
   it("toasts and returns a terminal remote rejection", async () => {
-    const { rendered, mirrored } = renderWriteHook(() => ({
+    const { rendered } = renderWriteHook(() => ({
       local: Promise.resolve(ok(undefined)),
       remote: Promise.resolve(err({ kind: "rejected", error: "forbidden" })),
     }))
@@ -150,8 +125,6 @@ describe("useCombatantWrite", () => {
 
     expect(result!).toEqual(err("forbidden"))
     expect(toast.error).toHaveBeenCalled()
-    // The optimistic mirror ran — React reverts it when the transition settles.
-    expect(mirrored).toHaveLength(1)
   })
 
   it("returns a local replica refusal (base disagrees with the frame) with its toast", async () => {
@@ -195,7 +168,7 @@ describe("useCombatantWrite", () => {
   })
 
   it("catches a thrown mutate (programmer bug): toasts and resolves to null", async () => {
-    const { rendered, mirrored } = renderWriteHook(() => {
+    const { rendered } = renderWriteHook(() => {
       throw new Error("registry mismatch")
     })
 
@@ -208,10 +181,8 @@ describe("useCombatantWrite", () => {
     })
 
     // A throw doesn't escape to the route boundary — it resolves to null with
-    // a generic toast, and the optimistic mirror (which ran before the
-    // dispatch) reverts when the transition settles.
+    // a generic toast.
     expect(result).toBeNull()
     expect(toast.error).toHaveBeenCalledWith("Couldn't save. Try again.")
-    expect(mirrored).toHaveLength(1)
   })
 })

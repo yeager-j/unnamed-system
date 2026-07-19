@@ -20,6 +20,17 @@ Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 > recovery result that is incomparable with a `last` that advanced re-reads;
 > against an unchanged `last` it is dropped as an inconsistent source read.
 > Interface sketches below predate this; the package is authoritative.
+>
+> **Combat render-authority revision (2026-07-19, UNN-653).** The newer combat
+> integration supersedes this document's deferred container-convergence and
+> retained console/container-integration statements. Ready Replica projections
+> now solely render and predict the four combat-writable components; a
+> Showtime-owned composition seam joins the inline root and dynamic durable
+> roots onto the event-owned encounter frame. Root granularity, lifecycle,
+> redaction, transport, and watermark contracts are unchanged. Accepted
+> component snapshots reconcile through subscriptions rather than route
+> refresh. The classic event protocol still owns roster, turns, overlays, and
+> spatial facts, and temporarily shares the encounter-row version fold.
 
 ## Summary
 
@@ -718,23 +729,23 @@ once. Builder step is an unversioned subtype LWW action.
 
 ### Extraction map
 
-| Current responsibility                                        | Destination                                                       |
-| ------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `write-queue.ts` serialization and stale retry                | Replica delivery loop and rebase                                  |
-| `use-queued-write.ts`                                         | Replaced by `replica.mutate` + React binding                      |
-| `version-token-store.ts` write coordination                   | Replaced by accepted base + watermark                             |
-| `use-monotonic-version-ref.ts` write coordination             | Replaced by replica state                                         |
-| `use-entity-write.tsx` prediction, refs, queues, and dispatch | Replica; app retains entity context and error policy              |
-| `use-combatant-write.ts` optimistic Writer dispatch           | Replica; app retains console/container integration                |
-| `write-lanes.ts` per-PC queues and token maps                 | Replica; app retains the durable-versus-inline ownership decision |
-| Snapshot race suppression                                     | Package ordering helpers configured by Showtime's adapter         |
-| Ably subscription and polling                                 | Showtime adapter, verified by the transport contract              |
-| Fetch functions and Server Actions                            | Showtime transport adapter                                        |
-| `guard-write-transition.ts`                                   | Application UI policy                                             |
-| `run-dual-versioned-write.ts`                                 | Application unless both records become one replica root           |
-| Writers, schemas, merge algebra, and `resolveEntity`          | Showtime domain                                                   |
-| Authentication, Store, Drizzle, and guarded commit            | Showtime authority adapter                                        |
-| Fog/redaction and protected routing                           | Showtime authority and read adapters                              |
+| Current responsibility                                        | Destination                                                                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `write-queue.ts` serialization and stale retry                | Replica delivery loop and rebase                                                                                          |
+| `use-queued-write.ts`                                         | Replaced by `replica.mutate` + React binding                                                                              |
+| `version-token-store.ts` write coordination                   | Replaced by accepted base + watermark                                                                                     |
+| `use-monotonic-version-ref.ts` write coordination             | Replaced by replica state                                                                                                 |
+| `use-entity-write.tsx` prediction, refs, queues, and dispatch | Replica; app retains entity context and error policy                                                                      |
+| `use-combatant-write.ts` optimistic Writer dispatch           | Replica projection + Showtime combat-model composition; app retains UX error policy and the temporary inline version fold |
+| `write-lanes.ts` per-PC queues and token maps                 | Replica; app retains the durable-versus-inline ownership decision                                                         |
+| Snapshot race suppression                                     | Package ordering helpers configured by Showtime's adapter                                                                 |
+| Ably subscription and polling                                 | Showtime adapter, verified by the transport contract                                                                      |
+| Fetch functions and Server Actions                            | Showtime transport adapter                                                                                                |
+| `guard-write-transition.ts`                                   | Application UI policy                                                                                                     |
+| `run-dual-versioned-write.ts`                                 | Application unless both records become one replica root                                                                   |
+| Writers, schemas, merge algebra, and `resolveEntity`          | Showtime domain                                                                                                           |
+| Authentication, Store, Drizzle, and guarded commit            | Showtime authority adapter                                                                                                |
+| Fog/redaction and protected routing                           | Showtime authority and read adapters                                                                                      |
 
 Across `apps/web/lib/sync` and the main entity/combat write consumers, the current
 production coordination surface is approximately 1,786 lines. The replica is expected
