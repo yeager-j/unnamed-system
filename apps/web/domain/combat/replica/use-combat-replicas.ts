@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import {
   createManagedReplica,
+  type ManagedBootstrapFailure,
   type ManagedReplica,
   type MutationReceipt,
 } from "@workspace/replica"
@@ -13,6 +14,7 @@ import {
   classifyScalarCursor,
   createPullTransport,
 } from "@workspace/replica/transport"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
@@ -20,8 +22,12 @@ import { compareEntityVersionVectors } from "@/domain/entity/replica/cursor"
 import {
   loadCombatAcceptedAction,
   type CombatAccepted,
+  type CombatAcceptedError,
 } from "@/lib/actions/combat/replica/snapshot"
-import type { CombatSessionRemote } from "@/lib/actions/combat/replica/wire.schema"
+import type {
+  CombatAcceptedRequest,
+  CombatSessionRemote,
+} from "@/lib/actions/combat/replica/wire.schema"
 import {
   createCombatDurableSource,
   createCombatInlineSource,
@@ -76,6 +82,14 @@ type InlineController = ManagedReplica<
   CombatSessionRemote
 >
 
+/**
+ * One bootstrap read's outcome, already classified for the managed layer: the
+ * accepted tuples, or the failure that says whether retrying could help.
+ */
+type BatchedBootstrap =
+  | { readonly ok: true; readonly value: CombatAccepted }
+  | { readonly ok: false; readonly error: ManagedBootstrapFailure }
+
 /** The single-signal invalidation fan-in the console feeds per channel. */
 interface InvalidationBridge {
   subscribe(invalidate: () => void): () => void
@@ -100,13 +114,20 @@ export interface UseCombatReplicasArgs {
   readonly participantMeta: Record<ParticipantId, ParticipantMeta>
   /** The (optimistic) roster — which participants get channels right now. */
   readonly rosterIds: ParticipantId[]
-  /** The console's microtask-deduped refresh; fired only for EXTERNAL
-   *  changes (see the watermark rule below). */
+  /** The console's microtask-deduped refresh, fired whenever any root's
+   *  accepted state advances (see `createControllerTelemetry`). */
   readonly onExternalChange: () => void
 }
 
 export interface UseCombatReplicasReturn {
   handleOf: (participantId: ParticipantId) => CombatWriteHandle | undefined
+  /**
+   * Waits for every root's in-flight writes to reach a trusted outcome.
+   * Lifecycle commands that change the encounter out from under the replicas
+   * — End Combat above all — await this first so they cannot overtake a
+   * component write the DM already clicked.
+   */
+  settleAll: () => Promise<Result<void, "pending-write-failed">>
   pcChannels: PcChannel[]
   onPcPing: (characterId: string, data: unknown) => void
   notifyEncounterPing: () => void
@@ -132,15 +153,12 @@ export interface UseCombatReplicasReturn {
  *   `undefined` — the same participant-not-found toast window `laneOf` had);
  *   a remove disposes its controller, and its in-flight receipts settle
  *   `disposed`.
- * - **The watermark refresh rule** (replacing `decidePcPing`): an accepted
- *   snapshot whose incorporation watermark did NOT advance was caused by
- *   someone else's write → `onExternalChange`. A snapshot that advanced
- *   `through` incorporated our own push, whose action response already
- *   carried the revalidated RSC payload → skip — except a write recovered by
- *   redelivery, whose original response (and payload) may have been lost;
- *   that arm refreshes on settlement (see `createControllerTelemetry`).
- *   Echoed pings never get this far — the causal gate suppresses the
- *   duplicate pull.
+ * - **Every accepted advance refreshes the route** (`onAccepted`). See
+ *   `createControllerTelemetry` for why the watermark cannot gate this.
+ * - **`settleAll` is the lifecycle-command barrier.** Commands that change
+ *   the encounter's status (End Combat) must not overtake replica writes
+ *   already in flight; the authority refuses a post-end write regardless, but
+ *   settling first is what keeps the user-visible ordering intact.
  */
 export function useCombatReplicas({
   encounterId,
@@ -168,52 +186,34 @@ export function useCombatReplicas({
   }
 
   /**
-   * One controller's shared telemetry: the expiry toast, and the two rules
-   * deciding when a root's change needs a route refresh —
+   * One controller's application policy: refresh the route whenever this
+   * root's accepted state advances, and toast on identity expiry.
    *
-   * - **The watermark rule** (replacing `decidePcPing`): an accepted snapshot
-   *   whose incorporation watermark did NOT advance was someone else's write
-   *   → refresh. One that advanced incorporated our own push, whose action
-   *   response already carried the revalidated RSC payload → skip.
-   * - **The recovered-write rule** (Codex P2, PR #391): the skip above is
-   *   only sound when the push RESPONSE actually arrived. A mutation that
-   *   settles after a redelivery (`sent` with `attempt > 1`) may have
-   *   committed on an attempt whose response was lost — the revalidation ran
-   *   server-side, but no payload reached this client, and the deduplicated
-   *   replay deliberately re-fires nothing. Refresh on its settlement so the
-   *   base catches up before the held transition drops the prediction. A
-   *   redelivery whose first attempt never reached the server refreshes
-   *   redundantly — one spare `router.refresh()` on an already-rare path.
+   * **Why the refresh is unconditional.** An earlier rule (UNN-646, before
+   * review) suppressed the refresh when the incorporation watermark advanced,
+   * reasoning that such a snapshot merely incorporated our own push, whose
+   * Server Action response already carried the revalidated RSC payload. That
+   * inference does not hold: `through` says which of THIS identity's
+   * mutations are in, and says nothing about whether the same accepted tuple
+   * also carries another identity's change. A second tab committing between
+   * our push and our next pull produced exactly that — an advancing watermark
+   * over a value the console's separate RSC container had never seen — and
+   * nothing later corrected the frame.
+   *
+   * The cost is bounded and paid knowingly: the transport's causal gate
+   * already drops duplicate and stale observations, and the bootstrap tuple
+   * arrives as `initial` rather than as a snapshot event, so this costs one
+   * redundant `router.refresh()` after some local writes and nothing at mount.
+   *
+   * This rides `onAccepted`, NOT `onEvent`. `onEvent` is a metrics sink whose
+   * failure the package is entitled to swallow; reconciliation must never
+   * ride an observability seam.
    */
   function createControllerTelemetry(root: "durable" | "session") {
-    let lastThrough = 0
-    const redelivered = new Set<number>()
     return {
-      bootstrapped(through: number) {
-        lastThrough = through
-      },
-      onEvent(event: Parameters<typeof logCombatReplicaEvent>[1]) {
-        logCombatReplicaEvent(root, event)
-        switch (event.kind) {
-          case "sent":
-            if (event.attempt > 1) redelivered.add(event.id)
-            return
-          case "settled":
-            if (redelivered.delete(event.id)) externalChange()
-            return
-          case "expired":
-            redelivered.clear()
-            return
-          case "snapshot": {
-            const advanced = event.through > lastThrough
-            lastThrough = event.through
-            if (!advanced) externalChange()
-            return
-          }
-          default:
-            return
-        }
-      },
+      onEvent: (event: Parameters<typeof logCombatReplicaEvent>[1]) =>
+        logCombatReplicaEvent(root, event),
+      onAccepted: externalChange,
       onExpired({ dropped }: { dropped: number }) {
         if (dropped > 0) {
           toast.error(
@@ -224,39 +224,77 @@ export function useCombatReplicas({
     }
   }
 
+  /**
+   * Turns one batched-bootstrap outcome into the managed layer's contract.
+   * `encounter-not-live` is the stale-tab case: the encounter ended while
+   * this console was open, so no identity will ever be minted for it again —
+   * terminal, plus a route refresh so the tab falls through to the ended stub
+   * instead of sitting on a console it may no longer write to.
+   */
+  function classifyBootstrapFailure(
+    error: CombatAcceptedError
+  ): ManagedBootstrapFailure {
+    if (error === "encounter-not-live") externalChange()
+    return { kind: "unavailable", reason: error }
+  }
+
+  /**
+   * The bootstrap read, with the door's typed errors classified terminal and
+   * a THROW left to the managed layer's retry budget. The distinction is the
+   * point: a refused read will be refused again, while a thrown one may be a
+   * transient network failure that a retry recovers.
+   */
+  async function fetchAccepted(
+    request: CombatAcceptedRequest
+  ): Promise<BatchedBootstrap> {
+    try {
+      const result = await loadCombatAcceptedAction(request)
+      return result.ok
+        ? { ok: true, value: result.value }
+        : { ok: false, error: classifyBootstrapFailure(result.error) }
+    } catch (cause) {
+      return { ok: false, error: { kind: "retryable", cause } }
+    }
+  }
+
   function createDurableController(
     entityId: string,
     firstIdentity: ReturnType<typeof mintCombatEntityIdentity>,
-    prefetch: Promise<CombatAccepted | null>
+    prefetch: Promise<BatchedBootstrap>
   ): DurableController {
     const bridge = durableBridgeFor(entityId)
     const telemetry = createControllerTelemetry("durable")
     let pending: {
       identity: typeof firstIdentity
-      shared: Promise<CombatAccepted | null>
+      shared: Promise<BatchedBootstrap>
     } | null = { identity: firstIdentity, shared: prefetch }
 
     return createManagedReplica({
       mutations: combatDurableMutations,
       bootstrap: async () => {
         let identity: typeof firstIdentity
-        let accepted
+        let batch: BatchedBootstrap
         if (pending) {
           identity = pending.identity
-          const batch = await pending.shared
+          batch = await pending.shared
           pending = null
-          accepted = batch?.durable[entityId] ?? null
         } else {
           // Expiry rebuild: a fresh identity, a single-root fetch.
           identity = mintCombatEntityIdentity(entityId)
-          const result = await loadCombatAcceptedAction({
+          batch = await fetchAccepted({
             encounterId,
             durable: [{ entityId, identity }],
           })
-          accepted = result.ok ? (result.value.durable[entityId] ?? null) : null
         }
-        if (!accepted) return null
-        telemetry.bootstrapped(accepted.through)
+        if (!batch.ok) return batch.error
+        const accepted = batch.value.durable[entityId]
+        // Admitted-but-absent means the door did not license this entity: it
+        // is no longer a durable participant of this encounter. No retry can
+        // put it back on the roster, so the controller stops rather than
+        // holding this participant's writes open.
+        if (!accepted) {
+          return { kind: "unavailable" as const, reason: "not-a-participant" }
+        }
         const source = createCombatDurableSource({
           encounterId,
           entityId,
@@ -274,42 +312,41 @@ export function useCombatReplicas({
         }
       },
       onEvent: telemetry.onEvent,
+      onAccepted: telemetry.onAccepted,
       onExpired: telemetry.onExpired,
     })
   }
 
   function createInlineController(
     firstIdentity: ReturnType<typeof mintCombatSessionIdentity>,
-    prefetch: Promise<CombatAccepted | null>
+    prefetch: Promise<BatchedBootstrap>
   ): InlineController {
     const bridge = inlineBridge.current ?? createInvalidationBridge()
     inlineBridge.current = bridge
     const telemetry = createControllerTelemetry("session")
     let pending: {
       identity: typeof firstIdentity
-      shared: Promise<CombatAccepted | null>
+      shared: Promise<BatchedBootstrap>
     } | null = { identity: firstIdentity, shared: prefetch }
 
     return createManagedReplica({
       mutations: combatInlineMutations,
       bootstrap: async () => {
         let identity: typeof firstIdentity
-        let accepted
+        let batch: BatchedBootstrap
         if (pending) {
           identity = pending.identity
-          const batch = await pending.shared
+          batch = await pending.shared
           pending = null
-          accepted = batch?.inline ?? null
         } else {
           identity = mintCombatSessionIdentity(encounterId)
-          const result = await loadCombatAcceptedAction({
-            encounterId,
-            inline: identity,
-          })
-          accepted = result.ok ? (result.value.inline ?? null) : null
+          batch = await fetchAccepted({ encounterId, inline: identity })
         }
-        if (!accepted) return null
-        telemetry.bootstrapped(accepted.through)
+        if (!batch.ok) return batch.error
+        const accepted = batch.value.inline
+        if (!accepted) {
+          return { kind: "unavailable" as const, reason: "no-inline-tuple" }
+        }
         const source = createCombatInlineSource({
           encounterId,
           identity,
@@ -326,6 +363,7 @@ export function useCombatReplicas({
         }
       },
       onEvent: telemetry.onEvent,
+      onAccepted: telemetry.onAccepted,
       onExpired: telemetry.onExpired,
     })
   }
@@ -364,7 +402,7 @@ export function useCombatReplicas({
     const inlineIdentity = needInline
       ? mintCombatSessionIdentity(encounterId)
       : undefined
-    const shared: Promise<CombatAccepted | null> = loadCombatAcceptedAction({
+    const shared = fetchAccepted({
       encounterId,
       ...(inlineIdentity ? { inline: inlineIdentity } : {}),
       durable: durableRequests.map(({ entityId, identity }) => ({
@@ -372,8 +410,6 @@ export function useCombatReplicas({
         identity,
       })),
     })
-      .then((result) => (result.ok ? result.value : null))
-      .catch(() => null)
 
     if (inlineIdentity) {
       inlineRef.current = createInlineController(inlineIdentity, shared)
@@ -446,8 +482,22 @@ export function useCombatReplicas({
     return [{ characterId: meta.characterId, shortId: meta.characterShortId }]
   })
 
+  async function settleAll(): Promise<Result<void, "pending-write-failed">> {
+    const controllers = [
+      ...durableRef.current.values(),
+      ...(inlineRef.current ? [inlineRef.current] : []),
+    ]
+    const outcomes = await Promise.all(
+      controllers.map((controller) => controller.settleMutations())
+    )
+    return outcomes.every((outcome) => outcome.ok)
+      ? ok(undefined)
+      : err("pending-write-failed")
+  }
+
   return {
     handleOf,
+    settleAll,
     pcChannels,
     // The payload is no longer parsed client-side: a ping is only ever an
     // invalidation signal — the transport's causal gate decides causality.

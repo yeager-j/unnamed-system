@@ -20,6 +20,20 @@ auth boundary — never the UI's dispatch scope.**
   lifetime (roster membership; the entity outlives the encounter). A
   collection-valued durable replica would need a product cursor over N rows
   and a group auth gate that doesn't exist.
+
+  **Correction earned in review — the commit scope is wider than one row.** The
+  first version of this record said the durable root's authority boundary *was*
+  the entity row's lock. It isn't: a durable combat write is licensed by the
+  encounter being live and the entity still being on its roster, and both facts
+  live on the encounter row. They were checked outside the committing
+  transaction, so a removal or an end-combat sweep could land in between and the
+  delivery would still write to the character. The durable transaction now locks
+  **`replicaClient` → `encounters` → `entity`**. The granularity conclusion
+  survives (per-entity roots, per-entity cursors) but the rule it rests on has
+  to be read strictly: *follow the authority's commit scope* means every lock
+  the commit actually needs, not the most obvious one. A precondition checked
+  outside the transaction that acts on it is not a precondition — rebase can
+  correct a client projection, never an authority commit.
 - **Inline home → ONE collection-valued replica per encounter.** All inline
   participants share one row (the session blob), one scalar version, one gate
   (campaign-DM), one lifetime (the encounter). Per-participant inline replicas
@@ -82,6 +96,26 @@ campaign-DM-gated and roster-scoped; the entity snapshot door's strict-owner
 reservation ("a DM-facing replica needs a narrower root, not this bag behind
 a wider gate") is answered by this root, not widened around.
 
+## The refresh rule (corrected in review)
+
+**Every accepted advance refreshes the route.** The original rule suppressed
+`router.refresh()` when the incorporation watermark advanced, on the theory that
+such a snapshot only incorporated our own push, whose Server Action response had
+already carried the revalidated RSC payload. That inference is unsound:
+`through` answers "which of MY mutations are in", never "is this tuple free of
+anyone else's changes". A second tab committing between our push and our next
+pull produces an advancing watermark over a value the console's separate RSC
+container has never seen, and — since the PC channel now only invalidates the
+transport — nothing later corrects the frame.
+
+The refresh rides `onAccepted`, a first-class semantic hook, **not** `onEvent`.
+`onEvent` is a metrics sink whose failure the package is entitled to swallow;
+reconciliation must never ride an observability seam. The cost of refreshing
+unconditionally is bounded: the transport's causal gate drops duplicate and
+stale observations, and the bootstrap tuple arrives as `initial` rather than as
+a snapshot event, so this is one spare refresh after some local writes and
+nothing at mount.
+
 ## Container convergence (Open Q5) — still deferred, now priced
 
 The console's single `useOptimistic` container remains the render frame; the
@@ -98,7 +132,7 @@ settles.
 | `rejection.ts` | `CombatReplicaRejection` + `CombatWriteDispatchError` |
 | `identity.ts` | `combat-entity:{entityId}` / `combat-session:{encounterId}` mints |
 | `events.ts` | Client observability (anomalies warn; routine traffic quiet) |
-| `use-combat-replicas.ts` | Keyed lifecycle over `createManagedReplica` + `createPullTransport`; batched bootstrap; roster diff; the watermark refresh rule |
+| `use-combat-replicas.ts` | Keyed lifecycle over `createManagedReplica` + `createPullTransport`; batched bootstrap + failure classification; roster diff; `settleAll`; the refresh rule |
 | `replica-binding.test.ts` | Both contract suites over in-memory worlds (full law lists asserted by name) |
 | `real-door-transport.db.test.ts` | Transport contract + SQL serialization against the real doors (run via `npm run test:replica-db`) |
 

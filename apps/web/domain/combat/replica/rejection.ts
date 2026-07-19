@@ -17,12 +17,20 @@ import type { CombatWriteRefusal } from "./mutations"
  * fail-closed session serializer refusing; `"entity-not-found"` /
  * `"entity-load-failed"` mirror the durable door; `"invalid-write"` is the
  * client-facing collapse of recorded decode refusals (deploy skew).
+ *
+ * `"encounter-not-live"` is the liveness precondition, checked by BOTH push
+ * doors under the encounter row lock (UNN-646 review). Combat writes are only
+ * licensed while the encounter is running: a stale tab, a lost race against
+ * End Combat, or a cross-tab straggler must refuse rather than mutate an
+ * encounter whose end sweep has already been committed. It shares the classic
+ * doors' code (`endCombatAction`) deliberately — one vocabulary for one rule.
  */
 export type CombatReplicaRejection =
   | CombatWriteRefusal
   | "forbidden"
   | "participant-not-inline"
   | "encounter-not-found"
+  | "encounter-not-live"
   | "invalid-session"
   | "locator-missing"
   | "entity-not-found"
@@ -32,8 +40,11 @@ export type CombatReplicaRejection =
 /**
  * The dispatch's caller-visible failure vocabulary (`useCombatantWrite`):
  * the rejection taxonomy above, plus the one quiet arm — `write-unavailable`
- * covers a disposed or expired replica (the expiry toast already fired; the
- * surface is unmounting or rebuilding) and is never toasted.
+ * covers a replica that is disposed (unmounting), expired (rebuilding, and
+ * the expiry toast already fired), or terminally unavailable (its bootstrap
+ * gave up — the encounter ended, or the participant left the roster). None is
+ * toasted: each has already produced its own user-visible consequence, and
+ * the alternative to settling them is a transition that never resolves.
  */
 export type CombatWriteDispatchError =
   | CombatReplicaRejection

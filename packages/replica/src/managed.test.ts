@@ -94,7 +94,7 @@ describe("createManagedReplica", () => {
     managed.dispose()
   })
 
-  it("stays unbootstrapped on a null bootstrap and settles buffered intent disposed at teardown", async () => {
+  it("settles buffered intent `unavailable` on a terminal bootstrap failure", async () => {
     const managed = createManagedReplica<
       Ledger,
       LedgerInvocation,
@@ -103,20 +103,50 @@ describe("createManagedReplica", () => {
       number
     >({
       mutations: ledgerMutations,
-      bootstrap: () => Promise.resolve(null),
+      bootstrap: () =>
+        Promise.resolve({ kind: "unavailable", reason: "not-live" }),
     })
-    const receipt = managed.mutate(addEntry({ entry: "orphan" }))
+    const buffered = managed.mutate(addEntry({ entry: "orphan" }))
     await settle(3)
+
+    // The write must NOT wait for a teardown that may never come: an
+    // unresolvable receipt holds its caller's transition open forever.
+    const remote = await buffered.remote
+    expect(remote.ok).toBe(false)
+    if (!remote.ok) expect(remote.error.kind).toBe("unavailable")
     expect(managed.getSnapshot()).toBeNull()
 
+    const later = managed.mutate(addEntry({ entry: "later" }))
+    const laterOutcome = await later.remote
+    expect(laterOutcome.ok).toBe(false)
+    if (!laterOutcome.ok) expect(laterOutcome.error.kind).toBe("unavailable")
     managed.dispose()
-    await macrotask()
-    const remote = await receipt.remote
-    expect(remote.ok).toBe(false)
-    if (!remote.ok) expect(remote.error.kind).toBe("disposed")
   })
 
-  it("treats a throwing bootstrap as unbootstrapped", async () => {
+  it("retries a retryable bootstrap and adopts the attempt that succeeds", async () => {
+    const world = createWorld()
+    let attempts = 0
+    const managed = createManagedReplica({
+      mutations: ledgerMutations,
+      bootstrap: async () => {
+        attempts += 1
+        if (attempts < 3) return { kind: "retryable" as const }
+        return world.bootstrap()
+      },
+    })
+    // Buffered across the whole retry sequence — this is the write that used
+    // to hang forever on a transient load failure.
+    const buffered = managed.mutate(addEntry({ entry: "survived" }))
+
+    const remote = await buffered.remote
+    expect(attempts).toBe(3)
+    expect(remote.ok).toBe(true)
+    expect(world.authority.read().entries).toEqual(["survived"])
+    managed.dispose()
+  })
+
+  it("gives up after the retry budget and settles the buffer", async () => {
+    let attempts = 0
     const managed = createManagedReplica<
       Ledger,
       LedgerInvocation,
@@ -125,11 +155,70 @@ describe("createManagedReplica", () => {
       number
     >({
       mutations: ledgerMutations,
-      bootstrap: () => Promise.reject(new Error("load refused")),
+      bootstrapRetries: 2,
+      bootstrap: () => {
+        attempts += 1
+        return Promise.reject(new Error("authority down"))
+      },
+    })
+    const buffered = managed.mutate(addEntry({ entry: "doomed" }))
+
+    const remote = await buffered.remote
+    expect(attempts).toBe(3) // the first attempt plus two retries
+    expect(remote.ok).toBe(false)
+    if (!remote.ok) expect(remote.error.kind).toBe("unavailable")
+    managed.dispose()
+  })
+
+  it("keeps a throwing event sink from stranding the expiry rebuild", async () => {
+    const world = createWorld()
+    const managed = createManagedReplica({
+      mutations: ledgerMutations,
+      bootstrap: world.bootstrap,
+      onEvent: () => {
+        throw new Error("logger blew up")
+      },
+      onExpired: () => {
+        throw new Error("toast blew up")
+      },
     })
     await settle(3)
-    expect(managed.getSnapshot()).toBeNull()
+
+    const seeded = managed.mutate(addEntry({ entry: "seed" }))
+    await seeded.remote
+    world.authority.forgetClient(world.identities()[0]!)
+    await managed.mutate(addEntry({ entry: "stranded" })).remote
+
+    await settle(6)
+    // Both application callbacks threw; neither may abort the rebuild.
+    expect(world.identities()).toHaveLength(2)
+    const revived = managed.mutate(addEntry({ entry: "revived" }))
+    expect((await revived.remote).ok).toBe(true)
     managed.dispose()
+  })
+
+  it("disposes the instance that exists when the teardown timer fires", async () => {
+    const world = createWorld()
+    const managed = createManagedReplica({
+      mutations: ledgerMutations,
+      bootstrap: world.bootstrap,
+    })
+    await settle(3)
+
+    const seeded = managed.mutate(addEntry({ entry: "seed" }))
+    await seeded.remote
+    world.authority.forgetClient(world.identities()[0]!)
+
+    // Expire and tear down in the same commit: the rebuild must not adopt a
+    // replacement whose transport would then outlive the disposal.
+    const expiring = managed.mutate(addEntry({ entry: "stranded" }))
+    managed.dispose()
+    await expiring.remote
+    await settle(6)
+    await macrotask()
+
+    expect(world.identities()).toHaveLength(1)
+    expect(world.authority.liveTransports()).toBe(0)
   })
 
   it("rebuilds under a fresh identity on expiry and refuses the expiry window's dispatches", async () => {

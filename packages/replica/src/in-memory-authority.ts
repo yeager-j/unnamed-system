@@ -95,6 +95,9 @@ export interface InMemoryAuthority<
    * `unknown-client` (its next `mutationId` is well past the reset ledger).
    */
   forgetClient(client: ClientIdentity): void
+  /** How many transports are still connected — the observable a leaked
+   *  replica shows up in (a disposed replica disconnects its sink). */
+  liveTransports(): number
   /** The next `count` pushes fail ambiguously WITHOUT reaching the authority. */
   failNextPush(count?: number): void
   /** The next `count` pushes process fully but lose their response. */
@@ -378,6 +381,7 @@ export function createInMemoryAuthority<
     forgetClient: (client) => {
       clients.delete(clientKey(client))
     },
+    liveTransports: () => sinks.size,
     failNextPush: (count = 1) => {
       failNext += count
     },

@@ -905,7 +905,15 @@ the abstract:
    replica-contract law runs against it.
 7. **Resolved (UNN-646), with the rule the combat evidence produced: replica granularity
    follows the authority's commit scope — the row-lock + auth boundary — never the UI's
-   dispatch scope.** Durable combat state → one replica per entity row (own lock, own
+   dispatch scope.** Read the rule strictly: the commit scope is *every* lock the commit
+   needs, not the most obvious one. The first implementation read it loosely and gave the
+   durable root only the entity row's lock, even though a durable combat write is licensed
+   by encounter liveness and roster membership — facts on the encounter row. Those
+   preconditions were checked outside the committing transaction, so an end-combat sweep or
+   a participant removal could land in between and the delivery would still commit. The
+   durable transaction now locks `replicaClient → encounters → entity`. The granularity
+   conclusion is unchanged; the boundary that justifies it is wider than first recorded.
+   Durable combat state → one replica per entity row (own lock, own
    auth answer, own cursor, own lifetime); inline encounter state → one collection-valued
    replica per encounter (one row, one scalar version, one gate, one lifetime); transport
    fan-in is orthogonal — the console's single realtime subscription fans into N

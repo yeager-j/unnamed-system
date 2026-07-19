@@ -95,8 +95,9 @@ describe("pushEnvelope error mapping", () => {
     )
   })
 
+  // RECORDED decode refusals only: these run inside the processor, so the
+  // watermark advanced with them and a terminal rejection is honest.
   it.each([
-    ["invalid-input" as const],
     [{ kind: "invalid" as const, issues: [] }],
     [{ kind: "unknown-mutation" as const, name: "nope" }],
   ])("maps %o to a terminal invalid-write rejection", async (refusal) => {
@@ -106,6 +107,10 @@ describe("pushEnvelope error mapping", () => {
   })
 
   it.each([
+    // UNRECORDED: the door bounced the envelope before the processor opened a
+    // transaction, so calling this `rejected` would consume a local mutation
+    // ID the authority's watermark never saw and gap the next delivery.
+    ["invalid-input" as const],
     [{ kind: "unknown-client" as const, received: 9 }],
     [{ kind: "gap" as const, expected: 3, received: 9 }],
     [{ kind: "outcome-unavailable" as const, mutationId: 2 }],

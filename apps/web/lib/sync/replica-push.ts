@@ -1,5 +1,9 @@
-import type { ProcessRefusal } from "@workspace/replica/server"
-import type { MutationEnvelope, PushError } from "@workspace/replica/transport"
+import {
+  classifyPushDoorRefusal,
+  type MutationEnvelope,
+  type PushDoorRefusal,
+  type PushError,
+} from "@workspace/replica/transport"
 import { err, ok, type Result } from "@workspace/result"
 
 /** Base delay after a retryable push failure; doubles per consecutive
@@ -7,11 +11,9 @@ import { err, ok, type Result } from "@workspace/result"
 const PUSH_BACKOFF_BASE_MS = 250
 const PUSH_BACKOFF_MAX_MS = 4_000
 
-/** What every replica push door returns: a transport-shape refusal or the
- *  processor's refusal taxonomy verbatim. */
-export type PushDoorError<Rejection> =
-  | "invalid-input"
-  | ProcessRefusal<Rejection>
+/** What every replica push door returns — the package's door-refusal
+ *  vocabulary, re-exported so the actions' return types name it locally. */
+export type PushDoorError<Rejection> = PushDoorRefusal<Rejection>
 
 export interface PacedPushOptions<Invocation, Rejection, Remote> {
   /** The push-door Server Action, bound to its root's address. */
@@ -40,12 +42,12 @@ export interface PacedPushOptions<Invocation, Rejection, Remote> {
  *   epoch with no delay of its own, so the backoff lives here — exponential
  *   per consecutive retryable failure of the same mutation, abandoned
  *   immediately when the attempt is aborted.
- * - **Refusal mapping**: the protocol-dead refusals — `unknown-client`,
- *   `gap`, `outcome-unavailable` — collapse into the transport's
- *   `unknown-client` (all three mean this identity's stream cannot proceed;
- *   the replica expires and the application rebuilds it). Decode refusals
- *   and a malformed envelope map to the terminal `invalidWrite` rejection:
- *   retrying the same bytes cannot help.
+ * - **Refusal mapping** is `classifyPushDoorRefusal`, which lives in
+ *   `@workspace/replica` because it is Replica protocol knowledge, not
+ *   Showtime's. This module supplies only the app-specific `invalidWrite`
+ *   rejection. (UNN-646 review: the classifier used to live here and mapped
+ *   the door's UNRECORDED `invalid-input` to `rejected`, violating the very
+ *   rule stated above — see the package doc for the corrected arms.)
  */
 export function createPacedPushEnvelope<Invocation, Rejection, Remote>(
   options: PacedPushOptions<Invocation, Rejection, Remote>
@@ -75,27 +77,7 @@ export function createPacedPushEnvelope<Invocation, Rejection, Remote>(
 
     failures.delete(envelope.mutationId)
     if (result.ok) return ok(result.value)
-    return err(mapPushRefusal(result.error, options.invalidWrite))
-  }
-}
-
-function mapPushRefusal<Rejection>(
-  refusal: PushDoorError<Rejection>,
-  invalidWrite: Rejection
-): PushError<Rejection> {
-  if (refusal === "invalid-input") {
-    return { kind: "rejected", error: invalidWrite }
-  }
-  switch (refusal.kind) {
-    case "rejected":
-      return { kind: "rejected", error: refusal.error }
-    case "invalid":
-    case "unknown-mutation":
-      return { kind: "rejected", error: invalidWrite }
-    case "unknown-client":
-    case "gap":
-    case "outcome-unavailable":
-      return { kind: "unknown-client" }
+    return err(classifyPushDoorRefusal(result.error, options.invalidWrite))
   }
 }
 

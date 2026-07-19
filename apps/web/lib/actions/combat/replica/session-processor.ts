@@ -180,6 +180,15 @@ async function executeCombatSessionMutation(
     )
   }
 
+  // The liveness precondition, under the row lock that commits on it. The
+  // console only ever mounts against a live encounter, so anything arriving
+  // here for another status is a stale tab, a cross-tab straggler, or a write
+  // that lost the race to End Combat — none of which may mutate a session the
+  // end sweep has already settled. Deliberately no draft→live promotion: the
+  // classic event door promotes (`apply-event.ts`) because it also serves
+  // setup, whereas this door exists only behind the live console.
+  if (loaded.value.row.status !== "live") return err("encounter-not-live")
+
   const { participantId, write } = invocation.args
   const locator = loaded.value.loaded.locators.get(participantId)
   if (locator === undefined) return err("participant-not-found")

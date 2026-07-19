@@ -57,18 +57,21 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  *
  * **Component writes** (HP/SP damage & heal — on inline enemies *and* durable
  * PCs, deliberately superseding UNN-482's read-only PC vitals per UNN-535's
- * AC) go through {@link useCombatantWrite}: prediction into the same
- * container, then dispatch on the participant's write lane. The lanes —
- * `useCombatantLanes` (UNN-567), the client half of the CD19 router — resolve
- * `participantMeta` once, so this hook never reads a storage tag: inline lanes
- * ride the encounter queue, durable lanes a per-character queue over the same
- * write-queue core that never touches the encounter ref.
+ * AC) go through {@link useCombatantWrite}, over the combat replicas
+ * (UNN-646). {@link useCombatReplicas} resolves `participantMeta` into
+ * per-participant write handles once, so this hook never reads a storage tag.
+ * **Those writes do NOT ride the two version queues** — each replica owns its
+ * own ordering, delivery, dedup, retry, and transition. Anything that must
+ * not overtake them says so explicitly by awaiting `replicas.settleAll()`
+ * (see {@link endEncounter}); the encounter queue serializes only the event
+ * wire.
  *
- * **Realtime (UNN-373)** is unchanged in shape: the encounter channel's
- * kind-routed ping compare (encounter vs mapInstance version streams), the
- * microtask-deduped `scheduleRefresh`, and the per-PC character channels —
- * both the channel list and the per-PC ping handler come resolved off the
- * lanes module.
+ * **Realtime (UNN-373):** the encounter channel's ping still carries the
+ * version compare for the two queues (encounter vs mapInstance streams) and
+ * feeds the microtask-deduped `scheduleRefresh`. The per-PC channels no
+ * longer classify anything — a ping reaching a replica is only an
+ * invalidation signal, and the transport's causal gate decides causality.
+ * Both the channel list and the ping fan-in come off `useCombatReplicas`.
  *
  * **The combat-end write is the one route-varying seam (UNN-536).** The mapless
  * encounter ends via the two-row {@link endCombatAction}; a delve ends via the
@@ -224,15 +227,23 @@ export function useCombatConsole(
    * Ends the encounter: the composed v2 combat-end (overlay sweep + occupancy
    * prune + `ended` status flip, one transaction over the version tokens — plus
    * the dungeon turn advance when {@link options.endCombat} is the delve
-   * performer). Dispatched through the encounter queue so it serializes behind
-   * any in-flight session write; the Instance token reads its own ref (no
-   * in-flight move at end-time in practice). The action returns the bumped
-   * Instance version, folded forward-only into its queue's token (UNN-567).
+   * performer). The Instance token reads its own ref (no in-flight move at
+   * end-time in practice). The action returns the bumped Instance version,
+   * folded forward-only into its queue's token (UNN-567).
+   *
+   * **`settleAll()` first.** Component writes ride the replicas, which own
+   * their own transitions and never touch `encounterWrite` — so the encounter
+   * queue does NOT serialize them, and without this barrier End Combat could
+   * commit its sweep while a replica mutation was still in flight. The
+   * authority refuses a post-end write outright (`encounter-not-live`, under
+   * the encounter row lock); settling here is what preserves the ordering the
+   * DM expects, so a click that landed before "End Combat" still counts.
    */
   function endEncounter() {
     startTransition(() =>
       guardWriteTransition(
         async () => {
+          await replicas.settleAll()
           const result = await encounterWrite.enqueue((expectedVersion) =>
             endCombat({
               encounterVersion: expectedVersion,

@@ -25,7 +25,7 @@ const publishEncounterPing = vi.fn()
 const revalidateEntity = vi.fn()
 const revalidateEncounter = vi.fn()
 const loadEncounterEnvelopeById = vi.fn()
-const loadEncounterDurableRoster = vi.fn()
+const loadEncounterRosterForWriteLocked = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   authorizeEntityWriteForClass: (id: string, cls: string) =>
@@ -55,7 +55,8 @@ vi.mock("@/lib/db/queries/load-encounter", () => ({
   loadEncounterEnvelopeById: (id: string) => loadEncounterEnvelopeById(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
-  loadEncounterDurableRoster: (id: string) => loadEncounterDurableRoster(id),
+  loadEncounterRosterForWriteLocked: (executor: unknown, id: string) =>
+    loadEncounterRosterForWriteLocked(executor, id),
 }))
 
 const pc = { userId: "owner", campaignId: "c1" }
@@ -104,7 +105,7 @@ beforeEach(() => {
   revalidateEntity.mockReset()
   revalidateEncounter.mockReset()
   loadEncounterEnvelopeById.mockReset().mockResolvedValue(encounterEnvelope)
-  loadEncounterDurableRoster.mockReset().mockResolvedValue(ok(new Set(["e1"])))
+  loadEncounterRosterForWriteLocked.mockReset()
 })
 
 describe("pushCombatDurableMutationAction", () => {
@@ -142,42 +143,26 @@ describe("pushCombatDurableMutationAction", () => {
     expect(context.authorization).toEqual(err("forbidden"))
   })
 
-  it("records participant-not-found when the entity left the encounter's durable roster", async () => {
-    loadEncounterDurableRoster.mockResolvedValue(ok(new Set(["e-other"])))
-
+  it("threads the encounter claim to the processor instead of pre-checking it", async () => {
     await pushCombatDurableMutationAction(durableInput(vitalsWrite))
 
     const [, context] = durableProcessor.mock.calls[0] as [
       unknown,
       CombatDurablePushContext,
     ]
-    expect(context.authorization).toEqual(err("participant-not-found"))
+    // The roster and liveness preconditions are the encounter's facts, and
+    // another transaction can revoke either while this delivery is in flight.
+    // Reading them here would be advisory; the processor re-reads them under
+    // the encounter row lock, so the door only forwards the claim.
+    expect(context.encounterId).toBe("enc1")
+    expect(loadEncounterRosterForWriteLocked).not.toHaveBeenCalled()
   })
 
-  it("passes the roster refusal codes through the verdict (missing / corrupt encounter)", async () => {
-    loadEncounterDurableRoster.mockResolvedValue(err("encounter-not-found"))
-    await pushCombatDurableMutationAction(durableInput(vitalsWrite))
-    let [, context] = durableProcessor.mock.calls[0] as [
-      unknown,
-      CombatDurablePushContext,
-    ]
-    expect(context.authorization).toEqual(err("encounter-not-found"))
-
-    loadEncounterDurableRoster.mockResolvedValue(err("invalid-session"))
-    await pushCombatDurableMutationAction(durableInput(vitalsWrite))
-    ;[, context] = durableProcessor.mock.calls[1] as [
-      unknown,
-      CombatDurablePushContext,
-    ]
-    expect(context.authorization).toEqual(err("invalid-session"))
-  })
-
-  it("checks auth BEFORE the roster, so error codes cannot probe encounter membership", async () => {
+  it("computes only the viewer verdict at the door", async () => {
     authorizeEntityWriteForClass.mockResolvedValue(err("forbidden"))
 
     await pushCombatDurableMutationAction(durableInput(vitalsWrite))
 
-    expect(loadEncounterDurableRoster).not.toHaveBeenCalled()
     const [, context] = durableProcessor.mock.calls[0] as [
       unknown,
       CombatDurablePushContext,

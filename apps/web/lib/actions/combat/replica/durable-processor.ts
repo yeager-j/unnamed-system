@@ -19,6 +19,7 @@ import {
 } from "@/domain/entity/commit/writers"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { db, type WriteExecutor } from "@/lib/db/client"
+import { loadEncounterRosterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import { entity } from "@/lib/db/schema/entity"
 import type { VersionClass } from "@/lib/db/version-classes"
@@ -37,6 +38,9 @@ import {
  */
 export interface CombatDurablePushContext {
   readonly entityId: string
+  /** The encounter whose combat license this delivery claims. Re-read and
+   *  LOCKED inside the transaction — the door does not pre-check it. */
+  readonly encounterId: string
   readonly authorization: Result<LoadedPlayerCharacter, CombatReplicaRejection>
   committed?: CombatDurableCommit
 }
@@ -61,7 +65,20 @@ export type CombatDurablePushProcessor = MutationProcessor<
  * the same Writer. What differs is the registry: `combat.entity.write`
  * decodes only the `combatEntityWriteSchema` subset, so a non-combat arm
  * (rest, narrative, equipment…) is a RECORDED decode refusal at this door no
- * matter what the client claims. Lock order: `replicaClient` → `entity`.
+ * matter what the client claims.
+ *
+ * **Lock order: `replicaClient` → `encounters` → `entity`.** The middle lock
+ * is what the UNN-646 review added, and it is the reason this root's
+ * granularity story is honest. A durable combat write is licensed by three
+ * things — who the viewer is, that the encounter is live, and that the entity
+ * is still on its roster — and the last two live on the encounter row, not
+ * the entity row. Checking them outside this transaction let a removal or an
+ * end-combat sweep commit in between, after which this delivery would still
+ * write to the character. They are now read under the encounter's lock, so
+ * those operations serialize against the push instead of racing it.
+ *
+ * The viewer verdict is still computed at request start (see the door). That
+ * gap — a role revoked mid-flight — is recorded as UNN-659, not fixed here.
  */
 export function createCombatDurablePushProcessor(
   entityId: string
@@ -88,6 +105,20 @@ async function executeCombatDurableMutation(
   context: CombatDurablePushContext
 ): Promise<Result<void, CombatReplicaRejection>> {
   if (!context.authorization.ok) return context.authorization
+
+  // The combat license, under the encounter's own lock and BEFORE the entity
+  // lock (see the lock order above). Both facts can be revoked by another
+  // transaction — `removeParticipant` and the end-combat sweep — so reading
+  // them here is what makes those operations serialize with this push.
+  const encounter = await loadEncounterRosterForWriteLocked(
+    tx,
+    context.encounterId
+  )
+  if (!encounter.ok) return err(encounter.error)
+  if (encounter.value.status !== "live") return err("encounter-not-live")
+  if (!encounter.value.durableEntityIds.has(context.entityId)) {
+    return err("participant-not-found")
+  }
 
   const [row] = await tx
     .select()

@@ -22,7 +22,7 @@ import {
   createPullTransport,
   type PushError,
 } from "@workspace/replica/transport"
-import { ok, type Result } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import { instantiateEnemy } from "@/domain/game-engine-v2"
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
@@ -42,6 +42,7 @@ import { encounterReplicaClient } from "@/lib/db/schema/encounter-replica-client
 import { entity } from "@/lib/db/schema/entity"
 import { mapInstances } from "@/lib/db/schema/map-instance"
 import { playerCharacter } from "@/lib/db/schema/player-character"
+import { replicaClient } from "@/lib/db/schema/replica-client"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
 import {
   createCombatDurableSource,
@@ -651,5 +652,160 @@ describe("combat replica SQL serialization", () => {
       envelope: { ...envelope, mutationId: 2 },
     })
     expect(third).toEqual(ok({ version: 3 }))
+  })
+})
+
+/**
+ * The two preconditions a combat write is licensed by that live on the
+ * ENCOUNTER row, not the row each door locks by default. Both were checked
+ * outside the committing transaction before the UNN-646 review — liveness not
+ * at all, roster membership as an advisory pre-read — which meant a delivery
+ * could commit after its license had already been revoked. Rebase cannot undo
+ * an authority commit, so these have to be enforced where the lock is held.
+ */
+describe("combat replica encounter preconditions", () => {
+  it("session door: refuses a write against an encounter that has ended", async () => {
+    const { encounterId, inlineParticipantId } = await createFixture()
+    const identity = {
+      clientGroupId: `combat-session:${encounterId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    await loadCombatAcceptedAction({ encounterId, inline: identity })
+    const versionBefore = await encounterVersion(encounterId)
+
+    // End Combat wins the race and commits its sweep plus the status flip.
+    await getDb()
+      .update(encounters)
+      .set({ status: "ended" })
+      .where(eq(encounters.id, encounterId))
+
+    const result = await pushCombatSessionMutationAction({
+      encounterId,
+      envelope: {
+        ...identity,
+        mutationId: 1,
+        invocation: writeCombatInline({
+          participantId: inlineParticipantId,
+          write: damage(4),
+        }),
+      },
+    })
+
+    expect(result).toEqual(
+      err({ kind: "rejected", error: "encounter-not-live" })
+    )
+    // The historical session must be exactly what the end sweep left.
+    expect(await encounterVersion(encounterId)).toBe(versionBefore)
+  })
+
+  it("durable door: refuses a write for an entity removed from the roster", async () => {
+    const { encounterId, pcEntityId } = await createFixture()
+    const identity = {
+      clientGroupId: `combat-entity:${pcEntityId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    await loadCombatAcceptedAction({
+      encounterId,
+      durable: [{ entityId: pcEntityId, identity }],
+    })
+    const before = await vitalsVersion(pcEntityId)
+
+    // Another transaction removes the PC from the encounter.
+    const [row] = await getDb()
+      .select({ session: encounters.session })
+      .from(encounters)
+      .where(eq(encounters.id, encounterId))
+    const parsed = storedSessionSchema.parse(row!.session)
+    await getDb()
+      .update(encounters)
+      .set({
+        session: {
+          ...parsed,
+          participants: parsed.participants.filter(
+            (participant) => participant.locator.storage !== "durable"
+          ),
+        },
+      })
+      .where(eq(encounters.id, encounterId))
+
+    const result = await pushCombatDurableMutationAction({
+      encounterId,
+      entityId: pcEntityId,
+      envelope: {
+        ...identity,
+        mutationId: 1,
+        invocation: writeCombatEntity(damage(3)),
+      },
+    })
+
+    expect(result).toEqual(
+      err({ kind: "rejected", error: "participant-not-found" })
+    )
+    // The character row is untouched: the refusal happened before the entity
+    // lock, under the encounter's.
+    expect(await vitalsVersion(pcEntityId)).toBe(before)
+  })
+
+  it("durable door: refuses a write once the encounter has ended", async () => {
+    const { encounterId, pcEntityId } = await createFixture()
+    const identity = {
+      clientGroupId: `combat-entity:${pcEntityId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    await loadCombatAcceptedAction({
+      encounterId,
+      durable: [{ entityId: pcEntityId, identity }],
+    })
+    const before = await vitalsVersion(pcEntityId)
+
+    await getDb()
+      .update(encounters)
+      .set({ status: "ended" })
+      .where(eq(encounters.id, encounterId))
+
+    const result = await pushCombatDurableMutationAction({
+      encounterId,
+      entityId: pcEntityId,
+      envelope: {
+        ...identity,
+        mutationId: 1,
+        invocation: writeCombatEntity(damage(3)),
+      },
+    })
+
+    expect(result).toEqual(
+      err({ kind: "rejected", error: "encounter-not-live" })
+    )
+    expect(await vitalsVersion(pcEntityId)).toBe(before)
+  })
+
+  it("bootstrap door: mints no identity for a non-live encounter", async () => {
+    const { encounterId, pcEntityId } = await createFixture()
+    await getDb()
+      .update(encounters)
+      .set({ status: "ended" })
+      .where(eq(encounters.id, encounterId))
+
+    const identity = {
+      clientGroupId: `combat-entity:${pcEntityId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    const result = await loadCombatAcceptedAction({
+      encounterId,
+      inline: {
+        clientGroupId: `combat-session:${encounterId}`,
+        clientId: `tab-${randomUUID()}`,
+      },
+      durable: [{ entityId: pcEntityId, identity }],
+    })
+
+    expect(result).toEqual(err("encounter-not-live"))
+    // Registration is the license the push doors' absent-row ⇒
+    // `unknown-client` invariant leans on; a stale tab must not acquire one.
+    const rows = await getDb()
+      .select({ clientId: replicaClient.clientId })
+      .from(replicaClient)
+      .where(eq(replicaClient.clientId, identity.clientId))
+    expect(rows).toHaveLength(0)
   })
 })

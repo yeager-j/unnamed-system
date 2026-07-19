@@ -45,6 +45,7 @@ export interface CombatAccepted {
 export type CombatAcceptedError =
   | "invalid-input"
   | "encounter-not-found"
+  | "encounter-not-live"
   | "invalid-session"
 
 /**
@@ -83,6 +84,12 @@ export async function loadCombatAcceptedAction(
   const envelope = await loadEncounterEnvelopeById(encounterId)
   if (!envelope) return err("encounter-not-found")
   await requireCampaignDM(envelope.campaignId)
+  // Liveness before any identity is minted or refreshed (UNN-646 review).
+  // Registration is the license the push doors' absent-row ⇒ `unknown-client`
+  // invariant leans on, so minting one for an ended encounter would hand a
+  // stale tab a write channel the push doors then have to refuse one delivery
+  // at a time. The binding turns this into a terminal `unavailable` bootstrap.
+  if (envelope.status !== "live") return err("encounter-not-live")
 
   // Inline bootstrap registration (same invariant as the entity door: a
   // client identity exists at a push door only if it passed through here

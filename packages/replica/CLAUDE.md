@@ -10,10 +10,10 @@ are the production examples; `src/reference/` is the deliberately alien one.
 
 - `createReplica` — the runtime. You almost never call it directly in React code:
   `createManagedReplica` (framework-free) owns bootstrap-before-construction, ordered
-  buffering during the bootstrap window, receipt settlement tracking, expiry rebuild under
-  a fresh identity, and one-macrotask deferred disposal; `useManagedReplica`
-  (`@workspace/replica/react`) wraps it for a single-replica mount. Imperative callers (a
-  keyed set of replicas) drive controllers directly.
+  buffering during the bootstrap window, bootstrap retry/terminal classification, receipt
+  settlement tracking, expiry rebuild under a fresh identity, and one-macrotask deferred
+  disposal; `useManagedReplica` (`@workspace/replica/react`) wraps it for a single-replica
+  mount. Imperative callers (a keyed set of replicas) drive controllers directly.
 - `createPullTransport` (`@workspace/replica/transport`) — the pull-on-invalidation
   transport: pull-generation gate + causal-acceptance gate + subscribe-before-catch-up +
   push-throw→`retryable`, over your `{fetchAccepted, pushEnvelope, subscribe}` source seam.
@@ -86,3 +86,15 @@ the production code path.
 - **The bootstrap read registers the client.** An absent dedup row means `unknown-client`,
   which expires the identity terminally; recovery is a fresh identity, and dispatches from
   the dead identity's window are refused `expired`, never silently re-issued.
+- **`bootstrap` must classify its own failures.** Return a `ManagedReplicaSetup`, or
+  `{kind: "retryable"}` / `{kind: "unavailable"}`. The package cannot read your door's
+  error codes, and it will not guess: `retryable` gets backoff and re-attempts,
+  `unavailable` is terminal. A throw is classified `retryable` (ambiguous). There is no
+  third state — a controller that could neither succeed nor fail used to leave buffered
+  writes and their UI transitions pending until unmount.
+- **`onEvent` is observability; `onAccepted` / `onExpired` are semantics.** Never build
+  reconciliation on `ReplicaEvent`. The controller isolates every application callback and
+  sequences no lifecycle transition behind one, so a throwing sink cannot strand a rebuild
+  — which also means a sink cannot be relied on to run. In particular, an accepted
+  snapshot's `through` says which of _this_ identity's mutations were incorporated, and
+  nothing about whose other changes rode along; it can never gate a refresh.

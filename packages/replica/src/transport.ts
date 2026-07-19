@@ -1,7 +1,12 @@
 import { err, type Result } from "@workspace/result"
 
 import type { MutationInvocation } from "./mutations"
-import type { Accepted, MutationEnvelope, PushError } from "./protocol"
+import type {
+  Accepted,
+  MutationEnvelope,
+  ProcessRefusal,
+  PushError,
+} from "./protocol"
 
 export type {
   Accepted,
@@ -240,6 +245,61 @@ export function createCausalAcceptanceGate<State, Cursor>(
       recovery?.abort()
       recovery = null
     },
+  }
+}
+
+/**
+ * What a push door can return: the authority processor's refusal taxonomy, or
+ * `invalid-input` for an envelope the door could not even parse.
+ *
+ * The distinction is the whole point. A `ProcessRefusal` was produced INSIDE
+ * the processor's transaction and recorded against the client's watermark;
+ * `invalid-input` is returned BEFORE the processor runs, so nothing was
+ * recorded at all.
+ */
+export type PushDoorRefusal<Rejection> =
+  | "invalid-input"
+  | ProcessRefusal<Rejection>
+
+/**
+ * Classifies a push door's refusal into the transport's `PushError` — Replica
+ * protocol knowledge, so it lives here rather than in each binding's source.
+ * A binding supplies only `invalidWrite`, the application-specific rejection
+ * meaning "this build's bytes are not something the authority understands".
+ *
+ * **The rule that governs every arm: an error's classification is a claim
+ * about authority state.** Only a RECORDED refusal may be reported as
+ * `rejected`, because `rejected` is terminal and consumes the local mutation
+ * ID. Report an unrecorded failure as `rejected` and the client advances past
+ * an ID the authority's watermark never saw; the next delivery is a gap, and
+ * the stream wedges.
+ *
+ * - `rejected` / `invalid` / `unknown-mutation` are produced inside the
+ *   processor and recorded — terminal, and retrying the same bytes cannot
+ *   help (decode refusals are deploy skew).
+ * - `unknown-client` / `gap` / `outcome-unavailable` all mean this identity's
+ *   stream cannot proceed: the replica expires and the application rebuilds
+ *   under a fresh identity.
+ * - `invalid-input` is UNRECORDED — the door bounced the envelope before the
+ *   processor opened a transaction. It is protocol-dead rather than terminal:
+ *   the identity expires, exactly like the refusals above, instead of burning
+ *   a mutation ID the authority never acknowledged.
+ */
+export function classifyPushDoorRefusal<Rejection>(
+  refusal: PushDoorRefusal<Rejection>,
+  invalidWrite: Rejection
+): PushError<Rejection> {
+  if (refusal === "invalid-input") return { kind: "unknown-client" }
+  switch (refusal.kind) {
+    case "rejected":
+      return { kind: "rejected", error: refusal.error }
+    case "invalid":
+    case "unknown-mutation":
+      return { kind: "rejected", error: invalidWrite }
+    case "unknown-client":
+    case "gap":
+    case "outcome-unavailable":
+      return { kind: "unknown-client" }
   }
 }
 

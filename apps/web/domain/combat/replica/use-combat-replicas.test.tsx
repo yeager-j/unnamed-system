@@ -170,23 +170,17 @@ describe("useCombatReplicas", () => {
     )
   })
 
-  it("fires onExternalChange for a snapshot whose watermark did not advance, and stays quiet for our own", async () => {
+  it("refreshes on an accepted advance whose watermark ALSO advanced", async () => {
     const { rendered, onExternalChange } = renderReplicas()
     await flush()
     expect(onExternalChange).not.toHaveBeenCalled()
 
-    // Someone else's write: a fresher cursor, the SAME watermark.
-    loadCombatAcceptedAction.mockResolvedValue(
-      ok({ durable: { e1: durableAccepted(0, 2) } })
-    )
-    await act(async () => {
-      rendered.result.current.onPcPing("e1", {})
-    })
-    await flush()
-    expect(onExternalChange).toHaveBeenCalledTimes(1)
-
-    // Our own write incorporated: the watermark advanced with the cursor —
-    // the push response's RSC payload already refreshed the route.
+    // The case the old watermark rule got wrong. `through` advancing says our
+    // own mutation was incorporated; it says NOTHING about whether the same
+    // accepted tuple also carries another identity's change — and here it
+    // does (the cursor jumped two versions, not one). Suppressing the refresh
+    // left the console's separate RSC container on a frame that predates the
+    // other writer, with no later event to correct it.
     loadCombatAcceptedAction.mockResolvedValue(
       ok({ durable: { e1: durableAccepted(1, 3) } })
     )
@@ -197,26 +191,28 @@ describe("useCombatReplicas", () => {
     expect(onExternalChange).toHaveBeenCalledTimes(1)
   })
 
-  it("refreshes after a write recovered by redelivery — its original response (and RSC payload) may have been lost", async () => {
+  it("refreshes on an accepted advance whose watermark held", async () => {
     const { rendered, onExternalChange } = renderReplicas()
     await flush()
 
-    // First attempt throws after the (server-side) commit; the redelivery
-    // settles from the dedup ledger. No fresh RSC payload ever reached this
-    // client, so settlement must schedule the refresh itself.
-    pushCombatDurableMutationAction
-      .mockRejectedValueOnce(new Error("response lost"))
-      .mockResolvedValue(ok(undefined))
-
+    loadCombatAcceptedAction.mockResolvedValue(
+      ok({ durable: { e1: durableAccepted(0, 2) } })
+    )
     await act(async () => {
-      const receipt = rendered.result.current
-        .handleOf(pcParticipant)!
-        .mutate(damage)
-      await receipt.remote
+      rendered.result.current.onPcPing("e1", {})
     })
+    await flush()
+    expect(onExternalChange).toHaveBeenCalledTimes(1)
+  })
 
-    expect(pushCombatDurableMutationAction.mock.calls.length).toBeGreaterThan(1)
-    expect(onExternalChange).toHaveBeenCalled()
+  it("stays quiet at mount — the bootstrap tuple is not an advance", async () => {
+    const { onExternalChange } = renderReplicas()
+    await flush()
+    // The accepted floor arrives as the replica's `initial`, never as a
+    // snapshot event, and the transport's causal gate drops the catch-up
+    // pull as a duplicate. Unconditional refresh therefore costs nothing at
+    // mount — the bound that makes dropping the watermark rule affordable.
+    expect(onExternalChange).not.toHaveBeenCalled()
   })
 
   it("disposes a removed durable participant's replica and refuses its handle", async () => {

@@ -121,7 +121,13 @@ export function useEntityReplica({
             entityId,
             ...identity,
           })
-          if (!result.ok) return null
+          // Both door codes are terminal: a malformed request and an
+          // unloadable entity row are not conditions a retry improves. A
+          // THROWN action (network, deploy) never reaches here — the managed
+          // layer classifies it retryable and backs off.
+          if (!result.ok) {
+            return { kind: "unavailable" as const, reason: result.error }
+          }
           const source = createEntityReplicaSource({
             entityId,
             identity,

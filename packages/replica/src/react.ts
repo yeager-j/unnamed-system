@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 
-import { ok, type Result } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
-import type { MutationReceipt, Replica, ReplicaSnapshot } from "./index"
+import type {
+  MutationError,
+  MutationReceipt,
+  Replica,
+  ReplicaSnapshot,
+} from "./index"
 import {
   proxiedMutationReceipt,
   settledMutationReceipt,
@@ -55,7 +60,8 @@ export interface UseManagedReplicaReturn<
   readonly mutate: (
     invocation: Invocation
   ) => MutationReceipt<ApplyError, Remote>
-  /** Waits for current replica writes to reach trusted remote outcomes. */
+  /** Waits for current replica writes to reach trusted remote outcomes —
+   *  including dispatches still buffered in the pre-effect window. */
   readonly settleMutations: () => Promise<Result<void, "pending-write-failed">>
 }
 
@@ -90,6 +96,13 @@ export function useManagedReplica<
   const preBufferRef = useRef<
     BufferedMutation<Invocation, ApplyError, Remote>[]
   >([])
+  // Pre-effect dispatches are tracked here as well as buffered: the
+  // controller only starts tracking a receipt once it adopts one, so without
+  // this `settleMutations` would report success over intent that has not been
+  // sent yet.
+  const preSettleRef = useRef<
+    Promise<Result<Remote, MutationError<ApplyError>>>[]
+  >([])
 
   useEffect(() => {
     if (!enabled) return
@@ -97,6 +110,9 @@ export function useManagedReplica<
     controllerRef.current = created
     const buffered = preBufferRef.current
     preBufferRef.current = []
+    // The controller tracks each receipt it mints, so pre-effect tracking
+    // hands over here rather than double-counting.
+    preSettleRef.current = []
     for (const entry of buffered)
       entry.resolve(created.mutate(entry.invocation))
     setController(created)
@@ -132,15 +148,25 @@ export function useManagedReplica<
       Remote
     >(invocation)
     preBufferRef.current.push(entry)
+    preSettleRef.current.push(receipt.remote)
     return receipt
   }
 
   async function settleMutations(): Promise<
     Result<void, "pending-write-failed">
   > {
+    // Drain the pre-effect receipts first: each resolves once the controller
+    // adopts it (or settles it terminally), so awaiting them is what makes
+    // "settled" true for a caller that dispatched before the effect ran.
+    const buffered = preSettleRef.current.splice(0)
+    const outcomes = await Promise.allSettled(buffered)
+    const bufferedFailed = outcomes.some(
+      (outcome) => outcome.status === "rejected" || !outcome.value.ok
+    )
     const current = controllerRef.current
-    if (!current) return ok(undefined)
-    return current.settleMutations()
+    const settled = current ? await current.settleMutations() : ok(undefined)
+    if (bufferedFailed) return err("pending-write-failed")
+    return settled
   }
 
   return { snapshot, mutate, settleMutations }

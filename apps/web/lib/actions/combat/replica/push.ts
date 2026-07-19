@@ -10,7 +10,6 @@ import {
   authorizeEntityWriteForClass,
 } from "@/lib/auth/campaign-access"
 import { loadEncounterEnvelopeById } from "@/lib/db/queries/load-encounter"
-import { loadEncounterDurableRoster } from "@/lib/db/queries/load-encounter-session"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import {
   publishCharacterPing,
@@ -47,21 +46,22 @@ import {
  */
 
 /**
- * One delivery against a durable participant's entity row. The verdict runs
- * two checks, in this order:
+ * One delivery against a durable participant's entity row.
  *
- * 1. The classic durable arm's gate: class→posture over the entity's own
- *    campaign placement (vitals ⇒ owner-or-campaign-DM), so the console and
- *    the sheet can never disagree about who may write a PC row. Auth runs
- *    FIRST so the roster arm's error codes cannot probe encounter membership.
- * 2. The **roster precondition** (Codex P2, PR #391): the entity must still
- *    be a durable participant of the wire's encounter, or the delivery is a
- *    RECORDED `participant-not-found` rejection — the classic router's
- *    fail-closed locator scope, preserved. A stale frame damaging a PC that
- *    another tab already removed refuses instead of committing to the
- *    character row. Advisory-read strength, exactly like the classic
- *    router's unlocked `loadEncounterForWrite`; the replica's rebase handles
- *    the residual race like any preconditioned intent.
+ * **The license splits across two boundaries, deliberately.** The viewer
+ * verdict — class→posture over the entity's own campaign placement (vitals ⇒
+ * owner-or-campaign-DM), so the console and the sheet can never disagree
+ * about who may write a PC row — is computed HERE, at request start. The
+ * encounter-scoped preconditions (the encounter is live; the entity is still
+ * on its durable roster) are checked inside the processor's transaction under
+ * the encounter row lock, because those are the facts another transaction can
+ * revoke while this one is in flight.
+ *
+ * That split is a known gap, not a settled policy: a role revoked between
+ * request start and commit is not linearized here. Tracked as UNN-659 —
+ * thread trusted viewer identity into the processor context and re-evaluate
+ * the policy facts inside the transaction. Every other door in the app
+ * authorizes at request start too, so this is consistent — just not airtight.
  *
  * On commit: the character ping (every watcher of the PC catches up) plus
  * `revalidateEncounter` (UNN-567 — the RSC payload rides this push response,
@@ -79,8 +79,8 @@ export async function pushCombatDurableMutationAction(
 
   const context: CombatDurablePushContext = {
     entityId,
+    encounterId,
     authorization: await authorizeDurableEnvelope(
-      encounterId,
       entityId,
       envelope.invocation
     ),
@@ -131,15 +131,15 @@ export async function pushCombatSessionMutationAction(
 }
 
 /**
- * The durable door's verdict: the class → posture gate over the decoded
- * write's own `durableClass` (the classic arm's policy), then the roster
- * precondition — the entity must still be a durable participant of the
- * claimed encounter. A failed decode leaves the verdict moot (the
- * processor's decode fails first and records `invalid`); `forbidden` is the
- * fail-closed default for that unreachable arm.
+ * The durable door's viewer verdict: the class → posture gate over the
+ * decoded write's own `durableClass` (the classic arm's policy). The roster
+ * and liveness preconditions are NOT here — they moved into the processor's
+ * transaction, where they can be locked (see this door's doc). A failed
+ * decode leaves the verdict moot (the processor's decode fails first and
+ * records `invalid`); `forbidden` is the fail-closed default for that
+ * unreachable arm.
  */
 async function authorizeDurableEnvelope(
-  encounterId: string,
   entityId: string,
   invocation: { readonly name: string; readonly args: unknown }
 ): Promise<Result<LoadedPlayerCharacter, CombatReplicaRejection>> {
@@ -148,14 +148,7 @@ async function authorizeDurableEnvelope(
 
   const write = decoded.value.args
   const { durableClass } = ENTITY_WRITERS[write.component]
-  const authorized = await authorizeEntityWriteForClass(entityId, durableClass)
-  if (!authorized.ok) return authorized
-
-  const roster = await loadEncounterDurableRoster(encounterId)
-  if (!roster.ok) return roster
-  if (!roster.value.has(entityId)) return err("participant-not-found")
-
-  return authorized
+  return authorizeEntityWriteForClass(entityId, durableClass)
 }
 
 /**

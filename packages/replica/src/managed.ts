@@ -37,6 +37,38 @@ export interface ManagedReplicaSetup<
   >
 }
 
+/**
+ * Why one bootstrap round could not produce a setup.
+ *
+ * - `retryable` — the setup MIGHT succeed later (a network failure, a 5xx, a
+ *   thrown call). The managed layer owns backoff and re-attempts.
+ * - `unavailable` — it will not. The root does not exist, the viewer may not
+ *   have it, or the authority refused the request terminally. The controller
+ *   stops, and buffered intent settles `unavailable` rather than hanging.
+ *
+ * A binding classifies its OWN door errors into these two; the package never
+ * guesses from an application error code.
+ */
+export type ManagedBootstrapFailure =
+  | { readonly kind: "retryable"; readonly cause?: unknown }
+  | { readonly kind: "unavailable"; readonly reason?: unknown }
+
+export type ManagedBootstrapResult<
+  State,
+  Invocation extends MutationInvocation,
+  ApplyError,
+  Remote = void,
+  Cursor = unknown,
+> =
+  | ManagedReplicaSetup<State, Invocation, ApplyError, Remote, Cursor>
+  | ManagedBootstrapFailure
+
+/** Bootstrap retry pacing — mirrors the push backoff so a flapping authority
+ *  produces one recognisable cadence across both directions. */
+const BOOTSTRAP_RETRY_BASE_MS = 250
+const BOOTSTRAP_RETRY_MAX_MS = 4_000
+const BOOTSTRAP_RETRY_ATTEMPTS = 5
+
 export interface ManagedReplicaOptions<
   State,
   Invocation extends MutationInvocation,
@@ -47,20 +79,42 @@ export interface ManagedReplicaOptions<
   readonly mutations: MutationRegistry<State, Invocation, ApplyError>
   /**
    * Mints an identity, registers it with the authority, and returns the
-   * accepted floor + transport. Returning `null` (or throwing) leaves the
-   * controller unbootstrapped — the caller's read surface keeps rendering
-   * its own frame, and buffered dispatches settle `disposed` at teardown.
+   * accepted floor + transport — or a {@link ManagedBootstrapFailure} saying
+   * whether another attempt could help. A THROWN bootstrap is classified
+   * `retryable`: a throw is ambiguous, and the retry budget bounds it.
+   *
+   * Every dispatch buffered during the bootstrap window reaches a
+   * deterministic outcome: adopted by a later attempt, or settled
+   * `unavailable` when the controller gives up. A bootstrap that can neither
+   * succeed nor fail is a write black hole — the contract exists to make that
+   * state unrepresentable.
    */
-  readonly bootstrap: () => Promise<ManagedReplicaSetup<
-    State,
-    Invocation,
-    ApplyError,
-    Remote,
-    Cursor
-  > | null>
+  readonly bootstrap: () => Promise<
+    ManagedBootstrapResult<State, Invocation, ApplyError, Remote, Cursor>
+  >
   readonly delivery?: { readonly retryBudget?: number }
-  /** Forwarded verbatim from the underlying replica (logging/metrics). */
+  /** How many `retryable` bootstrap failures to absorb before the controller
+   *  goes `unavailable`. Defaults to {@link BOOTSTRAP_RETRY_ATTEMPTS}. */
+  readonly bootstrapRetries?: number
+  /**
+   * Metrics/logging sink, forwarded verbatim from the underlying replica.
+   * **Observability only.** Its failure must never affect replica semantics —
+   * the controller isolates it, and no lifecycle transition is sequenced
+   * behind it. Never implement reconciliation on top of `ReplicaEvent`; use
+   * {@link onAccepted} / {@link onExpired}, which are the semantic hooks.
+   */
   readonly onEvent?: (event: ReplicaEvent) => void
+  /**
+   * Fires when an accepted observation has been incorporated — the authority's
+   * state advanced as far as this client can see it, from ANY writer. This is
+   * the hook an application refreshes other containers from.
+   *
+   * It deliberately says nothing about *whose* mutations the observation
+   * carried: the incorporation watermark answers "which of MY mutations are
+   * in", never "is this tuple free of everyone else's changes", so watermark
+   * movement cannot be used to suppress a refresh.
+   */
+  readonly onAccepted?: () => void
   /**
    * Application policy for identity expiry (e.g. a toast when predictions
    * were dropped). The controller has already begun rebuilding under a fresh
@@ -72,8 +126,8 @@ export interface ManagedReplicaOptions<
 /**
  * A replica whose bootstrap, rebuild, and disposal are managed. The surface
  * mirrors `Replica` (plus `settleMutations`); `getSnapshot` is null until a
- * bootstrap resolves and after expiry or disposal — callers render their own
- * frame in those windows.
+ * bootstrap resolves and after expiry, unavailability, or disposal — callers
+ * render their own frame in those windows.
  */
 export interface ManagedReplica<
   State,
@@ -86,10 +140,11 @@ export interface ManagedReplica<
   /**
    * Predicts + delivers one mutation. Dispatches before the first bootstrap
    * resolves are buffered in order and replayed through the replica — the
-   * receipt settles once the real one exists. Dispatches during an expiry
-   * rebuild settle `expired` instead: their intent belongs to a dead
-   * identity, and silently re-issuing it under a fresh one could
-   * double-apply — the application re-issues only what it judges safe.
+   * receipt settles once the real one exists, or `unavailable` if no bootstrap
+   * attempt ever succeeds. Dispatches during an expiry rebuild settle
+   * `expired` instead: their intent belongs to a dead identity, and silently
+   * re-issuing it under a fresh one could double-apply — the application
+   * re-issues only what it judges safe.
    */
   mutate(invocation: Invocation): MutationReceipt<ApplyError, Remote>
   /** Waits for every tracked mutation to reach a trusted remote outcome. */
@@ -121,6 +176,11 @@ export function settledMutationReceipt<ApplyError, Remote>(
  * A receipt that settles from a real one minted later — the buffered-dispatch
  * shape shared by the controller's bootstrap window and the React hook's
  * pre-effect window.
+ *
+ * `id` is a getter, not a captured `null`: the documented meaning of
+ * `MutationReceipt.id` is "null iff no protocol ID was consumed", and a
+ * buffered dispatch that is later adopted DOES consume one. A frozen `null`
+ * would make an adopted mutation indistinguishable from a refused one.
  */
 export function proxiedMutationReceipt<Invocation, ApplyError, Remote>(
   invocation: Invocation
@@ -128,6 +188,7 @@ export function proxiedMutationReceipt<Invocation, ApplyError, Remote>(
   entry: BufferedMutation<Invocation, ApplyError, Remote>
   receipt: MutationReceipt<ApplyError, Remote>
 } {
+  let adopted: MutationReceipt<ApplyError, Remote> | null = null
   let resolveReceipt!: (receipt: MutationReceipt<ApplyError, Remote>) => void
   const receiptPromise = new Promise<MutationReceipt<ApplyError, Remote>>(
     (resolve) => {
@@ -135,9 +196,17 @@ export function proxiedMutationReceipt<Invocation, ApplyError, Remote>(
     }
   )
   return {
-    entry: { invocation, resolve: resolveReceipt },
+    entry: {
+      invocation,
+      resolve: (receipt) => {
+        adopted = receipt
+        resolveReceipt(receipt)
+      },
+    },
     receipt: {
-      id: null,
+      get id() {
+        return adopted?.id ?? null
+      },
       local: receiptPromise.then((receipt) => receipt.local),
       remote: receiptPromise.then((receipt) => receipt.remote),
     },
@@ -148,10 +217,16 @@ export function proxiedMutationReceipt<Invocation, ApplyError, Remote>(
  * Owns one replica's lifecycle around `createReplica` (extracted from the
  * entity binding's hook in UNN-646, once the combat binding needed the same
  * scaffolding): bootstrap-before-construction, ordered buffering during the
- * bootstrap window, receipt settlement tracking, expiry rebuild under a
- * fresh identity, and deferred disposal. Framework-free — React callers wrap
- * it with `useManagedReplica`; imperative callers (a keyed set of replicas)
- * drive it directly.
+ * bootstrap window, bootstrap retry/terminal classification, receipt
+ * settlement tracking, expiry rebuild under a fresh identity, and deferred
+ * disposal. Framework-free — React callers wrap it with `useManagedReplica`;
+ * imperative callers (a keyed set of replicas) drive it directly.
+ *
+ * **Two invariants the lifecycle owes its callers.** Every dispatch reaches a
+ * terminal outcome — there is no phase in which a receipt stays unresolved
+ * indefinitely. And every internal transition (expiry rebuild, terminal
+ * unavailability, teardown) runs to completion independently of the
+ * application callbacks that report it.
  */
 export function createManagedReplica<
   State,
@@ -166,14 +241,22 @@ export function createManagedReplica<
   type Instance = Replica<State, Invocation, ApplyError, Remote>
 
   /**
-   * `bootstrapping` buffers dispatches; `ready` forwards them; `expired`
-   * (a rebuild in flight) refuses them with `expired`; `disposing` is the
-   * one-macrotask grace window where the instance still accepts unmount
-   * flushes; `disposed` refuses everything.
+   * `bootstrapping` buffers dispatches (a retry between attempts is still this
+   * phase); `ready` forwards them; `expired` (a rebuild in flight) refuses
+   * them with `expired`; `unavailable` is the terminal no-replica-will-exist
+   * phase; `disposing` is the one-macrotask grace window where the instance
+   * still accepts unmount flushes; `disposed` refuses everything.
    */
-  let phase: "bootstrapping" | "ready" | "expired" | "disposing" | "disposed" =
-    "bootstrapping"
+  let phase:
+    | "bootstrapping"
+    | "ready"
+    | "expired"
+    | "unavailable"
+    | "disposing"
+    | "disposed" = "bootstrapping"
   let bootstrapInFlight = false
+  let bootstrapAttempt = 0
+  let retryTimer: ReturnType<typeof setTimeout> | null = null
   let instance: Instance | null = null
   let unsubscribeInstance: (() => void) | null = null
   let buffer: BufferedMutation<Invocation, ApplyError, Remote>[] = []
@@ -182,9 +265,24 @@ export function createManagedReplica<
     Promise<Result<Remote, MutationError<ApplyError>>>
   >()
   let settlementFailed = false
+  const retryLimit = options.bootstrapRetries ?? BOOTSTRAP_RETRY_ATTEMPTS
 
   function notify(): void {
     for (const listener of [...listeners]) listener()
+  }
+
+  /**
+   * Runs an APPLICATION callback where a lifecycle transition would otherwise
+   * be sequenced behind it. A throwing logger, toast, or policy hook must
+   * never be able to strand the controller — every internal transition
+   * completes before its notification, and the notification cannot abort it.
+   */
+  function isolate(run: () => void): void {
+    try {
+      run()
+    } catch {
+      // Observability and application policy are not part of the protocol.
+    }
   }
 
   const settledReceipt = settledMutationReceipt<ApplyError, Remote>
@@ -211,11 +309,10 @@ export function createManagedReplica<
     for (const entry of buffered) entry.resolve(target.mutate(entry.invocation))
   }
 
-  function settleBufferDisposed(): void {
+  function settleBuffer(failure: MutationError<ApplyError>): void {
     const buffered = buffer
     buffer = []
-    for (const entry of buffered)
-      entry.resolve(settledReceipt({ kind: "disposed" }))
+    for (const entry of buffered) entry.resolve(settledReceipt(failure))
   }
 
   function adoptInstance(created: Instance): void {
@@ -236,26 +333,34 @@ export function createManagedReplica<
     bootstrapInFlight = true
     void options
       .bootstrap()
-      .catch(() => null)
-      .then((setup) => {
+      .then(
+        (result) => result,
+        // A throw is ambiguous — it may be a transient network failure — so
+        // it is retryable, never terminal.
+        (cause): ManagedBootstrapFailure => ({ kind: "retryable", cause })
+      )
+      .then((result) => {
         bootstrapInFlight = false
-        if (setup === null) {
-          // A refused/failed bootstrap after teardown: nothing will ever
-          // drain the buffer, so settle it now.
-          if (phase === "disposed") settleBufferDisposed()
-          return
-        }
+        if ("kind" in result) return handleBootstrapFailure(result)
+
+        bootstrapAttempt = 0
         const created = createReplica({
-          identity: setup.identity,
-          initial: setup.initial,
+          identity: result.identity,
+          initial: result.initial,
           mutations: options.mutations,
-          transport: setup.transport,
+          transport: result.transport,
           delivery: options.delivery,
           onEvent: (event) => {
-            options.onEvent?.(event)
+            // The internal transition runs FIRST and unconditionally; the
+            // application sinks are notified after, isolated. Sequencing a
+            // rebuild behind a logger is how a throwing sink strands a tab.
             if (event.kind === "expired" && instance === created) {
               expireInstance(created, event.dropped)
             }
+            if (event.kind === "snapshot") {
+              isolate(() => options.onAccepted?.())
+            }
+            isolate(() => options.onEvent?.(event))
           },
         })
         if (phase === "disposing" || phase === "disposed") {
@@ -270,13 +375,50 @@ export function createManagedReplica<
       })
   }
 
+  function handleBootstrapFailure(failure: ManagedBootstrapFailure): void {
+    if (phase === "disposing" || phase === "disposed") {
+      // Nothing will ever drain the buffer: the teardown timer deferred to
+      // this in-flight attempt, and the attempt came back empty.
+      settleBuffer({ kind: "disposed" })
+      return
+    }
+    if (failure.kind === "retryable" && bootstrapAttempt < retryLimit) {
+      bootstrapAttempt += 1
+      const delay = Math.min(
+        BOOTSTRAP_RETRY_BASE_MS * 2 ** (bootstrapAttempt - 1),
+        BOOTSTRAP_RETRY_MAX_MS
+      )
+      retryTimer = setTimeout(() => {
+        retryTimer = null
+        bootstrap()
+      }, delay)
+      return
+    }
+    // Terminal: either the binding said so, or the retry budget is spent.
+    // Buffered intent settles here rather than waiting for a teardown that
+    // may never come — an unresolvable receipt holds its caller's transition
+    // open forever.
+    phase = "unavailable"
+    settleBuffer({ kind: "unavailable" })
+    notify()
+  }
+
   function expireInstance(expired: Instance, dropped: number): void {
     retireInstance()
+    setTimeout(() => expired.dispose(), 0)
+    if (phase === "disposing" || phase === "disposed") {
+      // Expiry during the teardown grace: the mount is going away, so do not
+      // resurrect the phase or rebuild under a fresh identity — a replacement
+      // adopted here would outlive the disposal that was already scheduled.
+      notify()
+      return
+    }
     phase = "expired"
     notify()
-    setTimeout(() => expired.dispose(), 0)
-    options.onExpired?.({ dropped })
+    // Rebuild sits on the guaranteed path, BEFORE the application is told.
+    bootstrapAttempt = 0
     bootstrap()
+    isolate(() => options.onExpired?.({ dropped }))
   }
 
   bootstrap()
@@ -301,6 +443,9 @@ export function createManagedReplica<
       }
       if (phase === "expired") {
         return trackReceipt(settledReceipt({ kind: "expired" }))
+      }
+      if (phase === "unavailable") {
+        return trackReceipt(settledReceipt({ kind: "unavailable" }))
       }
       const current = instance
       if (current) return trackReceipt(current.mutate(invocation))
@@ -327,17 +472,24 @@ export function createManagedReplica<
 
     dispose() {
       if (phase === "disposing" || phase === "disposed") return
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer)
+        retryTimer = null
+      }
       phase = "disposing"
-      const teardown = instance
       notify()
       setTimeout(() => {
         phase = "disposed"
+        // Read the instance at FIRE time, not at dispose time: capturing it
+        // would dispose a replica that an intervening expiry had already
+        // retired while leaving its replacement's transport live.
+        const teardown = instance
         retireInstance()
         teardown?.dispose()
         // A bootstrap still in flight owns the buffer: it drains through the
         // short-lived replica (the unmount-save flush) or settles it if the
         // bootstrap comes back empty.
-        if (!bootstrapInFlight) settleBufferDisposed()
+        if (!bootstrapInFlight) settleBuffer({ kind: "disposed" })
       }, 0)
     },
   }

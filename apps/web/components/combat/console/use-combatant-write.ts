@@ -134,6 +134,7 @@ export function useCombatantWrite({
         return err("invalid-write")
       case "disposed":
       case "expired":
+      case "unavailable":
         return err("write-unavailable")
     }
   }

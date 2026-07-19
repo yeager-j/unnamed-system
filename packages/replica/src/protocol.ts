@@ -4,6 +4,10 @@
  * across a network boundary without losing precision.
  */
 
+import type { Result } from "@workspace/result"
+
+import type { DecodeError } from "./mutations"
+
 /** Strictly monotonic per client, beginning at one. */
 export type MutationId = number
 
@@ -64,3 +68,54 @@ export type PushError<Error> =
   | { readonly kind: "retryable"; readonly cause: unknown }
   | { readonly kind: "rejected"; readonly error: Error }
   | { readonly kind: "unknown-client" }
+
+/**
+ * A terminal refusal recorded against the client's watermark. Recording it
+ * (rather than aborting) is what lets the watermark advance past a rejection
+ * and lets an ambiguous redelivery recover the same classification. Schema
+ * and registry failures are terminal for the same reason: the client
+ * validated before enqueueing, so reaching here means deployment skew, and
+ * refusing to advance would wedge the client's ordered queue forever.
+ */
+export type TerminalRejection<Error> =
+  | { readonly kind: "rejected"; readonly error: Error }
+  | DecodeError
+
+/** A non-terminal refusal to process: nothing was recorded or advanced. */
+export type ProcessRefusal<Error> =
+  | TerminalRejection<Error>
+  | {
+      readonly kind: "gap"
+      readonly expected: MutationId
+      readonly received: MutationId
+    }
+  | {
+      /**
+       * A gap from a client the ledger holds NO history for (`expected === 1`
+       * — the dedup row is absent or fresh-seeded): the authority cannot ever
+       * accept this stream, so the client must rebuild under a fresh
+       * identity. Decided here, once, so every transport inherits the
+       * distinction instead of re-deriving it from `expected` (UNN-645; the
+       * dedup-retention sweep is what makes this reachable by a correct
+       * client). A fresh client whose runtime skips IDs lands here too — the
+       * same reset recovery converges, and the authority-side event keeps
+       * the anomaly observable.
+       */
+      readonly kind: "unknown-client"
+      readonly received: MutationId
+    }
+  | {
+      /**
+       * The ID was already processed but its recorded outcome has aged out of
+       * the adapter's retention window, so the original result cannot be
+       * reproduced. Serial delivery makes this unreachable while retention
+       * covers at least the last outcome per client.
+       */
+      readonly kind: "outcome-unavailable"
+      readonly mutationId: MutationId
+    }
+
+export type RecordedOutcome<Remote, Error> = Result<
+  Remote,
+  TerminalRejection<Error>
+>

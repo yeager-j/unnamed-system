@@ -13,8 +13,8 @@ import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
  * deep-path constructors' one call site (the import fence + barrel omission
  * keep it that way; this module lives inside `combat/commit/` so the fence's
  * exemption covers it). The single decision point from write vocabulary to
- * event vocabulary, shared by the classic session Store and the combat
- * replica's session processor (UNN-646).
+ * event vocabulary; its one caller is the combat replica's session processor
+ * (UNN-646, after the classic session Store was deleted with its router).
  */
 export function mintSessionEvent(
   participantId: ParticipantId,
