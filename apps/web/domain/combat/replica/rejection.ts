@@ -28,3 +28,13 @@ export type CombatReplicaRejection =
   | "entity-not-found"
   | "entity-load-failed"
   | "invalid-write"
+
+/**
+ * The dispatch's caller-visible failure vocabulary (`useCombatantWrite`):
+ * the rejection taxonomy above, plus the one quiet arm — `write-unavailable`
+ * covers a disposed or expired replica (the expiry toast already fired; the
+ * surface is unmounting or rebuilding) and is never toasted.
+ */
+export type CombatWriteDispatchError =
+  | CombatReplicaRejection
+  | "write-unavailable"

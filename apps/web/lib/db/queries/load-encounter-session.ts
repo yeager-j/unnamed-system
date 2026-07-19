@@ -195,6 +195,42 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
   return { entities, versions, owners }
 }
 
+export type EncounterRosterError = "encounter-not-found" | "invalid-session"
+
+/**
+ * The durable roster of one encounter — entity ids only, from the stored
+ * envelope (locators), never hydrating entities (UNN-646, Codex P2 on PR
+ * #391). The combat replica's durable push door checks its precondition
+ * against this: the classic router refused a write whose participant had
+ * left the roster (the locator lookup), and the replica door preserves that
+ * fail-closed scope as an advisory read in the out-of-transaction verdict —
+ * same non-transactional strength the classic path had. Result-shaped
+ * (unlike `loadLiveEncounterDurableEntityIds`'s fail-closed throw) because a
+ * corrupt blob here must become a RECORDED rejection, not a retryable loop.
+ */
+export async function loadEncounterDurableRoster(
+  encounterId: string
+): Promise<Result<ReadonlySet<string>, EncounterRosterError>> {
+  const [row] = await db
+    .select({ session: encounters.session })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+
+  if (!row) return err("encounter-not-found")
+  const parsed = storedSessionSchema.safeParse(row.session)
+  if (!parsed.success) return err("invalid-session")
+  return ok(
+    new Set(
+      parsed.data.participants.flatMap((participant) =>
+        participant.locator.storage === "durable"
+          ? [participant.locator.entityId]
+          : []
+      )
+    )
+  )
+}
+
 /**
  * The campaign's single `live` encounter **id**, or `null` — the blob-agnostic
  * read behind the single-live guard. Selects two columns; never reads

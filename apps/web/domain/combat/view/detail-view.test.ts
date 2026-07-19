@@ -49,7 +49,6 @@ function detailFor(entity: Entity, sheetSlice?: CombatantSheetSlice) {
           storage: "durable",
           characterId: "character-1",
           characterShortId: "character",
-          vitalsVersion: 1,
         }
       : { storage: "inline" },
     sheetSlice

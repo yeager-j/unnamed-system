@@ -16,12 +16,12 @@ import {
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
-import { useCombatantLanes } from "@/components/combat/console/write-lanes"
 import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
 } from "@/domain/combat/console-optimistic"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
+import { useCombatReplicas } from "@/domain/combat/replica/use-combat-replicas"
 import { buildConsoleView } from "@/domain/combat/view/console-view"
 import { buildRosterView } from "@/domain/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/domain/combat/view/zone-overview"
@@ -127,6 +127,9 @@ export function useCombatConsole(
     domain: "encounter",
     shortId: encounter.shortId,
     onPing: (data) => {
+      // The inline replica treats every encounter ping as an invalidation;
+      // its causal gate decides what the pull means.
+      replicas.notifyEncounterPing()
       const ping = parseVersionPing(data, "encounter")
       if (!ping) return
       // The encounter channel carries two version streams (UNN-468): an
@@ -137,7 +140,10 @@ export function useCombatConsole(
       if (ping.version <= ref.current) return
       scheduleRefresh()
     },
-    onReconnect: () => router.refresh(),
+    onReconnect: () => {
+      replicas.notifyReconnect()
+      router.refresh()
+    },
   })
 
   /**
@@ -183,23 +189,26 @@ export function useCombatConsole(
     dispatchSequence([event])
   }
 
-  // The client half of the CD19 router (UNN-567): participantMeta resolved
-  // once into per-participant write lanes; the channel list + ping handler
-  // ride along, so no `meta.storage` read survives in this hook.
-  const lanes = useCombatantLanes({
+  // The app's ownership decision point (UNN-646, succeeding the CD19 lanes):
+  // participantMeta resolved once into per-participant replica handles; the
+  // channel list + ping fan-in ride along, so no `meta.storage` read
+  // survives in this hook.
+  const replicas = useCombatReplicas({
     encounterId: encounter.id,
-    encounterWrite,
     participantMeta,
     rosterIds: state.session.participants.map((p) => p.id),
-    onFresher: scheduleRefresh,
+    onExternalChange: scheduleRefresh,
   })
 
   const { dispatchWrite } = useCombatantWrite({
-    laneOf: lanes.laneOf,
+    handleOf: replicas.handleOf,
     componentsOf: (participantId) =>
       state.session.participants.find((p) => p.id === participantId)?.entity
         .components,
     applyOptimistic,
+    // The inline door's committed encounter version keeps the surviving
+    // event queue's token fresh across the two protocols sharing the row.
+    onRemoteVersion: (version) => encounterWrite.bump(version),
   })
 
   const endCombat: EndCombatPerformer =
@@ -273,7 +282,7 @@ export function useCombatConsole(
     dispatchSequence,
     dispatchWrite,
     endEncounter,
-    onPcPing: lanes.onPcPing,
+    onPcPing: replicas.onPcPing,
     // derived combat view
     view,
     currentActor,
@@ -281,7 +290,7 @@ export function useCombatConsole(
     zoneLayout,
     fallenPcNames,
     obligations,
-    pcChannelIds: lanes.pcChannels,
+    pcChannelIds: replicas.pcChannels,
     onDraft: (participantId: ParticipantId) =>
       dispatch({ kind: "draftCombatant", participantId }),
     onAdvanceRound: () => dispatch({ kind: "advanceRound" }),

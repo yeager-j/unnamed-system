@@ -10,6 +10,7 @@ import {
   authorizeEntityWriteForClass,
 } from "@/lib/auth/campaign-access"
 import { loadEncounterEnvelopeById } from "@/lib/db/queries/load-encounter"
+import { loadEncounterDurableRoster } from "@/lib/db/queries/load-encounter-session"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import {
   publishCharacterPing,
@@ -46,17 +47,28 @@ import {
  */
 
 /**
- * One delivery against a durable participant's entity row. The gate is the
- * classic durable arm's: class→posture over the entity's own campaign
- * placement (vitals ⇒ owner-or-campaign-DM), so the console and the sheet
- * can never disagree about who may write a PC row.
+ * One delivery against a durable participant's entity row. The verdict runs
+ * two checks, in this order:
+ *
+ * 1. The classic durable arm's gate: class→posture over the entity's own
+ *    campaign placement (vitals ⇒ owner-or-campaign-DM), so the console and
+ *    the sheet can never disagree about who may write a PC row. Auth runs
+ *    FIRST so the roster arm's error codes cannot probe encounter membership.
+ * 2. The **roster precondition** (Codex P2, PR #391): the entity must still
+ *    be a durable participant of the wire's encounter, or the delivery is a
+ *    RECORDED `participant-not-found` rejection — the classic router's
+ *    fail-closed locator scope, preserved. A stale frame damaging a PC that
+ *    another tab already removed refuses instead of committing to the
+ *    character row. Advisory-read strength, exactly like the classic
+ *    router's unlocked `loadEncounterForWrite`; the replica's rebase handles
+ *    the residual race like any preconditioned intent.
  *
  * On commit: the character ping (every watcher of the PC catches up) plus
  * `revalidateEncounter` (UNN-567 — the RSC payload rides this push response,
  * so the console's optimistic frame never flash-reverts) plus
- * `revalidateEntity`. The wire's `encounterId` is revalidation context only:
- * it is verified against the PC's campaign placement, and a mismatch skips
- * the encounter revalidation without ever rejecting a committed write.
+ * `revalidateEntity`. For revalidation the encounter claim is additionally
+ * campaign-verified; a mismatch skips it without ever rejecting a committed
+ * write.
  */
 export async function pushCombatDurableMutationAction(
   input: CombatDurablePushInput
@@ -68,6 +80,7 @@ export async function pushCombatDurableMutationAction(
   const context: CombatDurablePushContext = {
     entityId,
     authorization: await authorizeDurableEnvelope(
+      encounterId,
       entityId,
       envelope.invocation
     ),
@@ -119,12 +132,14 @@ export async function pushCombatSessionMutationAction(
 
 /**
  * The durable door's verdict: the class → posture gate over the decoded
- * write's own `durableClass` — the same policy the classic arm enforces.
- * A failed decode leaves the verdict moot (the processor's decode fails
- * first and records `invalid`); `forbidden` is the fail-closed default for
- * that unreachable arm.
+ * write's own `durableClass` (the classic arm's policy), then the roster
+ * precondition — the entity must still be a durable participant of the
+ * claimed encounter. A failed decode leaves the verdict moot (the
+ * processor's decode fails first and records `invalid`); `forbidden` is the
+ * fail-closed default for that unreachable arm.
  */
 async function authorizeDurableEnvelope(
+  encounterId: string,
   entityId: string,
   invocation: { readonly name: string; readonly args: unknown }
 ): Promise<Result<LoadedPlayerCharacter, CombatReplicaRejection>> {
@@ -133,7 +148,14 @@ async function authorizeDurableEnvelope(
 
   const write = decoded.value.args
   const { durableClass } = ENTITY_WRITERS[write.component]
-  return authorizeEntityWriteForClass(entityId, durableClass)
+  const authorized = await authorizeEntityWriteForClass(entityId, durableClass)
+  if (!authorized.ok) return authorized
+
+  const roster = await loadEncounterDurableRoster(encounterId)
+  if (!roster.ok) return roster
+  if (!roster.value.has(entityId)) return err("participant-not-found")
+
+  return authorized
 }
 
 /**

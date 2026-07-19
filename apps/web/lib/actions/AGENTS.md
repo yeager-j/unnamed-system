@@ -73,7 +73,12 @@ concurrency token, and envelope:
 > (`pushCombatDurableMutationAction`) is the entity door's shape over the
 > `combat.entity.write` registry (the `combatEntityWriteSchema` subset — a
 > non-combat arm is a RECORDED decode refusal), the same `replicaClient`
-> ledger, and the entity-row lock; lock order `replicaClient → entity`. The
+> ledger, and the entity-row lock; lock order `replicaClient → entity`. Its
+> verdict also checks the **roster precondition** (auth first, then roster —
+> membership must not be probeable): the entity must still be a durable
+> participant of the wire's encounter, or the delivery records
+> `participant-not-found` — the classic router's fail-closed locator scope at
+> the classic router's advisory-read strength. The
 > **session door** (`pushCombatSessionMutationAction`) runs the classic
 > session Store's body (locator-derived home, Writer pre-mint, event mint,
 > reduce, fail-closed serialize) under the encounter row lock with the
