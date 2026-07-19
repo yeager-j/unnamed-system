@@ -5,10 +5,10 @@ import type { ReplicaEvent } from "@workspace/replica"
  * `domain/entity/replica/events.ts` — same policy: routine mutation traffic
  * stays quiet; recovery, replay, and expiry anomalies warn with names, ids,
  * and counts only — never mutation arguments or rejection payloads. The
- * `root` tag distinguishes the durable and inline streams.
+ * `root` tag distinguishes the durable and encounter streams.
  */
 export function logCombatReplicaEvent(
-  root: "durable" | "session",
+  root: "durable" | "encounter",
   event: ReplicaEvent
 ): void {
   switch (event.kind) {

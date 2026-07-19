@@ -11,6 +11,10 @@ import type { ClientIdentity } from "@workspace/replica"
  * from the owner sheet's `entity:` group in the shared `replicaClient` ledger
  * while pinning to the same entity row — one entity, two replica families,
  * each an independent ordered stream.
+ *
+ * The `encounter:` group (UNN-655, superseding `combat-session:`) is the
+ * storage-native encounter root's family in the `encounterReplicaClient`
+ * ledger — one family per encounter row; the old prefix's rows TTL out.
  */
 export function mintCombatEntityIdentity(entityId: string): ClientIdentity {
   return {
@@ -19,9 +23,9 @@ export function mintCombatEntityIdentity(entityId: string): ClientIdentity {
   }
 }
 
-export function mintCombatSessionIdentity(encounterId: string): ClientIdentity {
+export function mintEncounterIdentity(encounterId: string): ClientIdentity {
   return {
-    clientGroupId: `combat-session:${encounterId}`,
+    clientGroupId: `encounter:${encounterId}`,
     clientId: crypto.randomUUID(),
   }
 }

@@ -19,8 +19,8 @@ import { err, ok, type Result } from "@workspace/result"
 
 import type {
   CombatDurableReplicaSnapshot,
-  CombatInlineReplicaSnapshot,
   CombatReplicaSnapshots,
+  EncounterReplicaSnapshot,
 } from "@/domain/combat/compose-combat-model"
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
@@ -36,27 +36,27 @@ import type {
 } from "@/lib/actions/combat/replica/wire.schema"
 import {
   createCombatDurableSource,
-  createCombatInlineSource,
+  createEncounterSource,
 } from "@/lib/sync/combat-replica-source"
 
 import { logCombatReplicaEvent } from "./events"
-import { mintCombatEntityIdentity, mintCombatSessionIdentity } from "./identity"
+import { mintCombatEntityIdentity, mintEncounterIdentity } from "./identity"
 import {
   combatDurableMutations,
-  combatInlineMutations,
+  encounterMutations,
   writeCombatEntity,
-  writeCombatInline,
+  writeEncounterInline,
   type CombatDurableInvocation,
   type CombatDurableState,
-  type CombatInlineInvocation,
-  type CombatInlineState,
+  type EncounterInvocation,
+  type EncounterReplicaState,
 } from "./mutations"
 import type { CombatReplicaRejection } from "./rejection"
 
 export type CombatBootstrapUnavailableReason =
   | CombatAcceptedError
   | "not-a-participant"
-  | "no-inline-tuple"
+  | "no-encounter-tuple"
 
 /** One durable PC's realtime channel key. */
 export interface PcChannel {
@@ -91,9 +91,9 @@ type DurableController = ManagedReplica<
   CombatBootstrapUnavailableReason
 >
 
-type InlineController = ManagedReplica<
-  CombatInlineState,
-  CombatInlineInvocation,
+type EncounterController = ManagedReplica<
+  EncounterReplicaState,
+  EncounterInvocation,
   CombatReplicaRejection,
   CombatSessionRemote,
   CombatBootstrapUnavailableReason
@@ -118,11 +118,11 @@ interface CombatReplicaSnapshotStore {
   getSnapshot(): CombatReplicaSnapshots
   subscribe(listener: () => void): () => void
   attachDurable(entityId: string, controller: DurableController): () => void
-  attachInline(controller: InlineController): () => void
+  attachEncounter(controller: EncounterController): () => void
 }
 
 const EMPTY_REPLICA_SNAPSHOTS: CombatReplicaSnapshots = {
-  inlineReplicaSnapshot: null,
+  encounterReplicaSnapshot: null,
   durableReplicaSnapshots: new Map(),
 }
 
@@ -168,25 +168,25 @@ function createCombatReplicaSnapshotStore(): CombatReplicaSnapshotStore {
     }
   }
 
-  function attachInline(controller: InlineController): () => void {
+  function attachEncounter(controller: EncounterController): () => void {
     function sync(): void {
       const state = controller.getSnapshot()
-      const current = snapshot.inlineReplicaSnapshot
+      const current = snapshot.encounterReplicaSnapshot
       if (state.status === "ready") {
         if (current === state.replica) return
-        publish({ ...snapshot, inlineReplicaSnapshot: state.replica })
+        publish({ ...snapshot, encounterReplicaSnapshot: state.replica })
         return
       }
       if (current === null) return
-      publish({ ...snapshot, inlineReplicaSnapshot: null })
+      publish({ ...snapshot, encounterReplicaSnapshot: null })
     }
 
     const unsubscribe = controller.subscribe(sync)
     sync()
     return () => {
       unsubscribe()
-      if (snapshot.inlineReplicaSnapshot === null) return
-      publish({ ...snapshot, inlineReplicaSnapshot: null })
+      if (snapshot.encounterReplicaSnapshot === null) return
+      publish({ ...snapshot, encounterReplicaSnapshot: null })
     }
   }
 
@@ -197,7 +197,7 @@ function createCombatReplicaSnapshotStore(): CombatReplicaSnapshotStore {
       return () => listeners.delete(listener)
     },
     attachDurable,
-    attachInline,
+    attachEncounter,
   }
 }
 
@@ -206,8 +206,8 @@ interface DurableControllerEntry {
   readonly detachSnapshot: () => void
 }
 
-interface InlineControllerEntry {
-  readonly controller: InlineController
+interface EncounterControllerEntry {
+  readonly controller: EncounterController
   readonly detachSnapshot: () => void
 }
 
@@ -247,7 +247,7 @@ export interface UseCombatReplicasReturn {
   onPcPing: (characterId: string, data: unknown) => void
   notifyEncounterPing: () => void
   notifyReconnect: () => void
-  inlineReplicaSnapshot: CombatInlineReplicaSnapshot | null
+  encounterReplicaSnapshot: EncounterReplicaSnapshot | null
   durableReplicaSnapshots: ReadonlyMap<string, CombatDurableReplicaSnapshot>
 }
 
@@ -287,8 +287,8 @@ export function useCombatReplicas({
 }: UseCombatReplicasArgs): UseCombatReplicasReturn {
   const durableRef = useRef(new Map<string, DurableControllerEntry>())
   const durableBridges = useRef(new Map<string, InvalidationBridge>())
-  const inlineRef = useRef<InlineControllerEntry | null>(null)
-  const inlineBridge = useRef<InvalidationBridge | null>(null)
+  const encounterRef = useRef<EncounterControllerEntry | null>(null)
+  const encounterBridge = useRef<InvalidationBridge | null>(null)
   const [snapshotStore] = useState(createCombatReplicaSnapshotStore)
   const replicaSnapshots = useSyncExternalStore(
     snapshotStore.subscribe,
@@ -314,7 +314,7 @@ export function useCombatReplicas({
    * identity expiry, and refresh only when bootstrap proves the route itself
    * is unavailable. Ready component snapshots publish through the external
    * store above; observability and routing do not participate in convergence. */
-  function createControllerTelemetry(root: "durable" | "session") {
+  function createControllerTelemetry(root: "durable" | "encounter") {
     return {
       onEvent: (event: Parameters<typeof logCombatReplicaEvent>[1]) =>
         logCombatReplicaEvent(root, event),
@@ -436,20 +436,20 @@ export function useCombatReplicas({
     })
   }
 
-  function createInlineController(
-    firstIdentity: ReturnType<typeof mintCombatSessionIdentity>,
+  function createEncounterController(
+    firstIdentity: ReturnType<typeof mintEncounterIdentity>,
     prefetch: Promise<BatchedBootstrap>
-  ): InlineController {
-    const bridge = inlineBridge.current ?? createInvalidationBridge()
-    inlineBridge.current = bridge
-    const telemetry = createControllerTelemetry("session")
+  ): EncounterController {
+    const bridge = encounterBridge.current ?? createInvalidationBridge()
+    encounterBridge.current = bridge
+    const telemetry = createControllerTelemetry("encounter")
     let pending: {
       identity: typeof firstIdentity
       shared: Promise<BatchedBootstrap>
     } | null = { identity: firstIdentity, shared: prefetch }
 
     return createManagedReplica({
-      mutations: combatInlineMutations,
+      mutations: encounterMutations,
       bootstrap: async () => {
         let identity: typeof firstIdentity
         let batch: BatchedBootstrap
@@ -461,18 +461,18 @@ export function useCombatReplicas({
           identity = initial.identity
           batch = await initial.shared
         } else {
-          identity = mintCombatSessionIdentity(encounterId)
-          batch = await fetchAccepted({ encounterId, inline: identity })
+          identity = mintEncounterIdentity(encounterId)
+          batch = await fetchAccepted({ encounterId, encounter: identity })
         }
         if (!batch.ok) return err(batch.error)
-        const accepted = batch.value.inline
+        const accepted = batch.value.encounter
         if (!accepted) {
           return err({
             kind: "unavailable" as const,
-            reason: "no-inline-tuple",
+            reason: "no-encounter-tuple",
           })
         }
-        const source = createCombatInlineSource({
+        const source = createEncounterSource({
           encounterId,
           identity,
           subscribe: bridge.subscribe,
@@ -521,30 +521,30 @@ export function useCombatReplicas({
     const missing = durableEntityIds.filter(
       (entityId) => !durableRef.current.has(entityId)
     )
-    const needInline = inlineRef.current === null
-    if (missing.length === 0 && !needInline) return
+    const needEncounter = encounterRef.current === null
+    if (missing.length === 0 && !needEncounter) return
 
     const durableRequests = missing.map((entityId) => ({
       entityId,
       identity: mintCombatEntityIdentity(entityId),
     }))
-    const inlineIdentity = needInline
-      ? mintCombatSessionIdentity(encounterId)
+    const encounterIdentity = needEncounter
+      ? mintEncounterIdentity(encounterId)
       : undefined
     const shared = fetchAccepted({
       encounterId,
-      ...(inlineIdentity ? { inline: inlineIdentity } : {}),
+      ...(encounterIdentity ? { encounter: encounterIdentity } : {}),
       durable: durableRequests.map(({ entityId, identity }) => ({
         entityId,
         identity,
       })),
     })
 
-    if (inlineIdentity) {
-      const controller = createInlineController(inlineIdentity, shared)
-      inlineRef.current = {
+    if (encounterIdentity) {
+      const controller = createEncounterController(encounterIdentity, shared)
+      encounterRef.current = {
         controller,
-        detachSnapshot: snapshotStore.attachInline(controller),
+        detachSnapshot: snapshotStore.attachEncounter(controller),
       }
     }
     for (const { entityId, identity } of durableRequests) {
@@ -573,10 +573,10 @@ export function useCombatReplicas({
       }
       durable.clear()
       bridges.clear()
-      inlineRef.current?.detachSnapshot()
-      inlineRef.current?.controller.dispose()
-      inlineRef.current = null
-      inlineBridge.current = null
+      encounterRef.current?.detachSnapshot()
+      encounterRef.current?.controller.dispose()
+      encounterRef.current = null
+      encounterBridge.current = null
     }
   }, [encounterId, snapshotStore])
 
@@ -602,12 +602,12 @@ export function useCombatReplicas({
       }
     }
 
-    const entry = inlineRef.current
+    const entry = encounterRef.current
     if (!entry) return undefined
     return {
       channel: null,
       mutate: (write) =>
-        entry.controller.mutate(writeCombatInline({ participantId, write })),
+        entry.controller.mutate(writeEncounterInline({ participantId, write })),
     }
   }
 
@@ -627,7 +627,7 @@ export function useCombatReplicas({
   async function settleAll(): Promise<Result<void, "pending-write-failed">> {
     const controllers = [
       ...[...durableRef.current.values()].map((entry) => entry.controller),
-      ...(inlineRef.current ? [inlineRef.current.controller] : []),
+      ...(encounterRef.current ? [encounterRef.current.controller] : []),
     ]
     const outcomes = await Promise.all(
       controllers.map((controller) => controller.settleMutations())
@@ -645,12 +645,12 @@ export function useCombatReplicas({
     // invalidation signal — the transport's causal gate decides causality.
     onPcPing: (characterId) =>
       durableBridges.current.get(characterId)?.notify(),
-    notifyEncounterPing: () => inlineBridge.current?.notify(),
+    notifyEncounterPing: () => encounterBridge.current?.notify(),
     notifyReconnect: () => {
       for (const bridge of durableBridges.current.values()) bridge.notify()
-      inlineBridge.current?.notify()
+      encounterBridge.current?.notify()
     },
-    inlineReplicaSnapshot: replicaSnapshots.inlineReplicaSnapshot,
+    encounterReplicaSnapshot: replicaSnapshots.encounterReplicaSnapshot,
     durableReplicaSnapshots: replicaSnapshots.durableReplicaSnapshots,
   }
 }

@@ -5,14 +5,14 @@ export default [
   ...nextJsConfig,
   {
     // The router-only session-event constructors (`toSessionEvent` and
-    // siblings) are deliberately omitted from the engine barrel; their one
-    // sanctioned deep-path importer is the write-router's commit module
-    // (UNN-520, CD19). Honest caveat: the shared config's `only-warn`
-    // downgrades this to a warning — it is a tripwire, not a wall; the real
-    // containment is the barrel omission + the generic wire's schema
-    // exclusion + the contract tests.
+    // siblings) are deliberately omitted from the engine barrel; their last
+    // sanctioned deep-path importer (the write-router's commit module,
+    // UNN-520/CD19) retired with the storage-native encounter root (UNN-655),
+    // so no app file may deep-import them now. Honest caveat: the shared
+    // config's `only-warn` downgrades this to a warning — it is a tripwire,
+    // not a wall; the real containment is the barrel omission + the generic
+    // wire's schema exclusion + the contract tests.
     files: ["**/*.{ts,tsx}"],
-    ignores: ["lib/actions/combat/commit/**"],
     rules: {
       "no-restricted-imports": [
         "error",

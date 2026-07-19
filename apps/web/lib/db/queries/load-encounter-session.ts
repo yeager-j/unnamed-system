@@ -2,8 +2,10 @@ import { and, eq } from "drizzle-orm"
 
 import {
   loadSession,
+  loadSessionShell,
   storedSessionSchema,
   type LoadedSession,
+  type SessionShell,
   type StoredEntity,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
@@ -74,27 +76,52 @@ export async function loadEncounterForWrite(
   return dissolveEncounterRow(rawRow)
 }
 
+export interface LockedEncounterShell {
+  readonly row: Pick<EncounterRow, "id" | "shortId" | "status" | "version">
+  readonly shell: SessionShell
+}
+
 /**
- * The in-transaction, row-locked twin of {@link loadEncounterForWrite}
- * (UNN-646): the combat replica's session processor holds the encounter row
- * lock from read to commit, so the parse → reduce → save sequence cannot lose
- * a race — the lock, not a client token, is that door's concurrency strategy.
- * The durable-participant hydration inside the dissolve still reads through
- * the default `db` (unlocked, outside the transaction): the inline write
- * never writes durable rows, and their components only feed the dissolve.
+ * The encounter replica authority's row-locked read (UNN-655): the row's
+ * storage-native facts — envelope columns plus the session blob refined
+ * through {@link loadSessionShell} — with NO durable hydration, so the read
+ * is one consistent observation of exactly what the row stores. The
+ * processor holds this lock from read to commit; the lock, not a client
+ * token, is that door's concurrency strategy. A blob that fails the
+ * persisted-contract parse or the shell refinement is `invalid-session` —
+ * a data-integrity refusal the door records rather than retries.
  */
-export async function loadEncounterForWriteLocked(
+export async function loadEncounterShellForWriteLocked(
   executor: WriteExecutor,
   encounterId: string
-): Promise<Result<LoadedEncounterForWrite, LoadEncounterSessionError>> {
-  const [rawRow] = await executor
-    .select()
+): Promise<Result<LockedEncounterShell, EncounterRosterError>> {
+  const [row] = await executor
+    .select({
+      id: encounters.id,
+      shortId: encounters.shortId,
+      status: encounters.status,
+      version: encounters.version,
+      session: encounters.session,
+    })
     .from(encounters)
     .where(eq(encounters.id, encounterId))
     .limit(1)
     .for("update")
 
-  return dissolveEncounterRow(rawRow)
+  if (!row) return err("encounter-not-found")
+  const parsed = storedSessionSchema.safeParse(row.session)
+  if (!parsed.success) return err("invalid-session")
+  const shell = loadSessionShell(parsed.data)
+  if (!shell.ok) return err("invalid-session")
+  return ok({
+    row: {
+      id: row.id,
+      shortId: row.shortId,
+      status: row.status,
+      version: row.version,
+    },
+    shell: shell.value,
+  })
 }
 
 /**
@@ -115,10 +142,7 @@ export async function loadEncounterForSnapshot(
   return dissolveEncounterRow(rawRow)
 }
 
-/** The shared parse → hydrate → dissolve core the entry points run. Exported
- *  (UNN-646) for the combat replica's snapshot door, whose atomicity rule
- *  requires selecting the row itself in one joined statement before
- *  dissolving. */
+/** The shared parse → hydrate → dissolve core the entry points run. */
 export async function dissolveEncounterRow(
   rawRow: EncounterRow | undefined
 ): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {

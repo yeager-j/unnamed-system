@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  defaultOverlay,
   makeParticipant,
   type EncounterState,
+  type SessionShell,
 } from "@workspace/game-v2/encounter"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -10,7 +12,10 @@ import type { ReplicaSnapshot } from "@workspace/replica"
 
 import { composeCombatModel } from "./compose-combat-model"
 import type { ParticipantMeta } from "./participant-meta"
-import type { CombatDurableState, CombatInlineState } from "./replica/mutations"
+import type {
+  CombatDurableState,
+  EncounterReplicaState,
+} from "./replica/mutations"
 import type { CombatReplicaRejection } from "./replica/rejection"
 
 const durableOne = asParticipantId("durable-1")
@@ -83,6 +88,32 @@ const meta: Record<string, ParticipantMeta> = {
   [inline]: { storage: "inline" },
 }
 
+/** A ready encounter-root snapshot over inline shell participants. */
+function encounterSnapshot(
+  participants: Record<string, Record<string, unknown>>
+) {
+  const shellParticipants: SessionShell["participants"] = Object.entries(
+    participants
+  ).map(([id, components]) => ({
+    id: asParticipantId(id),
+    entity: {
+      storage: "inline" as const,
+      entity: { id: `${id}-entity`, components },
+    },
+    overlay: defaultOverlay({ side: "enemies" }),
+  }))
+  return snapshot<EncounterReplicaState>({
+    status: "live",
+    session: {
+      round: 3,
+      currentActorId: null,
+      advantage: null,
+      firstSide: null,
+      participants: shellParticipants,
+    },
+  })
+}
+
 function snapshot<State>(
   value: State
 ): ReplicaSnapshot<State, CombatReplicaRejection> {
@@ -101,7 +132,7 @@ describe("composeCombatModel", () => {
     expect(
       composeCombatModel({
         eventFrame: frame,
-        inlineReplicaSnapshot: null,
+        encounterReplicaSnapshot: null,
         durableReplicaSnapshots: new Map(),
         participantMeta: meta,
       })
@@ -113,13 +144,13 @@ describe("composeCombatModel", () => {
     const durable = snapshot<CombatDurableState>({
       components: { vitals: { base: 20, damage: 7 } },
     })
-    const inlineSnapshot = snapshot<CombatInlineState>({
-      participants: { [inline]: { vitals: { base: 20, damage: 9 } } },
+    const encounter = encounterSnapshot({
+      [inline]: { vitals: { base: 20, damage: 9 } },
     })
 
     const model = composeCombatModel({
       eventFrame: frame,
-      inlineReplicaSnapshot: inlineSnapshot,
+      encounterReplicaSnapshot: encounter,
       durableReplicaSnapshots: new Map([["entity-1", durable]]),
       participantMeta: meta,
     })
@@ -147,7 +178,7 @@ describe("composeCombatModel", () => {
     const frame = eventFrame()
     const model = composeCombatModel({
       eventFrame: frame,
-      inlineReplicaSnapshot: null,
+      encounterReplicaSnapshot: null,
       durableReplicaSnapshots: new Map([
         [
           "entity-1",
@@ -173,7 +204,7 @@ describe("composeCombatModel", () => {
     const frame = eventFrame()
     const model = composeCombatModel({
       eventFrame: frame,
-      inlineReplicaSnapshot: snapshot<CombatInlineState>({ participants: {} }),
+      encounterReplicaSnapshot: encounterSnapshot({}),
       durableReplicaSnapshots: new Map(),
       participantMeta: meta,
     })
@@ -196,10 +227,8 @@ describe("composeCombatModel", () => {
 
     const model = composeCombatModel({
       eventFrame: eventFrameWithRosterChange,
-      inlineReplicaSnapshot: snapshot<CombatInlineState>({
-        participants: {
-          [inline]: { vitals: { base: 20, damage: 9 } },
-        },
+      encounterReplicaSnapshot: encounterSnapshot({
+        [inline]: { vitals: { base: 20, damage: 9 } },
       }),
       durableReplicaSnapshots: new Map([
         [

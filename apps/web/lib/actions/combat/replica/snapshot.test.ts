@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { ok } from "@workspace/result"
+import { defaultOverlay } from "@workspace/game-v2/encounter"
 
 import { loadCombatAcceptedAction } from "./snapshot"
 
 /**
- * The batched bootstrap door's mapping + security contract (UNN-646). The db
- * chain is stubbed (the per-root single-statement joins ARE the atomicity
- * argument and can only be exercised against Postgres — the real-DB door test
- * covers that); the real narrowing seam runs, so the redaction pins are
- * genuine.
+ * The batched bootstrap door's mapping + security contract (UNN-646; storage-
+ * native root UNN-655). The db chain is stubbed (the per-root single-statement
+ * joins ARE the atomicity argument and can only be exercised against Postgres
+ * — the real-DB door test covers that); the real parse + shell-refinement and
+ * narrowing seams run, so the pins are genuine. The encounter pin: the tuple
+ * contains only facts atomically stored under the encounter row — durable
+ * participants appear as REFERENCES only, never hydrated components.
  */
 const requireCampaignDM = vi.fn()
 const loadEncounterEnvelopeById = vi.fn()
-const dissolveEncounterRow = vi.fn()
 const registered = vi.fn()
 let selectResults: unknown[][] = []
 
@@ -22,9 +23,6 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 }))
 vi.mock("@/lib/db/queries/load-encounter", () => ({
   loadEncounterEnvelopeById: (id: string) => loadEncounterEnvelopeById(id),
-}))
-vi.mock("@/lib/db/queries/load-encounter-session", () => ({
-  dissolveEncounterRow: (row: unknown) => dissolveEncounterRow(row),
 }))
 vi.mock("@/lib/db/client", () => ({
   db: {
@@ -46,7 +44,7 @@ vi.mock("@/lib/db/client", () => ({
   },
 }))
 
-const inlineIdentity = { clientGroupId: "combat-session:enc1", clientId: "t1" }
+const encounterIdentity = { clientGroupId: "encounter:enc1", clientId: "t1" }
 const durableIdentity = { clientGroupId: "combat-entity:e1", clientId: "t1" }
 
 const encounterEnvelope = {
@@ -56,34 +54,42 @@ const encounterEnvelope = {
   status: "live",
 }
 
-const encounterRow = { id: "enc1", version: 12, session: {} }
-
+/** The goblin's DM-authored inline bag — includes a non-combat component to
+ *  pin that the storage-native root serves the row's facts WHOLE (the
+ *  UNN-655 posture: the DM gate is the license; narrowing to the four combat
+ *  keys is the durable roots' posture and the composition seam's concern). */
 const goblinComponents = {
   vitals: { base: 8, damage: 1 },
-  narrative: { openDoors: ["a-secret"] },
+  presentation: { portraitUrl: "https://blob.example/goblin.png" },
 }
 
-function dissolvedWorld() {
-  return {
-    row: encounterRow,
-    loaded: {
-      session: {
-        participants: [
-          { id: "p-goblin", entity: { components: goblinComponents } },
-          {
-            id: "p-pc",
-            entity: { components: { vitals: { base: 20, damage: 0 } } },
-          },
-        ],
+const storedSession = {
+  round: 2,
+  currentActorId: null,
+  advantage: null,
+  firstSide: null,
+  participants: [
+    {
+      id: "p-goblin",
+      locator: {
+        storage: "inline",
+        entity: { id: "goblin-1", components: goblinComponents },
       },
-      locators: new Map([
-        ["p-goblin", { storage: "inline", entity: { id: "x" } }],
-        ["p-pc", { storage: "durable", entityId: "e1" }],
-      ]),
+      overlay: defaultOverlay({ side: "enemies" }),
     },
-    durableVersions: new Map(),
-    durableOwners: new Map(),
-  }
+    {
+      id: "p-pc",
+      locator: { storage: "durable", entityId: "e1" },
+      overlay: defaultOverlay({ side: "players" }),
+    },
+  ],
+}
+
+const encounterRow = {
+  id: "enc1",
+  status: "live",
+  version: 12,
+  session: storedSession,
 }
 
 /** An entity join row shaped like the real `entity` table (component columns
@@ -121,14 +127,13 @@ function entityJoinRow(lastMutationId: number | null) {
 
 const request = {
   encounterId: "enc1",
-  inline: inlineIdentity,
+  encounter: encounterIdentity,
   durable: [{ entityId: "e1", identity: durableIdentity }],
 }
 
 beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: "c1" })
   loadEncounterEnvelopeById.mockReset().mockResolvedValue(encounterEnvelope)
-  dissolveEncounterRow.mockReset().mockResolvedValue(ok(dissolvedWorld()))
   registered.mockReset()
   selectResults = [
     [{ encounter: encounterRow, lastMutationId: 4 }],
@@ -145,7 +150,7 @@ describe("loadCombatAcceptedAction", () => {
   it("registers every requested identity — the bootstrap that licenses absent-row ⇒ unknown-client", async () => {
     await loadCombatAcceptedAction(request)
     expect(registered).toHaveBeenCalledWith({
-      ...inlineIdentity,
+      ...encounterIdentity,
       encounterId: "enc1",
       lastMutationId: 0,
     })
@@ -154,18 +159,60 @@ describe("loadCombatAcceptedAction", () => {
     ])
   })
 
-  it("serves the inline root: inline participants only, narrowed, with the encounter tuple", async () => {
+  it("serves the storage-native encounter root: status + shell, one tuple", async () => {
     const result = await loadCombatAcceptedAction(request)
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
-    const inline = result.value.inline!
-    expect(inline.through).toBe(4)
-    expect(inline.cursor).toBe(12)
-    expect(Object.keys(inline.value.participants)).toEqual(["p-goblin"])
-    expect(inline.value.participants["p-goblin"]).toEqual({
-      vitals: { base: 8, damage: 1 },
+    const encounter = result.value.encounter!
+    expect(encounter.through).toBe(4)
+    expect(encounter.cursor).toBe(12)
+    expect(encounter.value.status).toBe("live")
+    expect(encounter.value.session.round).toBe(2)
+    expect(
+      encounter.value.session.participants.map((participant) => participant.id)
+    ).toEqual(["p-goblin", "p-pc"])
+  })
+
+  it("serves inline entities whole — the row's own facts, behind the DM gate", async () => {
+    const result = await loadCombatAcceptedAction(request)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const goblin = result.value.encounter!.value.session.participants[0]!
+    expect(goblin.entity).toEqual({
+      storage: "inline",
+      entity: { id: "goblin-1", components: goblinComponents },
     })
+  })
+
+  it("serves durable participants as REFERENCES only — never hydrated components", async () => {
+    const result = await loadCombatAcceptedAction(request)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const pc = result.value.encounter!.value.session.participants[1]!
+    expect(pc.entity).toEqual({ storage: "durable", entityId: "e1" })
+    // The atomicity invariant behind the shape: the encounter watermark and
+    // version can never be paired with separately read entity state, because
+    // no entity state exists in this tuple to pair.
+    expect(JSON.stringify(result.value.encounter)).not.toContain("Momo")
+  })
+
+  it("errs invalid-session when the blob fails the shell refinement", async () => {
+    selectResults = [
+      [
+        {
+          encounter: {
+            ...encounterRow,
+            session: { ...storedSession, round: "not-a-round" },
+          },
+          lastMutationId: 4,
+        },
+      ],
+    ]
+    const result = await loadCombatAcceptedAction(request)
+    expect(result).toEqual({ ok: false, error: "invalid-session" })
   })
 
   it("serves the durable root as the REDACTED combat narrowing — no narrative, no columns", async () => {
@@ -195,11 +242,12 @@ describe("loadCombatAcceptedAction", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.value.durable).toEqual({})
-    // Only the inline identity reached a ledger — an unadmitted entity must
-    // not get a `replicaClient` row (registration is the push door's license).
+    // Only the encounter identity reached a ledger — an unadmitted entity
+    // must not get a `replicaClient` row (registration is the push door's
+    // license).
     expect(registered).toHaveBeenCalledTimes(1)
     expect(registered).toHaveBeenCalledWith({
-      ...inlineIdentity,
+      ...encounterIdentity,
       encounterId: "enc1",
       lastMutationId: 0,
     })
@@ -213,7 +261,7 @@ describe("loadCombatAcceptedAction", () => {
     const result = await loadCombatAcceptedAction(request)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.inline!.through).toBe(0)
+    expect(result.value.encounter!.through).toBe(0)
     expect(result.value.durable["e1"]!.through).toBe(0)
   })
 

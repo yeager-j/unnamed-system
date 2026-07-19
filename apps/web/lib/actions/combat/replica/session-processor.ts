@@ -1,4 +1,4 @@
-import { createReduceSession, saveSession } from "@workspace/game-v2/encounter"
+import { serializeSessionShell } from "@workspace/game-v2/encounter"
 import {
   type MutationProcessor,
   type ProcessorEvent,
@@ -6,24 +6,20 @@ import {
 import { err, ok, type Result } from "@workspace/result"
 
 import {
-  combatInlineMutations,
-  type CombatInlineInvocation,
+  encounterMutations,
+  type EncounterInvocation,
+  type EncounterReplicaState,
 } from "@/domain/combat/replica/mutations"
 import type { CombatReplicaRejection } from "@/domain/combat/replica/rejection"
-import { applyEntityWrite } from "@/domain/entity/commit/writers"
 import { type WriteExecutor } from "@/lib/db/client"
 import type { EncounterEnvelope } from "@/lib/db/queries/load-encounter"
-import { loadEncounterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
+import { loadEncounterShellForWriteLocked } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { encounterReplicaClient } from "@/lib/db/schema/encounter-replica-client"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
 
 import { createDrizzleMutationProcessor } from "../../replica/drizzle-processor"
-import { mintSessionEvent } from "../commit/mint-session-event"
 import type { CombatSessionRemote } from "./wire.schema"
-
-/** Server-side id mint for the session reducer (unused by these event kinds). */
-const newId = () => crypto.randomUUID()
 
 /**
  * Per-delivery trusted context. `authorization` is the campaign-DM verdict
@@ -49,21 +45,23 @@ export type CombatSessionPushProcessor = MutationProcessor<
 >
 
 /**
- * The inline combat authority (UNN-646): `createMutationProcessor` over one
- * Drizzle transaction per delivery, with the `encounterReplicaClient` ledger
- * and the **encounter row lock** as the concurrency strategy — the locked
- * row's own `version` feeds `saveEncounterSession`, making the classic guard
- * vacuous here while classic event-wire writers on the same row keep their
- * conditioned updates (a replica commit bumps `version`, so a concurrent
- * classic write fails `"stale"` and rides its existing retry; mixed writers
- * per the design's rollout mandate). **Lock order:
- * `encounterReplicaClient` → `encounters`** (see the ledger table's doc for
- * the cascade-delete caveat).
+ * The encounter replica authority (UNN-646, storage-native root UNN-655):
+ * `createMutationProcessor` over one Drizzle transaction per delivery, with
+ * the `encounterReplicaClient` ledger and the **encounter row lock** as the
+ * concurrency strategy — the locked row's own `version` feeds
+ * `saveEncounterSession`, making the classic guard vacuous here while classic
+ * event-wire writers on the same row keep their conditioned updates (a
+ * replica commit bumps `version`, so a concurrent classic write fails
+ * `"stale"` and rides its existing retry; mixed writers per the design's
+ * rollout mandate). **Lock order: `encounterReplicaClient` → `encounters`**
+ * (see the ledger table's doc for the cascade-delete caveat).
  *
- * The domain body inside the lock is the classic session Store's, verbatim:
- * locator-derived home (a durable-addressed write fails closed
- * `participant-not-inline`), Writer pre-mint validation (CD19), the one
- * sanctioned event mint, reduce, fail-closed serialize, guarded save.
+ * Inside the lock the authority applies the **registered mutation** to the
+ * storage-native root built from the locked row — the same apply the client
+ * predicts and rebases with, so liveness, locator-derived home, and Writer
+ * refusals are one decided-once code path (UNN-655; the previous body's
+ * event mint + session reduce retired with the `CombatInlineState` root).
+ * The shell's serialize is total, so a committed apply always persists.
  * `Remote = { version }`: the commit's encounter version is recorded with
  * the outcome and reproduced verbatim on a deduplicated redelivery.
  */
@@ -71,7 +69,7 @@ export function createCombatSessionPushProcessor(
   encounterId: string
 ): CombatSessionPushProcessor {
   return createDrizzleMutationProcessor({
-    mutations: combatInlineMutations,
+    mutations: encounterMutations,
     ledger: {
       table: encounterReplicaClient,
       pinColumn: encounterReplicaClient.encounterId,
@@ -84,54 +82,35 @@ export function createCombatSessionPushProcessor(
 
 async function executeCombatSessionMutation(
   tx: WriteExecutor,
-  invocation: CombatInlineInvocation,
+  invocation: EncounterInvocation,
   context: CombatSessionPushContext
 ): Promise<Result<CombatSessionRemote, CombatReplicaRejection>> {
   if (!context.authorization.ok) return err(context.authorization.error)
 
-  const loaded = await loadEncounterForWriteLocked(tx, context.encounterId)
-  if (!loaded.ok) {
-    // A dangling durable reference fails the dissolve; to this door it is the
-    // same data-integrity refusal as a malformed blob.
-    return err(
-      loaded.error === "participant-load-failed"
-        ? "invalid-session"
-        : loaded.error
-    )
+  const locked = await loadEncounterShellForWriteLocked(tx, context.encounterId)
+  if (!locked.ok) return err(locked.error)
+
+  const root: EncounterReplicaState = {
+    status: locked.value.row.status,
+    session: locked.value.shell,
   }
 
-  // The liveness precondition, under the row lock that commits on it. The
-  // console only ever mounts against a live encounter, so anything arriving
-  // here for another status is a stale tab, a cross-tab straggler, or a write
-  // that lost the race to End Combat — none of which may mutate a session the
-  // end sweep has already settled. Deliberately no draft→live promotion: the
-  // classic event door promotes (`apply-event.ts`) because it also serves
-  // setup, whereas this door exists only behind the live console.
-  if (loaded.value.row.status !== "live") return err("encounter-not-live")
-
-  const { participantId, write } = invocation.args
-  const locator = loaded.value.loaded.locators.get(participantId)
-  if (locator === undefined) return err("participant-not-found")
-  if (locator.storage !== "inline") return err("participant-not-inline")
-
-  const participant = loaded.value.loaded.session.participants.find(
-    (entry) => entry.id === participantId
-  )
-  if (participant === undefined) return err("participant-not-found")
-
-  const validated = applyEntityWrite(participant.entity.components, write)
-  if (!validated.ok) return validated
-
-  const event = mintSessionEvent(participantId, write)
-  const next = createReduceSession(newId)(loaded.value.loaded.session, event)
-
-  const stored = saveSession(next, loaded.value.loaded.locators)
-  if (!stored.ok) return err("locator-missing")
+  // The registered apply decides liveness (`encounter-not-live` — the console
+  // only mounts against a live encounter, so anything else here is a stale
+  // tab or a write that lost the race to End Combat; deliberately no
+  // draft→live promotion, which stays with the classic event door because it
+  // also serves setup), the locator-derived home (`participant-not-inline`
+  // fails a durable-addressed write closed), and Writer validation — under
+  // the row lock that commits on them.
+  const definition = encounterMutations.get(invocation.name)
+  if (!definition) return err("invalid-write")
+  const applied = definition.apply(root, invocation.args, { phase: "rebase" })
+  if (!applied.ok) return applied
 
   const saved = await saveEncounterSession(
-    loaded.value.row.id,
-    stored.value,
-    loaded.value.row.version,
+    locked.value.row.id,
+    serializeSessionShell(applied.value.session),
+    locked.value.row.version,
     tx
   )
   if (!saved.ok) {
@@ -144,8 +123,8 @@ async function executeCombatSessionMutation(
   }
 
   context.committed = {
-    shortId: loaded.value.row.shortId,
-    status: loaded.value.row.status,
+    shortId: locked.value.row.shortId,
+    status: locked.value.row.status,
     version: saved.value.version,
   }
   return ok({ version: saved.value.version })

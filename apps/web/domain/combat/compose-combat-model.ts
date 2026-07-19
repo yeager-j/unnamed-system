@@ -3,10 +3,11 @@ import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import type { ReplicaSnapshot } from "@workspace/replica"
 
 import type { ParticipantMeta } from "./participant-meta"
-import type {
-  CombatDurableState,
-  CombatEntityComponents,
-  CombatInlineState,
+import {
+  pickCombatComponents,
+  type CombatDurableState,
+  type CombatEntityComponents,
+  type EncounterReplicaState,
 } from "./replica/mutations"
 import type { CombatReplicaRejection } from "./replica/rejection"
 
@@ -15,13 +16,13 @@ export type CombatDurableReplicaSnapshot = ReplicaSnapshot<
   CombatReplicaRejection
 >
 
-export type CombatInlineReplicaSnapshot = ReplicaSnapshot<
-  CombatInlineState,
+export type EncounterReplicaSnapshot = ReplicaSnapshot<
+  EncounterReplicaState,
   CombatReplicaRejection
 >
 
 export interface CombatReplicaSnapshots {
-  readonly inlineReplicaSnapshot: CombatInlineReplicaSnapshot | null
+  readonly encounterReplicaSnapshot: EncounterReplicaSnapshot | null
   readonly durableReplicaSnapshots: ReadonlyMap<
     string,
     CombatDurableReplicaSnapshot
@@ -35,14 +36,25 @@ const COMBAT_COMPONENT_KEYS = [
   "mechanics",
 ] as const
 
+/**
+ * The one composition seam joining ready Replica projections onto the
+ * event-owned encounter frame (UNN-653; encounter root UNN-655). This ticket
+ * takes exactly the facts whose writes ride the replicas today — the four
+ * combat-writable components, inline ones read from the encounter root's
+ * shell (narrowed to the same four keys at this seam; the root itself is
+ * unredacted storage), durable ones from their entity roots. The remaining
+ * encounter-owned facts (scalars, roster order, overlays) stay with the
+ * event frame until their intents ride the encounter replica (UNN-656),
+ * which widens this seam in place.
+ */
 export function composeCombatModel({
   eventFrame,
-  inlineReplicaSnapshot,
+  encounterReplicaSnapshot,
   durableReplicaSnapshots,
   participantMeta,
 }: {
   eventFrame: EncounterState
-  inlineReplicaSnapshot: CombatInlineReplicaSnapshot | null
+  encounterReplicaSnapshot: EncounterReplicaSnapshot | null
   durableReplicaSnapshots: ReadonlyMap<string, CombatDurableReplicaSnapshot>
   participantMeta: Record<string, ParticipantMeta>
 }): EncounterState {
@@ -52,7 +64,7 @@ export function composeCombatModel({
     const projected = projectedComponents(
       participant.id,
       meta,
-      inlineReplicaSnapshot,
+      encounterReplicaSnapshot,
       durableReplicaSnapshots
     )
     if (projected === undefined) return participant
@@ -80,14 +92,18 @@ export function composeCombatModel({
 function projectedComponents(
   participantId: string,
   meta: ParticipantMeta | undefined,
-  inlineReplicaSnapshot: CombatInlineReplicaSnapshot | null,
+  encounterReplicaSnapshot: EncounterReplicaSnapshot | null,
   durableReplicaSnapshots: ReadonlyMap<string, CombatDurableReplicaSnapshot>
 ): CombatEntityComponents | undefined {
   if (meta?.storage === "durable") {
     return durableReplicaSnapshots.get(meta.characterId)?.value.components
   }
   if (meta?.storage === "inline") {
-    return inlineReplicaSnapshot?.value.participants[participantId]
+    const shell = encounterReplicaSnapshot?.value.session.participants.find(
+      (participant) => participant.id === participantId
+    )
+    if (shell?.entity.storage !== "inline") return undefined
+    return pickCombatComponents(shell.entity.entity.components)
   }
   return undefined
 }

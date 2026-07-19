@@ -3,6 +3,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { defaultOverlay } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok } from "@workspace/result"
 
@@ -46,9 +47,28 @@ const durableAccepted = (through: number, vitals: number, damage = 0) => ({
   cursor: { vitals },
 })
 
-const inlineAccepted = (through: number, version: number, damage = 0) => ({
+const encounterAccepted = (through: number, version: number, damage = 0) => ({
   value: {
-    participants: { [goblinParticipant]: { vitals: { base: 8, damage } } },
+    status: "live" as const,
+    session: {
+      round: 1,
+      currentActorId: null,
+      advantage: null,
+      firstSide: null,
+      participants: [
+        {
+          id: goblinParticipant,
+          entity: {
+            storage: "inline" as const,
+            entity: {
+              id: "goblin-1",
+              components: { vitals: { base: 8, damage } },
+            },
+          },
+          overlay: defaultOverlay({ side: "enemies" }),
+        },
+      ],
+    },
   },
   through,
   cursor: version,
@@ -57,7 +77,7 @@ const inlineAccepted = (through: number, version: number, damage = 0) => ({
 function primeBatch(through = 0) {
   loadCombatAcceptedAction.mockResolvedValue(
     ok({
-      inline: inlineAccepted(through, 1),
+      encounter: encounterAccepted(through, 1),
       durable: { e1: durableAccepted(through, 1) },
     })
   )
@@ -110,8 +130,8 @@ describe("useCombatReplicas", () => {
     // StrictMode double-invokes it; the transports' catch-up pulls then
     // refetch single roots through the same door).
     const batchCalls = loadCombatAcceptedAction.mock.calls.filter((call) => {
-      const input = call[0] as { inline?: unknown; durable?: unknown[] }
-      return input.inline !== undefined && (input.durable?.length ?? 0) > 0
+      const input = call[0] as { encounter?: unknown; durable?: unknown[] }
+      return input.encounter !== undefined && (input.durable?.length ?? 0) > 0
     })
     expect(batchCalls.length).toBeGreaterThan(0)
     for (const call of batchCalls) {
@@ -130,12 +150,12 @@ describe("useCombatReplicas", () => {
       let holdInitialBatch = true
       loadCombatAcceptedAction.mockImplementation(
         (request: {
-          inline?: { clientId: string }
+          encounter?: { clientId: string }
           durable?: { entityId: string; identity: { clientId: string } }[]
         }) => {
           if (
             holdInitialBatch &&
-            request.inline !== undefined &&
+            request.encounter !== undefined &&
             (request.durable?.length ?? 0) > 0
           ) {
             holdInitialBatch = false
@@ -143,7 +163,9 @@ describe("useCombatReplicas", () => {
           }
           return Promise.resolve(
             ok({
-              ...(request.inline ? { inline: inlineAccepted(0, 1) } : {}),
+              ...(request.encounter
+                ? { encounter: encounterAccepted(0, 1) }
+                : {}),
               durable: Object.fromEntries(
                 (request.durable ?? []).map(({ entityId }) => [
                   entityId,
@@ -164,7 +186,7 @@ describe("useCombatReplicas", () => {
       const requests = loadCombatAcceptedAction.mock.calls.map(
         ([request]) =>
           request as {
-            inline?: { clientId: string }
+            encounter?: { clientId: string }
             durable?: {
               entityId: string
               identity: { clientId: string }
@@ -173,23 +195,26 @@ describe("useCombatReplicas", () => {
       )
       const initial = requests.find(
         (request) =>
-          request.inline !== undefined && (request.durable?.length ?? 0) > 0
+          request.encounter !== undefined && (request.durable?.length ?? 0) > 0
       )!
       const durableRetry = requests.find(
         (request) =>
-          request.inline === undefined && request.durable?.length === 1
+          request.encounter === undefined && request.durable?.length === 1
       )
-      const inlineRetry = requests.find(
+      const encounterRetry = requests.find(
         (request) =>
-          request.inline !== undefined && (request.durable?.length ?? 0) === 0
+          request.encounter !== undefined &&
+          (request.durable?.length ?? 0) === 0
       )
 
       expect(durableRetry).toBeDefined()
-      expect(inlineRetry).toBeDefined()
+      expect(encounterRetry).toBeDefined()
       expect(durableRetry!.durable![0]!.identity.clientId).not.toBe(
         initial.durable![0]!.identity.clientId
       )
-      expect(inlineRetry!.inline!.clientId).not.toBe(initial.inline!.clientId)
+      expect(encounterRetry!.encounter!.clientId).not.toBe(
+        initial.encounter!.clientId
+      )
     } finally {
       mounted?.unmount()
       vi.clearAllTimers()
@@ -218,7 +243,7 @@ describe("useCombatReplicas", () => {
     expect(pushCombatSessionMutationAction).not.toHaveBeenCalled()
   })
 
-  it("routes an inline participant's write onto the session replica with its roster address", async () => {
+  it("routes an inline participant's write onto the encounter replica with its roster address", async () => {
     const { rendered } = renderReplicas()
     await flush()
 
@@ -233,7 +258,7 @@ describe("useCombatReplicas", () => {
     const input = pushCombatSessionMutationAction.mock.calls[0]![0] as {
       envelope: { invocation: { name: string; args: unknown } }
     }
-    expect(input.envelope.invocation.name).toBe("combat.session.write")
+    expect(input.envelope.invocation.name).toBe("encounter.writeInline")
     expect(input.envelope.invocation.args).toEqual({
       participantId: goblinParticipant,
       write: damage,
@@ -407,7 +432,7 @@ describe("useCombatReplicas", () => {
   it("publishes the bootstrap projections without a route refresh", async () => {
     const { rendered, onEncounterUnavailable } = renderReplicas()
     await flush()
-    expect(rendered.result.current.inlineReplicaSnapshot).not.toBeNull()
+    expect(rendered.result.current.encounterReplicaSnapshot).not.toBeNull()
     expect(rendered.result.current.durableReplicaSnapshots.has("e1")).toBe(true)
     expect(onEncounterUnavailable).not.toHaveBeenCalled()
   })
@@ -495,10 +520,10 @@ describe("useCombatReplicas", () => {
     expect(lateCalls.length).toBeGreaterThan(0)
     for (const call of lateCalls) {
       const input = call[0] as {
-        inline?: unknown
+        encounter?: unknown
         durable?: { entityId: string }[]
       }
-      expect(input.inline).toBeUndefined()
+      expect(input.encounter).toBeUndefined()
       expect(input.durable?.map((entry) => entry.entityId)).toEqual(["e2"])
     }
     expect(rendered.result.current.handleOf(joiner)).toBeDefined()
