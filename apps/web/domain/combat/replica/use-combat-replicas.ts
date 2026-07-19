@@ -7,8 +7,9 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import {
   createManagedReplica,
   type ManagedBootstrapFailure,
+  type ManagedMutationReceipt,
   type ManagedReplica,
-  type MutationReceipt,
+  type ManagedUnavailable,
 } from "@workspace/replica"
 import {
   classifyScalarCursor,
@@ -47,6 +48,11 @@ import {
 } from "./mutations"
 import type { CombatReplicaRejection } from "./rejection"
 
+export type CombatBootstrapUnavailableReason =
+  | CombatAcceptedError
+  | "not-a-participant"
+  | "no-inline-tuple"
+
 /** One durable PC's realtime channel key. */
 export interface PcChannel {
   characterId: string
@@ -65,30 +71,37 @@ export interface CombatWriteHandle {
   readonly channel: PcChannel | null
   mutate(
     write: CombatEntityWrite
-  ): MutationReceipt<CombatReplicaRejection, CombatSessionRemote | void>
+  ): ManagedMutationReceipt<
+    CombatReplicaRejection,
+    CombatSessionRemote | void,
+    CombatBootstrapUnavailableReason
+  >
 }
 
 type DurableController = ManagedReplica<
   CombatDurableState,
   CombatDurableInvocation,
   CombatReplicaRejection,
-  void
+  void,
+  CombatBootstrapUnavailableReason
 >
 
 type InlineController = ManagedReplica<
   CombatInlineState,
   CombatInlineInvocation,
   CombatReplicaRejection,
-  CombatSessionRemote
+  CombatSessionRemote,
+  CombatBootstrapUnavailableReason
 >
 
 /**
  * One bootstrap read's outcome, already classified for the managed layer: the
  * accepted tuples, or the failure that says whether retrying could help.
  */
-type BatchedBootstrap =
-  | { readonly ok: true; readonly value: CombatAccepted }
-  | { readonly ok: false; readonly error: ManagedBootstrapFailure }
+type BatchedBootstrap = Result<
+  CombatAccepted,
+  ManagedBootstrapFailure<CombatBootstrapUnavailableReason>
+>
 
 /** The single-signal invalidation fan-in the console feeds per channel. */
 interface InvalidationBridge {
@@ -221,6 +234,16 @@ export function useCombatReplicas({
           )
         }
       },
+      onUnavailable(
+        failure: ManagedUnavailable<CombatBootstrapUnavailableReason>
+      ) {
+        if (
+          failure.kind === "terminal" &&
+          failure.reason === "encounter-not-live"
+        ) {
+          externalChange()
+        }
+      },
     }
   }
 
@@ -228,13 +251,12 @@ export function useCombatReplicas({
    * Turns one batched-bootstrap outcome into the managed layer's contract.
    * `encounter-not-live` is the stale-tab case: the encounter ended while
    * this console was open, so no identity will ever be minted for it again —
-   * terminal, plus a route refresh so the tab falls through to the ended stub
-   * instead of sitting on a console it may no longer write to.
+   * terminal. `onUnavailable` performs the route refresh only after the
+   * controller has published and settled that terminal state.
    */
   function classifyBootstrapFailure(
     error: CombatAcceptedError
-  ): ManagedBootstrapFailure {
-    if (error === "encounter-not-live") externalChange()
+  ): ManagedBootstrapFailure<CombatBootstrapUnavailableReason> {
     return { kind: "unavailable", reason: error }
   }
 
@@ -250,10 +272,10 @@ export function useCombatReplicas({
     try {
       const result = await loadCombatAcceptedAction(request)
       return result.ok
-        ? { ok: true, value: result.value }
-        : { ok: false, error: classifyBootstrapFailure(result.error) }
+        ? ok(result.value)
+        : err(classifyBootstrapFailure(result.error))
     } catch (cause) {
-      return { ok: false, error: { kind: "retryable", cause } }
+      return err({ kind: "retryable", cause })
     }
   }
 
@@ -274,10 +296,13 @@ export function useCombatReplicas({
       bootstrap: async () => {
         let identity: typeof firstIdentity
         let batch: BatchedBootstrap
-        if (pending) {
-          identity = pending.identity
-          batch = await pending.shared
-          pending = null
+        const initial = pending
+        pending = null
+        if (initial) {
+          // Claim the one-shot handoff before awaiting it. If this shared call
+          // times out, the managed retry must mint an identity and fetch anew.
+          identity = initial.identity
+          batch = await initial.shared
         } else {
           // Expiry rebuild: a fresh identity, a single-root fetch.
           identity = mintCombatEntityIdentity(entityId)
@@ -286,14 +311,17 @@ export function useCombatReplicas({
             durable: [{ entityId, identity }],
           })
         }
-        if (!batch.ok) return batch.error
+        if (!batch.ok) return err(batch.error)
         const accepted = batch.value.durable[entityId]
         // Admitted-but-absent means the door did not license this entity: it
         // is no longer a durable participant of this encounter. No retry can
         // put it back on the roster, so the controller stops rather than
         // holding this participant's writes open.
         if (!accepted) {
-          return { kind: "unavailable" as const, reason: "not-a-participant" }
+          return err({
+            kind: "unavailable" as const,
+            reason: "not-a-participant",
+          })
         }
         const source = createCombatDurableSource({
           encounterId,
@@ -301,7 +329,7 @@ export function useCombatReplicas({
           identity,
           subscribe: bridge.subscribe,
         })
-        return {
+        return ok({
           identity,
           initial: accepted,
           transport: createPullTransport({
@@ -309,11 +337,12 @@ export function useCombatReplicas({
             initial: accepted,
             classify: compareEntityVersionVectors,
           }),
-        }
+        })
       },
       onEvent: telemetry.onEvent,
       onAccepted: telemetry.onAccepted,
       onExpired: telemetry.onExpired,
+      onUnavailable: telemetry.onUnavailable,
     })
   }
 
@@ -334,25 +363,31 @@ export function useCombatReplicas({
       bootstrap: async () => {
         let identity: typeof firstIdentity
         let batch: BatchedBootstrap
-        if (pending) {
-          identity = pending.identity
-          batch = await pending.shared
-          pending = null
+        const initial = pending
+        pending = null
+        if (initial) {
+          // Claim the one-shot handoff before awaiting it. If this shared call
+          // times out, the managed retry must mint an identity and fetch anew.
+          identity = initial.identity
+          batch = await initial.shared
         } else {
           identity = mintCombatSessionIdentity(encounterId)
           batch = await fetchAccepted({ encounterId, inline: identity })
         }
-        if (!batch.ok) return batch.error
+        if (!batch.ok) return err(batch.error)
         const accepted = batch.value.inline
         if (!accepted) {
-          return { kind: "unavailable" as const, reason: "no-inline-tuple" }
+          return err({
+            kind: "unavailable" as const,
+            reason: "no-inline-tuple",
+          })
         }
         const source = createCombatInlineSource({
           encounterId,
           identity,
           subscribe: bridge.subscribe,
         })
-        return {
+        return ok({
           identity,
           initial: accepted,
           transport: createPullTransport({
@@ -360,11 +395,12 @@ export function useCombatReplicas({
             initial: accepted,
             classify: classifyScalarCursor,
           }),
-        }
+        })
       },
       onEvent: telemetry.onEvent,
       onAccepted: telemetry.onAccepted,
       onExpired: telemetry.onExpired,
+      onUnavailable: telemetry.onUnavailable,
     })
   }
 

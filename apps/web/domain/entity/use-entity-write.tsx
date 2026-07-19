@@ -12,7 +12,7 @@ import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
-import type { MutationError } from "@workspace/replica"
+import type { ManagedMutationError } from "@workspace/replica"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
@@ -351,7 +351,7 @@ export function useEntityAutoSave(
 }
 
 function autoSaveError(
-  failure: MutationError<EntityReplicaRejection>
+  failure: ManagedMutationError<EntityReplicaRejection>
 ): EntityAutoSaveError {
   switch (failure.kind) {
     case "refused":

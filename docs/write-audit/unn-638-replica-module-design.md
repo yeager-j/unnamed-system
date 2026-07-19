@@ -671,6 +671,27 @@ domain-specific context. A replica must not be recreated during render. The runt
 creates it also owns `dispose`, matching subscription and cancellation state to the
 correct lifetime.
 
+### Managed lifecycle (UNN-651)
+
+React and imperative bindings share `createManagedReplica`, whose external-store snapshot
+is an explicit `bootstrapping | retrying | ready | expired | unavailable | disposing |
+disposed` state. Bootstrap takes an `AbortSignal` and returns
+`Result<ManagedReplicaSetup, ManagedBootstrapFailure<UnavailableReason>>`; the package owns
+a ten-second attempt deadline, one initial attempt plus five retries, and 250ms–4s
+exponential backoff. Terminal reasons remain typed for application routing and error policy.
+
+The managed facade returns a distinct receipt with `local` and `remote` but no synchronous
+mutation ID. Pre-bootstrap work cannot truthfully have an ID, and no managed consumer needs
+one. Every buffered invocation is adopted by a real Replica or settles explicitly as
+expired, unavailable, or disposed. `settleMutations` is a call-time barrier across the
+React pre-effect buffer, controller bootstrap buffer, and core Replica ledger.
+
+Disposal retains an already-ready Replica for one macrotask so same-commit cleanup saves may
+flush. At grace expiry the controller aborts bootstrap, settles its remaining buffer, tears
+down the transport, and invalidates the bootstrap generation; late completion cannot
+construct a replacement. Expiry during that grace cannot rebuild. Application callbacks
+run only after their transition and are isolated from lifecycle correctness.
+
 ## Showtime binding
 
 The first production binding uses `entity.write` for Showtime's existing `EntityWrite`
@@ -926,7 +947,7 @@ the abstract:
    replica-contract law runs against it.
 7. **Resolved (UNN-646), with the rule the combat evidence produced: replica granularity
    follows the authority's commit scope — the row-lock + auth boundary — never the UI's
-   dispatch scope.** Read the rule strictly: the commit scope is *every* lock the commit
+   dispatch scope.** Read the rule strictly: the commit scope is _every_ lock the commit
    needs, not the most obvious one. The first implementation read it loosely and gave the
    durable root only the entity row's lock, even though a durable combat write is licensed
    by encounter liveness and roster membership — facts on the encounter row. Those
