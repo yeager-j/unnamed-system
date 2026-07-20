@@ -733,6 +733,7 @@ const executeEntityMutation = createNextMutationExecutor({
     "entity.write": executeEntityWrite,
   },
   invalidations: createAblyInvalidationPublisher({ ably }),
+  reportInvalidationFailure: recordInvalidationFailure,
 })
 ```
 
