@@ -186,7 +186,7 @@ export function useEncounterSetup(data: EncounterForDM) {
 
   return {
     state: composed,
-    isPending,
+    isPending: isPending || !replicas.encounterIntentReady,
     dispatch,
   }
 }

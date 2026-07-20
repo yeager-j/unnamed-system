@@ -243,6 +243,9 @@ export interface UseCombatReplicasArgs {
 }
 
 export interface UseCombatReplicasReturn {
+  /** Session intents need the accepted Encounter projection to capture their
+   * preconditions. Controls stay unavailable until that projection is ready. */
+  encounterIntentReady: boolean
   handleOf: (participantId: ParticipantId) => CombatWriteHandle | undefined
   mutateEncounter: (
     event: EncounterSessionEvent,
@@ -684,6 +687,7 @@ export function useCombatReplicas({
   }
 
   return {
+    encounterIntentReady: replicaSnapshots.encounterReplicaSnapshot !== null,
     handleOf,
     mutateEncounter,
     settleAll,

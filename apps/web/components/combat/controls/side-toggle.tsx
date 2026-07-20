@@ -21,9 +21,11 @@ import { COMBAT_SIDE_LABELS } from "@/domain/labels"
 export function SideToggle({
   side,
   onChange,
+  disabled = false,
 }: {
   side: CombatSide
   onChange: (side: CombatSide) => void
+  disabled?: boolean
 }) {
   return (
     <ToggleGroup
@@ -37,7 +39,7 @@ export function SideToggle({
       }}
     >
       {COMBAT_SIDES.map((value) => (
-        <ToggleGroupItem key={value} value={value}>
+        <ToggleGroupItem key={value} value={value} disabled={disabled}>
           {COMBAT_SIDE_LABELS[value]}
         </ToggleGroupItem>
       ))}

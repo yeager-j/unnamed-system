@@ -350,7 +350,7 @@ export function useCombatConsole(
     session: state.session,
     instance: state.mapInstance,
     resolved,
-    isPending,
+    isPending: isPending || !replicas.encounterIntentReady,
     dispatch,
     dispatchSequence,
     dispatchWrite,

@@ -127,6 +127,30 @@ beforeEach(() => {
 })
 
 describe("useCombatReplicas", () => {
+  it("keeps encounter intents unavailable until the accepted projection is ready", async () => {
+    let resolveBootstrap!: (value: ReturnType<typeof ok>) => void
+    loadCombatAcceptedAction.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBootstrap = resolve
+        })
+    )
+    const { rendered } = renderReplicas()
+
+    expect(rendered.result.current.encounterIntentReady).toBe(false)
+
+    await act(async () => {
+      resolveBootstrap(
+        ok({
+          encounter: encounterAccepted(0, 1),
+          durable: { e1: durableAccepted(0, 1) },
+        }) as ReturnType<typeof ok>
+      )
+    })
+
+    expect(rendered.result.current.encounterIntentReady).toBe(true)
+  })
+
   it("bootstraps only the draft Encounter root for setup", async () => {
     loadCombatAcceptedAction.mockResolvedValue(
       ok({ encounter: encounterAccepted(0, 0, 0, "draft"), durable: {} })
