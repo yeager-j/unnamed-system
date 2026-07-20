@@ -521,11 +521,11 @@ async function loadCachedCharacter(shortId: string) {
   "use cache"
 
   const canon = await loadCharacterCanon(shortId)
-  return tagCanon(canon)
+  return tagVersionedBase(canon)
 }
 ```
 
-`tagCanon` applies one package-derived `cacheTag` for every axis in
+`tagVersionedBase` applies one package-derived `cacheTag` for every axis in
 `canon.revisions` and returns the canon unchanged. `axisCacheTag(axis)` is a
 bounded, versioned SHA-256-based tag, so raw identifiers cannot exceed Next's
 tag limit or collide through ad hoc string conventions.
@@ -535,6 +535,12 @@ observed axes. Next currently drops tags after the 128th in one call, which
 would silently break the coherence invariant. The spike must measure combat
 canons against this ceiling; it does not split calls or invent grouped tags
 without evidence that their invalidation semantics remain sound.
+
+These forms were verified against the pinned Next.js 16.1.6 declarations:
+`cacheTag(...tags)`, `updateTag(tag)`, and server `refresh()` are imported from
+`next/cache`; the non-Action path uses
+`revalidateTag(tag, { expire: 0 })`. The context split is therefore represented
+in the package API rather than hidden behind one configurable invalidator.
 
 An uncached loader uses `defineCanon` and needs no tag. The same canon
 shape crosses both paths.
@@ -616,6 +622,7 @@ interface PredictedRoot<State, Invocation, Error> {
 type MutationLifecycleError<Error> =
   | { kind: "domain"; error: Error }
   | { kind: "replay-refused"; error: Error }
+  | { kind: "delivery-cancelled" }
   | { kind: "root-unmounted"; outcome: "unknown" | "accepted" }
 
 interface MutationReceipt<Error> {
@@ -708,8 +715,10 @@ The package's Next client binding also owns thrown-request classification. It
 uses Next's `unstable_rethrow` before converting an ordinary Server Action or
 network rejection into `delivery: "uncertain"`, so `redirect`, `notFound`,
 `forbidden`, `unauthorized`, and other framework control-flow signals retain
-their framework behavior. `guard-write-transition.ts` does not remain as an
-application synchronization helper.
+their framework behavior. A control-flow cancellation settles both mutation
+receipts with `delivery-cancelled` and removes the ledger entry before the
+signal propagates. `guard-write-transition.ts` does not remain as an application
+synchronization helper.
 
 ### Authority executor
 
@@ -885,8 +894,9 @@ After a new or duplicate acceptance commits, the Next executor performs one
 package-owned finalization sequence:
 
 1. call `updateTag(axisCacheTag(axis))` for every stamped axis;
-2. publish one invalidation entry per stamped axis, sharing one event ID;
-3. call Next's server-side `refresh()` for the invoking route; and
+2. call Next's server-side `refresh()` for the invoking route;
+3. make one timeout-bounded publication attempt with one entry per stamped
+   axis, sharing one event ID; and
 4. return the recorded accepted stamp.
 
 `updateTag`, rather than stale-while-revalidate `revalidateTag(..., "max")`, is
@@ -1059,7 +1069,7 @@ storage axis
   -> other-view refresh after invalidation
 ```
 
-The loader knows which axes its value observes, so `tagCanon` tags them.
+The loader knows which axes its value observes, so `tagVersionedBase` tags them.
 The handler knows which axes it advanced, so its accepted stamp invalidates the
 same derived tags. No action wrapper maintains a parallel list of core cache
 keys.
@@ -1070,7 +1080,7 @@ revision is not yet modeled. That is additional application knowledge, not a
 second home for axis coherence.
 
 The Phase 0 fixture includes a deliberately mis-cached loader that omits
-`tagCanon`. The test must show:
+`tagVersionedBase`. The test must show:
 
 1. the mutation is accepted;
 2. both automatic refresh attempts reproduce the old cached canon;
@@ -1515,7 +1525,7 @@ all rows used by a projector contribute dependency axes and that an absent or
 changing dynamic set contributes a stable container axis.
 
 The Next fixture includes the deliberately mis-cached loader negative control.
-The correct loader calls `tagCanon`; the executor uses the same derived
+The correct loader calls `tagVersionedBase`; the executor uses the same derived
 tags and `updateTag`. A 129-axis cached canon must fail at the helper boundary
 instead of accepting a partially tagged entry.
 
