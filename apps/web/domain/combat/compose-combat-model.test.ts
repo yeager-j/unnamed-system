@@ -91,9 +91,18 @@ const meta: Record<string, ParticipantMeta> = {
   [inline]: { storage: "inline" },
 }
 
-/** A ready encounter-root snapshot over inline shell participants. */
+/** The version the loader frame was hydrated from in these fixtures. */
+const LOADER_VERSION = 5
+
+/**
+ * A ready encounter-root snapshot over inline shell participants. The default
+ * root version sits BEHIND the loader frame (frame-led roster arbitration),
+ * matching the pre-UNN-657 per-participant join these tests pin; roster
+ * arbitration itself is tested with explicit versions below.
+ */
 function encounterSnapshot(
-  participants: Record<string, Record<string, unknown>>
+  participants: Record<string, Record<string, unknown>>,
+  version: number = LOADER_VERSION - 1
 ) {
   const shellParticipants: SessionShell["participants"] = Object.entries(
     participants
@@ -114,6 +123,7 @@ function encounterSnapshot(
       firstSide: null,
       participants: shellParticipants,
     },
+    version,
   })
 }
 
@@ -135,6 +145,7 @@ describe("composeCombatModel", () => {
     expect(
       composeCombatModel({
         eventFrame: frame,
+        loaderVersion: LOADER_VERSION,
         encounterReplicaSnapshot: null,
         durableReplicaSnapshots: new Map(),
         participantMeta: meta,
@@ -153,6 +164,7 @@ describe("composeCombatModel", () => {
 
     const model = composeCombatModel({
       eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: encounter,
       durableReplicaSnapshots: new Map([["entity-1", durable]]),
       participantMeta: meta,
@@ -182,6 +194,7 @@ describe("composeCombatModel", () => {
     const frame = eventFrame()
     const model = composeCombatModel({
       eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: null,
       durableReplicaSnapshots: new Map([
         [
@@ -208,6 +221,7 @@ describe("composeCombatModel", () => {
     const frame = eventFrame()
     const model = composeCombatModel({
       eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: null,
       durableReplicaSnapshots: new Map([
         [
@@ -237,6 +251,7 @@ describe("composeCombatModel", () => {
     // accepted state is a fact, not a gap).
     const model = composeCombatModel({
       eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: encounterSnapshot({
         [inline]: { vitals: { base: 20, damage: 8 } },
       }),
@@ -256,6 +271,7 @@ describe("composeCombatModel", () => {
     frame.session.participants[2]!.overlay.allegiance.side = "players"
     const model = composeCombatModel({
       eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: encounterSnapshot({
         [inline]: {
           vitals: { base: 20, damage: 8 },
@@ -277,6 +293,7 @@ describe("composeCombatModel", () => {
     const frame = eventFrame()
     const model = composeCombatModel({
       eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: encounterSnapshot({}),
       durableReplicaSnapshots: new Map(),
       participantMeta: meta,
@@ -285,7 +302,7 @@ describe("composeCombatModel", () => {
     expect(model.session.participants[2]).toBe(frame.session.participants[2])
   })
 
-  it("takes roster additions and removals only from the event frame", () => {
+  it("frame-led (frame newer): roster additions and removals come only from the event frame", () => {
     const frame = eventFrame()
     const added = makeParticipant(entity("new-inline", 3), optimisticAddition, {
       side: "enemies",
@@ -298,8 +315,11 @@ describe("composeCombatModel", () => {
       },
     }
 
+    // The root still carries inline-1 (removed in the newer frame): a stale
+    // root must not resurrect it.
     const model = composeCombatModel({
       eventFrame: eventFrameWithRosterChange,
+      loaderVersion: LOADER_VERSION,
       encounterReplicaSnapshot: encounterSnapshot({
         [inline]: { vitals: { base: 20, damage: 9 } },
       }),
@@ -322,6 +342,90 @@ describe("composeCombatModel", () => {
     ).toBe(7)
     expect(model.session.participants[1]).toBe(added)
   })
+
+  it("root-led (root at/ahead): root-only inline shells append and frame-only participants drop", () => {
+    const frame = eventFrame()
+    // The root: keeps inline-1, adds new-inline, and no longer contains the
+    // frame's `unknown` inline participant (removed). Versions equal — the
+    // root decides.
+    const root = encounterSnapshot(
+      {
+        [inline]: { vitals: { base: 20, damage: 9 } },
+        [optimisticAddition]: { vitals: { base: 12, damage: 0 } },
+      },
+      LOADER_VERSION
+    )
+    const rootWithDurables: typeof root = {
+      ...root,
+      value: {
+        ...root.value,
+        session: {
+          ...root.value.session,
+          participants: [
+            {
+              id: durableOne,
+              entity: { storage: "durable", entityId: "entity-1" },
+              overlay: defaultOverlay({ side: "players" }),
+            },
+            {
+              id: durableTwo,
+              entity: { storage: "durable", entityId: "entity-1" },
+              overlay: defaultOverlay({ side: "players" }),
+            },
+            ...root.value.session.participants,
+          ],
+        },
+      },
+    }
+
+    const model = composeCombatModel({
+      eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
+      encounterReplicaSnapshot: rootWithDurables,
+      durableReplicaSnapshots: new Map(),
+      participantMeta: meta,
+    })
+
+    const ids = model.session.participants.map((participant) => participant.id)
+    expect(ids).toEqual([durableOne, durableTwo, inline, optimisticAddition])
+    // The appended joiner renders whole from the root's shell.
+    const appended = model.session.participants.at(-1)!
+    expect(appended.entity.components.vitals?.damage).toBe(0)
+    expect(appended.overlay.allegiance.side).toBe("enemies")
+  })
+
+  it("root-led: a root-only durable reference waits for the loader frame (no unhydrated append)", () => {
+    const frame = eventFrame()
+    const root = encounterSnapshot({}, LOADER_VERSION + 1)
+    const rootWithDurable: typeof root = {
+      ...root,
+      value: {
+        ...root.value,
+        session: {
+          ...root.value.session,
+          participants: [
+            {
+              id: asParticipantId("durable-new"),
+              entity: { storage: "durable", entityId: "entity-9" },
+              overlay: defaultOverlay({ side: "players" }),
+            },
+          ],
+        },
+      },
+    }
+
+    const model = composeCombatModel({
+      eventFrame: frame,
+      loaderVersion: LOADER_VERSION,
+      encounterReplicaSnapshot: rootWithDurable,
+      durableReplicaSnapshots: new Map(),
+      participantMeta: meta,
+    })
+
+    expect(
+      model.session.participants.map((participant) => participant.id)
+    ).toEqual([])
+  })
 })
 
 describe("encounterRootDiffersFromLoaderFrame", () => {
@@ -334,6 +438,7 @@ describe("encounterRootDiffersFromLoaderFrame", () => {
     }
     const sameRosterRoot: EncounterReplicaState = {
       status: "live",
+      version: LOADER_VERSION,
       session: {
         ...shell.session,
         round: 99,

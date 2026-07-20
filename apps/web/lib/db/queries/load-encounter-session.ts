@@ -76,6 +76,29 @@ export async function loadEncounterForWrite(
   return dissolveEncounterRow(rawRow)
 }
 
+/**
+ * The command coordinator's row-locked twin of {@link loadEncounterForWrite}
+ * (UNN-657): `FOR UPDATE` on the encounter row, then the same parse + durable
+ * hydration + dissolve — all reads through the transaction, so a command's
+ * preconditions, reduction, and save happen against one locked observation.
+ * The lock, not a client `expectedVersion`, is the concurrency strategy; the
+ * caller saves guarded on the locked row's own version (vacuous guard, the
+ * replica-processor precedent).
+ */
+export async function loadEncounterForWriteLocked(
+  tx: WriteExecutor,
+  encounterId: string
+): Promise<Result<LoadedEncounterForWrite, LoadEncounterSessionError>> {
+  const [rawRow] = await tx
+    .select()
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+    .for("update")
+
+  return dissolveEncounterRow(rawRow, tx)
+}
+
 export interface LockedEncounterShell {
   readonly row: Pick<EncounterRow, "id" | "shortId" | "status" | "version">
   readonly shell: SessionShell
@@ -144,7 +167,8 @@ export async function loadEncounterForSnapshot(
 
 /** The shared parse → hydrate → dissolve core the entry points run. */
 export async function dissolveEncounterRow(
-  rawRow: EncounterRow | undefined
+  rawRow: EncounterRow | undefined,
+  executor: WriteExecutor = db
 ): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {
   if (!rawRow) return err("encounter-not-found")
 
@@ -152,7 +176,7 @@ export async function dissolveEncounterRow(
   if (!parsed.success) return err("invalid-session")
   const row: EncounterRow = { ...rawRow, session: parsed.data }
 
-  const durable = await loadDurableEntities(parsed.data)
+  const durable = await loadDurableEntities(parsed.data, executor)
 
   const loaded = loadSession((entityId) => durable.entities.get(entityId))(
     parsed.data
@@ -182,7 +206,10 @@ export async function dissolveEncounterRow(
  * live fights; for a non-live encounter a tombstoned participant renders as
  * history (D4). See `schema/entity.ts`.
  */
-async function loadDurableEntities(stored: StoredSession): Promise<{
+async function loadDurableEntities(
+  stored: StoredSession,
+  executor: WriteExecutor = db
+): Promise<{
   entities: Map<string, StoredEntity>
   versions: Map<string, number>
   owners: Map<string, string>
@@ -199,7 +226,7 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 
   const entities = new Map<string, StoredEntity>()
   const versions = new Map<string, number>()
-  for (const row of await loadEntityRowsByIds(entityIds)) {
+  for (const row of await loadEntityRowsByIds(entityIds, executor)) {
     const loaded = loadEntityRow(row)
     if (!loaded.ok) continue
     entities.set(row.id, {
@@ -212,7 +239,7 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
   // Ownership moved to the PC subtype (R3 — UNN-573); durable combatants are PCs,
   // so their `userId` is the owner the snapshot authorizes the own-sheet column on.
   const owners = new Map<string, string>()
-  for (const pc of await loadPlayerCharacterRowsByIds(entityIds)) {
+  for (const pc of await loadPlayerCharacterRowsByIds(entityIds, executor)) {
     owners.set(pc.entityId, pc.userId)
   }
 

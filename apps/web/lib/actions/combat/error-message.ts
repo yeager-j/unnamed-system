@@ -1,8 +1,8 @@
 import type { CombatWriteDispatchError } from "@/domain/combat/replica/rejection"
 
-import type { AddCatalogEnemiesError } from "./add-participants.schema"
-import type { ApplyCombatEventError } from "./apply-event.schema"
 import type { EndCombatError } from "./end-combat.schema"
+import type { RosterCommandError } from "./roster.schema"
+import type { StartCombatError } from "./start-combat.schema"
 
 /**
  * Maps a v2 combat Server-Action error to its user-facing toast copy — the one
@@ -15,10 +15,11 @@ import type { EndCombatError } from "./end-combat.schema"
  */
 export function combatErrorMessage(
   error:
-    | ApplyCombatEventError
+    | StartCombatError
+    | RosterCommandError
     | CombatWriteDispatchError
     | EndCombatError
-    | AddCatalogEnemiesError
+    | "pending-write-failed"
 ): string {
   switch (error) {
     case "campaign-already-has-live-encounter":
@@ -41,8 +42,6 @@ export function combatErrorMessage(
       return "Something looks off with this encounter's map. Reload and try again."
     case "character-not-found":
       return "That character no longer exists."
-    case "unknown-enemy":
-      return "One of the queued enemies isn't in the catalog anymore."
     case "participant-not-found":
       return "That combatant is no longer in this encounter."
     case "turn-frame-changed":
@@ -72,6 +71,8 @@ export function combatErrorMessage(
     // but the union is exhaustive here by design.
     case "write-unavailable":
       return "Reconnecting — try that again in a moment."
+    case "pending-write-failed":
+      return "Couldn't finish saving. Try again."
     // The Writer refusals; the character-family ones (allocation cap, entry
     // index, rest/leveling, the Spark loop — UNN-556/UNN-557/UNN-558) are
     // unreachable through the narrowed encounter wire, but the shared refusal

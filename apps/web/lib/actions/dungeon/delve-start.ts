@@ -62,7 +62,7 @@ export async function startDelveAction(
   const parsed = StartDelveSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion, placements } = parsed.data
+  const { dungeonId, placements } = parsed.data
 
   const variant = await loadDungeonVariantForWrite(dungeonId)
   if (variant === null) return err("dungeon-not-found")
@@ -89,11 +89,7 @@ export async function startDelveAction(
   const result = await mapActivationRaceToActiveDelve(
     guardMany<{ version: number; instanceVersion: number }, StartDelveError>(
       async (tx: WriteExecutor) => {
-        const locked = await lockDungeonRowForLifecycle(
-          tx,
-          dungeon.id,
-          expectedVersion
-        )
+        const locked = await lockDungeonRowForLifecycle(tx, dungeon.id)
         if (!locked.ok) return locked
         if (locked.value.status !== "draft") return err("delve-not-draft")
 
@@ -111,7 +107,7 @@ export async function startDelveAction(
         const flipped = await setDungeonStatus(
           dungeon.id,
           "active",
-          expectedVersion,
+          locked.value.version,
           tx
         )
         if (!flipped.ok) return flipped

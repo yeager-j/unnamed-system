@@ -28,9 +28,7 @@ describe("useEncounterIntent", () => {
     const mutateEncounter = vi.fn(() =>
       err("draft-no-longer-valid")
     ) as unknown as UseCombatReplicasReturn["mutateEncounter"]
-    const { result } = renderHook(() =>
-      useEncounterIntent({ mutateEncounter, onRemoteVersion: vi.fn() })
-    )
+    const { result } = renderHook(() => useEncounterIntent({ mutateEncounter }))
 
     await act(async () => {
       expect(await result.current.dispatchIntent(event)).toEqual(
@@ -51,9 +49,7 @@ describe("useEncounterIntent", () => {
     const mutateEncounter = vi.fn(() =>
       ok({ local: Promise.resolve(ok(undefined)), remote })
     ) as unknown as UseCombatReplicasReturn["mutateEncounter"]
-    const { result } = renderHook(() =>
-      useEncounterIntent({ mutateEncounter, onRemoteVersion: vi.fn() })
-    )
+    const { result } = renderHook(() => useEncounterIntent({ mutateEncounter }))
 
     let dispatched!: Promise<unknown>
     act(() => {
@@ -71,22 +67,18 @@ describe("useEncounterIntent", () => {
     expect(toastError).toHaveBeenCalledOnce()
   })
 
-  it("folds the accepted Remote version into the command-only queue", async () => {
-    const onRemoteVersion = vi.fn()
+  it("resolves ok once the remote outcome is trusted — no version fold remains (UNN-657)", async () => {
     const mutateEncounter = vi.fn(() =>
       ok({
         local: Promise.resolve(ok(undefined)),
-        remote: Promise.resolve(ok({ version: 9 })),
+        remote: Promise.resolve(ok(undefined)),
       })
     ) as unknown as UseCombatReplicasReturn["mutateEncounter"]
-    const { result } = renderHook(() =>
-      useEncounterIntent({ mutateEncounter, onRemoteVersion })
-    )
+    const { result } = renderHook(() => useEncounterIntent({ mutateEncounter }))
 
     await act(async () => {
       expect(await result.current.dispatchIntent(event)).toEqual(ok(undefined))
     })
-    expect(onRemoteVersion).toHaveBeenCalledWith(9)
     expect(toastError).not.toHaveBeenCalled()
   })
 })

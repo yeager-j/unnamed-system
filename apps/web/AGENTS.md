@@ -82,5 +82,5 @@ apps/web/
 ├── db/                           client/schema/migrations/queries/writes — see lib/db/CLAUDE.md
 ├── realtime/                     Ably invalidation pings (lazy REST publish + subscribe hook)
 ├── storage/                      Vercel Blob (portraits)
-└── sync/                         write-queue (event wire), replica sources + shared push pacing, snapshot-subscription, version-sync hooks
+└── sync/                         command-coordinator (runCommand, UNN-657), replica sources + shared push pacing, snapshot-subscription, version-sync hooks; write-queue/use-queued-write survive Stage-autosave-only (guarded by depcheck RESTRICTED_IMPORTS, follow-up ticket)
 ```

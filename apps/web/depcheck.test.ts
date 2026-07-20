@@ -7,6 +7,7 @@ import {
   reconcileAllowlist,
   resolveSpecifier,
   scanDomainPurity,
+  scanRestrictedImports,
   scanSource,
   scanTierViolations,
   shouldGateFile,
@@ -256,6 +257,44 @@ describe("domain purity", () => {
     ).toHaveLength(1)
     expect(
       scanDomainPurity(pureView, `const m = import("@/lib/db/queries/thing")`)
+    ).toHaveLength(1)
+  })
+})
+
+describe("retired-module import guard (UNN-657)", () => {
+  const queueImport = `import { useQueuedWrite } from "@/lib/sync/use-queued-write"`
+
+  it("allows the named Stage autosave scope and the queue's own module family", () => {
+    expect(
+      scanRestrictedImports("app/stage/_hooks/use-map-autosave.ts", queueImport)
+    ).toEqual([])
+    expect(
+      scanRestrictedImports(
+        "lib/sync/use-queued-write.ts",
+        `import { useMonotonicVersionRef } from "./use-monotonic-version-ref"`
+      )
+    ).toEqual([])
+    expect(
+      scanRestrictedImports(
+        "lib/sync/write-queue.test.ts",
+        `import { createWriteQueue } from "./write-queue"`
+      )
+    ).toEqual([])
+  })
+
+  it("fails a new consumer of the retired queue anywhere else (negative control)", () => {
+    const flagged = scanRestrictedImports(
+      "components/combat/console/use-combat-console.ts",
+      queueImport
+    )
+    expect(flagged).toHaveLength(1)
+    expect(flagged[0]!.kind).toBe("restricted")
+
+    expect(
+      scanRestrictedImports(
+        "domain/dungeon/use-something.ts",
+        `import { createWriteQueue } from "@/lib/sync/write-queue"`
+      )
     ).toHaveLength(1)
   })
 })

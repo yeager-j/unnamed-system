@@ -1,15 +1,18 @@
 "use server"
 
+import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import { type WriteExecutor } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   loadActiveDungeonForCampaign,
   loadDungeonVariantForWrite,
 } from "@/lib/db/queries/load-dungeon"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
+import { mapInstances } from "@/lib/db/schema/map-instance"
 import {
   lockDungeonRowForLifecycle,
   mapActivationRaceToActiveDelve,
@@ -34,26 +37,24 @@ import {
 
 /**
  * Advances a dungeon's lifecycle `status` (`draft` → `active` → `done`) — the
- * exploration-time peer of {@link import("../encounter/end").endEncounterAction}
- * plus the `startCombat` status flip. Ordinary delves only: a Region
- * **expedition** is refused (UNN-589 D11's variant sealing —
+ * exploration-time peer of the encounter lifecycle commands. Ordinary delves
+ * only: a Region **expedition** is refused (UNN-589 D11's variant sealing —
  * `startExpeditionAction` / `finishExpeditionAction` own that lifecycle, which
  * carries folds and the instance freeze this generic flip must not bypass).
  *
- * Concurrency (D11): the flip runs as a {@link guardMany} whose body opens with
- * the dungeon-row lifecycle lock and checks the **legal transition on the locked
- * row** (`draft → active`, `active → done`) — closing the old gap where
- * `active → done` checked no status at all. The one-active rule keeps its
- * friendly pre-read and is DB-enforced by the partial unique index (a
- * fully-concurrent second activation loses at the index and maps back to the
- * same error). Then revalidates the campaign overview (its dungeons list +
- * live-delve banner) **and** the DM console route (UNN-464). The
- * `draft → active` start is normally driven by
- * {@link import("./delve-start").startDelveAction} (which also snapshots
- * geometry + places tokens); this action backs the `active → done` finish.
+ * Concurrency (D11; de-versioned by UNN-657): the flip runs as a
+ * {@link guardMany} whose body opens with the dungeon-row lifecycle lock,
+ * checks the **legal transition on the locked row**, and saves guarded on the
+ * locked row's own version — no client token. The one-active rule keeps its
+ * friendly pre-read and is DB-enforced by the partial unique index.
  *
- * An ordinary finish locks and freezes its Map Instance in the same transaction,
- * so no Replica mutation can land after `done`.
+ * Ambiguous-delivery strategy — desired state: a redelivered flip whose
+ * target status already holds on the locked row returns `ok` with the current
+ * versions and writes nothing (in particular, `done → done` must not re-freeze
+ * or double-bump).
+ *
+ * An ordinary finish locks and freezes its Map Instance in the same
+ * transaction, so no Replica mutation can land after `done`.
  */
 export async function setDungeonStatusAction(
   input: SetDungeonStatusInput
@@ -63,7 +64,7 @@ export async function setDungeonStatusAction(
   const parsed = SetDungeonStatusSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, status, expectedVersion } = parsed.data
+  const { dungeonId, status } = parsed.data
 
   const variant = await loadDungeonVariantForWrite(dungeonId)
   if (variant === null) return err("dungeon-not-found")
@@ -80,15 +81,14 @@ export async function setDungeonStatusAction(
 
   const result = await mapActivationRaceToActiveDelve(
     guardMany<
-      { version: number; instanceVersion?: number },
+      { version: number; instanceVersion?: number; committed: boolean },
       SetDungeonStatusError
     >(async (tx: WriteExecutor) => {
-      const locked = await lockDungeonRowForLifecycle(
-        tx,
-        dungeonId,
-        expectedVersion
-      )
+      const locked = await lockDungeonRowForLifecycle(tx, dungeonId)
       if (!locked.ok) return locked
+      if (locked.value.status === status) {
+        return ok({ version: locked.value.version, committed: false })
+      }
       if (status === "active" && locked.value.status !== "draft") {
         return err("delve-not-draft")
       }
@@ -97,8 +97,26 @@ export async function setDungeonStatusAction(
       }
 
       if (status === "active") {
-        return setDungeonStatus(dungeonId, status, expectedVersion, tx)
+        const flipped = await setDungeonStatus(
+          dungeonId,
+          status,
+          locked.value.version,
+          tx
+        )
+        if (!flipped.ok) return flipped
+        return ok({ version: flipped.value.version, committed: true })
       }
+
+      // A live encounter shares this delve's Instance; freezing it under a
+      // fight would strand combat (D11 — the expedition finish's same check).
+      // Combat start also takes the dungeon lock, so this in-tx read is
+      // serialized: the expected-version conflict that used to catch a stale
+      // finish retired with the client token (UNN-657 Codex review).
+      const live = await loadLiveEncounterForMapInstance(
+        dungeon.mapInstanceId,
+        tx
+      )
+      if (live !== null) return err("delve-has-live-encounter")
 
       const instance = await loadMapInstanceForWriteLocked(
         tx,
@@ -108,7 +126,7 @@ export async function setDungeonStatusAction(
       const finished = await setDungeonStatus(
         dungeonId,
         status,
-        expectedVersion,
+        locked.value.version,
         tx
       )
       if (!finished.ok) return finished
@@ -122,10 +140,29 @@ export async function setDungeonStatusAction(
       return ok({
         version: finished.value.version,
         instanceVersion: frozen.value.version,
+        committed: true,
       })
     })
   )
   if (!result.ok) return result
+
+  if (!result.value.committed) {
+    // Desired state already held (a redelivered or raced flip): report the
+    // current versions, publish nothing. Only a `done` no-op reads the frozen
+    // Instance's version — an `active` no-op has no instance fact to report.
+    if (status !== "done") return ok({ version: result.value.version })
+    const [instanceRow] = await db
+      .select({ version: mapInstances.version })
+      .from(mapInstances)
+      .where(eq(mapInstances.id, dungeon.mapInstanceId))
+      .limit(1)
+    return ok({
+      version: result.value.version,
+      ...(instanceRow !== undefined
+        ? { instanceVersion: instanceRow.version }
+        : {}),
+    })
+  }
 
   publishDungeonPing(dungeon.shortId, { version: result.value.version, status })
   if (result.value.instanceVersion !== undefined) {
@@ -134,5 +171,10 @@ export async function setDungeonStatusAction(
   revalidatePath(`/campaigns/${campaign.shortId}`)
   revalidateDungeon(dungeon)
 
-  return ok(result.value)
+  return ok({
+    version: result.value.version,
+    ...(result.value.instanceVersion !== undefined
+      ? { instanceVersion: result.value.instanceVersion }
+      : {}),
+  })
 }

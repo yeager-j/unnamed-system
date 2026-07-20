@@ -23,6 +23,8 @@ export type DungeonActionError =
   | "region-not-found"
   | "template-set-not-found"
   | "generation-event-not-supported"
+  | "turn-already-advanced"
+  | "pending-write-failed"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
   | "character-not-found"
@@ -32,6 +34,10 @@ export type DungeonActionError =
 
 export function dungeonErrorMessage(error: DungeonActionError): string {
   switch (error) {
+    case "turn-already-advanced":
+      return "That turn already advanced elsewhere."
+    case "pending-write-failed":
+      return "Couldn't finish saving. Try again."
     case "character-not-found":
       return "A party member no longer exists. Reload and try again."
     case "character-not-in-campaign":

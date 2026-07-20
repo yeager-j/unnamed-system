@@ -27,10 +27,8 @@ export type DispatchEncounterIntent = (
  */
 export function useEncounterIntent({
   mutateEncounter,
-  onRemoteVersion,
 }: {
   mutateEncounter: UseCombatReplicasReturn["mutateEncounter"]
-  onRemoteVersion: (version: number) => void
 }): { dispatchIntent: DispatchEncounterIntent } {
   const dispatchIntent: DispatchEncounterIntent = (event, options) =>
     guardWrite(
@@ -56,7 +54,6 @@ export function useEncounterIntent({
     // error paths.
     const remote = await started.value.remote
     if (!remote.ok) return failReceipt(remote.error)
-    onRemoteVersion(remote.value.version)
     return ok(undefined)
   }
 

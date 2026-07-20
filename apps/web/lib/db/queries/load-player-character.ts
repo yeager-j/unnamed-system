@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 import {
   playerCharacter,
@@ -96,10 +96,11 @@ export async function loadPlayerCharacterById(
  * combatants' owner map, which need the subtype row without the substrate.
  */
 export async function loadPlayerCharacterRowsByIds(
-  entityIds: readonly string[]
+  entityIds: readonly string[],
+  executor: WriteExecutor = db
 ): Promise<PlayerCharacterRow[]> {
   if (entityIds.length === 0) return []
-  return db
+  return executor
     .select()
     .from(playerCharacter)
     .where(inArray(playerCharacter.entityId, [...entityIds]))

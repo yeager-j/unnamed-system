@@ -25,28 +25,23 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 const participantId = asParticipantId("p-1")
 const damage: EntityWrite = { component: "vitals", op: "damage", amount: 2 }
 
-type Remote = { version: number } | void
 type Receipt = ManagedMutationReceipt<
   CombatReplicaRejection,
-  Remote,
+  void,
   CombatBootstrapUnavailableReason
 >
 type DispatchResult = Result<void, CombatWriteDispatchError> | null
 
-const okReceipt = (remote: Remote = undefined): Receipt => ({
+const okReceipt = (): Receipt => ({
   local: Promise.resolve(ok(undefined)),
-  remote: Promise.resolve(ok(remote)),
+  remote: Promise.resolve(ok(undefined)),
 })
 
-function renderWriteHook(
-  mutate: (write: EntityWrite) => Receipt,
-  onRemoteVersion?: (version: number) => void
-) {
+function renderWriteHook(mutate: (write: EntityWrite) => Receipt) {
   const handle: CombatWriteHandle = { channel: null, mutate }
   const rendered = renderHook(() =>
     useCombatantWrite({
       handleOf: (id) => (id === participantId ? handle : undefined),
-      onRemoteVersion,
     })
   )
   return { rendered }
@@ -77,20 +72,6 @@ describe("useCombatantWrite", () => {
     expect(result!).toEqual(ok(undefined))
     expect(mutate).toHaveBeenCalledWith(damage)
     expect(order).toEqual(["mutate:vitals", "resolved"])
-  })
-
-  it("folds the inline door's committed version into onRemoteVersion", async () => {
-    const versions: number[] = []
-    const { rendered } = renderWriteHook(
-      () => okReceipt({ version: 12 }),
-      (version) => versions.push(version)
-    )
-
-    await act(async () => {
-      await rendered.result.current.dispatchWrite(participantId, damage)
-    })
-
-    expect(versions).toEqual([12])
   })
 
   it("refuses an unknown participant before dispatch", async () => {

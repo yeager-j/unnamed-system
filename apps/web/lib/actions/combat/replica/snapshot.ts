@@ -152,6 +152,7 @@ export async function loadCombatAcceptedAction(
         value: {
           status: joined.encounter.status,
           session: shell.value,
+          version: joined.encounter.version,
         },
         through: joined.lastMutationId ?? 0,
         cursor: joined.encounter.version,

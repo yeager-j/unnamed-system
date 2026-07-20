@@ -30,10 +30,7 @@ import {
   type CombatAccepted,
   type CombatAcceptedError,
 } from "@/lib/actions/combat/replica/snapshot"
-import type {
-  CombatAcceptedRequest,
-  CombatSessionRemote,
-} from "@/lib/actions/combat/replica/wire.schema"
+import type { CombatAcceptedRequest } from "@/lib/actions/combat/replica/wire.schema"
 import {
   createCombatDurableSource,
   createEncounterSource,
@@ -83,7 +80,7 @@ export interface CombatWriteHandle {
     write: CombatEntityWrite
   ): ManagedMutationReceipt<
     CombatReplicaRejection,
-    CombatSessionRemote | void,
+    void,
     CombatBootstrapUnavailableReason
   >
 }
@@ -100,7 +97,7 @@ type EncounterController = ManagedReplica<
   EncounterReplicaState,
   EncounterInvocation,
   CombatReplicaRejection,
-  CombatSessionRemote,
+  void,
   CombatBootstrapUnavailableReason
 >
 
@@ -253,7 +250,7 @@ export interface UseCombatReplicasReturn {
   ) => Result<
     ManagedMutationReceipt<
       CombatReplicaRejection,
-      CombatSessionRemote,
+      void,
       CombatBootstrapUnavailableReason
     >,
     CombatWriteDispatchError
@@ -642,7 +639,7 @@ export function useCombatReplicas({
   ): Result<
     ManagedMutationReceipt<
       CombatReplicaRejection,
-      CombatSessionRemote,
+      void,
       CombatBootstrapUnavailableReason
     >,
     CombatWriteDispatchError

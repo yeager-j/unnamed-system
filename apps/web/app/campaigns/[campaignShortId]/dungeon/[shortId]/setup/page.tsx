@@ -72,7 +72,6 @@ export default async function DungeonEncounterPage({ params }: PageProps) {
       shortId={shortId}
       campaignShortId={campaignShortId}
       dungeonName={dungeon.name}
-      expectedVersion={dungeon.version}
       partyCharacterIds={partyCharacterIds}
       zones={zones}
     />

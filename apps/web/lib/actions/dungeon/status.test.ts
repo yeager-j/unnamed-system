@@ -23,11 +23,16 @@ const publishDungeonPing = vi.fn()
 const publishDungeonInstancePing = vi.fn()
 const loadMapInstanceForWriteLocked = vi.fn()
 const saveLockedMapInstanceState = vi.fn()
+const loadLiveEncounterForMapInstance = vi.fn()
 
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonVariantForWrite: (id: string) => loadDungeonVariantForWrite(id),
   loadActiveDungeonForCampaign: (id: string) =>
     loadActiveDungeonForCampaign(id),
+}))
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
+  loadLiveEncounterForMapInstance: (id: string, tx: unknown) =>
+    loadLiveEncounterForMapInstance(id, tx),
 }))
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
@@ -37,8 +42,8 @@ vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
 }))
 vi.mock("@/lib/db/writes/dungeon", () => ({
-  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
-    lockDungeonRowForLifecycle(tx, id, v),
+  lockDungeonRowForLifecycle: (tx: unknown, id: string) =>
+    lockDungeonRowForLifecycle(tx, id),
   mapActivationRaceToActiveDelve: async (p: unknown) => p,
   setDungeonStatus: (id: string, status: string, v: number, tx: unknown) =>
     setDungeonStatus(id, status, v, tx),
@@ -109,6 +114,7 @@ beforeEach(() => {
     ok({ id: "mi-1", state: {}, status: "open", version: 0 })
   )
   saveLockedMapInstanceState.mockResolvedValue(ok({ version: 1 }))
+  loadLiveEncounterForMapInstance.mockResolvedValue(null)
 })
 
 describe("setDungeonStatusAction", () => {
@@ -173,14 +179,38 @@ describe("setDungeonStatusAction", () => {
     expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "active", 0, "tx")
   })
 
-  it("refuses going active when the locked row is no longer draft", async () => {
-    // The friendly pre-read passed, but under the lock the row is already active
-    // (a racing start won) — the legal-transition check on the locked row refuses.
+  it("converges when the locked row already holds the target status (desired state)", async () => {
+    // The friendly pre-read passed, but under the lock the row is already
+    // active (a racing start won — or this is a redelivered flip). The target
+    // already holds, so the command reports ok with the current version and
+    // writes, pings, and revalidates nothing.
     lockDungeonRowForLifecycle.mockResolvedValue(ok(lockedRow("active")))
 
     const result = await setDungeonStatusAction(goActive)
 
-    expect(result).toEqual({ ok: false, error: "delve-not-draft" })
+    expect(result).toEqual({ ok: true, value: { version: 0 } })
+    expect(setDungeonStatus).not.toHaveBeenCalled()
+    expect(publishDungeonPing).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it("refuses finishing while a live encounter runs on the delve's Instance (UNN-657 review)", async () => {
+    // The stale-tab race the retired expectedVersion used to catch: combat
+    // start bumps only the lifecycle version, so the locked status is still
+    // `active` — the in-tx live-encounter read is what must refuse before
+    // the freeze.
+    lockDungeonRowForLifecycle.mockResolvedValue(ok(lockedRow("active")))
+    loadLiveEncounterForMapInstance.mockResolvedValue({
+      id: "enc-1",
+      shortId: "enc-short",
+      status: "live",
+    })
+
+    const result = await setDungeonStatusAction({ ...goActive, status: "done" })
+
+    expect(result).toEqual({ ok: false, error: "delve-has-live-encounter" })
+    expect(loadLiveEncounterForMapInstance).toHaveBeenCalledWith("mi-1", "tx")
+    expect(saveLockedMapInstanceState).not.toHaveBeenCalled()
     expect(setDungeonStatus).not.toHaveBeenCalled()
   })
 
@@ -235,12 +265,12 @@ describe("setDungeonStatusAction", () => {
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 
-  it("propagates a stale lock (lost the version race) without writing", async () => {
-    lockDungeonRowForLifecycle.mockResolvedValue(err("stale"))
+  it("propagates a vanished dungeon from the lifecycle lock without writing", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(err("dungeon-not-found"))
 
     const result = await setDungeonStatusAction(goActive)
 
-    expect(result).toEqual({ ok: false, error: "stale" })
+    expect(result).toEqual({ ok: false, error: "dungeon-not-found" })
     expect(setDungeonStatus).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
   })

@@ -26,7 +26,6 @@ const REVEAL_EVENT_KINDS = [
  */
 export const SearchRevealSchema = z.object({
   dungeonId: z.string(),
-  expectedVersion: z.number().int().nonnegative(),
   characterId: z.string(),
   event: mapInstanceEventSchema.refine(
     (event) => (REVEAL_EVENT_KINDS as readonly string[]).includes(event.kind),

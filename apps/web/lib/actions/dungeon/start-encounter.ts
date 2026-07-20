@@ -70,15 +70,8 @@ export async function startDungeonEncounterAction(
   const parsed = StartDungeonEncounterSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const {
-    dungeonId,
-    expectedVersion,
-    name,
-    advantage,
-    firstSide,
-    partyCharacterIds,
-    enemies,
-  } = parsed.data
+  const { dungeonId, name, advantage, firstSide, partyCharacterIds, enemies } =
+    parsed.data
 
   const dungeon = await loadDungeonRowById(dungeonId)
   if (dungeon === null) return err("dungeon-not-found")
@@ -153,11 +146,7 @@ export async function startDungeonEncounterAction(
     { shortId: string; instanceVersion: number; version: number },
     StartDungeonEncounterError
   >(async (tx: WriteExecutor) => {
-    const locked = await lockDungeonRowForLifecycle(
-      tx,
-      dungeon.id,
-      expectedVersion
-    )
+    const locked = await lockDungeonRowForLifecycle(tx, dungeon.id)
     if (!locked.ok) return locked
     if (locked.value.status !== "active") return err("delve-not-active")
 
@@ -202,7 +191,11 @@ export async function startDungeonEncounterAction(
     // makes it visible to every other lifecycle actor's guard — a finish racing
     // this start conflicts on the dungeon version instead of folding over a
     // live encounter it never saw.
-    const touched = await touchDungeonLifecycle(tx, dungeon.id, expectedVersion)
+    const touched = await touchDungeonLifecycle(
+      tx,
+      dungeon.id,
+      locked.value.version
+    )
     if (!touched.ok) return touched
 
     return ok({

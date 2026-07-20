@@ -64,16 +64,15 @@ vector would be ceremony. Scalar cursors are totally ordered, so the
 `incomparable-cursors` transport law is deliberately omitted for the encounter
 binding (the alien polling precedent), with the law list re-asserted by name.
 
-**Remote (Open decision 6 evidence, deferred to UNN-657):** the encounter door is the first
-production non-void `Remote` — `{ version }`, the committed encounter
-version, recorded with the outcome and reproduced verbatim on deduplicated
-redelivery. Component and session-intent bindings fold it into the surviving
-command queue's token so the two protocols sharing the encounter row keep
-each other fresh. UNN-656 removed ordinary session events from that queue,
-but start/add/remove, catalog-enemy materialization, standalone end, and
-dungeon end still use expected encounter versions. **UNN-657 owns removal of
-that coordinator, `fetchEncounterVersion`, the recorded `{version}` Remote,
-and restoration of `Remote = void`.**
+**Remote (Open decision 6 — closed by UNN-657):** the encounter door ran the
+first production non-void `Remote` (`{ version }`, recorded and reproduced on
+deduplicated redelivery) for exactly as long as the classic command queue
+shared the encounter row and needed its token kept fresh. UNN-657 deleted
+that coordinator — commands are now settle-then-invoke through
+`lib/sync/command-coordinator.ts`'s `runCommand`, and the authority locks
+current rows instead of comparing client tokens — so the door reverted to the
+package default `Remote = void`. Both contract suites run the encounter
+binding in acknowledgment mode.
 
 **One apply, both sides (UNN-655/656).** `writeEncounterInline` decides the
 liveness precondition (`encounter-not-live`), the locator-derived home
@@ -101,7 +100,8 @@ router-only component-event constructors and reducer arms are deleted.
 | condition axis                            | Increase/decrease replay extend/flip; clear is desired neutral.                                                                                 |
 | condition flag / ailments / clear counter | Replayable desired values.                                                                                                                      |
 | counter / action economy adjustment       | Replayable additive non-zero integer operations.                                                                                                |
-| start / add / remove / encounter end      | Command-only; no Replica mutation.                                                                                                              |
+| zone-less inline add (incl. catalog)      | `encounter.addInlineParticipants` (UNN-657): batch of whole stored entities, client-minted participant ids as the idempotency key; draft+live.  |
+| start / placed add / durable add / remove / encounter end | Command-only; no Replica mutation.                                                                                              |
 | component writes                          | Existing `encounter.writeInline` and `combat.entity.write` vocabulary.                                                                          |
 
 **The single-writer caveat, recorded honestly:** encounter-row state has one
@@ -113,24 +113,29 @@ uniformity — not by multi-writer evidence.
 ## What stays application-level (cross-root commands, enumerated)
 
 A replica root projects ONE mutation deterministically; operations that
-atomically change two roots stay ordinary `useQueuedWrite` Server Actions:
+atomically change two roots or lifecycle are **coordinator commands**
+(UNN-657): the console runs `runCommand([replicas.settleAll,
+mapReplica.settle], () => namedAction(semanticArgs))` — settle, then invoke
+once. No client `expectedVersion`, no stale retry: the authority locks current
+rows in the canonical order (dungeon → mapInstance → encounter → entity),
+validates lifecycle/membership/placement in-transaction, and saves guarded on
+the locked rows' own versions. Ambiguity resolves by documented natural
+idempotency — start/end are terminal desired state (a redelivered end reports
+current versions and never re-sweeps or re-advances the dungeon turn), adds
+dedup by client-minted participant id, removes tolerate absence.
 
-1. `endCombatAction` (session + instance + status) and
-   `endDungeonCombatAction` (+ the dungeon turn; lock order dungeon →
-   mapInstance → encounter).
-2. `addParticipant` — durable hydration (`{ entityId }`, server-hydrated) and
-   the inline paired add (session + occupancy).
-3. `removeParticipant` (paired occupancy sever).
-4. `addCatalogEnemiesAction` (catalog materialization plus roster/placement).
+1. `startCombatAction` (single-live re-check + placement gate in-tx).
+2. `addParticipantAction` — durable hydration (`{ entityId }`) and the placed
+   inline paired add (session + occupancy). Zone-less inline adds are Replica
+   intent, not commands.
+3. `removeParticipantAction` (paired occupancy sever).
+4. `endCombatAction` (sweep + prune + freeze + status) and
+   `endDungeonCombatAction` (+ the dungeon turn).
 
-Spatial intent uses the separate Map Instance Replica. The surviving encounter
-writer inventory is therefore exactly start/add/remove, catalog-enemy
-materialization, standalone end, and dungeon end. No ordinary session intent
-uses `applyCombatEventAction`.
-
-`lib/sync/write-queue.ts` / `use-queued-write.ts` therefore survive for the
-command-only encounter coordinator (dungeon/stage remain importers) until
-UNN-657.
+Spatial intent uses the separate Map Instance Replica. `lib/sync/write-queue.ts`
+/ `use-queued-write.ts` survive ONLY for the Stage autosave hooks (guarded by
+`depcheck.mjs`'s `RESTRICTED_IMPORTS`; their migration is a named follow-up
+ticket).
 
 ## Redaction posture
 
@@ -186,31 +191,34 @@ which deletes the duplicate Writer prediction and the transition formerly held
 until `remote` settled. This is a Showtime composition seam, not a generic
 managed-replica-set abstraction in `@workspace/replica`.
 
-## UNN-656 production delta
+## UNN-656 → UNN-657 production delta
 
-The implementation diff changes production code by **+1,422 / -980 lines
-(net +442)**, excluding tests, E2E, and decision records. The gross addition
-is primarily the explicit named mutation schemas, the pure shell-intent rules,
-and the client receipt binding. The deletion removes the generic optimistic
-event arm, component-event vocabulary, and the old per-family reducer
-implementations.
-
-The application-specific result is less favorable. Counting source code in
-`apps/web` only—excluding tests/E2E, JSON, Markdown and decision records, blank
-lines, comment-only lines, and generated `next-env.d.ts`—the app grew from
-**67,982 to 68,581 lines: +599 (+0.9%)**. UNN-656 achieved its behavioral
-migration but did **not** achieve application contraction. Ordinary session
-prediction/order/retry/rebase and refusal have one home in the Encounter
-Replica, while the classic queue still coordinates the six enumerated command
+UNN-656 measured **67,982 → 68,581 (+599)** production lines in `apps/web`
+(cloc `code` column; command in the design doc) — behavioral migration without
+contraction, with the classic queue still coordinating the six command
 writers.
 
-UNN-657 owns deletion—not another wrapper—of the transitional layer: recorded
-Encounter `Remote = { version }`, session/inline `onRemoteVersion` folds, live
-and setup `encounterWrite` / `useQueuedWrite`, `fetchEncounterVersion`,
-expected-version command envelopes and stale retry, and the surviving classic
-combat command router/action. Its completion review must measure cumulative
-`apps/web` responsibility and LOC; if the coordination surface does not
-contract materially, Replica stabilization stops for architectural review.
+**UNN-657 deleted that layer**: the recorded Encounter `Remote = { version }`
+and both `onRemoteVersion` folds, live/setup `encounterWrite` and the dungeon
+`dungeonWrite` (`useQueuedWrite`), `fetchEncounterVersion` +
+`make-version-refetcher` + both version read actions, every encounter/dungeon
+`expectedVersion` passenger and stale retry, both `dispatch-event` routers,
+`applyCombatEventAction` + envelope, `addCatalogEnemiesAction`, and the combat
+`console-optimistic` mirrors. The result is the target architecture's two
+write species: `replica.mutate` for single-root intent, `runCommand` +
+named actions for cross-root/lifecycle work.
+
+Measured with the same command: **68,586 → 68,572 (−14; TypeScript −56, offset
+by +42 of `depcheck.mjs` guard tooling that retires with the Stage follow-up)**
+— the first net-negative ticket in the program, but far short of the design
+doc's 700–1,000-line responsibility estimate. Where the difference went: the
+six commands did not merely relocate — they gained in-transaction locked
+validation, semantic preconditions, and explicit idempotency recovery arms the
+expected-version protocol never had; and a large share of the deleted files
+was comments and tests, which the metric excludes on both sides. The
+coordination *protocol* count is now one (plus commands); whether flat LOC
+satisfies the pre-1.0 stop condition is recorded as an open review question in
+the design doc.
 
 ## Files
 

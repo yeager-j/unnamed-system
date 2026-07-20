@@ -10,6 +10,7 @@ import {
 import type { CombatEntityWrite } from "../../entity/commit/write.schema"
 import { applyEntityWrite } from "../../entity/commit/writers"
 import {
+  addEncounterInlineParticipants,
   adjustEncounterCounter,
   combatDurableMutations,
   createEncounterSessionInvocation,
@@ -66,6 +67,7 @@ const durablePc = {
 
 const liveState: EncounterReplicaState = {
   status: "live",
+  version: 1,
   session: shellWith([durablePc, goblin, ogre]),
 }
 
@@ -157,6 +159,7 @@ describe("writeEncounterInline (storage-native encounter root)", () => {
     })
     const state: EncounterReplicaState = {
       status: "live",
+      version: 1,
       session: shellWith([scribe]),
     }
     const applied = applyEncounter(state, "p-scribe", damage(1))
@@ -196,6 +199,7 @@ describe("writeEncounterInline (storage-native encounter root)", () => {
     const bare = inlineShellParticipant("p-bare", {})
     const state: EncounterReplicaState = {
       status: "live",
+      version: 1,
       session: shellWith([bare]),
     }
     const applied = applyEncounter(state, "p-bare", damage(1))
@@ -441,6 +445,7 @@ describe("writeEncounterInline applies the shared Writer contract", () => {
   function stateOf(components: Record<string, unknown>): EncounterReplicaState {
     return {
       status: "live",
+      version: 1,
       session: shellWith([
         inlineShellParticipant("p-target", components),
         goblin,
@@ -521,5 +526,114 @@ describe("pickCombatComponents (the structural redaction)", () => {
     const picked = pickCombatComponents({ vitals })
     expect("skillPool" in picked).toBe(false)
     expect("mechanics" in picked).toBe(false)
+  })
+})
+
+describe("addEncounterInlineParticipants (single-root roster add, UNN-657)", () => {
+  const draftState: EncounterReplicaState = {
+    status: "draft",
+    version: 1,
+    session: shellWith([durablePc, goblin]),
+  }
+
+  const joiner = (id: string) => ({
+    participantId: asParticipantId(id),
+    side: "enemies" as const,
+    entity: {
+      id: `${id}-entity`,
+      components: { vitals: { base: 6, damage: 0 } },
+    },
+  })
+
+  function applyAdd(
+    state: EncounterReplicaState,
+    participants: ReturnType<typeof joiner>[]
+  ) {
+    const invocation = addEncounterInlineParticipants({ participants })
+    const definition = encounterMutations.get(invocation.name)!
+    return definition.apply(state, invocation.args, { phase: "optimistic" })
+  }
+
+  it("appends inline shells in batch order after the existing roster", () => {
+    const applied = applyAdd(draftState, [joiner("p-a"), joiner("p-b")])
+    expect(applied.ok).toBe(true)
+    if (!applied.ok) return
+    expect(
+      applied.value.session.participants.map((participant) => participant.id)
+    ).toEqual(["p-pc", "p-goblin", "p-a", "p-b"])
+    const added = applied.value.session.participants[2]!
+    expect(added.entity.storage).toBe("inline")
+    expect(added.overlay.allegiance.side).toBe("enemies")
+  })
+
+  it("a draft joiner enters un-acted; a live joiner enters already-acted (R6.2)", () => {
+    const draft = applyAdd(draftState, [joiner("p-a")])
+    expect(draft.ok).toBe(true)
+    if (!draft.ok) return
+    expect(
+      draft.value.session.participants.at(-1)!.overlay.turnState
+        .turnsTakenThisRound
+    ).toBe(0)
+
+    const live = applyAdd(liveState, [joiner("p-a")])
+    expect(live.ok).toBe(true)
+    if (!live.ok) return
+    expect(
+      live.value.session.participants.at(-1)!.overlay.turnState
+        .turnsTakenThisRound
+    ).toBe(1)
+  })
+
+  it("refuses on an ended encounter before touching state", () => {
+    const ended: EncounterReplicaState = { ...draftState, status: "ended" }
+    expect(applyAdd(ended, [joiner("p-a")])).toEqual({
+      ok: false,
+      error: "encounter-ended",
+    })
+  })
+
+  it("an already-present participant id is filtered — a full duplicate no-ops to the same state", () => {
+    const first = applyAdd(draftState, [joiner("p-a")])
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+    const replay = applyAdd(first.value, [joiner("p-a")])
+    expect(replay.ok).toBe(true)
+    if (!replay.ok) return
+    expect(replay.value).toBe(first.value)
+  })
+
+  it("a partial duplicate adds only the missing joiners", () => {
+    const first = applyAdd(draftState, [joiner("p-a")])
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+    const second = applyAdd(first.value, [joiner("p-a"), joiner("p-b")])
+    expect(second.ok).toBe(true)
+    if (!second.ok) return
+    expect(
+      second.value.session.participants.map((participant) => participant.id)
+    ).toEqual(["p-pc", "p-goblin", "p-a", "p-b"])
+  })
+
+  it("refuses a joiner whose entity fails the load seam", () => {
+    const invalid = {
+      participantId: asParticipantId("p-bad"),
+      side: "enemies" as const,
+      entity: { id: "bad-entity", components: { vitals: { base: 1.5 } } },
+    }
+    expect(applyAdd(draftState, [invalid as never])).toEqual({
+      ok: false,
+      error: "invalid-entity",
+    })
+  })
+
+  it("decodes through the registry (the authority's path)", () => {
+    const invocation = addEncounterInlineParticipants({
+      participants: [joiner("p-a")],
+    })
+    const decoded = encounterMutations.decode({
+      name: invocation.name,
+      args: JSON.parse(JSON.stringify(invocation.args)),
+    })
+    expect(decoded.ok).toBe(true)
   })
 })

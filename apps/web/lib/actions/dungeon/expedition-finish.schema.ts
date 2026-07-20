@@ -12,7 +12,6 @@ import type { RegionWriteError } from "@/lib/db/writes/region"
  */
 export const FinishExpeditionSchema = z.object({
   dungeonId: z.string(),
-  expectedVersion: z.number().int().nonnegative(),
 })
 
 export type FinishExpeditionInput = z.input<typeof FinishExpeditionSchema>

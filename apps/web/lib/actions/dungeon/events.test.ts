@@ -3,26 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   createDungeonState,
   type DungeonState,
-  type MapInstanceState,
 } from "@workspace/game-v2/spatial"
-import { err, ok } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
+
+import type { WriteExecutor } from "@/lib/db/client"
 
 import { applyDungeonEvent } from "./events"
 
-// Stub the seams — the DM gate, the campaignId + row loads, the Instance load, and
-// the guarded dungeon / Instance writes — so this is a pure unit test of the
-// dungeon-vs-spatial routing; the reducers + schema run for real. `requireCampaignDM`
-// throws `forbidden()`; stub it to throw a sentinel so the rejection is assertable.
+// Stub the seams — the DM gate, the campaignId + row loads, the lifecycle
+// lock, and the guarded dungeon write — so this is a pure unit test of the
+// de-versioned turn-loop command (UNN-657); the reducer + schema run for
+// real. `guardMany` passes the body a fake executor and surfaces its result
+// verbatim (the rollback-on-err semantics collapse to pass-through here).
 const requireCampaignDM = vi.fn()
 const loadDungeonCampaignId = vi.fn()
 const loadDungeonRowById = vi.fn()
-const loadMapInstanceById = vi.fn()
-const loadPlacedCharactersForCampaign = vi.fn()
+const lockDungeonRowForLifecycle = vi.fn()
 const saveDungeonState = vi.fn()
-const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
 const publishDungeonPing = vi.fn()
-const publishDungeonInstancePing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -31,24 +30,15 @@ vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonCampaignId: (id: string) => loadDungeonCampaignId(id),
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
 }))
-vi.mock("@/lib/db/queries/character-list", () => ({
-  loadPlacedCharactersForCampaign: (id: string) =>
-    loadPlacedCharactersForCampaign(id),
-}))
-vi.mock("@/lib/db/queries/map-instance", () => ({
-  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
-}))
 vi.mock("@/lib/db/writes/dungeon", () => ({
+  lockDungeonRowForLifecycle: (tx: unknown, id: string) =>
+    lockDungeonRowForLifecycle(tx, id),
   saveDungeonState: (id: string, state: DungeonState, v: number) =>
     saveDungeonState(id, state, v),
 }))
-vi.mock("@/lib/db/writes/map-instance", () => ({
-  saveMapInstanceState: (
-    tx: unknown,
-    id: string,
-    state: MapInstanceState,
-    v: number
-  ) => saveMapInstanceState(tx, id, state, v),
+vi.mock("@/lib/db/writes/guard-many", () => ({
+  guardMany: async <T, E>(body: (tx: WriteExecutor) => Promise<Result<T, E>>) =>
+    body({} as WriteExecutor),
 }))
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
@@ -57,61 +47,20 @@ vi.mock("./revalidate", () => ({
 vi.mock("@/lib/realtime/publish", () => ({
   publishDungeonPing: (shortId: string, ping: unknown) =>
     publishDungeonPing(shortId, ping),
-  publishDungeonInstancePing: (shortId: string, version: number) =>
-    publishDungeonInstancePing(shortId, version),
 }))
 
 const DUNGEON_ID = "dungeon-1"
 const CAMPAIGN_ID = "campaign-1"
-const MAP_INSTANCE_ID = "mi-1"
 
 function dungeonRow(state: DungeonState = createDungeonState()) {
   return {
     id: DUNGEON_ID,
     campaignId: CAMPAIGN_ID,
-    mapInstanceId: MAP_INSTANCE_ID,
+    mapInstanceId: "mi-1",
     shortId: "dng-short",
     status: "active" as const,
     state,
-    version: 0,
-  }
-}
-
-function instanceRow(): {
-  id: string
-  mapId: null
-  state: MapInstanceState
-  version: number
-} {
-  return {
-    id: MAP_INSTANCE_ID,
-    mapId: null,
-    state: {
-      geometry: {
-        pages: { default: { id: "default", name: "Page 1" } },
-        zones: {
-          z1: {
-            id: "z1",
-            name: "Hall",
-            description: "",
-            dmNotes: "",
-            position: { x: 0, y: 0 },
-            pageId: "default",
-          },
-        },
-        connections: {},
-      },
-      occupancy: {},
-      enchantment: null,
-      reveal: {
-        revealedZoneIds: [],
-        revealedConnectionIds: [],
-        unlockedConnectionIds: [],
-      },
-      generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
-      lastMovedTokenKey: null,
-    },
-    version: 0,
+    version: 3,
   }
 }
 
@@ -119,19 +68,26 @@ beforeEach(() => {
   vi.clearAllMocks()
   loadDungeonCampaignId.mockResolvedValue(CAMPAIGN_ID)
   loadDungeonRowById.mockResolvedValue(dungeonRow())
-  loadMapInstanceById.mockResolvedValue(instanceRow())
-  loadPlacedCharactersForCampaign.mockResolvedValue([{ id: "char-1" }])
+  lockDungeonRowForLifecycle.mockResolvedValue(ok(dungeonRow()))
   requireCampaignDM.mockResolvedValue({ id: CAMPAIGN_ID })
-  saveDungeonState.mockResolvedValue(ok({ version: 1 }))
-  saveMapInstanceState.mockResolvedValue(ok({ version: 5 }))
+  saveDungeonState.mockResolvedValue(ok({ version: 4 }))
 })
 
 describe("applyDungeonEvent — auth + validation", () => {
   it("rejects a malformed payload before any DB read", async () => {
     const result = await applyDungeonEvent({
       dungeonId: DUNGEON_ID,
-      expectedVersion: 0,
       event: { kind: "bogus" } as never,
+    })
+
+    expect(result).toEqual({ ok: false, error: "invalid-input" })
+    expect(loadDungeonCampaignId).not.toHaveBeenCalled()
+  })
+
+  it("rejects advanceTurn without its semantic expectedTurn", async () => {
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      event: { kind: "advanceTurn" },
     })
 
     expect(result).toEqual({ ok: false, error: "invalid-input" })
@@ -143,8 +99,8 @@ describe("applyDungeonEvent — auth + validation", () => {
 
     const result = await applyDungeonEvent({
       dungeonId: DUNGEON_ID,
-      expectedVersion: 0,
       event: { kind: "advanceTurn" },
+      expectedTurn: 0,
     })
 
     expect(result).toEqual({ ok: false, error: "dungeon-not-found" })
@@ -158,59 +114,97 @@ describe("applyDungeonEvent — auth + validation", () => {
     await expect(
       applyDungeonEvent({
         dungeonId: DUNGEON_ID,
-        expectedVersion: 0,
         event: { kind: "advanceTurn" },
+        expectedTurn: 0,
       })
     ).rejects.toBe(forbidden)
     expect(saveDungeonState).not.toHaveBeenCalled()
   })
 
-  it("refuses to write a non-active delve (frozen history is structural, D11)", async () => {
-    loadDungeonRowById.mockResolvedValue({
-      ...dungeonRow(),
-      status: "done" as const,
-    })
+  it("refuses to write a non-active delve on the LOCKED row (frozen history is structural, D11)", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(
+      ok({ ...dungeonRow(), status: "done" as const })
+    )
 
     const result = await applyDungeonEvent({
       dungeonId: DUNGEON_ID,
-      expectedVersion: 0,
       event: { kind: "advanceTurn" },
+      expectedTurn: 0,
     })
 
     expect(result).toEqual({ ok: false, error: "delve-not-active" })
     expect(saveDungeonState).not.toHaveBeenCalled()
-    expect(saveMapInstanceState).not.toHaveBeenCalled()
   })
 })
 
-describe("applyDungeonEvent — routing", () => {
-  it("routes a turn-loop event to the dungeon row, not the Instance", async () => {
+describe("applyDungeonEvent — the de-versioned turn loop", () => {
+  it("saves guarded on the locked row's own version and pings", async () => {
     const result = await applyDungeonEvent({
       dungeonId: DUNGEON_ID,
-      expectedVersion: 0,
       event: { kind: "markActed", characterId: "char-1" },
     })
 
-    expect(result).toEqual({ ok: true, value: { version: 1 } })
-    const [, savedState] = saveDungeonState.mock.calls[0]!
+    expect(result).toEqual({ ok: true, value: { version: 4 } })
+    const [, savedState, guardVersion] = saveDungeonState.mock.calls[0]!
     expect((savedState as DungeonState).actedCharacterIds).toEqual(["char-1"])
-    expect(saveMapInstanceState).not.toHaveBeenCalled()
+    expect(guardVersion).toBe(3)
     expect(revalidateDungeon).toHaveBeenCalled()
-    // A turn-loop write bumps the dungeon row → a `dungeon`-kind ping (UNN-468).
     expect(publishDungeonPing).toHaveBeenCalledExactlyOnceWith("dng-short", {
-      version: 1,
+      version: 4,
       status: "active",
     })
-    expect(publishDungeonInstancePing).not.toHaveBeenCalled()
   })
 
-  it("propagates a stale guarded-write error and skips revalidation", async () => {
+  it("a duplicate markActed is the reducer's no-op: current version, no write, no ping", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(
+      ok(dungeonRow({ ...createDungeonState(), actedCharacterIds: ["char-1"] }))
+    )
+
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      event: { kind: "markActed", characterId: "char-1" },
+    })
+
+    expect(result).toEqual({ ok: true, value: { version: 3 } })
+    expect(saveDungeonState).not.toHaveBeenCalled()
+    expect(publishDungeonPing).not.toHaveBeenCalled()
+    expect(revalidateDungeon).not.toHaveBeenCalled()
+  })
+
+  it("advanceTurn refuses turn-already-advanced when the locked counter moved past its expectedTurn", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(
+      ok(dungeonRow({ ...createDungeonState(), turnCounter: 1 }))
+    )
+
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      event: { kind: "advanceTurn" },
+      expectedTurn: 0,
+    })
+
+    expect(result).toEqual({ ok: false, error: "turn-already-advanced" })
+    expect(saveDungeonState).not.toHaveBeenCalled()
+  })
+
+  it("advanceTurn commits when the locked counter matches", async () => {
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      event: { kind: "advanceTurn" },
+      expectedTurn: 0,
+    })
+
+    expect(result).toEqual({ ok: true, value: { version: 4 } })
+    const [, savedState] = saveDungeonState.mock.calls[0]!
+    expect((savedState as DungeonState).turnCounter).toBe(1)
+  })
+
+  it("propagates a guarded-write error and skips revalidation", async () => {
     saveDungeonState.mockResolvedValue(err("stale"))
 
     const result = await applyDungeonEvent({
       dungeonId: DUNGEON_ID,
-      expectedVersion: 0,
       event: { kind: "advanceTurn" },
+      expectedTurn: 0,
     })
 
     expect(result).toEqual({ ok: false, error: "stale" })

@@ -15,7 +15,6 @@ import {
   pushCombatSessionMutationAction,
 } from "@/lib/actions/combat/replica/push"
 import { loadCombatAcceptedAction } from "@/lib/actions/combat/replica/snapshot"
-import type { CombatSessionRemote } from "@/lib/actions/combat/replica/wire.schema"
 
 import { createActionReplicaSource } from "./action-replica-source"
 
@@ -31,7 +30,7 @@ export type EncounterSource = PullTransportSource<
   EncounterReplicaState,
   EncounterInvocation,
   CombatReplicaRejection,
-  CombatSessionRemote,
+  void,
   number
 >
 

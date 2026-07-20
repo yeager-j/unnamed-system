@@ -41,8 +41,8 @@ concurrency token, and envelope:
 | ----------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `entity/replica/`       | strict owner, recorded as a typed rejection                                               | `{ entityId, envelope: { clientGroupId, clientId, mutationId, invocation } }`                                                                                                                                                             | ordered dedup-row lock, then entity-row lock                                                    |
 | `entity/` classic seams | strict owner for lifecycle; owner-or-campaign-DM inside the combat Store                  | explicit identity precondition for lifecycle; `{ entityId, expectedVersion, write }` inside combat                                                                                                                                        | per-write-class guard (`bumpEntityVersionGuarded`)                                              |
-| `encounter/`            | `requireCampaignDM`                                                                       | `encounterMutationBase` (`{ encounterId, expectedVersion }`)                                                                                                                                                                              | single `version` per encounter                                                                  |
-| `combat/`               | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; durable arm forwards to the entity Store and guards `entity.vitalsVersion` |
+| `encounter/`            | `requireCampaignDM`                                                                       | semantic args only (`{ encounterId, … }`) — no client version token (UNN-657)                                                                                                                                                             | authority row locks in-transaction                                                              |
+| `combat/` commands      | `requireCampaignDM`                                                                       | named commands (`start-combat`, `roster`, `end-combat`): semantic args + client-minted participant ids as idempotency keys — no client version token (UNN-657)                                                                            | canonical locks (dungeon → mapInstance → encounter → entity), locked-row vacuous guards, documented natural idempotency |
 | `combat/replica/`       | typed rejections: durable push = class→posture (`authorizeEntityWriteForClass`) at request start + locked liveness/roster in-transaction; encounter push = `authorizeCampaignDMForEncounter` + apply-level liveness under the row lock; batched snapshot = `requireCampaignDM` (throwing read door) + liveness | durable `{ encounterId, entityId, envelope }`, encounter `{ encounterId, envelope }`, batched accepted request | ordered dedup-row lock (`replicaClient` / `encounterReplicaClient`), then `encounters` (both doors), then `entity` for the durable arm — no client `expectedVersion` |
 
 > **The `entity/` aggregate (UNN-551/649)** is the descriptor → Writer → Store
@@ -91,11 +91,10 @@ concurrency token, and envelope:
 > (`participant-not-inline`), and Writer refusals are one decided-once code
 > path enforced under the row lock; the total `serializeSessionShell` then
 > persists through `saveEncounterSession`. Ledger `encounterReplicaClient`;
-> lock order `encounterReplicaClient → encounters`; unlike the classic event
-> door it never promotes `draft → live` (this door exists only behind the
-> live console); `Remote = { version }` is recorded with the outcome and
-> reproduced verbatim on a deduplicated redelivery (removal condition:
-> UNN-656 retiring the encounter event queue). The **batched bootstrap**
+> lock order `encounterReplicaClient → encounters`; it never promotes
+> `draft → live` (lifecycle is a coordinator command); `Remote = void`
+> (UNN-657 restored the package default once the classic queue's token fold
+> retired). The **batched bootstrap**
 > (`loadCombatAcceptedAction`) registers the encounter identity plus the
 > roster-admitted durable identities in one action (Server Actions serialize
 > per tab) and serves each root's tuple from one joined statement. It refuses

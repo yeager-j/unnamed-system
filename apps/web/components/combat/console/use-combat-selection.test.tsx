@@ -10,7 +10,7 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import type { CurrentActorView } from "@/domain/combat/view/console-view"
 import { resolveSession } from "@/domain/game-engine-v2"
 
-import type { ConsoleDispatchEvent } from "./dispatch-event"
+import type { ConsoleDispatchEvent } from "./use-combat-console"
 import { useCombatSelection } from "./use-combat-selection"
 
 const goblinId = asParticipantId("p-goblin")

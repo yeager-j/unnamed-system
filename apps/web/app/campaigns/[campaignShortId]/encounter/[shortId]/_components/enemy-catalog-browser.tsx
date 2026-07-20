@@ -14,21 +14,25 @@ import { getEnemy } from "@workspace/game-v2/catalog/enemies"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { useEncounterEnemyQueue } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_hooks/use-encounter-enemy-queue"
+import { toInlineAddIntent } from "@/components/combat/console/use-combat-console"
+import { useEncounterIntent } from "@/components/combat/console/use-encounter-intent"
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
-import { addCatalogEnemiesAction } from "@/lib/actions/combat/add-participants"
-import { combatErrorMessage } from "@/lib/actions/combat/error-message"
+import { buildReinforcements } from "@/domain/combat/reinforcements"
+import { useCombatReplicas } from "@/domain/combat/replica/use-combat-replicas"
 import { encounterConsolePath } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
- * The catalog browse-and-add surface (UNN-346), committing onto engine v2
- * (UNN-535): a three-column master-detail over the bestiary plus a local
- * staging queue. The DM queues creatures (count per kind) and commits them
- * through {@link addCatalogEnemiesAction}, which materializes each key into a
- * fresh **inline entity** server-side — adds land unplaced on the enemies side
- * (add-then-place), so the commit is a session-only write and carries no
- * Instance token. The queue is localStorage-backed (a reload never loses it).
+ * The catalog browse-and-add surface (UNN-346), on the Encounter Replica
+ * since UNN-657: a three-column master-detail over the bestiary plus a local
+ * staging queue. The DM queues creatures (count per kind) and commits them as
+ * one `encounter.addInlineParticipants` mutation — each key materialized
+ * **client-side** by {@link buildReinforcements} (the deterministic shared
+ * `instantiateEnemy`), landing unplaced on the enemies side (add-then-place).
+ * Client-minted participant ids make a redelivered commit converge instead of
+ * duplicating the batch. The queue is localStorage-backed (a reload never
+ * loses it).
  */
 function enemyName(enemyKey: string): string {
   return getEnemy(enemyKey)?.components.identity?.name ?? enemyKey
@@ -39,7 +43,6 @@ export function EnemyCatalogBrowser({
   shortId,
   campaignShortId,
   encounterName,
-  expectedVersion,
   committedPlayers,
   committedEnemies,
 }: {
@@ -47,13 +50,25 @@ export function EnemyCatalogBrowser({
   shortId: string
   campaignShortId: string
   encounterName: string
-  expectedVersion: number
   committedPlayers: number
   committedEnemies: number
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const queue = useEncounterEnemyQueue(encounterId)
+
+  const replicas = useCombatReplicas({
+    encounterId,
+    participantMeta: {},
+    rosterIds: [],
+    includeDurableRoots: false,
+    // A non-draft encounter can't take catalog adds; the route guard already
+    // redirects, so an unavailable bootstrap just re-runs it.
+    onEncounterUnavailable: () => router.refresh(),
+  })
+  const { dispatchIntent } = useEncounterIntent({
+    mutateEncounter: replicas.mutateEncounter,
+  })
 
   const backHref = encounterConsolePath(campaignShortId, shortId)
 
@@ -66,19 +81,15 @@ export function EnemyCatalogBrowser({
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const saved = await addCatalogEnemiesAction({
-            encounterId,
-            expectedVersion,
-            enemies: queue.queue.map((entry) => ({
+          const setups = buildReinforcements(
+            queue.queue.map((entry) => ({
               enemyKey: entry.enemyKey,
               count: entry.count,
             })),
-          })
-
-          if (!saved.ok) {
-            toast.error(combatErrorMessage(saved.error))
-            return
-          }
+            undefined
+          )
+          const saved = await dispatchIntent(toInlineAddIntent(setups))
+          if (!saved?.ok) return
 
           queue.clear()
           toast.success(
@@ -140,7 +151,7 @@ export function EnemyCatalogBrowser({
               count: entry.count,
             }))}
             totalCount={queue.totalCount}
-            isPending={isPending}
+            isPending={isPending || !replicas.encounterIntentReady}
             onIncrement={(key) => queue.add(key)}
             onDecrement={(key) => {
               const entry = queue.queue.find((item) => item.enemyKey === key)

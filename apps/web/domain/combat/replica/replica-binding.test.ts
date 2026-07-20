@@ -11,7 +11,6 @@ import {
 import {
   createInMemoryAuthority,
   REPLICA_CONTRACT_LAW_NAMES,
-  REPLICA_CONTRACT_RECORDED_LAW_NAME,
   settle,
   TRANSPORT_CONTRACT_LAW_NAMES,
   verifyReplicaContract,
@@ -284,7 +283,7 @@ describe("replica contract — combat durable binding", () => {
   }
 })
 
-// ── Encounter binding: storage-native root, scalar cursor, recorded Remote ───
+// ── Encounter binding: storage-native root, scalar cursor, Remote = void ───
 
 const encounterIdentity = {
   clientGroupId: "encounter:enc1",
@@ -293,8 +292,6 @@ const encounterIdentity = {
 const p1 = asParticipantId("p-goblin")
 const p2 = asParticipantId("p-ogre")
 const ghost = asParticipantId("p-vanished")
-
-type SessionRemote = { version: number }
 
 function inlineShellParticipant(
   id: ReturnType<typeof asParticipantId>,
@@ -321,16 +318,18 @@ function createEncounterWorld() {
       inlineShellParticipant(p2, { vitals: { base: 30, damage: 0 } }),
     ],
   }
-  const initialState: EncounterReplicaState = { status: "live", session }
-  // The encounter door's non-void Remote: the committed encounter version.
-  // The closure counter mirrors the authority's version — it advances only
-  // when an execution commits, exactly like the locked row's bump.
-  let commits = 0
+  const initialState: EncounterReplicaState = {
+    status: "live",
+    version: 1,
+    session,
+  }
+  // Remote = void (UNN-657 restored the package default): the authority
+  // acknowledges terminal outcomes only; accepted state carries the versions.
   const authority = createInMemoryAuthority<
     EncounterReplicaState,
     EncounterInvocation,
     EncounterWriteRefusal,
-    SessionRemote
+    void
   >({
     mutations: encounterMutations,
     initial: initialState,
@@ -341,8 +340,7 @@ function createEncounterWorld() {
         phase: "rebase",
       })
       if (!applied.ok) return err(applied.error)
-      commits += 1
-      return ok({ state: applied.value, remote: { version: commits } })
+      return ok({ state: applied.value, remote: undefined })
     },
   })
   const handle = authority.transport(encounterIdentity)
@@ -390,7 +388,7 @@ type EncounterScenario = TransportContractScenario<
   EncounterReplicaState,
   EncounterInvocation,
   EncounterWriteRefusal,
-  SessionRemote,
+  void,
   number
 >
 
@@ -456,7 +454,7 @@ describe("transport contract — encounter adapter", () => {
   }
 })
 
-describe("replica contract — encounter binding (recorded Remote)", () => {
+describe("replica contract — encounter binding (Remote = void)", () => {
   function createContext(): ReplicaContractContext<
     EncounterReplicaState,
     EncounterInvocation,
@@ -528,7 +526,6 @@ describe("replica contract — encounter binding (recorded Remote)", () => {
           }),
         },
         vetoError: "capability-missing",
-        expectedRemote: { version: 1 },
       },
       controls: {
         read: world.authority.read,
@@ -550,16 +547,10 @@ describe("replica contract — encounter binding (recorded Remote)", () => {
     }
   }
 
-  const laws = verifyReplicaContract({
-    create: createContext,
-    remoteMode: "recorded",
-  })
+  const laws = verifyReplicaContract({ create: createContext })
 
-  it("covers the full law set plus the recorded-remote law", () => {
-    expect(laws.map((law) => law.name)).toEqual([
-      ...REPLICA_CONTRACT_LAW_NAMES,
-      REPLICA_CONTRACT_RECORDED_LAW_NAME,
-    ])
+  it("covers the full law set (acknowledgment mode — the recorded-remote law retired with the version fold, UNN-657)", () => {
+    expect(laws.map((law) => law.name)).toEqual([...REPLICA_CONTRACT_LAW_NAMES])
   })
 
   for (const law of laws) {

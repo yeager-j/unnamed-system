@@ -9,7 +9,6 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
 
-import { dispatchDungeonEvent } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/dispatch-event"
 import {
   reduceDungeonConsoleOptimistic,
   type DungeonConsoleAction,
@@ -18,35 +17,38 @@ import {
 import { isMapInstanceReplicaEvent } from "@/domain/map/replica/mutations"
 import { useMapInstanceReplica } from "@/domain/map/replica/use-map-instance-replica"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
+import { applyDungeonEvent } from "@/lib/actions/dungeon/events"
 import { isDungeonEvent } from "@/lib/actions/dungeon/events.schema"
 import { finishExpeditionAction } from "@/lib/actions/dungeon/expedition-finish"
 import { searchRevealAction } from "@/lib/actions/dungeon/search-reveal"
 import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"
-import { getDungeonVersionAction } from "@/lib/actions/dungeon/version"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { runCommand } from "@/lib/sync/command-coordinator"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
-import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
 import { parseVersionPing } from "@/lib/sync/version-ping"
 
 /**
- * The live DM dungeon console's owner-mode write surface (UNN-464) — the
- * exploration peer of `useCombatConsole`. It mirrors the server's reducers
- * optimistically into **one** container over `{ dungeon, instance }`
- * ({@link reduceDungeonConsoleOptimistic}, UNN-597 — the same single-container
- * shape UNN-535 gave the combat console). Dungeon events retain their queued
- * version token; spatial intent is owned by the Map Instance Replica.
+ * The live DM dungeon console's owner-mode write surface (UNN-464; command
+ * coordinator UNN-657) — the exploration peer of `useCombatConsole`. It
+ * mirrors the turn-loop reducer optimistically into **one** container over
+ * `{ dungeon, instance }` ({@link reduceDungeonConsoleOptimistic}, UNN-597).
+ * Dungeon commands carry no client version token: the authority locks the
+ * dungeon row and validates in-transaction, with `advanceTurn` carrying the
+ * semantic `expectedTurn` precondition (a duplicate advance refuses
+ * `turn-already-advanced`, treated as quiet convergence). Spatial intent is
+ * owned by the Map Instance Replica.
  *
  * Two gestures sit **outside** the optimistic dispatch path because they aren't
  * `reduceDungeon` events:
  * - {@link searchReveal} — the search-that-reveals cross-write (`markActed` +
- *   reveal), one `guardMany`; it mirrors **both** containers and rides the
- *   dungeon queue. The server transaction locks the current Map Instance and
- *   settles the reveal against it.
+ *   reveal), one `guardMany`; it mirrors **both** containers. The server
+ *   transaction locks the current Map Instance and settles the reveal
+ *   against it.
  * - {@link finishDelve} — the terminal `active → done` flip. An ordinary delve
- *   enqueues the status flip on the dungeon lane alone; a Region **expedition**
- *   routes to `finishExpeditionAction`, whose transaction owns the D5 freeze.
+ *   flips the status alone; a Region **expedition** routes to
+ *   `finishExpeditionAction`, whose transaction owns the D5 freeze.
  *
  * The `dungeon:` channel (DM-to-DM spatial sync) is M3 (UNN-468), so the console
  * relies on its own optimistic frame + `router.refresh()` for the DM's own edits;
@@ -81,16 +83,6 @@ export function useDungeonConsole(
   })
   const instanceState = mapReplica.state
 
-  // The dungeon lane retains one-shot stale retry. Map rebasing belongs to the
-  // Replica transport.
-  const refetchDungeonVersion = async () => {
-    const result = await getDungeonVersionAction({ shortId: dungeon.shortId })
-    return result.ok ? result.value.version : null
-  }
-  const dungeonWrite = useQueuedWrite({
-    serverVersion: dungeon.version,
-    refetchVersion: refetchDungeonVersion,
-  })
   // Character-channel pings (a player editing their own sheet) collapse into one
   // `router.refresh()` per event-loop task — mirroring the combat console, so a
   // burst of pings doesn't fan out into a refresh per ping.
@@ -114,7 +106,9 @@ export function useDungeonConsole(
         mapReplica.notify()
         return
       }
-      if (ping.version > dungeonWrite.versionRef.current) scheduleRefresh()
+      // A dungeon-row ping is only an invalidation signal; the refresh is
+      // coalesced, so a self-echo costs one already-scheduled refresh.
+      scheduleRefresh()
     },
     onReconnect: () => {
       mapReplica.notify()
@@ -137,13 +131,22 @@ export function useDungeonConsole(
             toast.error(dungeonErrorMessage("generation-event-not-supported"))
             return
           }
-          const result = await dispatchDungeonEvent({
-            event,
+          // Capture the semantic precondition from the rendered frame before
+          // mirroring, then invoke the de-versioned command once.
+          const expectedTurn =
+            event.kind === "advanceTurn" ? dungeonState.turnCounter : undefined
+          applyOptimistic({ kind: "dungeonEvent", event })
+          const result = await applyDungeonEvent({
             dungeonId: dungeon.id,
-            applyOptimistic,
-            dungeonWrite,
+            event,
+            ...(expectedTurn !== undefined ? { expectedTurn } : {}),
           })
           if (!result.ok) {
+            // A duplicate/raced advance is quiet convergence, not an error.
+            if (result.error === "turn-already-advanced") {
+              scheduleRefresh()
+              return
+            }
             toast.error(dungeonErrorMessage(result.error))
             return
           }
@@ -208,19 +211,13 @@ export function useDungeonConsole(
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const settled = await mapReplica.settle()
-          if (!settled.ok) {
-            toast.error("Couldn't finish saving the map. Try again.")
-            return
-          }
           applyOptimistic({
             kind: "dungeonEvent",
             event: { kind: "markActed", characterId },
           })
-          const result = await dungeonWrite.enqueue((expectedVersion) =>
+          const result = await runCommand([mapReplica.settle], () =>
             searchRevealAction({
               dungeonId: dungeon.id,
-              expectedVersion,
               characterId,
               event,
             })
@@ -241,29 +238,18 @@ export function useDungeonConsole(
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const settled = await mapReplica.settle()
-          if (!settled.ok) {
-            toast.error("Couldn't finish saving the map. Try again.")
-            return
-          }
           // A Region expedition's finish is not a bare flip: it folds the
-          // Region's chart and freezes the Instance. Both variants enqueue on
-          // the dungeon lane; the server owns the Map Instance lock.
-          const result =
+          // Region's chart and freezes the Instance; the server owns the Map
+          // Instance lock. `done` is terminal desired state, so a redelivery
+          // converges as an ok no-op.
+          const result = await runCommand([mapReplica.settle], () =>
             dungeon.regionId !== null
-              ? await dungeonWrite.enqueue((expectedVersion) =>
-                  finishExpeditionAction({
-                    dungeonId: dungeon.id,
-                    expectedVersion,
-                  })
-                )
-              : await dungeonWrite.enqueue((expectedVersion) =>
-                  setDungeonStatusAction({
-                    dungeonId: dungeon.id,
-                    status: "done",
-                    expectedVersion,
-                  })
-                )
+              ? finishExpeditionAction({ dungeonId: dungeon.id })
+              : setDungeonStatusAction({
+                  dungeonId: dungeon.id,
+                  status: "done",
+                })
+          )
           if (!result.ok) {
             toast.error(dungeonErrorMessage(result.error))
             return

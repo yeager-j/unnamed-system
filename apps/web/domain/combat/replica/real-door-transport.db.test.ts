@@ -417,7 +417,7 @@ type SessionScenario = TransportContractScenario<
   EncounterReplicaState,
   EncounterInvocation,
   CombatReplicaRejection,
-  { version: number },
+  void,
   number
 >
 
@@ -472,7 +472,7 @@ async function createSessionDoorScenario(): Promise<SessionScenario> {
     async pushEnvelope(
       envelope: MutationEnvelope<EncounterInvocation>,
       signal: AbortSignal
-    ): Promise<Result<{ version: number }, PushError<CombatReplicaRejection>>> {
+    ): Promise<Result<void, PushError<CombatReplicaRejection>>> {
       received.push(envelope)
       const primed = nextPrime
       nextPrime = undefined
@@ -622,7 +622,7 @@ describe("combat replica SQL serialization", () => {
     expect(await vitalsVersion(pcEntityId)).toBe(before + 1)
   })
 
-  it("session door: a duplicate reproduces the recorded Remote; a classic bump stays monotone", async () => {
+  it("session door: a duplicate replays silently (Remote = void); a command bump stays monotone", async () => {
     const { encounterId, inlineParticipantId } = await createFixture()
     const identity = {
       clientGroupId: `encounter:${encounterId}`,
@@ -642,13 +642,13 @@ describe("combat replica SQL serialization", () => {
       pushCombatSessionMutationAction({ encounterId, envelope }),
       pushCombatSessionMutationAction({ encounterId, envelope }),
     ])
-    expect(first).toEqual(ok({ version: 1 }))
-    expect(second).toEqual(ok({ version: 1 }))
+    expect(first).toEqual(ok(undefined))
+    expect(second).toEqual(ok(undefined))
     expect(await encounterVersion(encounterId)).toBe(1)
 
-    // A classic event-wire writer bumps the same row; the next replica
-    // commit reads the fresh version under its lock — monotone, no guard
-    // fight between the two protocols.
+    // A command writer bumps the same row; the next replica commit reads the
+    // fresh version under its lock — monotone, no guard fight between the
+    // two write species.
     await getDb()
       .update(encounters)
       .set({ version: sql`${encounters.version} + 1` })
@@ -657,7 +657,8 @@ describe("combat replica SQL serialization", () => {
       encounterId,
       envelope: { ...envelope, mutationId: 2 },
     })
-    expect(third).toEqual(ok({ version: 3 }))
+    expect(third).toEqual(ok(undefined))
+    expect(await encounterVersion(encounterId)).toBe(3)
   })
 })
 
@@ -727,7 +728,7 @@ describe("encounter accepted-tuple atomicity", () => {
         }),
       },
     })
-    expect(pushed).toEqual(ok({ version: 1 }))
+    expect(pushed).toEqual(ok(undefined))
 
     const after = await loadCombatAcceptedAction({
       encounterId,
@@ -811,7 +812,7 @@ describe("combat replica encounter preconditions", () => {
       },
     })
 
-    expect(result).toEqual(ok({ version: before }))
+    expect(result).toEqual(ok(undefined))
     expect(await encounterVersion(encounterId)).toBe(before)
     const accepted = await loadCombatAcceptedAction({
       encounterId,
@@ -840,10 +841,11 @@ describe("combat replica encounter preconditions", () => {
     }
     expect(
       await pushCombatSessionMutationAction({ encounterId, envelope })
-    ).toEqual(ok({ version: 1 }))
+    ).toEqual(ok(undefined))
     expect(
       await pushCombatSessionMutationAction({ encounterId, envelope })
-    ).toEqual(ok({ version: 1 }))
+    ).toEqual(ok(undefined))
+    expect(await encounterVersion(encounterId)).toBe(1)
 
     const refused = await pushCombatSessionMutationAction({
       encounterId,

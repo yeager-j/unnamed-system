@@ -12,12 +12,11 @@ import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
  * turn loop's `actedCharacterIds` roster derives from occupancy). An empty roster
  * is allowed (a partial party is fine — PRD).
  *
- * Both version tokens are required: delve-start writes the Instance row (the
- * geometry snapshot + tokens) **and** the dungeon row (the status flip).
+ * De-versioned by UNN-657: the authority locks the dungeon row and validates
+ * `draft` in-transaction; no client version tokens.
  */
 export const StartDelveSchema = z.object({
   dungeonId: z.string(),
-  expectedVersion: z.number().int().nonnegative(),
   placements: z.array(
     z.object({ characterId: z.string(), zoneId: z.string() })
   ),

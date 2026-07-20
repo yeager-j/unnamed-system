@@ -26,7 +26,7 @@ import { endDungeonCombatAction } from "./end-combat"
 
 const requireCampaignDM = vi.fn()
 const loadDungeonRowById = vi.fn()
-const loadEncounterForWrite = vi.fn()
+const loadEncounterForWriteLocked = vi.fn()
 const loadMapInstanceById = vi.fn()
 const saveEncounterSession = vi.fn()
 const setEncounterStatus = vi.fn()
@@ -45,7 +45,8 @@ vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
-  loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
+  loadEncounterForWriteLocked: (tx: unknown, id: string) =>
+    loadEncounterForWriteLocked(tx, id),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
@@ -82,8 +83,8 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
 vi.mock("@/lib/db/writes/dungeon", () => ({
   saveDungeonState: (id: string, state: DungeonState, v: number, tx: unknown) =>
     saveDungeonState(id, state, v, tx),
-  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
-    lockDungeonRowForLifecycle(tx, id, v),
+  lockDungeonRowForLifecycle: (tx: unknown, id: string) =>
+    lockDungeonRowForLifecycle(tx, id),
 }))
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
@@ -224,7 +225,9 @@ beforeEach(() => {
   lockDungeonRowForLifecycle
     .mockReset()
     .mockResolvedValue(ok(makeDungeonRow(4)))
-  loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded("live")))
+  loadEncounterForWriteLocked
+    .mockReset()
+    .mockResolvedValue(ok(makeLoaded("live")))
   loadMapInstanceById.mockReset().mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: makeInstanceState(),
@@ -240,13 +243,7 @@ beforeEach(() => {
   publishDungeonPing.mockReset()
 })
 
-const INPUT = {
-  encounterId: ENCOUNTER_ID,
-  dungeonId: DUNGEON_ID,
-  expectedEncounterVersion: 4,
-  expectedInstanceVersion: 7,
-  expectedDungeonVersion: 2,
-}
+const INPUT = { encounterId: ENCOUNTER_ID, dungeonId: DUNGEON_ID }
 
 describe("endDungeonCombatAction — three-row composed combat-end (PR11c)", () => {
   it("sweeps the session, prunes ephemeral tokens, keeps PC token in place", async () => {
@@ -281,10 +278,10 @@ describe("endDungeonCombatAction — three-row composed combat-end (PR11c)", () 
     )
   })
 
-  it("propagates a stale lock (lost the dungeon version race) without writing", async () => {
-    lockDungeonRowForLifecycle.mockResolvedValue(err("stale"))
+  it("propagates a vanished dungeon from the lifecycle lock without writing", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(err("dungeon-not-found"))
     const result = await endDungeonCombatAction(INPUT)
-    expect(result).toEqual(err("stale"))
+    expect(result).toEqual(err("dungeon-not-found"))
     expect(saveMapInstanceState).not.toHaveBeenCalled()
     expect(saveEncounterSession).not.toHaveBeenCalled()
     expect(publishEncounterPing).not.toHaveBeenCalled()
@@ -323,15 +320,15 @@ describe("endDungeonCombatAction — three-row composed combat-end (PR11c)", () 
   it("rejects an encounter running on a different Instance", async () => {
     const loaded = makeLoaded("live")
     loaded.row = { ...loaded.row, mapInstanceId: "other-mi" }
-    loadEncounterForWrite.mockResolvedValue(ok(loaded))
+    loadEncounterForWriteLocked.mockResolvedValue(ok(loaded))
 
     const result = await endDungeonCombatAction(INPUT)
     expect(result).toEqual(err("encounter-not-on-dungeon"))
     expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
-  it("rejects a non-live encounter", async () => {
-    loadEncounterForWrite.mockResolvedValue(ok(makeLoaded("ended")))
+  it("rejects a draft encounter (an ended one is the idempotent no-op, pinned by the db suite)", async () => {
+    loadEncounterForWriteLocked.mockResolvedValue(ok(makeLoaded("draft")))
     const result = await endDungeonCombatAction(INPUT)
     expect(result).toEqual(err("encounter-not-live"))
     expect(saveEncounterSession).not.toHaveBeenCalled()
