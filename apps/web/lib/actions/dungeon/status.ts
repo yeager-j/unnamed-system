@@ -11,6 +11,7 @@ import {
   loadActiveDungeonForCampaign,
   loadDungeonVariantForWrite,
 } from "@/lib/db/queries/load-dungeon"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { mapInstances } from "@/lib/db/schema/map-instance"
 import {
   lockDungeonRowForLifecycle,
@@ -105,6 +106,17 @@ export async function setDungeonStatusAction(
         if (!flipped.ok) return flipped
         return ok({ version: flipped.value.version, committed: true })
       }
+
+      // A live encounter shares this delve's Instance; freezing it under a
+      // fight would strand combat (D11 — the expedition finish's same check).
+      // Combat start also takes the dungeon lock, so this in-tx read is
+      // serialized: the expected-version conflict that used to catch a stale
+      // finish retired with the client token (UNN-657 Codex review).
+      const live = await loadLiveEncounterForMapInstance(
+        dungeon.mapInstanceId,
+        tx
+      )
+      if (live !== null) return err("delve-has-live-encounter")
 
       const instance = await loadMapInstanceForWriteLocked(
         tx,

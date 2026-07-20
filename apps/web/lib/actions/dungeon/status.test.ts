@@ -23,11 +23,16 @@ const publishDungeonPing = vi.fn()
 const publishDungeonInstancePing = vi.fn()
 const loadMapInstanceForWriteLocked = vi.fn()
 const saveLockedMapInstanceState = vi.fn()
+const loadLiveEncounterForMapInstance = vi.fn()
 
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonVariantForWrite: (id: string) => loadDungeonVariantForWrite(id),
   loadActiveDungeonForCampaign: (id: string) =>
     loadActiveDungeonForCampaign(id),
+}))
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
+  loadLiveEncounterForMapInstance: (id: string, tx: unknown) =>
+    loadLiveEncounterForMapInstance(id, tx),
 }))
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
@@ -109,6 +114,7 @@ beforeEach(() => {
     ok({ id: "mi-1", state: {}, status: "open", version: 0 })
   )
   saveLockedMapInstanceState.mockResolvedValue(ok({ version: 1 }))
+  loadLiveEncounterForMapInstance.mockResolvedValue(null)
 })
 
 describe("setDungeonStatusAction", () => {
@@ -186,6 +192,26 @@ describe("setDungeonStatusAction", () => {
     expect(setDungeonStatus).not.toHaveBeenCalled()
     expect(publishDungeonPing).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it("refuses finishing while a live encounter runs on the delve's Instance (UNN-657 review)", async () => {
+    // The stale-tab race the retired expectedVersion used to catch: combat
+    // start bumps only the lifecycle version, so the locked status is still
+    // `active` — the in-tx live-encounter read is what must refuse before
+    // the freeze.
+    lockDungeonRowForLifecycle.mockResolvedValue(ok(lockedRow("active")))
+    loadLiveEncounterForMapInstance.mockResolvedValue({
+      id: "enc-1",
+      shortId: "enc-short",
+      status: "live",
+    })
+
+    const result = await setDungeonStatusAction({ ...goActive, status: "done" })
+
+    expect(result).toEqual({ ok: false, error: "delve-has-live-encounter" })
+    expect(loadLiveEncounterForMapInstance).toHaveBeenCalledWith("mi-1", "tx")
+    expect(saveLockedMapInstanceState).not.toHaveBeenCalled()
+    expect(setDungeonStatus).not.toHaveBeenCalled()
   })
 
   it("refuses going done when the locked row is not active (still draft)", async () => {
