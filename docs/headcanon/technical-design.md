@@ -1,9 +1,12 @@
-# Predicted mutations for React and Next.js
+# Headcanon: optimistic mutations for React and Next.js
 
-**Status:** Finalized spike design, revision 5<br>
+**Status:** Finalized spike design, revision 6<br>
 **Date:** 2026-07-20<br>
-**Working package name:** `@scope/predicted`<br>
+**Package:** `@workspace/headcanon`<br>
 **Supersedes:** the [earlier framework-independent proposal](./OLD-replica-module-design.md)
+
+> **headcanon — optimistic mutations for Next.js: believe your writes until
+> canon says otherwise.**
 
 ## Summary
 
@@ -12,9 +15,9 @@ Router. It provides the mutation half of Zero's model without `zero-cache`, a
 client database, or a second read authority:
 
 - The application delivers a complete, server-projected, versioned,
-  serializable base. RSC props are the default carrier; snapshot refetch is the
+  serializable canon. RSC props are the default carrier; snapshot refetch is the
   second supported carrier.
-- A client hook folds named deterministic mutations over that base with
+- A client hook folds named deterministic mutations over that canon with
   reducer-form `useOptimistic`.
 - A private lifecycle ledger records envelopes, delivery, receipts, and
   deferred milestones; it never becomes a second projected-state store or
@@ -35,19 +38,19 @@ client database, or a second read authority:
 - The executor mechanically expires the cache tag for every stamped axis and
   publishes one invalidation-only realtime entry per axis.
 - A refresh adapter asks the application's existing read carrier for another
-  complete base. Realtime never supplies state.
+  complete canon. Realtime never supplies state.
 - An observe-only root gives watch views the same invalidation, refresh, and
   stall machinery without a mutation interface.
 - An optional package-owned polling fallback preserves watch liveness while
   realtime is unavailable.
-- Pending mutations replay over every newer base. An accepted mutation remains
-  predicted until the mounted base covers its entire accepted revision vector.
+- Pending mutations replay over every newer canon. An accepted mutation remains
+  predicted until the mounted canon covers its entire accepted revision vector.
 
 The package is deep because it decides the coordination model instead of asking
 each application to rebuild it with callbacks. It is deliberately opinionated
 about React, Next.js Server Actions, named intent, server-authoritative rebase,
 one delivery queue per mounted view, global monotonic revision axes, vector
-stamps, axis-derived cache tags, complete versioned bases, and
+stamps, axis-derived cache tags, complete versioned canons, and
 invalidation-only realtime.
 
 It varies only at demonstrated seams:
@@ -55,7 +58,7 @@ It varies only at demonstrated seams:
 1. application mutation semantics and authority policy;
 2. the transactional authority ledger, initially Drizzle/Postgres plus an
    in-memory test adapter;
-3. base refresh, with router refresh and snapshot refetch adapters; and
+3. canon refresh, with router refresh and snapshot refetch adapters; and
 4. invalidation delivery, initially Ably plus in-memory and no-realtime
    adapters.
 
@@ -117,16 +120,16 @@ observe the same `entity/{id}/vitals` axis. No package translation is needed
 between view-specific lane names because the axis is not homed on the view.
 
 An accepted stamp is a revision vector. A mutation that atomically advances two
-rows returns both axes. Incorporation requires the mounted base to cover every
+rows returns both axes. Canonization requires the mounted canon to cover every
 axis in that vector.
 
-### 3. Reads arrive as complete versioned bases
+### 3. Reads arrive as complete versioned canons
 
 The package never fetches or accepts pushed domain state. The application
 delivers:
 
 ```ts
-interface VersionedBase<State> {
+interface Canon<State> {
   value: State
   revisions: RevisionVector
 }
@@ -134,7 +137,7 @@ interface VersionedBase<State> {
 
 RSC props are the default carrier. Existing snapshot refetch code is a second
 carrier. The package receives only one refresh verb that asks the carrier to
-produce another complete base; it owns refresh coalescing, transition tracking,
+produce another complete canon; it owns refresh coalescing, transition tracking,
 and stall detection.
 
 This keeps everything that made the old `ReplicaTransport` shallow—causal
@@ -155,7 +158,7 @@ Showtime already has the valuable part of Zero's mutation experience:
 The missing machinery is protocol quality rather than UI capability:
 
 - a timeout after commit has no durable mutation identity to make retry safe;
-- prediction, server acceptance, and authoritative incorporation are not named
+- prediction, server acceptance, and authoritative canonization are not named
   separately;
 - queue, retry, version, and refresh knowledge is spread across each binding;
 - realtime observations can be confused with rendered authority;
@@ -172,7 +175,7 @@ the read problem; it moved the problem into every adapter.
 The first revision of this design corrected the read path but still scoped
 revision lanes to mounted roots and coupled revision identity to delivery
 ordering. That made cross-route entity writes and atomic dungeon writes look
-exceptional. Revision 2 separated those concerns: storage owns axes, a base
+exceptional. Revision 2 separated those concerns: storage owns axes, a canon
 observes any number of them, a stamp can advance any small atomic set, and one
 simple root queue owns delivery order.
 
@@ -226,23 +229,29 @@ simple root queue owns delivery order.
 
 ## Terms
 
-| Term               | Meaning in this design                                                                              |
-| ------------------ | --------------------------------------------------------------------------------------------------- |
-| Mounted root       | One client lifetime and optimistic projection, such as a character provider or dungeon console      |
-| Axis               | A globally identified monotonic revision line owned by storage, such as one entity version column   |
-| Base               | A complete server-projected value plus the revisions of every axis that value observes              |
-| Projection         | The current base with all still-pending mutations replayed in dispatch order                        |
-| Lifecycle ledger   | Private mutation metadata for delivery and receipts; never a second projected-state store           |
-| Mutation           | A stable name plus validated, serializable intent arguments                                         |
-| Predictor          | The pure function that applies one mutation to client-visible state or returns a typed refusal      |
-| Handler            | The authority-only function that authorizes, loads current state, applies domain rules, and commits |
-| Stamp              | The small revision vector naming every axis an accepted transaction advanced                        |
-| Acceptance         | The authority's durable terminal outcome for a mutation ID                                          |
-| Incorporation      | A mounted base covers every axis and revision in an accepted stamp                                  |
-| Refresh adapter    | One verb that asks the application's carrier to deliver another complete base                       |
-| Invalidation       | Advisory axis revisions saying an observed base may be stale; never domain state                    |
-| Container axis     | A stable axis whose revision represents existence or membership of a dynamic projected set          |
-| Uncertain delivery | A request whose response was lost, so the authority may or may not have committed it                |
+| Term               | Meaning in this design                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| Mounted root       | One client lifetime and optimistic projection, such as a character provider or dungeon console       |
+| Axis               | A globally identified monotonic revision line owned by storage, such as one entity version column    |
+| Canon              | A complete server-projected value plus the revisions of every axis that value observes               |
+| Headcanon          | A pending optimistic prediction: believed locally, but not yet ruled on by canon                     |
+| Projection         | The current canon with every still-pending headcanon replayed in dispatch order                      |
+| Lifecycle ledger   | Private mutation metadata for delivery and receipts; never a second projected-state store            |
+| Mutation           | A stable name plus validated, serializable intent arguments                                          |
+| Predictor          | The pure function that applies one mutation to client-visible state or returns a typed refusal       |
+| Handler            | The authority-only function that authorizes, loads current state, applies domain rules, and commits  |
+| Stamp              | The small revision vector naming every axis an accepted transaction advanced                         |
+| Acceptance         | The authority's durable terminal outcome for a mutation ID                                           |
+| Canonization       | Canon covers every axis and revision in an accepted stamp, so the corresponding headcanon can settle |
+| Jossing            | Newer canon contradicts a headcanon during replay; the rejected prediction is jossed                 |
+| Refresh adapter    | One verb that asks the application's carrier to deliver another complete canon                       |
+| Invalidation       | Advisory axis revisions saying an observed canon may be stale; never domain state                    |
+| Container axis     | A stable axis whose revision represents existence or membership of a dynamic projected set           |
+| Uncertain delivery | A request whose response was lost, so the authority may or may not have committed it                 |
+
+The thematic vocabulary names protocol states only where it is exact. Mechanical
+operations keep descriptive names such as `covers`, `defineMutation`, and
+`defineProtocol`; the package does not expose parallel themed aliases.
 
 ## Core types
 
@@ -252,10 +261,10 @@ independent, and avoids a comparator parameter at every binding.
 
 ```ts
 type AxisId = string & { readonly __axisId: unique symbol }
-type Revision = number
+type Revision = number & { readonly __revision: unique symbol }
 type RevisionVector = Readonly<Record<AxisId, Revision>>
 
-interface VersionedBase<State> {
+interface Canon<State> {
   value: State
   revisions: RevisionVector
 }
@@ -272,21 +281,21 @@ parameter in version one.
 Coverage is a product-order comparison:
 
 ```text
-covers(base, stamp) =
+covers(canon, stamp) =
   for every (axis, acceptedRevision) in stamp:
-    base.revisions contains axis
-    and base.revisions[axis] >= acceptedRevision
+    canon.revisions contains axis
+    and canon.revisions[axis] >= acceptedRevision
 ```
 
-An empty stamp is an accepted no-op and incorporates immediately. Any mutation
-that changes a client-visible projection must advance at least one axis observed
-by that projection.
+A headcanon accepted with an empty no-op stamp is canonized immediately. Any
+mutation that changes a client-visible projection must advance at least one axis
+observed by that projection.
 
 ## Invariants
 
 The package interface includes these rules, not only its TypeScript signatures:
 
-1. A base value and its complete observed revision vector come from one
+1. A canon value and its complete observed revision vector come from one
    authoritative observation: one SQL statement, appropriate locks, or a
    transaction isolation level that preserves one snapshot across every query.
 2. Each axis has one globally stable identity tied to the storage fact whose
@@ -297,7 +306,8 @@ The package interface includes these rules, not only its TypeScript signatures:
    A read-only guard advances no axis; there is no unstamped version bump.
 5. Every axis in one stamp commits atomically with every other stamped axis and
    with the mutation receipt.
-6. A base incorporates a stamp exactly when it covers every stamped axis.
+6. A headcanon is canonized exactly when the current canon covers every axis in
+   its accepted stamp.
 7. A mounted root from which a mutation can be invoked must carry every axis
    that mutation can advance, on every route or console where it mounts.
 8. A predictor is pure and deterministic over its visible state and arguments.
@@ -308,15 +318,15 @@ The package interface includes these rules, not only its TypeScript signatures:
 11. A retry after uncertain delivery reuses the exact mutation ID and
     invocation.
 12. Realtime payloads contain axis revisions only, never domain state.
-13. Observing an invalidation revision does not advance the rendered base
+13. Observing an invalidation revision does not advance the rendered canon
     revision.
-14. Every cached base is tagged mechanically from its observed axes; every
+14. Every cached canon is tagged mechanically from its observed axes; every
     accepted stamp expires those same tags before refresh or publication.
 15. Every write that advances a protocol axis either uses the mutation executor
     or the explicit external-commit finalizer.
 16. Authority handlers are transaction-rerunnable: they perform no effect
     outside the supplied transaction before terminal acceptance.
-17. A base observes every axis whose change can alter its projected value, not
+17. A canon observes every axis whose change can alter its projected value, not
     only axes its mounted root can mutate.
 18. A query over the existence or membership of a dynamic set observes a stable
     container axis that advances when that set changes.
@@ -326,7 +336,7 @@ The package interface includes these rules, not only its TypeScript signatures:
     result.
 
 Invariants 2, 4, 5, and 6 replace the earlier proposal's view-scoped lane plus
-per-client incorporation watermark. They are valid because each storage axis is
+per-client canonization watermark. They are valid because each storage axis is
 a linear history and a multi-axis stamp is the result of one database
 transaction.
 
@@ -335,7 +345,7 @@ transaction.
 ```mermaid
 flowchart LR
   DB[(Postgres)] --> LOAD["App loader<br/>authorize + project + axis revisions"]
-  LOAD --> CARRIER["Base carrier<br/>RSC props or snapshot state"]
+  LOAD --> CARRIER["Canon carrier<br/>RSC props or snapshot state"]
   CARRIER --> ROOT["Mounted predicted root<br/>useOptimistic + one queue"]
   UI["UI intent"] --> ROOT
   ROOT --> ACTION["App-owned Server Action"]
@@ -363,7 +373,7 @@ state and server projection remain correct when Ably is unavailable.
 | Axis identity                        | Stable type, vector algebra, tag/channel derivation                                                   | Storage-owned axis namespace factories                                       |
 | Authority deduplication              | Receipt protocol and Drizzle implementation                                                           | Database instance and migration adoption                                     |
 | Authoritative mutation               | Executor lifecycle, contention retry                                                                  | Auth, policy, current-state load, domain handler, lock order, guarded commit |
-| Base delivery                        | Accept and reconcile complete versioned bases                                                         | Loader, projection, redaction, carrier                                       |
+| Canon delivery                       | Accept and reconcile complete versioned canons                                                        | Loader, projection, redaction, carrier                                       |
 | Cache coherence                      | Axis-to-tag convention, tag helper, stamp invalidation                                                | Call loader helper; add unrelated route tags only when needed                |
 | Refresh                              | Carrier grace, coalescing, transition tracking, fallback, stall detection                             | Select router or snapshot adapter                                            |
 | Realtime                             | Axis-entry schema, subscriptions, monotonic comparison, capability refresh, optional polling fallback | Ably credentials, token issuance, viewer policy, polling interval            |
@@ -377,13 +387,13 @@ domain writes, and multi-row lock order are application knowledge.
 
 ## Package shape
 
-Examples use `@scope/predicted` as a placeholder.
+The private workspace package is `@workspace/headcanon`.
 
 ```text
-packages/predicted/
+packages/headcanon/
   src/
     index.ts              # definitions, envelopes, axes, vectors, shared types
-    react.ts              # predicted root, one queue, incorporation state machine
+    react.ts              # predicted root, one queue, canonization state machine
     refresh.ts            # refresh seam, snapshot adapter, polling fallback
     next/client.ts        # router refresh adapter
     next/server.ts        # executor finalization, cache tags, external commits
@@ -414,8 +424,8 @@ the spike.
 const entityWrite = defineMutation({
   name: "entity.write",
   args: entityWriteArgsSchema,
-  predict(base, args) {
-    return applyAndResolveEntityWrite(base, args.write)
+  predict(canon, args) {
+    return applyAndResolveEntityWrite(canon, args.write)
   },
 })
 
@@ -448,12 +458,12 @@ The predictor returns the entire client-visible value. Showtime's binding can
 keep its internal whole-component patch algebra, but the package should not make
 every consumer learn a generic patch interface.
 
-### Versioned bases and global axes
+### Versioned canons and global axes
 
 A character route might deliver:
 
 ```tsx
-const base = defineVersionedBase({
+const canon = defineCanon({
   value: character,
   revisions: {
     [entityIdentityAxis(character.id)]: character.identityVersion,
@@ -463,10 +473,10 @@ const base = defineVersionedBase({
   },
 })
 
-return <EntityProvider base={base}>{children}</EntityProvider>
+return <EntityProvider canon={canon}>{children}</EntityProvider>
 ```
 
-The combat console's base includes its encounter and map-instance axes plus the
+The combat console's canon includes its encounter and map-instance axes plus the
 global entity axes for every durable participant whose changes can alter the
 projection, whether or not that root can mutate the participant. The dungeon
 console includes both its dungeon and map-instance axes plus every other axis
@@ -476,7 +486,7 @@ decisions.
 Axis factories live with the storage model and are imported by loaders and
 handlers. The package treats their results as opaque stable strings.
 
-For a multi-axis base, “one authoritative observation” means one SQL statement,
+For a multi-axis canon, “one authoritative observation” means one SQL statement,
 appropriate row locking, or a transaction isolation level that guarantees one
 snapshot across every projection query. PostgreSQL's default Read Committed
 isolation does not satisfy this merely by wrapping several `SELECT`s in a
@@ -510,23 +520,23 @@ with one helper:
 async function loadCachedCharacter(shortId: string) {
   "use cache"
 
-  const base = await loadCharacterBase(shortId)
-  return tagVersionedBase(base)
+  const canon = await loadCharacterCanon(shortId)
+  return tagCanon(canon)
 }
 ```
 
-`tagVersionedBase` applies one package-derived `cacheTag` for every axis in
-`base.revisions` and returns the base unchanged. `axisCacheTag(axis)` is a
+`tagCanon` applies one package-derived `cacheTag` for every axis in
+`canon.revisions` and returns the canon unchanged. `axisCacheTag(axis)` is a
 bounded, versioned SHA-256-based tag, so raw identifiers cannot exceed Next's
 tag limit or collide through ad hoc string conventions.
 
-The helper calls `cacheTag` once and rejects a cached base with more than 128
+The helper calls `cacheTag` once and rejects a cached canon with more than 128
 observed axes. Next currently drops tags after the 128th in one call, which
 would silently break the coherence invariant. The spike must measure combat
-bases against this ceiling; it does not split calls or invent grouped tags
+canons against this ceiling; it does not split calls or invent grouped tags
 without evidence that their invalidation semantics remain sound.
 
-An uncached loader uses `defineVersionedBase` and needs no tag. The same base
+An uncached loader uses `defineCanon` and needs no tag. The same canon
 shape crosses both paths.
 
 ### Refresh seam
@@ -539,7 +549,7 @@ interface RefreshAdapter {
 ```
 
 The adapter does not return state. It asks the existing carrier to deliver a
-new complete base; the package observes that base through the same `base` input.
+new complete canon; the package observes that canon through the same `canon` input.
 
 Two adapters ship in version one, with carrier-specific acceptance grace:
 
@@ -551,7 +561,7 @@ Two adapters ship in version one, with carrier-specific acceptance grace:
 
 The package invokes either adapter inside its own React transition. This matters
 because `router.refresh()` returns `void`: transition completion, followed by a
-base coverage check, is the observable refresh completion signal.
+canon coverage check, is the observable refresh completion signal.
 
 ### React binding
 
@@ -566,10 +576,10 @@ export const useEntityPredictions = createPredictedRoot({
 })
 ```
 
-A domain provider supplies only its current base:
+A domain provider supplies only its current canon:
 
 ```ts
-const predicted = useEntityPredictions({ base })
+const predicted = useEntityPredictions({ canon })
 const result = predicted.mutate(entityWrite({ entityId, write }))
 ```
 
@@ -603,7 +613,7 @@ type MutationLifecycleError<Error> =
 interface MutationReceipt<Error> {
   id: string
   accepted: Promise<Result<AcceptedStamp, MutationLifecycleError<Error>>>
-  incorporated: Promise<Result<void, MutationLifecycleError<Error>>>
+  canonized: Promise<Result<void, MutationLifecycleError<Error>>>
 }
 ```
 
@@ -615,25 +625,25 @@ delivery queue.
 The package also records that mutation in a private lifecycle ledger keyed by
 mutation ID. The ledger contains the canonical envelope, delivery state,
 accepted stamp or rejection, retry metadata, and the `accepted` and
-`incorporated` deferreds. It does not contain a second projected `State`, a
+`canonized` deferreds. It does not contain a second projected `State`, a
 patch projection, or another reducer. React remains the sole owner of the
 predicted domain value.
 
 Each optimistic mutation has its own held-open Action lifetime. Acceptance may
-release its delivery queue slot without settling that Action; incorporation
+release its delivery queue slot without settling that Action; canonization
 settles only that mutation. Settling A while B remains accepted-but-uncovered
-must remove A and replay B exactly once over the new base. If React cannot
+must remove A and replay B exactly once over the new canon. If React cannot
 support that behavior without a second domain-state store or replay engine, the
 spike fails.
 
 Rendered coverage does not depend on Action settlement timing. The root keeps
 acceptance state — a map from mutation ID to accepted vector, updated outside
 render — and the optimistic reducer closes over it: an update whose accepted
-vector the rendering base already covers reduces to identity. The first render
-of a covering base therefore excludes A's predicted effect in the same pass
+vector the rendering canon already covers reduces to identity. The first render
+of a covering canon therefore excludes A's predicted effect in the same pass
 that includes A's authoritative result, so A is never applied twice even if
 A's held-open Action settles a beat later. Settlement is then bookkeeping: the
-coordinator resolves `incorporated`, settles the Action, and React drops the
+coordinator resolves `canonized`, settles the Action, and React drops the
 already-identity entry.
 
 The optimistic reducer remains pure. It may return an internal replay frame
@@ -735,7 +745,7 @@ the command's explicit preconditions and domain handler, not in a generic
 render-time equality check.
 
 Therefore version tokens have one client role in the new design: they are read
-evidence for incorporation and invalidation comparison. They are not write
+evidence for canonization and invalidation comparison. They are not write
 credentials.
 
 ### Authority algorithm
@@ -815,7 +825,7 @@ attempt.
 6. Append its envelope to the mounted root's delivery queue.
 
 Back-to-back actions fold over the projection produced by prior pending actions,
-not over the base captured by an event handler.
+not over the canon captured by an event handler.
 
 ### 2. Deliver in root order
 
@@ -865,7 +875,7 @@ package-owned finalization sequence:
 
 `updateTag`, rather than stale-while-revalidate `revalidateTag(..., "max")`, is
 intentional: a mutation needs read-your-own-writes, so the next request must wait
-for fresh cached data instead of being served the old base.
+for fresh cached data instead of being served the old canon.
 
 This makes `createNextMutationExecutor` a Server Action-only module. Next.js
 permits `updateTag` only in that context. A Route Handler or background job must
@@ -880,10 +890,10 @@ publication missed around an ambiguous response without rerunning the handler.
 ### 5. Accept
 
 When the client receives the recorded vector, `receipt.accepted` resolves. The
-prediction remains mounted until incorporation, but the trusted terminal
+prediction remains mounted until canonization, but the trusted terminal
 acceptance releases the delivery queue so the next intent can execute. A typed
 rejection also releases the queue, settles that optimistic action, and replays
-all later pending mutations over the unchanged base. Only uncertain delivery,
+all later pending mutations over the unchanged canon. Only uncertain delivery,
 not projection catch-up, blocks the queue.
 
 Acceptance also merges the accepted vector into the root's observed-invalidation
@@ -891,16 +901,16 @@ metadata. The write's own Ably echo then compares non-fresher and schedules no
 refresh; echo suppression falls out of the ordinary comparison rule rather than
 being a special case.
 
-### 6. Incorporate
+### 6. Canonize
 
-On every new base, the package:
+On every new canon, the package:
 
 1. replaces the old authoritative value and observed revision vector;
 2. resolves accepted mutations whose entire vectors are covered;
 3. settles their optimistic actions; and
-4. atomically replays all remaining actions over the new base.
+4. atomically replays all remaining actions over the new canon.
 
-`receipt.incorporated` resolves only after step 2. This is distinct from
+`receipt.canonized` resolves only after step 2. This is distinct from
 acceptance even when a Server Action response normally carries both close
 together.
 
@@ -922,14 +932,14 @@ interface AxisInvalidation {
 }
 ```
 
-A mounted root ignores axes its base does not observe. If the entry's revision
-is newer than both its base and last observed invalidation for that axis, it
+A mounted root ignores axes its canon does not observe. If the entry's revision
+is newer than both its canon and last observed invalidation for that axis, it
 merges the observation forward and requests a coalesced refresh.
 
 Observed revisions are refresh-deduplication metadata. They never advance the
-base, prove incorporation, or become write tokens.
+canon, prove canonization, or become write tokens.
 
-## Incorporation and refresh state machine
+## Canonization and refresh state machine
 
 Holding an optimistic Action open until its accepted vector is visible is the
 riskiest React mechanic in the design. Version one specifies its fallback
@@ -943,12 +953,12 @@ stateDiagram-v2
   Current --> Grace: RSC acceptance not covered
   Current --> Refreshing: snapshot acceptance not covered
   Current --> Refreshing: fresher external invalidation
-  Grace --> Current: base covers stamp
+  Grace --> Current: canon covers stamp
   Grace --> Refreshing: 250 ms without coverage
-  Refreshing --> Current: refreshed base covers requirements
+  Refreshing --> Current: refreshed canon covers requirements
   Refreshing --> Refreshing: completed uncovered; one retry remains
   Refreshing --> Stalled: two completed refreshes still uncovered
-  Stalled --> Current: later base covers requirements
+  Stalled --> Current: later canon covers requirements
   Stalled --> Refreshing: retryRefresh or new fresher invalidation
 ```
 
@@ -963,16 +973,16 @@ stateDiagram-v2
 - The refresh coordinator uses a dedicated `useTransition`, separate from the
   transitions held open for optimistic Actions, and wraps
   `refresh.request()` in that transition. Otherwise an accepted Action waiting
-  for incorporation would make refresh completion unobservable.
+  for canonization would make refresh completion unobservable.
 - For router refresh, completion means that transition was pending and then
   settled; `router.refresh()` itself returns no promise.
 - For snapshot refresh, the adapter's promise joins the same transition.
-- On refresh completion, the package checks the newest delivered base; adapter
+- On refresh completion, the package checks the newest delivered canon; adapter
   completion alone never proves freshness.
 - If requirements remain uncovered, the package waits one second and performs
   one final coalesced refresh.
 - After two completed refreshes without coverage, freshness becomes `stalled`.
-- Accepted predictions remain mounted while stalled. Their incorporation
+- Accepted predictions remain mounted while stalled. Their canonization
   promises remain pending because acceptance is known but projection catch-up
   is not.
 - `retryRefresh()` or a genuinely fresher invalidation resets the two-attempt
@@ -980,22 +990,22 @@ stateDiagram-v2
 - Unmounting resolves unsettled receipt promises with `root-unmounted`, records
   whether authority acceptance was already known, and releases every deferred
   transition. It cannot undo a commit that may already be in flight. A later
-  mount starts from its newly loaded base.
+  mount starts from its newly loaded canon.
 
 `stalled` reports why coverage failed:
 
 - `behind`: every required axis exists but at least one revision is too old;
 - `missing-axis`: the accepted stamp names an axis absent from the mounted
-  base; or
+  canon; or
 - `refresh-error`: the adapter itself failed twice.
 
 `missing-axis` is normally a loader contract defect, not a transient network
 state.
 
-### Projection and incorporation loader contract
+### Projection and canonization loader contract
 
-Every base observes all axes whose changes can alter its projected value. A
-base from which a mutation can be invoked additionally observes every axis that
+Every canon observes all axes whose changes can alter its projected value. A
+canon from which a mutation can be invoked additionally observes every axis that
 the authority may stamp for that mutation:
 
 - a character sheet carries its entity's four axes;
@@ -1026,12 +1036,12 @@ The global axis is also the Single Choice for cache invalidation:
 ```text
 storage axis
   -> package cache tag
-  -> cached bases that observe the axis
+  -> cached canons that observe the axis
   -> executor updateTag on accepted stamp
   -> other-view refresh after invalidation
 ```
 
-The loader knows which axes its value observes, so `tagVersionedBase` tags them.
+The loader knows which axes its value observes, so `tagCanon` tags them.
 The handler knows which axes it advanced, so its accepted stamp invalidates the
 same derived tags. No action wrapper maintains a parallel list of core cache
 keys.
@@ -1042,13 +1052,13 @@ revision is not yet modeled. That is additional application knowledge, not a
 second home for axis coherence.
 
 The Phase 0 fixture includes a deliberately mis-cached loader that omits
-`tagVersionedBase`. The test must show:
+`tagCanon`. The test must show:
 
 1. the mutation is accepted;
-2. both automatic refresh attempts reproduce the old cached base;
+2. both automatic refresh attempts reproduce the old cached canon;
 3. the prediction remains mounted;
 4. freshness becomes `stalled`; and
-5. adding the helper makes the same story incorporate.
+5. adding the helper makes the same story canonize.
 
 This negative control proves both that the invariant can fail and that the
 package detects the failure honestly.
@@ -1171,8 +1181,8 @@ per stamped axis, all sharing an `eventId`. Each entry goes to that axis's
 channel. Other viewers need to know only that an axis they observe advanced;
 they do not need the transaction's full vector.
 
-A mounted root subscribes to the global axes in its current base. When a new
-base changes the observed axis set—for example a combatant joins or leaves—the
+A mounted root subscribes to the global axes in its current canon. When a new
+canon changes the observed axis set—for example a combatant joins or leaves—the
 adapter updates authorization and subscriptions to match.
 
 The adapter guarantees:
@@ -1202,7 +1212,7 @@ decision and token issuance; the adapter owns the refresh trigger. Whenever the
 observed axis set changes, it marks invalidations as reauthorizing, asks Ably's
 `authorize()` flow for capabilities covering the exact authorized set,
 unsubscribes removed channels, attaches added channels only after authorization,
-and requests one coalesced base refresh after attachment to close the
+and requests one coalesced canon refresh after attachment to close the
 authorization/subscription gap. An unauthorized attach is surfaced, not
 silently counted as subscribed.
 
@@ -1239,12 +1249,12 @@ polling stops. A root using the intentional no-realtime adapter may use the
 same wrapper as its primary invalidation mechanism.
 
 Polling requests the existing refresh adapter and never fetches or merges state
-itself. It therefore preserves the same complete-base read authority rather
+itself. It therefore preserves the same complete-canon read authority rather
 than introducing another read path.
 
 ## Replay and conflicts
 
-All pending mutations replay over every new authoritative base. Whether the
+All pending mutations replay over every new authoritative canon. Whether the
 intent remains meaningful belongs to the mutation itself.
 
 A replayable intent describes an operation such as “apply two damage.” The
@@ -1272,7 +1282,7 @@ the surviving projection. An envelope that has never been sent is removed from
 the root queue and both receipt promises resolve with `replay-refused`; sending
 or uncertain delivery continues because the client can no longer prove what the
 authority did. If that in-flight intent is accepted, its receipt still waits for
-normal vector incorporation even though it no longer contributes a predicted
+normal vector canonization even though it no longer contributes a predicted
 effect.
 
 Idempotency and replayability remain separate:
@@ -1333,7 +1343,7 @@ The client exposes independent delivery, freshness, and invalidation facts:
 | `delivery: idle`               | No mutation request is active                                    | Normal                                      |
 | `delivery: sending`            | The root queue head is delivering or retrying contention         | Optional pending affordance                 |
 | `delivery: uncertain`          | A response was lost; prediction and exact envelope are preserved | Show honest retry/reload affordance         |
-| `freshness: current`           | No accepted or observed vector is ahead of the base              | Normal                                      |
+| `freshness: current`           | No accepted or observed vector is ahead of the canon             | Normal                                      |
 | `freshness: grace`             | An RSC-carried vector is briefly waiting for the Action payload  | Usually render prediction                   |
 | `freshness: refreshing`        | A refresh transition is active or awaiting its final retry       | Render current projection                   |
 | `freshness: stalled`           | Two refreshes did not cover required axes                        | Surface reason and retry control            |
@@ -1378,7 +1388,7 @@ outcomes are deployed protocols because stale tabs can call a newer server.
 - Keep old handlers for the supported stale-tab and receipt-recovery window.
 - Return an explicit update-required outcome for unsupported protocols.
 - Store protocol ID and canonical invocation with every receipt.
-- Preserve safe-integer revisions exactly across Postgres, Server Actions, base
+- Preserve safe-integer revisions exactly across Postgres, Server Actions, canon
   carriers, cache helpers, and Ably.
 
 No persistent client schema is introduced, so this remains smaller than Zero's
@@ -1391,11 +1401,11 @@ configured at root-family creation:
 
 - mutation predicted or locally refused;
 - queued, sent, contention-retried, uncertain, accepted, rejected, or
-  incorporated;
+  canonized;
 - duplicate recovered or mutation-ID misuse rejected;
-- accepted vector and incorporation coverage;
-- base advanced and number of pending mutations replayed;
-- replay conflict;
+- accepted vector and canonization coverage;
+- canon advanced and number of pending mutations replayed;
+- headcanon jossed during replay;
 - axis invalidation observed or deduplicated;
 - refresh grace, start, completion, retry, coverage, missing axis, or stall;
 - cache tags expired and Ably publication outcome; and
@@ -1419,14 +1429,14 @@ queues, optimistic logs, receipt SQL, refresh generations, or cache-tag maps.
 - one root queue preserves dispatch order;
 - local refusal allocates no mutation ID and performs no action;
 - a typed rejection removes its prediction and preserves later valid intent;
-- a new complete base replays remaining mutations atomically;
+- a new complete canon replays remaining mutations atomically;
 - a singleton accepted vector remains mounted until covered;
 - a multi-axis accepted vector remains mounted until every axis is covered;
-- A and B can both remain accepted-but-uncovered, then a base covering only A
+- A and B can both remain accepted-but-uncovered, then a canon covering only A
   settles A and replays B exactly once without applying A twice;
 - a covered update reduces to identity in the same render that first delivers
-  its covering base, before its Action settles;
-- terminal acceptance releases the delivery queue before incorporation;
+  its covering canon, before its Action settles;
+- terminal acceptance releases the delivery queue before canonization;
 - one missing stamped axis produces `stalled: missing-axis`;
 - replay refusal cancels and settles an envelope that was never sent without
   corrupting later replay;
@@ -1438,7 +1448,7 @@ queues, optimistic logs, receipt SQL, refresh generations, or cache-tag maps.
 - a duplicate recovery settles the original receipt;
 - unmount settles unresolved receipt promises and releases held transitions;
 - invalidations compare only intersecting observed axes;
-- observed invalidations never mutate base revisions;
+- observed invalidations never mutate canon revisions;
 - an own-write echo invalidation arriving after acceptance schedules no
   refresh;
 - an observe-only root refreshes and stalls without a mutation interface;
@@ -1456,7 +1466,7 @@ queues, optimistic logs, receipt SQL, refresh generations, or cache-tag maps.
 It proves:
 
 - no expected revision exists on the admitted envelope;
-- an old client base does not cause a generic stale rejection;
+- an old client canon does not cause a generic stale rejection;
 - a replayable command executes against current authority;
 - a preconditioned command can reject against current authority;
 - one internal CAS loss reruns load and handler;
@@ -1479,7 +1489,7 @@ It proves transition completion, coalescing, 250 ms RSC grace, zero snapshot
 grace, the shared two-attempt budget, one-second retry delay, manual reset, and
 missing-axis classification.
 
-The Drizzle fixture also proves that a multi-axis base is loaded from one
+The Drizzle fixture also proves that a multi-axis canon is loaded from one
 consistent database observation. A deliberate multi-statement Read Committed
 loader must demonstrate the torn-read failure; the one-statement, locked, or
 snapshot-isolated implementation must pass. Loader contracts also prove that
@@ -1487,8 +1497,8 @@ all rows used by a projector contribute dependency axes and that an absent or
 changing dynamic set contributes a stable container axis.
 
 The Next fixture includes the deliberately mis-cached loader negative control.
-The correct loader calls `tagVersionedBase`; the executor uses the same derived
-tags and `updateTag`. A 129-axis cached base must fail at the helper boundary
+The correct loader calls `tagCanon`; the executor uses the same derived
+tags and `updateTag`. A 129-axis cached canon must fail at the helper boundary
 instead of accepting a partially tagged entry.
 
 ### Invalidation contract
@@ -1517,7 +1527,7 @@ The package cannot prove that a predictor matches an authority handler. Each
 binding retains a domain law analogous to Showtime's optimistic isomorphism:
 
 ```text
-predict(base, intent)
+predict(canon, intent)
   ==
 project(commit(current authority, intent))
 ```
@@ -1530,16 +1540,16 @@ tested as rejection and rollback, not forced into the predictor.
 
 The first fixture is a small Next.js application with:
 
-- an RSC-carried collection base;
-- a snapshot-carried detail base observing one shared axis;
+- an RSC-carried collection canon;
+- a snapshot-carried detail canon observing one shared axis;
 - one singleton mutation and one atomic two-axis mutation;
 - a Drizzle/Postgres receipt ledger;
 - a real Server Action using `updateTag` and server `refresh()`;
 - in-memory invalidations in deterministic tests;
 - polling fallback for the watch carrier;
 - the mis-cached-loader negative control; and
-- Playwright stories for independent A/B incorporation, predict → accept →
-  incorporate, cross-carrier invalidation, degraded polling, and accepted →
+- Playwright stories for independent A/B canonization, predict → accept →
+  canonize, cross-carrier invalidation, degraded polling, and accepted →
   stalled.
 
 This unlike consumer is an early falsification tool. A second real project is
@@ -1590,8 +1600,8 @@ not globally unique, its tenant namespace becomes part of the axis.
 - mutation UUID allocation and ambiguous redelivery;
 - transactional receipt deduplication;
 - outer transaction ownership, handler savepoints, and stamp accumulation;
-- optimistic Action lifetime, rejection rollback, and replay conflicts;
-- accepted-vector incorporation tracking;
+- optimistic Action lifetime, rejection rollback, and jossed headcanons;
+- accepted-vector canonization tracking;
 - axis cache-tag derivation and invalidation;
 - Ably axis-entry parsing, subscription, and refresh coalescing;
 - watch-only snapshot subscription and refetch coordination;
@@ -1613,13 +1623,13 @@ before the protocol, not inside it.
 
 ### Character route
 
-The character base observes the four entity axes. An entity mutation returns a
+The character canon observes the four entity axes. An entity mutation returns a
 singleton vector. This binding proves the ordinary case and should delete the
 current client stale protocol before any harder migration begins.
 
 ### Combat
 
-The encounter base observes:
+The encounter canon observes:
 
 - its encounter axis;
 - its map-instance axis; and
@@ -1630,7 +1640,7 @@ An intent still carries no trusted storage-home claim. The authority reloads
 the participant locator and decides inline encounter storage versus durable
 entity storage. Its accepted vector is decisive. A durable PC vitals write
 returns the same `entity/{id}/vitals` axis observed by the character sheet, so
-both views share invalidation and incorporation without package translation.
+both views share invalidation and canonization without package translation.
 
 If a participant's provisional client classification is wrong, prediction may
 later reconcile to a different authoritative result, but no axis routing claim
@@ -1648,13 +1658,13 @@ read-only `lib/sync` runtime rather than leaving a second reconciliation
 architecture behind.
 
 Their loader audit must include absence dependencies. “No live encounter” and
-“no member in this roster slot” are projected facts, so the base observes a
+“no member in this roster slot” are projected facts, so the canon observes a
 stable dungeon, map-instance, or dedicated membership axis that advances when
 those facts change.
 
 ### Dungeon and multi-row commits
 
-A dungeon console base observes at least:
+A dungeon console canon observes at least:
 
 ```text
 dungeon/{dungeonId}
@@ -1673,7 +1683,7 @@ An atomic dual write returns:
 ```
 
 The receipt and both guarded domain writes commit in the existing transaction
-and lock order. Incorporation waits until the console's complete base covers
+and lock order. Canonization waits until the console's complete canon covers
 both entries. `run-dual-versioned-write.ts` and client refetch-both retry logic
 become unnecessary.
 
@@ -1682,19 +1692,19 @@ small and sparse; it is not a global database version map.
 
 ## What changes from the earlier proposals
 
-| Earlier decision                                 | Final decision                                                    | Reason                                                              |
-| ------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Framework-independent `Replica` external store   | React predicted root around a supplied complete base              | React already owns optimistic replay and component lifetime         |
-| Generic `ReplicaTransport.connect()`             | Small refresh verb; carrier supplies complete bases               | RSC and snapshot reads already have authoritative loaders           |
-| Accepted stream with cursor and client watermark | Global axis vector returned by the Server Action                  | Storage revisions prove incorporation without a second state stream |
-| Root-scoped lane                                 | Globally addressed storage axis                                   | One revision fact keeps one identity across every observing view    |
-| Lane combines ordering and revision              | One root delivery queue; axes only describe revision              | Next serializes actions and ordering has a different lifetime       |
-| One accepted lane per mutation                   | Atomic small axis vector                                          | Existing dungeon and encounter commands advance multiple rows       |
-| Client expected revision and stale retry         | Authority reload and bounded contention retry                     | Intent meaning belongs to replay/precondition semantics             |
-| Action wrapper maintains core cache targets      | Axis-derived `cacheTag` and executor-owned `updateTag`            | Cache coherence becomes mechanical and singular                     |
-| RSC props are the read decision                  | Complete versioned base plus refresh seam; RSC is default carrier | Snapshot consoles provide the second proven variation               |
-| Pull generations and causal gates                | Refresh transition, coverage comparison, and stall state          | Only complete bases can advance authority                           |
-| Ordered numeric client/group IDs                 | Opaque mutation UUID plus one root queue                          | No durable client group or gap-filling outbox exists in v1          |
+| Earlier decision                                 | Final decision                                                     | Reason                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Framework-independent `Replica` external store   | React predicted root around a supplied complete canon              | React already owns optimistic replay and component lifetime        |
+| Generic `ReplicaTransport.connect()`             | Small refresh verb; carrier supplies complete canons               | RSC and snapshot reads already have authoritative loaders          |
+| Accepted stream with cursor and client watermark | Global axis vector returned by the Server Action                   | Storage revisions prove canonization without a second state stream |
+| Root-scoped lane                                 | Globally addressed storage axis                                    | One revision fact keeps one identity across every observing view   |
+| Lane combines ordering and revision              | One root delivery queue; axes only describe revision               | Next serializes actions and ordering has a different lifetime      |
+| One accepted lane per mutation                   | Atomic small axis vector                                           | Existing dungeon and encounter commands advance multiple rows      |
+| Client expected revision and stale retry         | Authority reload and bounded contention retry                      | Intent meaning belongs to replay/precondition semantics            |
+| Action wrapper maintains core cache targets      | Axis-derived `cacheTag` and executor-owned `updateTag`             | Cache coherence becomes mechanical and singular                    |
+| RSC props are the read decision                  | Complete versioned canon plus refresh seam; RSC is default carrier | Snapshot consoles provide the second proven variation              |
+| Pull generations and causal gates                | Refresh transition, coverage comparison, and stall state           | Only complete canons can advance authority                         |
+| Ordered numeric client/group IDs                 | Opaque mutation UUID plus one root queue                           | No durable client group or gap-filling outbox exists in v1         |
 
 ### Retained from the first proposal
 
@@ -1703,7 +1713,7 @@ small and sparse; it is not a global database version map.
 - replayable versus preconditioned intent;
 - ambiguous delivery is not rejection;
 - authority-side deduplication is transactional with domain effects;
-- prediction, acceptance, and incorporation are separate states;
+- prediction, acceptance, and canonization are separate states;
 - typed rejection does not poison later intent;
 - interface-level contract suites and deliberate negative controls;
 - redacted clients never receive hidden state for uniformity; and
@@ -1760,14 +1770,14 @@ existing server read authority answer those questions.
 | Risk                                                           | Evidence that falsifies the design                                                                      |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Independent optimistic Actions cannot settle separately        | Covering A while B remains pending applies A twice, drops B, or requires a second projected-state store |
-| Complete bases cannot cover cross-route writes consistently    | Combat or dungeon repeatedly reports `missing-axis` despite correct authority commits                   |
+| Complete canons cannot cover cross-route writes consistently   | Combat or dungeon repeatedly reports `missing-axis` despite correct authority commits                   |
 | Axis vectors become route-level dependency manifests           | Pages hand-maintain axes instead of query/projector modules deriving them from observed rows            |
 | Dynamic-set absence has no observable axis                     | Creating an encounter or adding a roster member cannot invalidate a view that observed its absence      |
-| Multi-axis bases are torn across reads                         | A default Read Committed loader pairs state from different statement snapshots                          |
+| Multi-axis canons are torn across reads                        | A default Read Committed loader pairs state from different statement snapshots                          |
 | Server-authoritative contention retry distorts existing Stores | Migration creates parallel transaction variants or cannot isolate terminal rejection with a savepoint   |
 | One root queue causes unacceptable UX blocking                 | An uncertain low-value write prevents unrelated important gestures for a material interval              |
 | Cache tagging remains disciplinary                             | A normal new loader can omit the helper without a contract or architecture gate detecting it            |
-| A useful base exceeds Next's cache-tag ceiling                 | A combat or party projection needs more than 128 observed axes in one cached entry                      |
+| A useful canon exceeds Next's cache-tag ceiling                | A combat or party projection needs more than 128 observed axes in one cached entry                      |
 | Refresh completion cannot be observed reliably                 | Router transitions settle without any dependable point to perform coverage and retry decisions          |
 | Drizzle transaction integration is too restrictive             | Receipts cannot share the exact transaction and lock order of existing multi-row commands               |
 | Canonical equality differs by environment                      | Honest redelivery with equivalent parsed JSON fails receipt equality                                    |
@@ -1795,7 +1805,7 @@ The Phase 2 character binding is the first adoption gate. As a planning target,
 `use-entity-write.tsx` should fall from roughly 480 lines to 150–220, and the
 character slice should remove roughly 300–500 net production lines. The numbers
 are diagnostics, not quotas; the hard requirement is that queues, version refs,
-stale refetch, realtime comparison, refresh scheduling, and incorporation no
+stale refetch, realtime comparison, refresh scheduling, and canonization no
 longer exist in that binding. If the existing provider remains intact around or
 under `mutate`, the spike stops before Phase 3.
 
@@ -1820,9 +1830,9 @@ numeric estimate, decides whether the package is deep.
 1. Write public types and behavioral contract suites.
 2. Build in-memory authority, refresh, and invalidation adapters.
 3. Implement global axes, vector coverage, one root queue, canonical JSON, and
-   the incorporation state machine.
-4. Prove independent Action settlement: A incorporates while B remains pending
-   and is replayed exactly once over the new base.
+   the canonization state machine.
+4. Prove independent Action settlement: A canonizes while B remains pending
+   and is replayed exactly once over the new canon.
 5. Prove negative controls for pure replay, accumulation, deduplication,
    multi-axis coverage, dynamic-set absence, torn reads, refresh stall, and a
    mis-cached loader.
@@ -1831,7 +1841,7 @@ numeric estimate, decides whether the package is deep.
 
 Exit: the complete lifecycle works without Showtime code, independent Actions
 settle without a second projected-state store, and `stalled` detects an
-intentionally stale cached base.
+intentionally stale cached canon.
 
 ### Phase 1 — Drizzle and Ably adapters
 
@@ -1871,7 +1881,7 @@ contraction gate ends the spike before combat or dungeon migration.
 6. Attempt one three-axis lifecycle command.
 
 Exit: combat needs no root router in the package, and atomic multi-row commands
-use the same receipt and incorporation interface as singleton writes.
+use the same receipt and canonization interface as singleton writes.
 
 ### Phase 4 — Publication decision
 
@@ -1899,15 +1909,15 @@ The spike succeeds when:
   transaction so contention reruns are safe;
 - all version identity is global and storage-owned;
 - every incremented revision appears in the accepted stamp;
-- one mounted base can observe entity, encounter, dungeon, instance, and region
+- one mounted canon can observe entity, encounter, dungeon, instance, and region
   axes without package-specific routing;
 - every projection dependency is derived in its query/projector module, and
   every dynamic-set absence or membership query has a stable container axis;
-- multi-query bases use a snapshot-preserving observation rather than assuming
+- multi-query canons use a snapshot-preserving observation rather than assuming
   a default Read Committed transaction is consistent;
 - singleton and atomic vector stamps use the same interface;
 - accepted mutations remain predicted until every stamped axis is covered;
-- missing axes and stale cached bases become deterministic `stalled` states;
+- missing axes and stale cached canons become deterministic `stalled` states;
 - RSC carriers receive bounded acceptance grace while snapshot carriers refresh
   immediately;
 - cached loaders and accepted handlers share one axis-derived tag convention;
@@ -1942,26 +1952,25 @@ application-managed cache/realtime coordination to make those bindings work.
 These should be answered with spike evidence rather than added as flexibility
 now:
 
-1. The final package name and npm scope.
-2. The default ambiguous network retry budget and reconnect trigger.
-3. Whether 250 ms RSC grace, one-second retry delay, and two refresh attempts
+1. The default ambiguous network retry budget and reconnect trigger.
+2. Whether 250 ms RSC grace, one-second retry delay, and two refresh attempts
    are the right production defaults after measurement.
-4. Whether real bases approach the 128-axis cached-base ceiling closely enough
+3. Whether real canons approach the 128-axis cached canon ceiling closely enough
    to require uncached loaders, smaller cache entries, or a proven grouped-tag
    scheme.
-5. How applications present or dismiss replay conflicts and stalled accepted
+4. How applications present or dismiss jossed headcanons and stalled accepted
    predictions.
-6. Receipt retention, archival, and cleanup policy.
-7. Whether typed terminal errors are stored as a protocol-wide union or
+5. Receipt retention, archival, and cleanup policy.
+6. Whether typed terminal errors are stored as a protocol-wide union or
    per-mutation encoded outcomes.
-8. Whether best-effort Ably publication is sufficient or an optional
+7. Whether best-effort Ably publication is sufficient or an optional
    transactional outbox becomes justified.
-9. Whether one root queue causes demonstrated blocking that earns a later,
+8. Whether one root queue causes demonstrated blocking that earns a later,
    separately named delivery-partition feature.
-10. Whether safe-integer revisions are sufficient for a second real project.
-11. Whether exact hashed-channel capability enumeration remains practical for
+9. Whether safe-integer revisions are sufficient for a second real project.
+10. Whether exact hashed-channel capability enumeration remains practical for
     the largest observed axis sets.
-12. Whether the existing approximately 1.5-second watch polling interval remains
+11. Whether the existing approximately 1.5-second watch polling interval remains
     appropriate once polling is centralized in the package.
 
 ## Sources and related documents
