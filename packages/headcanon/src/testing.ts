@@ -1246,9 +1246,9 @@ export function verifyPollingFallbackContract(): void {
       rendered.unmount()
     })
 
-    it("keeps polling through reauthorization and stops when the primary recovers", async () => {
+    it("polls during initial reauthorization and stops when the primary recovers", async () => {
       const primary = createInMemoryInvalidationAdapter()
-      primary.setStatus("unavailable")
+      primary.setStatus("reauthorizing")
       const request = vi.fn(async () => undefined)
       const refresh: RefreshAdapter = { acceptanceGraceMs: 0, request }
       const rendered = renderHook(() =>
@@ -1259,7 +1259,6 @@ export function verifyPollingFallbackContract(): void {
         )
       )
 
-      act(() => primary.setStatus("reauthorizing"))
       expect(rendered.result.current.status.invalidations).toBe("polling")
       await advance(100)
       expect(request).toHaveBeenCalledTimes(1)

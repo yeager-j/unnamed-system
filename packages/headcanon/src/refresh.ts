@@ -40,7 +40,11 @@ export interface PollingFallbackOptions {
 }
 
 function needsPollingFallback(status: InvalidationStatus): boolean {
-  return status === "disabled" || status === "unavailable"
+  return (
+    status === "disabled" ||
+    status === "reauthorizing" ||
+    status === "unavailable"
+  )
 }
 
 function pollingStatus(status: InvalidationStatus): InvalidationStatus {
