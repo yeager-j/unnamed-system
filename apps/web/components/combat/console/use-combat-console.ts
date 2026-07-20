@@ -151,6 +151,7 @@ export function useCombatConsole(
 
   const state = composeCombatModel({
     eventFrame: { ...eventFrame, mapInstance: mapReplica.state },
+    loaderVersion: encounter.version,
     encounterReplicaSnapshot: replicas.encounterReplicaSnapshot,
     durableReplicaSnapshots: replicas.durableReplicaSnapshots,
     participantMeta,

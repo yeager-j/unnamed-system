@@ -8,12 +8,16 @@ import {
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_FLAG_KEYS,
   COUNTER_KEYS,
+  defaultOverlay,
+  storedEntitySchema,
   type CombatEvent,
   type EncounterSessionIntent,
+  type ParticipantShell,
   type SessionIntentRefusal,
   type SessionShell,
 } from "@workspace/game-v2/encounter"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
+import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
 import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
 import { COMBAT_SIDES } from "@workspace/game-v2/kernel/vocab/combat"
 import {
@@ -96,6 +100,17 @@ export interface CombatDurableState {
 export interface EncounterReplicaState {
   readonly status: EncounterStatus
   readonly session: SessionShell
+  /**
+   * The encounter row's own version — an atomically stored fact of the same
+   * row, carried in the value (UNN-657) so the composition seam can arbitrate
+   * roster membership between this root and the command-owned loader frame:
+   * whichever side is newer decides presence, which is what stops a
+   * command-removed participant resurrecting from a not-yet-pulled root (and,
+   * mirrored, lets a replica-added participant render before the frame
+   * refresh lands). Mutations never touch it; it advances only through
+   * accepted snapshots.
+   */
+  readonly version: number
 }
 
 /**
@@ -119,6 +134,7 @@ export type EncounterWriteRefusal =
   | "participant-not-inline"
   | "encounter-not-live"
   | "encounter-ended"
+  | "invalid-entity"
 
 /**
  * The durable home's mutation: args ARE the encounter door's existing
@@ -191,6 +207,73 @@ export const writeEncounterInline = defineMutation({
     return ok({
       ...state,
       session: { ...state.session, participants },
+    })
+  },
+})
+
+/**
+ * The single-root roster add (UNN-657): a batch of INLINE participants, each a
+ * whole stored entity plus a **client-minted participant id** — the natural
+ * idempotency key. The UNN-657 audit reassessed the classic router's zone-less
+ * inline add and catalog-enemy materialization: both write only the encounter
+ * row (an unplaced joiner holds no occupancy token until `placeCombatant`
+ * mints one), so they are replayable single-root intent, not commands. Catalog
+ * materialization happens client-side through `buildReinforcements` (the
+ * deterministic shared `instantiateEnemy`); the wire carries the entities
+ * whole, exactly as the classic inline arm did, re-validated here through the
+ * same {@link loadEntity} F6 seam on both sides of the wire.
+ *
+ * Draft and live are both admitted (setup adds vs mid-combat reinforcements);
+ * `ended` refuses. A live joiner enters already-acted (R6.2 — queued for the
+ * next round); a draft joiner enters un-acted. Already-present ids are
+ * filtered, so a duplicate delivery no-ops — on the authority that hits the
+ * processor's deepEqual short-circuit: watermark recorded, no version bump,
+ * no ping. Placed adds (occupancy) and durable adds (server hydration) remain
+ * commands.
+ */
+export const addEncounterInlineParticipants = defineMutation({
+  name: "encounter.addInlineParticipants",
+  args: z.object({
+    participants: z
+      .array(
+        z.object({
+          participantId: participantIdSchema,
+          side: z.enum(COMBAT_SIDES),
+          entity: storedEntitySchema,
+        })
+      )
+      .min(1),
+  }),
+  apply(state: EncounterReplicaState, { participants }) {
+    if (state.status === "ended") {
+      return err<EncounterWriteRefusal>("encounter-ended")
+    }
+    const additions = participants.filter((addition) =>
+      state.session.participants.every(
+        (existing) => existing.id !== addition.participantId
+      )
+    )
+    if (additions.length === 0) return ok(state)
+
+    const shells: ParticipantShell[] = []
+    for (const addition of additions) {
+      const parsed = loadEntity(addition.entity.id, addition.entity.components)
+      if (!parsed.ok) return err<EncounterWriteRefusal>("invalid-entity")
+      shells.push({
+        id: addition.participantId,
+        entity: { storage: "inline", entity: parsed.value },
+        overlay: defaultOverlay({
+          side: addition.side,
+          hasActed: state.status === "live",
+        }),
+      })
+    }
+    return ok({
+      ...state,
+      session: {
+        ...state.session,
+        participants: [...state.session.participants, ...shells],
+      },
     })
   },
 })
@@ -516,6 +599,7 @@ function participantOf(session: SessionShell, participantId: string) {
 export type CombatDurableInvocation = InvocationOf<typeof writeCombatEntity>
 export type EncounterInvocation =
   | InvocationOf<typeof writeEncounterInline>
+  | InvocationOf<typeof addEncounterInlineParticipants>
   | InvocationOf<typeof draftEncounterCombatant>
   | InvocationOf<typeof endEncounterTurn>
   | InvocationOf<typeof advanceEncounterRound>
@@ -543,6 +627,7 @@ export const encounterMutations: MutationRegistry<
   EncounterWriteRefusal
 > = defineMutations([
   writeEncounterInline,
+  addEncounterInlineParticipants,
   draftEncounterCombatant,
   endEncounterTurn,
   advanceEncounterRound,

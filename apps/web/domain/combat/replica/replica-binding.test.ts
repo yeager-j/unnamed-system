@@ -321,7 +321,11 @@ function createEncounterWorld() {
       inlineShellParticipant(p2, { vitals: { base: 30, damage: 0 } }),
     ],
   }
-  const initialState: EncounterReplicaState = { status: "live", session }
+  const initialState: EncounterReplicaState = {
+    status: "live",
+    version: 1,
+    session,
+  }
   // The encounter door's non-void Remote: the committed encounter version.
   // The closure counter mirrors the authority's version — it advances only
   // when an execution commits, exactly like the locked row's bump.

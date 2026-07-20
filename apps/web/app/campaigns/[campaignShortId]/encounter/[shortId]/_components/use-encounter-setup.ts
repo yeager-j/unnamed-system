@@ -97,6 +97,7 @@ export function useEncounterSetup(data: EncounterForDM) {
 
   const composed = composeCombatModel({
     eventFrame: { ...state, mapInstance: mapReplica.state },
+    loaderVersion: data.encounter.version,
     encounterReplicaSnapshot: replicas.encounterReplicaSnapshot,
     durableReplicaSnapshots: replicas.durableReplicaSnapshots,
     participantMeta: data.participantMeta,

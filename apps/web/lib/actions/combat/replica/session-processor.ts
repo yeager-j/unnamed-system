@@ -94,6 +94,7 @@ async function executeCombatSessionMutation(
   const root: EncounterReplicaState = {
     status: locked.value.row.status,
     session: locked.value.shell,
+    version: locked.value.row.version,
   }
 
   // The registered apply decides lifecycle (ordinary intent is live-only;
