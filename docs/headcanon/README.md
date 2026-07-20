@@ -1,7 +1,10 @@
-# Zero spike
+# Headcanon
 
 **Status:** Research baseline plus finalized package design<br>
 **Started:** 2026-07-20
+
+> **headcanon — optimistic mutations for Next.js: believe your writes until
+> canon says otherwise.**
 
 ## Purpose
 
@@ -22,10 +25,10 @@ independent assessment:
 2. [Showtime's current entity read/write architecture](./current-architecture.md)
    — the present implementation, its authorities, guarantees, and deliberate
    limitations.
-3. [Predicted mutations for React and Next.js](./technical-design.md) — a
-   technical design for a Zero-like mutation package built around
+3. [Headcanon: optimistic mutations for React and Next.js](./technical-design.md)
+   — a technical design for a Zero-like mutation package built around
    server-authoritative rebase, global storage-owned revision axes, complete
-   versioned bases, and invalidation-only realtime.
+   versioned canons, and invalidation-only realtime.
 4. [Deep technical-design assessment](./deep-review-outcome.md) — the
    multi-agent stress test, contraction ledger, implementation risks, and
    amendments incorporated into revision 4.

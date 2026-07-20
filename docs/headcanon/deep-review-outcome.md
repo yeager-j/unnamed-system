@@ -97,7 +97,7 @@ No significant application deletion should be expected yet.
 
 Likely additions:
 
-- `packages/predicted/src/react.ts`
+- `packages/headcanon/src/react.ts`
 - refresh adapters
 - Next server/client adapters
 - Drizzle receipt authority
@@ -116,7 +116,7 @@ This phase should not introduce general-purpose app wrappers â€œin preparationâ€
 - Entity mutation protocol and definitions.
 - One application-owned Server Action door.
 - Transactional entity handlers.
-- A character `VersionedBase` builder colocated with the character loader.
+- A character `Canon` builder colocated with the character loader.
 - A thin character prediction provider.
 - Registered mutations for name, pronouns, portrait, notes and other identity writes.
 
