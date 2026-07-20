@@ -6,8 +6,7 @@ binding re-validates facts it constructed moments earlier; a one-line protocol
 change still fans out across every tier. The abstraction relocated complexity
 instead of absorbing it, and more genericity keeps making it worse.
 
-**Context:** UNN-662, the Replica derived-view spike
-(`docs/write-audit/unn-662-derived-view-spike.md`). App-side coordination grew
+**Context:** The Replica derived-view spike. App-side coordination grew
 +390 counted lines (~+270 like-for-like) while the package gained a 518-line
 `view.ts`. Inventory showed each root family paying ~400–1,000 lines of
 distribution ceremony across three tiers around 150–650 lines of real domain
@@ -38,6 +37,4 @@ Corollaries: configuration is a call site (only libraries shrink callers;
 frameworks invert the LOC promise), and contraction comes from deleting
 requirements, not relocating responsibilities.
 
-**Action:** UNN-662 closed no-go; UNN-663 filed — re-run the spike with Replica
-allowed opinions (React + Server Actions committed; Drizzle/Ably stay ports),
-gated on `apps/web` contraction and marginal cost per new root family.
+**Action:** Replica was not adopted. It needs a ground-up redesign to be a truly deep module.
