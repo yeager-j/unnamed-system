@@ -33,7 +33,6 @@ import {
   type CombatDurablePushInput,
   type CombatPushError,
   type CombatSessionPushInput,
-  type CombatSessionRemote,
 } from "./wire.schema"
 
 /**
@@ -108,15 +107,14 @@ const pushCombatDurableMutation = createMutationPushDoor({
 
 /**
  * One delivery against the encounter session blob. The gate is the session
- * home's sole sanctioned writer: the campaign DM.
- *
- * `Remote = { version }` — the client folds it into the console's surviving
- * command-queue token so the two protocols sharing the encounter row keep each
- * other fresh.
+ * home's sole sanctioned writer: the campaign DM. `Remote = void` (UNN-657
+ * restored the package default): a successful redelivery needs only the
+ * recorded fact that the mutation terminated — accepted versions arrive
+ * through the accepted-state stream, and no client token remains to fold.
  */
 export async function pushCombatSessionMutationAction(
   input: CombatSessionPushInput
-): Promise<Result<CombatSessionRemote, CombatPushError>> {
+): Promise<Result<void, CombatPushError>> {
   return pushCombatSessionMutation(input)
 }
 

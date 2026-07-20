@@ -25,17 +25,16 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 const participantId = asParticipantId("p-1")
 const damage: EntityWrite = { component: "vitals", op: "damage", amount: 2 }
 
-type Remote = { version: number } | void
 type Receipt = ManagedMutationReceipt<
   CombatReplicaRejection,
-  Remote,
+  void,
   CombatBootstrapUnavailableReason
 >
 type DispatchResult = Result<void, CombatWriteDispatchError> | null
 
-const okReceipt = (remote: Remote = undefined): Receipt => ({
+const okReceipt = (): Receipt => ({
   local: Promise.resolve(ok(undefined)),
-  remote: Promise.resolve(ok(remote)),
+  remote: Promise.resolve(ok(undefined)),
 })
 
 function renderWriteHook(mutate: (write: EntityWrite) => Receipt) {

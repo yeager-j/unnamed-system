@@ -20,7 +20,6 @@ import { encounterReplicaClient } from "@/lib/db/schema/encounter-replica-client
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
 
 import { createDrizzleMutationProcessor } from "../../replica/drizzle-processor"
-import type { CombatSessionRemote } from "./wire.schema"
 
 /**
  * Per-delivery trusted context. `authorization` is the campaign-DM verdict
@@ -42,7 +41,7 @@ export interface CombatSessionCommit {
 export type CombatSessionPushProcessor = MutationProcessor<
   CombatSessionPushContext,
   CombatReplicaRejection,
-  CombatSessionRemote
+  void
 >
 
 /**
@@ -63,8 +62,8 @@ export type CombatSessionPushProcessor = MutationProcessor<
  * refusals are one decided-once code path (UNN-655; the previous body's
  * event mint + session reduce retired with the `CombatInlineState` root).
  * The shell's serialize is total, so a committed apply always persists.
- * `Remote = { version }`: the commit's encounter version is recorded with
- * the outcome and reproduced verbatim on a deduplicated redelivery.
+ * `Remote = void` (UNN-657): the recorded outcome is acknowledgment-only —
+ * accepted versions travel through the accepted-state stream.
  */
 export function createCombatSessionPushProcessor(
   encounterId: string
@@ -85,7 +84,7 @@ async function executeCombatSessionMutation(
   tx: WriteExecutor,
   invocation: EncounterInvocation,
   context: CombatSessionPushContext
-): Promise<Result<CombatSessionRemote, CombatReplicaRejection>> {
+): Promise<Result<void, CombatReplicaRejection>> {
   if (!context.authorization.ok) return err(context.authorization.error)
 
   const locked = await loadEncounterShellForWriteLocked(tx, context.encounterId)
@@ -112,7 +111,7 @@ async function executeCombatSessionMutation(
   // the encounter row has not changed: do not manufacture a version bump,
   // invalidation, or route revalidation for an idempotent delivery.
   if (applied.value === root || deepEqual(applied.value, root)) {
-    return ok({ version: locked.value.row.version })
+    return ok(undefined)
   }
 
   const saved = await saveEncounterSession(
@@ -135,7 +134,7 @@ async function executeCombatSessionMutation(
     status: locked.value.row.status,
     version: saved.value.version,
   }
-  return ok({ version: saved.value.version })
+  return ok(undefined)
 }
 
 function logProcessorEvent(event: ProcessorEvent): void {

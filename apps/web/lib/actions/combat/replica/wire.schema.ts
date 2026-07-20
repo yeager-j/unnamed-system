@@ -41,17 +41,6 @@ export type CombatPushError =
   | "invalid-input"
   | ProcessRefusal<CombatReplicaRejection>
 
-/** The encounter door's non-void Remote: the encounter version this commit
- *  produced, folded into the console's surviving command-queue token so the two
- *  protocols sharing the encounter row keep each other fresh (UNN-646; design
- *  Open decision 6's first recorded-remote use). Kept by UNN-655 because the
- *  classic commands (`useQueuedWrite`) still share the row and their token
- *  cannot be kept fresh by the asynchronous accepted pull. UNN-657 owns the
- *  coordinator's removal and the return to `Remote = void`. */
-export interface CombatSessionRemote {
-  readonly version: number
-}
-
 const identitySchema = z.object({
   clientGroupId: z.string().min(1),
   clientId: z.string().min(1),
