@@ -1,17 +1,16 @@
 "use server"
 
-import { eq } from "drizzle-orm"
-
 import { saveSession, sweepOverlay } from "@workspace/game-v2/encounter"
 import { pruneCombat } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import { db, type WriteExecutor } from "@/lib/db/client"
-import { loadEncounterEnvelopeById } from "@/lib/db/queries/load-encounter"
+import { type WriteExecutor } from "@/lib/db/client"
+import {
+  loadEncounterAndInstanceVersions,
+  loadEncounterEnvelopeById,
+} from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
-import { encounters } from "@/lib/db/schema/encounter"
-import { mapInstances } from "@/lib/db/schema/map-instance"
 import {
   saveEncounterSession,
   setEncounterStatus,
@@ -149,22 +148,12 @@ export async function endCombatAction(
   })
 }
 
-/** The idempotent no-op's answer: the rows' current versions, unlocked reads
- *  (both are terminal — `ended` and frozen never revert). */
+/** The idempotent no-op's answer. */
 async function currentVersions(
   encounterId: string
 ): Promise<
   Result<{ version: number; instanceVersion: number }, EndCombatError>
 > {
-  const [row] = await db
-    .select({
-      version: encounters.version,
-      instanceVersion: mapInstances.version,
-    })
-    .from(encounters)
-    .innerJoin(mapInstances, eq(mapInstances.id, encounters.mapInstanceId))
-    .where(eq(encounters.id, encounterId))
-    .limit(1)
-  if (!row) return err("encounter-not-found")
-  return ok({ version: row.version, instanceVersion: row.instanceVersion })
+  const row = await loadEncounterAndInstanceVersions(encounterId)
+  return row === null ? err("encounter-not-found") : ok(row)
 }

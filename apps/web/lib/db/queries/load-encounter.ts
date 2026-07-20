@@ -80,6 +80,27 @@ export interface EncounterEnvelope {
   mapInstanceId: string
 }
 
+/**
+ * The encounter row's version paired with its Instance's — the idempotent
+ * command no-op's answer (UNN-657): an already-terminal encounter reports
+ * current versions from an unlocked read (both `ended` and frozen never
+ * revert), publishing nothing.
+ */
+export async function loadEncounterAndInstanceVersions(
+  encounterId: string
+): Promise<{ version: number; instanceVersion: number } | null> {
+  const [row] = await db
+    .select({
+      version: encounters.version,
+      instanceVersion: mapInstances.version,
+    })
+    .from(encounters)
+    .innerJoin(mapInstances, eq(mapInstances.id, encounters.mapInstanceId))
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+  return row ?? null
+}
+
 export async function loadEncounterEnvelopeById(
   encounterId: string
 ): Promise<EncounterEnvelope | null> {

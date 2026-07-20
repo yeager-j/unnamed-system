@@ -1,17 +1,14 @@
 "use server"
 
-import { eq } from "drizzle-orm"
-
 import { saveSession, sweepOverlay } from "@workspace/game-v2/encounter"
 import { pruneCombat, reduceDungeon } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
+import { loadEncounterAndInstanceVersions } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWriteLocked } from "@/lib/db/queries/load-encounter-session"
-import { encounters } from "@/lib/db/schema/encounter"
-import { mapInstances } from "@/lib/db/schema/map-instance"
 import {
   lockDungeonRowForLifecycle,
   saveDungeonState,
@@ -153,17 +150,8 @@ export async function endDungeonCombatAction(
   if (!result.ok) return result
 
   if (result.value === "already-ended") {
-    const [row] = await db
-      .select({
-        version: encounters.version,
-        instanceVersion: mapInstances.version,
-      })
-      .from(encounters)
-      .innerJoin(mapInstances, eq(mapInstances.id, encounters.mapInstanceId))
-      .where(eq(encounters.id, encounterId))
-      .limit(1)
-    if (!row) return err("encounter-not-found")
-    return ok({ version: row.version, instanceVersion: row.instanceVersion })
+    const row = await loadEncounterAndInstanceVersions(encounterId)
+    return row === null ? err("encounter-not-found") : ok(row)
   }
 
   publishEncounterPing(result.value.encounterShortId, {

@@ -728,7 +728,7 @@ describe("encounter accepted-tuple atomicity", () => {
         }),
       },
     })
-    expect(pushed).toEqual(ok({ version: 1 }))
+    expect(pushed).toEqual(ok(undefined))
 
     const after = await loadCombatAcceptedAction({
       encounterId,
@@ -812,7 +812,7 @@ describe("combat replica encounter preconditions", () => {
       },
     })
 
-    expect(result).toEqual(ok({ version: before }))
+    expect(result).toEqual(ok(undefined))
     expect(await encounterVersion(encounterId)).toBe(before)
     const accepted = await loadCombatAcceptedAction({
       encounterId,
@@ -841,10 +841,11 @@ describe("combat replica encounter preconditions", () => {
     }
     expect(
       await pushCombatSessionMutationAction({ encounterId, envelope })
-    ).toEqual(ok({ version: 1 }))
+    ).toEqual(ok(undefined))
     expect(
       await pushCombatSessionMutationAction({ encounterId, envelope })
-    ).toEqual(ok({ version: 1 }))
+    ).toEqual(ok(undefined))
+    expect(await encounterVersion(encounterId)).toBe(1)
 
     const refused = await pushCombatSessionMutationAction({
       encounterId,

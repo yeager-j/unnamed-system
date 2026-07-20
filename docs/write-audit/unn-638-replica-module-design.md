@@ -43,6 +43,36 @@ Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 > both sides — and Open decisions 6 and 7 gained the records below. Broad
 > session-intent migration remains UNN-656.
 >
+> **Command coordinator + final contraction revision (2026-07-19, UNN-657).**
+> The classic expected-version protocol is gone. Cross-root/lifecycle work
+> (start combat, placed/durable participant add, remove, standalone and
+> dungeon end, the de-versioned dungeon lifecycle family) runs through one
+> application coordinator — `runCommand(barriers, command)` in
+> `apps/web/lib/sync/command-coordinator.ts`: settle the named managed
+> replicas, then invoke the named Server Action once with semantic arguments.
+> The authority locks current rows in canonical order (dungeon → mapInstance
+> → encounter → entity), validates semantic preconditions in-transaction
+> (`loadEncounterForWriteLocked`; the de-versioned
+> `lockDungeonRowForLifecycle`), and saves guarded on the locked rows' own
+> versions; ambiguity resolves by per-command documented natural idempotency
+> (terminal desired-state lifecycle, client-minted participant-id dedup,
+> absence-tolerant removes, `advanceTurn`'s semantic `expectedTurn`). The
+> zone-less inline add and catalog materialization moved to the Encounter
+> Replica as `encounter.addInlineParticipants` (client-side
+> `buildReinforcements`), and the encounter root value gained the row's own
+> `version` so `composeCombatModel` arbitrates roster membership between root
+> and loader frame by recency. Deleted: both dispatch routers,
+> `applyCombatEventAction` + envelope, `addCatalogEnemiesAction`,
+> `encounterMutationBase` and every encounter/dungeon `expectedVersion`
+> passenger, `fetchEncounterVersion`/`make-version-refetcher`/both version
+> read actions, the combat `console-optimistic` mirrors, both
+> `onRemoteVersion` folds, and the recorded `Remote = { version }` (the door
+> reverted to `Remote = void`; Open decision 6 closed). `write-queue.ts` /
+> `use-queued-write.ts` / `use-monotonic-version-ref.ts` survive ONLY for the
+> two Stage autosave hooks, guarded by `depcheck.mjs`'s `RESTRICTED_IMPORTS`
+> rule, with a named follow-up migration ticket. Measurement below
+> (§Showtime binding).
+>
 > **Encounter session-intent revision (2026-07-19, UNN-656).** The
 > storage-native Encounter Replica is now the sole prediction, ordering,
 > retry, and rebase authority for ordinary encounter-row intent. Each family
@@ -820,6 +850,37 @@ post-UNN-657 review must measure the cumulative `apps/web` responsibility and
 LOC result; failure to contract the coordination surface is a stop condition
 before Replica 1.0 stabilization.
 
+**UNN-657 measurement (2026-07-19).** Every item in the contraction inventory
+above was deleted (no wrapper). Production source in `apps/web`, measured with
+the pinned command below (cloc 2.08 — record the command with the number;
+UNN-656's 68,581 re-measures as 68,586 under it, a ≤5-line methodology
+variance):
+
+```bash
+cd apps/web && cloc --quiet \
+  --exclude-dir=node_modules,.next,e2e,playwright-report,test-results \
+  --not-match-f='(\.test\.|\.spec\.|next-env\.d\.ts)' \
+  --exclude-lang=JSON,Markdown .   # sum the `code` column
+```
+
+**68,586 → 68,572: net −14** (TypeScript −56; +42 is `depcheck.mjs`'s
+`RESTRICTED_IMPORTS` guard, which retires with the Stage follow-up). The raw
+production diff is +1,439/−1,609; with tests included the branch deletes
+~1,400 more lines than it adds. This is the program's first net-negative
+ticket, but far short of this document's 700–1,000-line responsibility
+estimate. The gap has a specific shape: the six surviving commands did not
+merely relocate out of the queue — the rewrite gave them in-transaction
+locked validation, semantic preconditions, and explicit idempotency recovery
+arms the expected-version protocol never had (correctness the estimate priced
+as pure deletion), and a large share of the deleted protocol was comment and
+test mass the metric excludes on both sides. The responsibility contraction is
+real — exactly one prediction/ordering/retry/rebase protocol remains, plus
+enumerated commands, and the target architecture's two write species hold —
+but the LOC result should be read at face value in the pre-1.0 review: the
+stop condition asked for material contraction and got parity. Remaining known
+contraction: the Stage follow-up deletes the queue trio (~150 code lines) and
+the depcheck rule.
+
 Across `apps/web/lib/sync` and the main entity/combat write consumers, the current
 production coordination surface is approximately 1,786 lines. The replica is expected
 to absorb or eliminate roughly 700–1,000 of those lines plus their implementation-level
@@ -1035,6 +1096,10 @@ the abstract:
    the queue but retained start/add/remove, catalog materialization, and end
    commands. UNN-657 is the removal owner:** once it replaces that final
    command coordinator, the door reverts to the default `Remote = void`.
+   **Closed by UNN-657:** the queue is deleted, commands settle-then-invoke
+   through the application coordinator, and the door runs the default
+   `Remote = void` — every production door is now acknowledgment-only, and
+   both contract suites run the encounter binding in acknowledgment mode.
 7. **Resolved (UNN-646), with the rule the combat evidence produced: replica granularity
    follows the authority's commit scope — the row-lock + auth boundary — never the UI's
    dispatch scope.** Read the rule strictly: the commit scope is _every_ lock the commit
