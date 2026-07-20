@@ -214,65 +214,6 @@ export function scanTierViolations(relPath, source) {
 }
 
 /**
- * Retired-module import guard (UNN-657): the classic write queue survives ONLY
- * for the Stage autosave hooks (their migration is UNN-661). A new importer of a listed module fails the gate —
- * the queue must not quietly become a second write-coordination protocol
- * again. Delete each entry together with its module when the follow-up lands.
- * Paths are apps/web-relative, extensionless (the resolver's shape).
- */
-export const RESTRICTED_IMPORTS = [
-  {
-    module: "lib/sync/write-queue",
-    allowedImporterPrefixes: ["lib/sync/"],
-    reason:
-      "classic queue core — Stage-only via use-queued-write (UNN-657 contraction; Stage migration is UNN-661)",
-  },
-  {
-    module: "lib/sync/use-queued-write",
-    allowedImporterPrefixes: ["lib/sync/", "app/stage/_hooks/"],
-    reason:
-      "classic queue façade — Stage autosave only (UNN-657 contraction; Stage migration is UNN-661)",
-  },
-  {
-    module: "lib/sync/use-monotonic-version-ref",
-    allowedImporterPrefixes: ["lib/sync/"],
-    reason:
-      "classic version ref — internal to the queue façade (UNN-657 contraction)",
-  },
-]
-
-/**
- * Every restricted-module import from outside its allowed scopes in one file.
- * @param {string} relPath POSIX path relative to apps/web
- * @param {string} source
- * @returns {{ file: string; line: number; specifier: string; kind: "restricted"; rule: string }[]}
- */
-export function scanRestrictedImports(relPath, source) {
-  /** @type {{ file: string; line: number; specifier: string; kind: "restricted"; rule: string }[]} */
-  const violations = []
-  for (const { specifier, line } of importSpecifiers(source)) {
-    const target = resolveSpecifier(relPath, specifier)
-    if (!target) continue
-    const entry = RESTRICTED_IMPORTS.find(
-      (candidate) => target === candidate.module
-    )
-    if (!entry) continue
-    const allowed = entry.allowedImporterPrefixes.some((prefix) =>
-      relPath.startsWith(prefix)
-    )
-    if (allowed) continue
-    violations.push({
-      file: relPath,
-      line,
-      specifier,
-      kind: "restricted",
-      rule: `retired module — ${entry.reason}`,
-    })
-  }
-  return violations
-}
-
-/**
  * The domain-purity seam — functional core / imperative shell (UNN-610). A
  * `domain/` file that is NOT a marked-impure `use-*` (client hook) or `load-*`
  * (server loader) is the pure model/view core: it may import `@workspace/game*`
@@ -462,10 +403,10 @@ function scanGatedRoots() {
  * there is nothing to grandfather — and it must scan the data tiers too, or an
  * upward `lib → components` / `domain → app` edge would be invisible. Also runs
  * the domain-purity check (zero-tolerance, `kind: "purity"`).
- * @returns {{ file: string; line: number; specifier: string; kind: "direction" | "isolation" | "purity" | "restricted"; rule: string }[]}
+ * @returns {{ file: string; line: number; specifier: string; kind: "direction" | "isolation" | "purity"; rule: string }[]}
  */
 function scanTierRoots() {
-  /** @type {{ file: string; line: number; specifier: string; kind: "direction" | "isolation" | "purity" | "restricted"; rule: string }[]} */
+  /** @type {{ file: string; line: number; specifier: string; kind: "direction" | "isolation" | "purity"; rule: string }[]} */
   const violations = []
   for (const root of TIER_ROOTS) {
     for (const file of collectSourceFiles(join(ROOT, root))) {
@@ -473,7 +414,6 @@ function scanTierRoots() {
       const source = readFileSync(file, "utf8")
       violations.push(...scanTierViolations(relPath, source))
       violations.push(...scanDomainPurity(relPath, source))
-      violations.push(...scanRestrictedImports(relPath, source))
     }
   }
   return violations
@@ -497,7 +437,7 @@ function run() {
   const tierViolations = scanTierRoots()
   const zeroToleranceViolations = tierViolations.filter(
     (v) =>
-      v.kind === "direction" || v.kind === "purity" || v.kind === "restricted"
+      v.kind === "direction" || v.kind === "purity"
   )
   const isolationFiles = [
     ...new Set(

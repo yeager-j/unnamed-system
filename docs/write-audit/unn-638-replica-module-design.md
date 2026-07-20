@@ -73,6 +73,16 @@ Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 > rule, with a named follow-up migration ticket. Measurement below
 > (§Showtime binding).
 >
+> **Stage autosave contraction revision (2026-07-20, UNN-661).** The two
+> single-owner Stage editors now use field-scoped LWW actions with no client
+> `expectedVersion`; the row version remains an authority-owned revision
+> counter during deployment overlap so an older versioned client still detects
+> a new LWW write. A keyed serialize-latest hook keeps one save in flight per
+> editor and retains only the newest waiting save for each field, so a slow write
+> cannot be overtaken. The classic queue trio, their tests, and the temporary
+> depcheck restriction are deleted. Production source measures **68,579 → 68,467: −112**
+> code lines with the pinned command in §Showtime binding.
+>
 > **Encounter session-intent revision (2026-07-19, UNN-656).** The
 > storage-native Encounter Replica is now the sole prediction, ordering,
 > retry, and rebase authority for ordinary encounter-row intent. Each family
@@ -877,9 +887,11 @@ test mass the metric excludes on both sides. The responsibility contraction is
 real — exactly one prediction/ordering/retry/rebase protocol remains, plus
 enumerated commands, and the target architecture's two write species hold —
 but the LOC result should be read at face value in the pre-1.0 review: the
-stop condition asked for material contraction and got parity. Remaining known
-contraction: the Stage follow-up deletes the queue trio (~150 code lines) and
-the depcheck rule.
+stop condition asked for material contraction and got parity. **UNN-661 closed
+the remaining known contraction:** Stage moved to field-scoped LWW plus a keyed
+serialize-latest hook, deleting the queue trio and depcheck rule. Re-measured
+from the UNN-657 mainline with the same command: **68,579 → 68,467 (−112)**
+production code lines (TypeScript −68; JavaScript −44).
 
 Across `apps/web/lib/sync` and the main entity/combat write consumers, the current
 production coordination surface is approximately 1,786 lines. The replica is expected

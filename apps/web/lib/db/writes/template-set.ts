@@ -9,7 +9,7 @@ import { type Result } from "@workspace/result"
 import { db } from "@/lib/db/client"
 import { templateSets } from "@/lib/db/schema/template-set"
 import { insertWithShortId } from "@/lib/db/short-id"
-import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
+import { lastWriterWinsUpdate } from "@/lib/db/writes/last-writer-wins-update"
 
 /**
  * Persistence for the `templateSet` table — the user-owned authoring library
@@ -17,12 +17,14 @@ import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
  * auth-free; the owner authorization (`requireTemplateSetOwner`) lives at the
  * Server Action boundary that calls it.
  *
- * A single `version` token guards every content/name mutation through the shared
- * {@link guardedVersionUpdate}. These run on the base `db` — Set authoring is
- * single-owner with no cross-row atomic gesture (no `guardMany`).
+ * Set authoring is single-owner and each autosave patches one field, so writes
+ * use deliberate last-writer-wins concurrency. The row's `version` remains an
+ * authority-owned revision counter so an older, still-open versioned client
+ * fails stale instead of overlooking a new LWW write during deployment overlap.
+ * Current write commands neither send nor return it.
  */
 
-type TemplateSetWriteError = "template-set-not-found" | "stale"
+type TemplateSetWriteError = "template-set-not-found"
 
 /**
  * Creates an empty Template Set owned by `userId` with a minted, collision-retried
@@ -51,32 +53,27 @@ export async function createTemplateSet(input: {
 }
 
 /**
- * The guarded content write: replaces the whole `content` blob and bumps
- * `version`, conditioned on the caller's `expectedVersion`. Returns the new
- * version on success. This is the write the Set editor's autosave calls on every
- * template/table/knob edit.
+ * Replaces the whole `content` blob and advances the row revision. This is the
+ * write the Set editor's autosave calls on every template/table/knob edit.
  */
 export async function saveTemplateSetContent(
   templateSetId: string,
-  content: TemplateSetContent,
-  expectedVersion: number
-): Promise<Result<{ version: number }, TemplateSetWriteError>> {
-  return bumpTemplateSetVersionGuarded(templateSetId, expectedVersion, {
+  content: TemplateSetContent
+): Promise<Result<void, TemplateSetWriteError>> {
+  return updateTemplateSet(templateSetId, {
     content,
   })
 }
 
 /**
- * The guarded name write — the autosaved Set name (no Save button). Same guarded
- * primitive as {@link saveTemplateSetContent}, different patch: name and content
- * share the one `version` token, each round-tripping it on its own save.
+ * The autosaved Set name (no Save button). Same per-field LWW primitive as
+ * {@link saveTemplateSetContent}, different patch.
  */
 export async function renameTemplateSet(
   templateSetId: string,
-  name: string,
-  expectedVersion: number
-): Promise<Result<{ version: number }, TemplateSetWriteError>> {
-  return bumpTemplateSetVersionGuarded(templateSetId, expectedVersion, { name })
+  name: string
+): Promise<Result<void, TemplateSetWriteError>> {
+  return updateTemplateSet(templateSetId, { name })
 }
 
 /**
@@ -100,16 +97,13 @@ export async function softDeleteTemplateSet(
     .where(eq(templateSets.id, templateSetId))
 }
 
-/** The shared single-version guard, bound to this aggregate's table + error. */
-async function bumpTemplateSetVersionGuarded(
+async function updateTemplateSet(
   templateSetId: string,
-  expectedVersion: number,
   patch: Partial<typeof templateSets.$inferInsert>
-): Promise<Result<{ version: number }, TemplateSetWriteError>> {
-  return guardedVersionUpdate({
+): Promise<Result<void, TemplateSetWriteError>> {
+  return lastWriterWinsUpdate({
     table: templateSets,
     id: templateSetId,
-    expectedVersion,
     patch,
     notFound: "template-set-not-found",
   })

@@ -12,8 +12,9 @@ import { users } from "./user"
  * reads the **live** set, so there is no per-expedition snapshot — tuning applies
  * from the next roll onward. Its whole authored {@link TemplateSetContent}
  * (`templates`, `tables`, order arrays, `connectorTemplateKey`, `closureChance`)
- * persists as one `content` jsonb blob, guarded by a single `version` token — the
- * same optimistic-concurrency shape as a Map's `geometry`.
+ * persists as one `content` jsonb blob. Stage autosave is field-scoped LWW;
+ * `version` remains an authority-owned revision counter rather than a client
+ * concurrency token.
  *
  * `shortId` backs the owner-only editor URL (`/stage/sets/{shortId}`). Writes gate
  * on the owner (`requireTemplateSetOwner`, `templateSet.userId === viewer`).

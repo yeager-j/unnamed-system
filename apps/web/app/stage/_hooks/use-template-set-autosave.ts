@@ -3,11 +3,10 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { ok } from "@workspace/result"
-
 import type { TemplateSetContent } from "@/domain/template-set/authoring"
 import { saveTemplateSetAction } from "@/lib/actions/template-set/save"
-import { useQueuedWrite } from "@/lib/sync/use-queued-write"
+
+import { useSerializeLatest } from "./use-serialize-latest"
 
 const NAME_DEBOUNCE_MS = 600
 const CONTENT_DEBOUNCE_MS = 600
@@ -21,29 +20,22 @@ export type TemplateSetSaveStatus = "saved" | "saving" | "error"
 
 /**
  * Debounced auto-save coordinator for the Template Set editor (UNN-588 name +
- * content) — the no-Save-button editor. The Set's **name and content share one
- * `version` token** (`templateSet.version`), so they must round-trip it through
- * **one** version ref and **one** serialized queue: two independent refs would
- * false-`stale` each other when a name edit and a template edit land back-to-back.
- *
- * That serialized version-token queue is not hand-rolled here: both fields route
- * their saves through one {@link useQueuedWrite} — the single-row façade over the
- * shared `createWriteQueue` core (`lib/sync/write-queue.ts`). It owns the
- * monotonic version ref (synced from `serverVersion`), the serialized spine, and
- * the forward-only token bump. `refetchVersion` is **omitted** on purpose: the Set
- * does *not* do the character autosave's silent refetch-and-retry — a `"stale"`
- * just reverts/toasts (see `saveTemplateSetAction`).
+ * content) — the no-Save-button editor. Set authoring is deliberately per-field
+ * last-writer-wins: each action updates only `name` or `content`, and cross-tab
+ * edits by the single owner resolve by whichever field write lands last. Within
+ * this editor, both fields share {@link useSerializeLatest}, so a slow save
+ * cannot be overtaken and repeated edits to one waiting field collapse to its
+ * newest value.
  *
  * This hook keeps only the per-field lifecycle glue. The name keeps its own draft
  * `value` + revert-on-failure (the field's server value is authoritative).
  * **Content does not hard-revert on failure:** each save persists the *whole*
  * `content` blob, so a transient failure self-heals on the next edit, and
  * discarding a library of work on a blip is worse than keeping it — a failure
- * toasts (refresh-prompt on `"stale"`) and leaves the local edits in place. Name
+ * toasts and leaves the local edits in place. Name
  * and content debounce on **independent timers** (a keystroke must not cancel a
- * pending template-edit save) but serialize through the one queue, each reading the
- * freshly-bumped token inside the chain. Both flush on unmount so a client-side
- * nav mid-debounce doesn't drop the last edit.
+ * pending template-edit save) but serialize through one save spine. Both flush
+ * on unmount so a client-side nav mid-debounce doesn't drop the last edit.
  *
  * Unlike the Map hook, no `serverContent` is threaded: the editor owns the
  * `content` state and hands the whole re-derived blob to `saveContent`, so the
@@ -53,83 +45,81 @@ export type TemplateSetSaveStatus = "saved" | "saving" | "error"
 export function useTemplateSetAutoSave({
   templateSetId,
   serverName,
-  serverVersion,
 }: {
   templateSetId: string
   serverName: string
-  serverVersion: number
 }) {
-  const { enqueue } = useQueuedWrite({ serverVersion })
   const [value, setValue] = useState(serverName)
   const [status, setStatus] = useState<TemplateSetSaveStatus>("saved")
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const serializeLatest = useSerializeLatest((error) => {
+    console.error("[useTemplateSetAutoSave] save threw", error)
+    setStatus("error")
+    onSaveFailure()
+  })
   const lastSavedNameRef = useRef(serverName)
+  const currentNameRef = useRef(serverName)
   const lastSavedContentRef = useRef<string | null>(null)
   const pendingContentRef = useRef<TemplateSetContent | null>(null)
   const nameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const contentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function onSaveFailure(stale: boolean): void {
-    toast.error(
-      stale
-        ? "Couldn't sync the set — refresh to see the latest changes."
-        : "Couldn't save the set. Try again."
-    )
+  function onSaveFailure(): void {
+    toast.error("Couldn't save the set. Try again.")
   }
 
   function enqueueNameSave(next: string): void {
     const trimmed = next.trim()
 
-    void enqueue(async (expectedVersion) => {
+    serializeLatest("name", async () => {
       if (trimmed.length === 0 || trimmed === lastSavedNameRef.current.trim())
-        return ok({ version: expectedVersion })
+        return
 
       setStatus("saving")
       const result = await saveTemplateSetAction({
         templateSetId,
-        expectedVersion,
         patch: { field: "name", name: trimmed },
       })
       if (result.ok) {
         lastSavedNameRef.current = trimmed
         setStatus("saved")
         setLastSavedAt(Date.now())
-        return result
+        return
       }
-      setValue(lastSavedNameRef.current)
+      if (currentNameRef.current.trim() === trimmed) {
+        currentNameRef.current = lastSavedNameRef.current
+        setValue(lastSavedNameRef.current)
+      }
       setStatus("error")
-      onSaveFailure(result.error === "stale")
-      return result
+      onSaveFailure()
     })
   }
 
   function enqueueContentSave(content: TemplateSetContent): void {
     pendingContentRef.current = null
 
-    void enqueue(async (expectedVersion) => {
+    serializeLatest("content", async () => {
       const serialized = JSON.stringify(content)
-      if (serialized === lastSavedContentRef.current)
-        return ok({ version: expectedVersion })
+      if (serialized === lastSavedContentRef.current) return
 
       setStatus("saving")
       const result = await saveTemplateSetAction({
         templateSetId,
-        expectedVersion,
         patch: { field: "content", content },
       })
       if (result.ok) {
         lastSavedContentRef.current = serialized
         setStatus("saved")
         setLastSavedAt(Date.now())
-        return result
+        return
       }
       setStatus("error")
-      onSaveFailure(result.error === "stale")
-      return result
+      onSaveFailure()
     })
   }
 
   function onChange(next: string): void {
+    currentNameRef.current = next
     setValue(next)
     if (nameTimerRef.current) clearTimeout(nameTimerRef.current)
     nameTimerRef.current = setTimeout(
@@ -147,6 +137,7 @@ export function useTemplateSetAutoSave({
   }
 
   function revert(): void {
+    currentNameRef.current = lastSavedNameRef.current
     setValue(lastSavedNameRef.current)
   }
 

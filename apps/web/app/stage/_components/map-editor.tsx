@@ -18,9 +18,9 @@ import { MapSettingsPanel } from "./map-settings-panel"
  * over the top-left and the tool palette along the bottom — no header bars (the
  * site header is hidden on this route). The canvas is a `"use client"` React Flow
  * island, lazy-loaded (`ssr: false`) so it renders only against a measured DOM and
- * non-map routes don't pay for it. Name and geometry autosave through one shared
- * version token ({@link useMapAutoSave}); a local geometry mirror feeds the panel's
- * live zone/connection counts.
+ * non-map routes don't pay for it. Name and geometry autosave serially through
+ * {@link useMapAutoSave}; a local geometry mirror feeds the panel's live
+ * zone/connection counts.
  */
 const MapCanvas = dynamic(
   () =>
@@ -48,7 +48,6 @@ export function MapEditor({
     mapId: map.id,
     serverName: map.name,
     serverGeometry: map.geometry,
-    serverVersion: map.version,
   })
   const [geometry, setGeometry] = useState(map.geometry)
 

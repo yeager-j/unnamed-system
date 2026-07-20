@@ -132,10 +132,9 @@ dedup by client-minted participant id, removes tolerate absence.
 4. `endCombatAction` (sweep + prune + freeze + status) and
    `endDungeonCombatAction` (+ the dungeon turn).
 
-Spatial intent uses the separate Map Instance Replica. `lib/sync/write-queue.ts`
-/ `use-queued-write.ts` survive ONLY for the Stage autosave hooks (guarded by
-`depcheck.mjs`'s `RESTRICTED_IMPORTS`; their migration is a named follow-up
-ticket).
+Spatial intent uses the separate Map Instance Replica. UNN-661 retired the final
+classic write queue after moving Stage autosave to field-scoped LWW writes with a
+local serialize-latest spine.
 
 ## Redaction posture
 
@@ -209,7 +208,7 @@ write species: `replica.mutate` for single-root intent, `runCommand` +
 named actions for cross-root/lifecycle work.
 
 Measured with the same command: **68,586 → 68,572 (−14; TypeScript −56, offset
-by +42 of `depcheck.mjs` guard tooling that retires with the Stage follow-up)**
+by +42 of temporary `depcheck.mjs` guard tooling retired by UNN-661)**
 — the first net-negative ticket in the program, but far short of the design
 doc's 700–1,000-line responsibility estimate. Where the difference went: the
 six commands did not merely relocate — they gained in-transaction locked
