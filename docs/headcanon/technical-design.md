@@ -570,11 +570,15 @@ An application configures a mounted-root family once in a client-only module:
 ```ts
 export const useEntityPredictions = createPredictedRoot({
   protocol: entityProtocol,
-  send: applyEntityMutationAction,
+  send: deliverEntityMutation,
   refresh: useRouterRefresh,
   invalidations: entityAxisInvalidations,
 })
 ```
+
+`deliverEntityMutation` is an application-owned client adapter. It calls the
+raw Server Action but rethrows Next framework control-flow signals before the
+package classifies an ordinary throw as uncertain delivery.
 
 A domain provider supplies only its current canon:
 
@@ -589,6 +593,7 @@ The returned interface is intentionally small:
 interface PredictedRoot<State, Invocation, Error> {
   value: State
   mutate(invocation: Invocation): Result<MutationReceipt<Error>, Error>
+  retryDelivery(): void
   retryRefresh(): void
   status: {
     pending: number
@@ -622,6 +627,12 @@ immediately and allocates no ID. A locally accepted mutation receives a random
 opaque ID, enters reducer-form `useOptimistic`, and joins the root's one ordered
 delivery queue.
 
+Two `mutate` calls in one event pre-check against the same rendered projection.
+If the second intent becomes invalid only after the first optimistic update,
+the pure reducer reports that refusal during replay; the never-sent second
+envelope is jossed with `replay-refused`. Computing a synchronous shadow
+projection for the second pre-check would violate invariant 19.
+
 The package also records that mutation in a private lifecycle ledger keyed by
 mutation ID. The ledger contains the canonical envelope, delivery state,
 accepted stamp or rejection, retry metadata, and the `accepted` and
@@ -638,13 +649,15 @@ spike fails.
 
 Rendered coverage does not depend on Action settlement timing. The root keeps
 acceptance state — a map from mutation ID to accepted vector, updated outside
-render — and the optimistic reducer closes over it: an update whose accepted
-vector the rendering canon already covers reduces to identity. The first render
-of a covering canon therefore excludes A's predicted effect in the same pass
-that includes A's authoritative result, so A is never applied twice even if
-A's held-open Action settles a beat later. Settlement is then bookkeeping: the
-coordinator resolves `canonized`, settles the Action, and React drops the
-already-identity entry.
+render — and feeds it into the pure replay frame alongside the rendering canon.
+The reducer therefore receives current lifecycle facts even when React retains
+an optimistic Action created by an earlier render. An update whose accepted
+vector the rendering canon already covers reduces its domain value to identity.
+The first render of a covering canon therefore excludes A's predicted effect in
+the same pass that includes A's authoritative result, so A is never applied
+twice even if A's held-open Action settles a beat later. Settlement is then
+bookkeeping: the coordinator resolves `canonized`, settles the Action, and React
+drops the already-identity entry.
 
 The optimistic reducer remains pure. It may return an internal replay frame
 containing `value` and refused mutation IDs, but it never mutates the lifecycle
@@ -1075,7 +1088,7 @@ The package therefore:
 3. reports `delivery: "uncertain"` after the request retry budget;
 4. pauses later mutations in that mounted root;
 5. retries with the same mutation ID when connectivity recovers or the caller
-   explicitly retries; and
+   calls `retryDelivery()`; and
 6. accepts the receipt table's recorded terminal outcome.
 
 It never allocates a replacement ID or turns retry exhaustion into a domain
@@ -1865,6 +1878,8 @@ Exit: production adapters pass the same interfaces as in-memory counterparts.
 4. Run existing optimistic isomorphism and patch laws unchanged.
 5. Migrate one character provider behind a feature flag.
 6. Delete its client expected-version and stale machinery.
+7. Measure predictor replay cost under representative pending mutation bursts;
+   a canon or lifecycle change may replay every still-open predictor.
 
 Exit: the ordinary binding is materially smaller and old coordination is
 replaced rather than layered underneath. Failure to meet the hard Phase 2
@@ -1958,19 +1973,20 @@ now:
 3. Whether real canons approach the 128-axis cached canon ceiling closely enough
    to require uncached loaders, smaller cache entries, or a proven grouped-tag
    scheme.
-4. How applications present or dismiss jossed headcanons and stalled accepted
+4. Conflict retention and dismissal policy for long-lived mounted roots.
+5. How applications present or dismiss jossed headcanons and stalled accepted
    predictions.
-5. Receipt retention, archival, and cleanup policy.
-6. Whether typed terminal errors are stored as a protocol-wide union or
+6. Receipt retention, archival, and cleanup policy.
+7. Whether typed terminal errors are stored as a protocol-wide union or
    per-mutation encoded outcomes.
-7. Whether best-effort Ably publication is sufficient or an optional
+8. Whether best-effort Ably publication is sufficient or an optional
    transactional outbox becomes justified.
-8. Whether one root queue causes demonstrated blocking that earns a later,
+9. Whether one root queue causes demonstrated blocking that earns a later,
    separately named delivery-partition feature.
-9. Whether safe-integer revisions are sufficient for a second real project.
-10. Whether exact hashed-channel capability enumeration remains practical for
+10. Whether safe-integer revisions are sufficient for a second real project.
+11. Whether exact hashed-channel capability enumeration remains practical for
     the largest observed axis sets.
-11. Whether the existing approximately 1.5-second watch polling interval remains
+12. Whether the existing approximately 1.5-second watch polling interval remains
     appropriate once polling is centralized in the package.
 
 ## Sources and related documents
