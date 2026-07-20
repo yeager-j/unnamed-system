@@ -1,20 +1,37 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useOptimistic, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useOptimistic,
+  useRef,
+  useTransition,
+} from "react"
 import { toast } from "sonner"
 
 import type { EncounterState } from "@workspace/game-v2/encounter"
+import {
+  mapInstanceEventSchema,
+  type MapInstanceEvent,
+} from "@workspace/game-v2/spatial"
 
 import {
-  dispatchCombatEvent,
+  dispatchCombatCommand,
+  type CombatCommandDispatchEvent,
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
+import { useEncounterIntent } from "@/components/combat/console/use-encounter-intent"
+import {
+  composeCombatModel,
+  encounterRootDiffersFromLoaderFrame,
+} from "@/domain/combat/compose-combat-model"
 import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
 } from "@/domain/combat/console-optimistic"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
+import { useCombatReplicas } from "@/domain/combat/replica/use-combat-replicas"
 import { isMapInstanceReplicaEvent } from "@/domain/map/replica/mutations"
 import { useMapInstanceReplica } from "@/domain/map/replica/use-map-instance-replica"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
@@ -28,11 +45,9 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * The encounter-**setup** owner-mode write surface (UNN-347), on engine v2
  * (UNN-535): the draft-time sibling of
  * {@link import("@/components/combat/console/use-combat-console").useCombatConsole}.
- * Every roster / zone / placement / engagement edit drives through the *same*
- * optimistic container ({@link reduceConsoleOptimistic} over
- * `{ session, mapInstance }`) and the same {@link dispatchCombatEvent} routing
- * onto `applyCombatEventAction` — no Save button; each edit persists per
- * interaction and the optimistic frame mirrors it instantly.
+ * Roster commands retain the paired optimistic container; setup `setSide`
+ * rides the draft Encounter Replica, and spatial edits ride the Map Instance
+ * Replica. There is no Save button; each edit persists per interaction.
  *
  * Encounter writes retain their serialized version queue. Spatial writes use
  * the Map Instance Replica, whose transport owns rebasing and retries.
@@ -62,6 +77,50 @@ export function useEncounterSetup(data: EncounterForDM) {
     refetchVersion: () => fetchEncounterVersion(data.encounter.shortId),
   })
 
+  const refreshScheduled = useRef(false)
+  const scheduleRefresh = useCallback(() => {
+    if (refreshScheduled.current) return
+    refreshScheduled.current = true
+    queueMicrotask(() => {
+      refreshScheduled.current = false
+      router.refresh()
+    })
+  }, [router])
+
+  const replicas = useCombatReplicas({
+    encounterId: data.encounter.id,
+    participantMeta: data.participantMeta,
+    rosterIds: state.session.participants.map((participant) => participant.id),
+    includeDurableRoots: false,
+    onEncounterUnavailable: scheduleRefresh,
+  })
+
+  const composed = composeCombatModel({
+    eventFrame: { ...state, mapInstance: mapReplica.state },
+    encounterReplicaSnapshot: replicas.encounterReplicaSnapshot,
+    durableReplicaSnapshots: replicas.durableReplicaSnapshots,
+    participantMeta: data.participantMeta,
+  })
+
+  const { dispatchIntent } = useEncounterIntent({
+    mutateEncounter: replicas.mutateEncounter,
+    onRemoteVersion: (version) => encounterWrite.bump(version),
+  })
+
+  useEffect(() => {
+    const root = replicas.encounterReplicaSnapshot?.value
+    if (
+      root !== undefined &&
+      encounterRootDiffersFromLoaderFrame(root, {
+        status: data.encounter.status,
+        session: data.session,
+        participantMeta: data.participantMeta,
+      })
+    ) {
+      scheduleRefresh()
+    }
+  }, [data, replicas.encounterReplicaSnapshot, scheduleRefresh])
+
   useRealtimeChannel({
     domain: "encounter",
     shortId: data.encounter.shortId,
@@ -69,12 +128,11 @@ export function useEncounterSetup(data: EncounterForDM) {
       const ping = parseVersionPing(payload, "encounter")
       if (!ping) return
       if (ping.kind === "mapInstance") mapReplica.notify()
-      else if (ping.version > encounterWrite.versionRef.current)
-        router.refresh()
+      else replicas.notifyEncounterPing()
     },
     onReconnect: () => {
+      replicas.notifyReconnect()
       mapReplica.notify()
-      router.refresh()
     },
   })
   function dispatch(event: ConsoleDispatchEvent) {
@@ -88,30 +146,38 @@ export function useEncounterSetup(data: EncounterForDM) {
             }
             return
           }
-          if (
-            event.kind === "startCombat" ||
-            event.kind === "removeParticipant" ||
-            (event.kind === "addParticipant" &&
-              event.setup.zoneId !== undefined)
-          ) {
-            const settled = await mapReplica.settle()
-            if (!settled.ok) {
-              toast.error("Couldn't finish saving the map. Try again.")
-              return
-            }
-          }
-          const result = await dispatchCombatEvent({
-            event,
-            encounterId: data.encounter.id,
-            applyOptimistic,
-            encounterWrite,
-          })
-          if (!result.ok) {
-            toast.error(combatErrorMessage(result.error))
+          if (isMapEvent(event)) {
+            toast.error("That map operation isn't available here.")
             return
           }
-          if (result.value.instanceVersion !== undefined) mapReplica.notify()
-          router.refresh()
+          if (isCombatCommandEvent(event)) {
+            if (
+              event.kind === "startCombat" ||
+              event.kind === "removeParticipant" ||
+              (event.kind === "addParticipant" &&
+                event.setup.zoneId !== undefined)
+            ) {
+              const settled = await mapReplica.settle()
+              if (!settled.ok) {
+                toast.error("Couldn't finish saving the map. Try again.")
+                return
+              }
+            }
+            const result = await dispatchCombatCommand({
+              event,
+              encounterId: data.encounter.id,
+              applyOptimistic,
+              encounterWrite,
+            })
+            if (!result.ok) {
+              toast.error(combatErrorMessage(result.error))
+              return
+            }
+            if (result.value.instanceVersion !== undefined) mapReplica.notify()
+            router.refresh()
+            return
+          }
+          await dispatchIntent(event)
         },
         () => toast.error("Couldn't save. Try again.")
       )
@@ -119,8 +185,22 @@ export function useEncounterSetup(data: EncounterForDM) {
   }
 
   return {
-    state: { ...state, mapInstance: mapReplica.state },
+    state: composed,
     isPending,
     dispatch,
   }
+}
+
+function isCombatCommandEvent(
+  event: ConsoleDispatchEvent
+): event is CombatCommandDispatchEvent {
+  return (
+    event.kind === "startCombat" ||
+    event.kind === "addParticipant" ||
+    event.kind === "removeParticipant"
+  )
+}
+
+function isMapEvent(event: ConsoleDispatchEvent): event is MapInstanceEvent {
+  return mapInstanceEventSchema.safeParse(event).success
 }

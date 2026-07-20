@@ -31,6 +31,8 @@ export function combatErrorMessage(
       return "This encounter no longer exists."
     case "encounter-not-live":
       return "This encounter is no longer live. Reload and try again."
+    case "encounter-ended":
+      return "This encounter has ended. Reload and try again."
     case "map-instance-not-found":
       return "This encounter's map is missing. Reload and try again."
     case "map-instance-frozen":
@@ -43,6 +45,14 @@ export function combatErrorMessage(
       return "One of the queued enemies isn't in the catalog anymore."
     case "participant-not-found":
       return "That combatant is no longer in this encounter."
+    case "turn-frame-changed":
+      return "The active turn changed before that action could apply."
+    case "draft-no-longer-valid":
+      return "That combatant can no longer take this turn."
+    case "round-no-longer-complete":
+      return "This round is no longer complete."
+    case "invalid-delta":
+      return "That adjustment is no longer valid."
     case "invalid-input":
       return "Something looks off with the roster. Try again."
     // Data-integrity + programmer-bug tier: the write reached a state the UI

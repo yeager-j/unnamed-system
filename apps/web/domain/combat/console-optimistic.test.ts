@@ -101,41 +101,21 @@ describe("reduceConsoleOptimistic", () => {
     })
   })
 
-  it("routes a generic event through the encounter reducer", () => {
-    const reduce = createReduceConsoleOptimistic(newId)
-    const state = makeState()
-
-    const next = reduce(state, {
-      kind: "event",
-      event: { kind: "setAilment", participantId: goblinId, ailment: "burn" },
-    })
-
-    expect(next.session.participants[0]!.overlay.ailments).toEqual(["burn"])
-  })
-
-  it("routes a spatial event through the map-instance arm", () => {
-    const reduce = createReduceConsoleOptimistic(newId)
-    const state = makeState()
-
-    const next = reduce(state, {
-      kind: "event",
-      event: { kind: "addZone", name: "Courtyard", zoneId: "zone-1" },
-    })
-
-    expect(next.mapInstance.geometry.zones["zone-1"]?.name).toBe("Courtyard")
-    expect(next.session).toBe(state.session)
-  })
-
   it("drops the roster slot and severs occupancy on removePaired", () => {
     const reduce = createReduceConsoleOptimistic(newId)
-    const placed = reduce(makeState(), {
-      kind: "event",
-      event: { kind: "addZone", name: "Courtyard", zoneId: "zone-1" },
-    })
-    const withToken = reduce(placed, {
-      kind: "event",
-      event: { kind: "placeCombatant", tokenKey: goblinId, zoneId: "zone-1" },
-    })
+    const withToken = makeState()
+    withToken.mapInstance.geometry.zones["zone-1"] = {
+      id: "zone-1",
+      pageId: "default",
+      name: "Courtyard",
+      description: "",
+      dmNotes: "",
+      position: { x: 0, y: 0 },
+    }
+    withToken.mapInstance.occupancy[goblinId] = {
+      zoneId: "zone-1",
+      engagement: { status: "free" },
+    }
 
     const next = reduce(withToken, {
       kind: "removePaired",

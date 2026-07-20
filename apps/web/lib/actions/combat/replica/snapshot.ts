@@ -91,12 +91,14 @@ export async function loadCombatAcceptedAction(
   const envelope = await loadEncounterEnvelopeById(encounterId)
   if (!envelope) return err("encounter-not-found")
   await requireCampaignDM(envelope.campaignId)
-  // Liveness before any identity is minted or refreshed (UNN-646 review).
+  // Terminal-state rejection before any identity is minted or refreshed
+  // (UNN-646 review, widened for draft setup in UNN-656).
   // Registration is the license the push doors' absent-row ⇒ `unknown-client`
   // invariant leans on, so minting one for an ended encounter would hand a
   // stale tab a write channel the push doors then have to refuse one delivery
-  // at a time. The binding turns this into a terminal `unavailable` bootstrap.
-  if (envelope.status !== "live") return err("encounter-not-live")
+  // at a time. Draft encounters do receive the Encounter identity needed by
+  // setup-owned `setSide`; durable roots remain live-console-only below.
+  if (envelope.status === "ended") return err("encounter-not-live")
 
   // Encounter bootstrap registration (same invariant as the entity door: a
   // client identity exists at a push door only if it passed through here
@@ -169,9 +171,10 @@ export async function loadCombatAcceptedAction(
         : []
     )
   )
-  const admitted = durable.filter((request) =>
-    rosterEntityIds.has(request.entityId)
-  )
+  const admitted =
+    envelope.status === "live"
+      ? durable.filter((request) => rosterEntityIds.has(request.entityId))
+      : []
 
   if (admitted.length > 0) {
     await db

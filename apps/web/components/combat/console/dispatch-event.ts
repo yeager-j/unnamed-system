@@ -2,10 +2,7 @@ import type { CombatEvent } from "@workspace/game-v2/encounter"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
-import {
-  mapInstanceEventSchema,
-  type MapInstanceEvent,
-} from "@workspace/game-v2/spatial"
+import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { type Result } from "@workspace/result"
 
 import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
@@ -31,19 +28,20 @@ export interface AddParticipantDispatch {
   )
 }
 
-/** Every event the console/setup surfaces dispatch through this router. */
+/** Every event the console/setup surface may dispatch. */
 export type ConsoleDispatchEvent =
   | Exclude<CombatEvent, { kind: "addParticipant" }>
   | AddParticipantDispatch
   | MapInstanceEvent
 
+export type CombatCommandDispatchEvent =
+  | Extract<CombatEvent, { kind: "startCombat" | "removeParticipant" }>
+  | AddParticipantDispatch
+
 /**
- * The shared routing brain both combat write hooks (`useEncounterSetup`,
- * `useCombatConsole`) call from inside their pending transition — rewritten
- * onto engine v2 + {@link applyCombatEventAction} (UNN-535). It encodes the
- * encounter protocol once: which optimistic arm an event mirrors and which
- * version queue serializes it. Spatial events are intercepted by the caller
- * and travel through the Map Instance Replica instead.
+ * The shared command router both combat write hooks call from inside their
+ * pending transition. Ordinary session intent is deliberately absent: it
+ * travels through the Encounter Replica.
  *
  * Routing:
  * - **`addParticipant`** → the inline arm mirrors `{ kind: "addPaired" }`; the
@@ -57,25 +55,23 @@ export type ConsoleDispatchEvent =
  *   even for a token-less participant — `applyRemoveParticipant` goes through
  *   `persistPaired` unconditionally), so success carries a Map Replica
  *   invalidation cursor.
- * - **Any other combat event** → mirror `{ kind: "event" }`, encounter queue.
+ * - **`startCombat`** → no local event mirror; the route changes on acceptance.
  *
  * Every action call carries the encounter token read fresh inside the queue's
  * serialized dispatch. The map row is locked and settled from current state by
  * the authority, so callers never coordinate it with a second client token.
  */
-export async function dispatchCombatEvent({
+export async function dispatchCombatCommand({
   event,
   encounterId,
   applyOptimistic,
   encounterWrite,
 }: {
-  event: ConsoleDispatchEvent
+  event: CombatCommandDispatchEvent
   encounterId: string
   applyOptimistic: (action: ConsoleOptimisticAction) => void
   encounterWrite: UseQueuedWriteReturn
 }): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
-  if (isMapInstanceEvent(event)) return { ok: false, error: "invalid-input" }
-
   if (event.kind === "addParticipant") {
     return dispatchAddParticipant({
       event,
@@ -100,7 +96,6 @@ export async function dispatchCombatEvent({
     return result
   }
 
-  applyOptimistic({ kind: "event", event })
   return encounterWrite.enqueue((expectedVersion) =>
     applyCombatEventAction({
       encounterId,
@@ -141,14 +136,4 @@ async function dispatchAddParticipant({
     })
   )
   return result
-}
-
-/**
- * Routes an event to the spatial arm — the discriminated-union parse is a cheap
- * discriminator check (the engine's own routing doctrine, `reduce-encounter.ts`).
- */
-function isMapInstanceEvent(
-  event: ConsoleDispatchEvent
-): event is MapInstanceEvent {
-  return mapInstanceEventSchema.safeParse(event).success
 }

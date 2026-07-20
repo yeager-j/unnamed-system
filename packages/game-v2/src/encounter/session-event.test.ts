@@ -2,15 +2,9 @@ import { describe, expect, it } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
-import {
-  combatEventSchema,
-  toSessionEvent,
-  type CombatEvent,
-  type ComponentWriteEvent,
-} from "./session-event"
+import { combatEventSchema, type CombatEvent } from "./session-event"
 
 const p1 = asParticipantId("p1")
-const p2 = asParticipantId("p2")
 
 /**
  * The structural-ephemeral-only contract (CD19): the router-only
@@ -19,11 +13,11 @@ const p2 = asParticipantId("p2")
  * sole mint path is {@link toSessionEvent}.
  */
 
-const COMPONENT_WRITE_KINDS: ComponentWriteEvent["kind"][] = [
+const RETIRED_COMPONENT_WRITE_KINDS = [
   "damageParticipant",
   "healParticipant",
   "setParticipantMax",
-]
+] as const
 
 /** One valid payload per generic-wire kind (the 17 the schema must accept). */
 const GENERIC_EVENTS: CombatEvent[] = [
@@ -88,49 +82,11 @@ describe("combatEventSchema — accepts the generic wire", () => {
 })
 
 describe("combatEventSchema — excludes ComponentWriteEvent (the wire-exclusion)", () => {
-  it.each(COMPONENT_WRITE_KINDS)("rejects %s on the generic wire", (kind) => {
-    const event = { kind, participantId: "p1", pool: "hp", amount: 5 }
-    expect(combatEventSchema.safeParse(event).success).toBe(false)
-  })
-})
-
-describe("toSessionEvent — the sole ComponentWriteEvent constructor", () => {
-  it("maps component → pool and op → kind", () => {
-    expect(
-      toSessionEvent({
-        participantId: p1,
-        component: "skillPool",
-        op: "damage",
-        amount: 3,
-      })
-    ).toEqual({
-      kind: "damageParticipant",
-      participantId: "p1",
-      pool: "sp",
-      amount: 3,
-    })
-    expect(
-      toSessionEvent({
-        participantId: p2,
-        component: "vitals",
-        op: "setMax",
-        amount: 10,
-      })
-    ).toEqual({
-      kind: "setParticipantMax",
-      participantId: "p2",
-      pool: "hp",
-      amount: 10,
-    })
-  })
-
-  it("produces an event the generic wire rejects (so it cannot round-trip onto it)", () => {
-    const event = toSessionEvent({
-      participantId: p1,
-      component: "vitals",
-      op: "heal",
-      amount: 4,
-    })
-    expect(combatEventSchema.safeParse(event).success).toBe(false)
-  })
+  it.each(RETIRED_COMPONENT_WRITE_KINDS)(
+    "rejects %s on the generic wire",
+    (kind) => {
+      const event = { kind, participantId: "p1", pool: "hp", amount: 5 }
+      expect(combatEventSchema.safeParse(event).success).toBe(false)
+    }
+  )
 })

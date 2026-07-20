@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { eq, inArray, sql } from "drizzle-orm"
-import { afterAll, describe, expect, it, vi } from "vitest"
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   defaultOverlay,
@@ -54,6 +54,9 @@ import {
   type EntityVersionVector,
 } from "../../entity/replica/cursor"
 import {
+  adjustEncounterCounter,
+  endEncounterTurn,
+  setEncounterParticipantSide,
   writeCombatEntity,
   writeEncounterInline,
   type CombatDurableInvocation,
@@ -93,6 +96,8 @@ vi.mock("@/lib/realtime/publish", () => ({
   publishCharacterPing: vi.fn(),
   publishEncounterPing: vi.fn(),
 }))
+
+beforeEach(() => vi.clearAllMocks())
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -509,9 +514,10 @@ async function createSessionDoorScenario(): Promise<SessionScenario> {
     makeEnvelope: () => ({
       ...identity,
       mutationId: 1,
-      invocation: writeEncounterInline({
+      invocation: adjustEncounterCounter({
         participantId: inlineParticipantId,
-        write: damage(1),
+        counter: "lumina",
+        delta: 1,
       }),
     }),
     received: () => [...received],
@@ -752,6 +758,113 @@ describe("encounter accepted-tuple atomicity", () => {
  * an authority commit, so these have to be enforced where the lock is held.
  */
 describe("combat replica encounter preconditions", () => {
+  it("bootstrap serves a draft Encounter root but admits no durable roots", async () => {
+    const { encounterId, pcEntityId } = await createFixture()
+    await getDb()
+      .update(encounters)
+      .set({ status: "draft" })
+      .where(eq(encounters.id, encounterId))
+    const encounterIdentity = {
+      clientGroupId: `encounter:${encounterId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    const durableIdentity = {
+      clientGroupId: `combat-entity:${pcEntityId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+
+    const accepted = await loadCombatAcceptedAction({
+      encounterId,
+      encounter: encounterIdentity,
+      durable: [{ entityId: pcEntityId, identity: durableIdentity }],
+    })
+
+    expect(accepted.ok).toBe(true)
+    if (!accepted.ok) return
+    expect(accepted.value.encounter?.value.status).toBe("draft")
+    expect(accepted.value.durable).toEqual({})
+    const durableRows = await getDb()
+      .select({ clientId: replicaClient.clientId })
+      .from(replicaClient)
+      .where(eq(replicaClient.clientId, durableIdentity.clientId))
+    expect(durableRows).toHaveLength(0)
+  })
+
+  it("records an accepted desired no-op without version bump or ping", async () => {
+    const { encounterId, inlineParticipantId } = await createFixture()
+    const identity = {
+      clientGroupId: `encounter:${encounterId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    await loadCombatAcceptedAction({ encounterId, encounter: identity })
+    const before = await encounterVersion(encounterId)
+
+    const result = await pushCombatSessionMutationAction({
+      encounterId,
+      envelope: {
+        ...identity,
+        mutationId: 1,
+        invocation: setEncounterParticipantSide({
+          participantId: inlineParticipantId,
+          side: "enemies",
+        }),
+      },
+    })
+
+    expect(result).toEqual(ok({ version: before }))
+    expect(await encounterVersion(encounterId)).toBe(before)
+    const accepted = await loadCombatAcceptedAction({
+      encounterId,
+      encounter: identity,
+    })
+    expect(accepted.ok && accepted.value.encounter?.through).toBe(1)
+    const { publishEncounterPing } = await import("@/lib/realtime/publish")
+    expect(publishEncounterPing).not.toHaveBeenCalled()
+  })
+
+  it("deduplicates an additive delivery exactly and records turn-frame refusal", async () => {
+    const { encounterId, inlineParticipantId } = await createFixture()
+    const identity = {
+      clientGroupId: `encounter:${encounterId}`,
+      clientId: `tab-${randomUUID()}`,
+    }
+    await loadCombatAcceptedAction({ encounterId, encounter: identity })
+    const envelope = {
+      ...identity,
+      mutationId: 1,
+      invocation: adjustEncounterCounter({
+        participantId: inlineParticipantId,
+        counter: "lumina" as const,
+        delta: 1,
+      }),
+    }
+    expect(
+      await pushCombatSessionMutationAction({ encounterId, envelope })
+    ).toEqual(ok({ version: 1 }))
+    expect(
+      await pushCombatSessionMutationAction({ encounterId, envelope })
+    ).toEqual(ok({ version: 1 }))
+
+    const refused = await pushCombatSessionMutationAction({
+      encounterId,
+      envelope: {
+        ...identity,
+        mutationId: 2,
+        invocation: endEncounterTurn({
+          expected: {
+            round: 1,
+            currentActorId: inlineParticipantId,
+            actorId: inlineParticipantId,
+            turnsTakenThisRound: 0,
+          },
+        }),
+      },
+    })
+    expect(refused).toEqual(
+      err({ kind: "rejected", error: "turn-frame-changed" })
+    )
+  })
+
   it("session door: refuses a write against an encounter that has ended", async () => {
     const { encounterId, inlineParticipantId } = await createFixture()
     const identity = {

@@ -47,9 +47,14 @@ const durableAccepted = (through: number, vitals: number, damage = 0) => ({
   cursor: { vitals },
 })
 
-const encounterAccepted = (through: number, version: number, damage = 0) => ({
+const encounterAccepted = (
+  through: number,
+  version: number,
+  damage = 0,
+  status: "draft" | "live" = "live"
+) => ({
   value: {
-    status: "live" as const,
+    status,
     session: {
       round: 1,
       currentActorId: null,
@@ -122,6 +127,36 @@ beforeEach(() => {
 })
 
 describe("useCombatReplicas", () => {
+  it("bootstraps only the draft Encounter root for setup", async () => {
+    loadCombatAcceptedAction.mockResolvedValue(
+      ok({ encounter: encounterAccepted(0, 0, 0, "draft"), durable: {} })
+    )
+    const rendered = renderHook(() =>
+      useCombatReplicas({
+        encounterId: "enc1",
+        participantMeta: meta,
+        rosterIds: [pcParticipant, goblinParticipant],
+        includeDurableRoots: false,
+        onEncounterUnavailable: vi.fn(),
+      })
+    )
+    await flush()
+
+    const requests = loadCombatAcceptedAction.mock.calls.map(
+      ([input]) => input as { encounter?: unknown; durable?: unknown[] }
+    )
+    expect(requests.some((request) => request.encounter !== undefined)).toBe(
+      true
+    )
+    expect(
+      requests.every((request) => (request.durable?.length ?? 0) === 0)
+    ).toBe(true)
+    expect(rendered.result.current.durableReplicaSnapshots.size).toBe(0)
+    expect(rendered.result.current.encounterReplicaSnapshot?.value.status).toBe(
+      "draft"
+    )
+  })
+
   it("bootstraps every root through ONE batched action call", async () => {
     const { rendered } = renderReplicas()
     await flush()
@@ -264,6 +299,49 @@ describe("useCombatReplicas", () => {
       write: damage,
     })
     expect(pushCombatDurableMutationAction).not.toHaveBeenCalled()
+  })
+
+  it("derives named session invocations from the current projection and composes rapid intents", async () => {
+    const { rendered } = renderReplicas()
+    await flush()
+
+    act(() => {
+      const first = rendered.result.current.mutateEncounter(
+        {
+          kind: "adjustCounter",
+          participantId: goblinParticipant,
+          counter: "lumina",
+          delta: 1,
+        },
+        { roundComplete: false }
+      )
+      const second = rendered.result.current.mutateEncounter(
+        {
+          kind: "adjustCounter",
+          participantId: goblinParticipant,
+          counter: "lumina",
+          delta: 1,
+        },
+        { roundComplete: false }
+      )
+      expect(first.ok).toBe(true)
+      expect(second.ok).toBe(true)
+    })
+
+    expect(
+      rendered.result.current.encounterReplicaSnapshot?.value.session
+        .participants[0]?.overlay.counters.lumina
+    ).toBe(2)
+    await flush()
+    const invocations = pushCombatSessionMutationAction.mock.calls.map(
+      ([input]) =>
+        (input as { envelope: { invocation: { name: string } } }).envelope
+          .invocation.name
+    )
+    expect(invocations).toEqual([
+      "encounter.adjustCounter",
+      "encounter.adjustCounter",
+    ])
   })
 
   it("publishes synchronous local projection and accumulates back-to-back writes once", async () => {

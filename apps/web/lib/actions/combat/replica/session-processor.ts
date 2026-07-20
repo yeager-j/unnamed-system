@@ -1,4 +1,5 @@
 import { serializeSessionShell } from "@workspace/game-v2/encounter"
+import { deepEqual } from "@workspace/game-v2/kernel/deep-equal"
 import {
   type MutationProcessor,
   type ProcessorEvent,
@@ -95,17 +96,23 @@ async function executeCombatSessionMutation(
     session: locked.value.shell,
   }
 
-  // The registered apply decides liveness (`encounter-not-live` — the console
-  // only mounts against a live encounter, so anything else here is a stale
-  // tab or a write that lost the race to End Combat; deliberately no
-  // draft→live promotion, which stays with the classic event door because it
-  // also serves setup), the locator-derived home (`participant-not-inline`
-  // fails a durable-addressed write closed), and Writer validation — under
-  // the row lock that commits on them.
+  // The registered apply decides lifecycle (ordinary intent is live-only;
+  // setup-owned `setSide` also admits draft but refuses ended), the
+  // locator-derived home (`participant-not-inline` fails a durable-addressed
+  // write closed), preconditions, and Writer validation — under the row lock
+  // that commits on them. Draft→live remains a classic command.
   const definition = encounterMutations.get(invocation.name)
   if (!definition) return err("invalid-write")
   const applied = definition.apply(root, invocation.args, { phase: "rebase" })
   if (!applied.ok) return applied
+
+  // Desired-value mutations may already be true on the locked authority
+  // root. The processor ledger still records their accepted watermark, but
+  // the encounter row has not changed: do not manufacture a version bump,
+  // invalidation, or route revalidation for an idempotent delivery.
+  if (applied.value === root || deepEqual(applied.value, root)) {
+    return ok({ version: locked.value.row.version })
+  }
 
   const saved = await saveEncounterSession(
     locked.value.row.id,

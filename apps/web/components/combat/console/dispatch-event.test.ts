@@ -10,7 +10,7 @@ import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic
 import { applyCombatEventAction } from "@/lib/actions/combat/apply-event"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
-import { dispatchCombatEvent } from "./dispatch-event"
+import { dispatchCombatCommand } from "./dispatch-event"
 
 vi.mock("@/lib/actions/combat/apply-event", () => ({
   applyCombatEventAction: vi.fn(),
@@ -37,15 +37,19 @@ beforeEach(() => {
   applyAction.mockReset()
 })
 
-describe("dispatchCombatEvent", () => {
-  it("routes a session event to the encounter queue and mirrors it as an event action", async () => {
+describe("dispatchCombatCommand", () => {
+  it("routes startCombat to the command queue without session-event optimism", async () => {
     const { result } = renderQueue()
     const mirrored: ConsoleOptimisticAction[] = []
     applyAction.mockResolvedValue(ok({ version: 6 }))
 
     await act(async () => {
-      const dispatched = await dispatchCombatEvent({
-        event: { kind: "endTurn" },
+      const dispatched = await dispatchCombatCommand({
+        event: {
+          kind: "startCombat",
+          advantage: "neutral",
+          firstSide: "players",
+        },
         encounterId: "enc-1",
         applyOptimistic: (action) => mirrored.push(action),
         encounterWrite: result.current,
@@ -53,11 +57,15 @@ describe("dispatchCombatEvent", () => {
       expect(dispatched.ok).toBe(true)
     })
 
-    expect(mirrored).toEqual([{ kind: "event", event: { kind: "endTurn" } }])
+    expect(mirrored).toEqual([])
     expect(applyAction).toHaveBeenCalledWith({
       encounterId: "enc-1",
       expectedVersion: 5,
-      event: { kind: "endTurn" },
+      event: {
+        kind: "startCombat",
+        advantage: "neutral",
+        firstSide: "players",
+      },
     })
     expect(result.current.versionRef.current).toBe(6)
   })
@@ -70,10 +78,16 @@ describe("dispatchCombatEvent", () => {
       .mockResolvedValueOnce(err("stale"))
       .mockResolvedValueOnce(ok({ version: 13 }))
 
-    let dispatched: Awaited<ReturnType<typeof dispatchCombatEvent>> | undefined
+    let dispatched:
+      | Awaited<ReturnType<typeof dispatchCombatCommand>>
+      | undefined
     await act(async () => {
-      dispatched = await dispatchCombatEvent({
-        event: { kind: "endTurn" },
+      dispatched = await dispatchCombatCommand({
+        event: {
+          kind: "startCombat",
+          advantage: "neutral",
+          firstSide: "players",
+        },
         encounterId: "enc-1",
         applyOptimistic: () => {},
         encounterWrite: result.current,
@@ -95,7 +109,7 @@ describe("dispatchCombatEvent", () => {
     applyAction.mockResolvedValue(ok({ version: 6, instanceVersion: 12 }))
 
     await act(async () => {
-      const dispatched = await dispatchCombatEvent({
+      const dispatched = await dispatchCombatCommand({
         event: {
           kind: "addParticipant",
           setup: { id: participantId, side: "enemies", entity, zoneId: "z1" },
@@ -116,7 +130,7 @@ describe("dispatchCombatEvent", () => {
 
     applyAction.mockResolvedValue(ok({ version: 7 }))
     await act(async () => {
-      await dispatchCombatEvent({
+      await dispatchCombatCommand({
         event: {
           kind: "addParticipant",
           setup: { id: participantId, side: "enemies", entity },
@@ -139,7 +153,7 @@ describe("dispatchCombatEvent", () => {
     applyAction.mockResolvedValue(ok({ version: 6 }))
 
     await act(async () => {
-      await dispatchCombatEvent({
+      await dispatchCombatCommand({
         event: {
           kind: "addParticipant",
           setup: { id: participantId, side: "players", entityId: "char-1" },
@@ -167,7 +181,7 @@ describe("dispatchCombatEvent", () => {
     applyAction.mockResolvedValue(ok({ version: 6, instanceVersion: 12 }))
 
     await act(async () => {
-      const dispatched = await dispatchCombatEvent({
+      const dispatched = await dispatchCombatCommand({
         event: { kind: "removeParticipant", participantId },
         encounterId: "enc-1",
         applyOptimistic: (action) => mirrored.push(action),

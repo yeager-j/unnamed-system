@@ -8,38 +8,13 @@ import {
   participantWith,
   sessionOf,
 } from "../__fixtures__/session"
-import type { RosterEvent } from "../session-event"
 import { reduceRoster } from "./roster"
 
 const mint = counterIds()
-const run = (session: Parameters<typeof reduceRoster>[0], event: RosterEvent) =>
-  reduceRoster(session, event, mint)
-
-describe("reduceRoster — advanceRound (R6.1)", () => {
-  it("increments round, nulls the actor, resets every turnsTakenThisRound", () => {
-    const session = sessionOf(
-      [
-        participantWith({
-          id: "p1",
-          overlay: { turnState: acted() },
-        }),
-        participantWith({ id: "p2", overlay: { turnState: acted() } }),
-      ],
-      { round: 2, currentActorId: "p1" }
-    )
-    const next = run(session, { kind: "advanceRound" })
-    expect(next.round).toBe(3)
-    expect(next.currentActorId).toBeNull()
-    expect(
-      next.participants.map((p) => p.overlay.turnState.turnsTakenThisRound)
-    ).toEqual([0, 0])
-  })
-
-  it("always produces a new session, even with nothing to reset (idempotent safeguard)", () => {
-    const session = sessionOf([participantWith({ id: "p1" })])
-    expect(run(session, { kind: "advanceRound" })).not.toBe(session)
-  })
-})
+const run = (
+  session: Parameters<typeof reduceRoster>[0],
+  event: Parameters<typeof reduceRoster>[1]
+) => reduceRoster(session, event, mint)
 
 describe("reduceRoster — addParticipant (R6.2)", () => {
   it("appends a joiner entering already-acted (turnsTakenThisRound = 1), queued for next round", () => {
@@ -110,35 +85,3 @@ describe("reduceRoster — removeParticipant (R6.3)", () => {
     ).toBe(session)
   })
 })
-
-describe("reduceRoster — setSide (R6.4)", () => {
-  it("flips a participant's allegiance side", () => {
-    const session = sessionOf([participantWith({ id: "p1", side: "players" })])
-    const next = run(session, {
-      kind: "setSide",
-      participantId: asParticipantId("p1"),
-      side: "enemies",
-    })
-    expect(next.participants[0]!.overlay.allegiance.side).toBe("enemies")
-  })
-
-  it("is a no-op (same-ref) for an unknown id", () => {
-    const session = sessionOf([participantWith({ id: "p1" })])
-    expect(
-      run(session, {
-        kind: "setSide",
-        participantId: asParticipantId("ghost"),
-        side: "enemies",
-      })
-    ).toBe(session)
-  })
-})
-
-function acted() {
-  return {
-    movesUsed: 0,
-    standardsUsed: 0,
-    reactionsUsed: 0,
-    turnsTakenThisRound: 1,
-  }
-}

@@ -11,10 +11,9 @@
  * Toccata effect injection, the three-home {@link assembleParticipantView}, and the R1.5
  * {@link toParticipantSetup} inverse. UNN-517 ships the **pure reducer**
  * ({@link createReduceSession} + its slices), the {@link createReduceEncounter}
- * composition root, and the event vocabulary — the generic {@link combatEventSchema}
- * wire (its `ComponentWrite` exclusion is the structural-ephemeral-only mechanism;
- * the router-only `toSessionEvent` constructor is deliberately **omitted** from this
- * barrel). UNN-518 ships the **derived turn-loop reads** that fold uniformly over
+ * composition root, and the event vocabulary. UNN-656 removes the former
+ * router-only component-event family; component Writes now bypass this total
+ * reducer. UNN-518 ships the **derived turn-loop reads** that fold uniformly over
  * `resolve(participant.entity)` (zero `kind` branch): {@link compareInitiative},
  * {@link fallenParticipantIds}, {@link derivePartyComposition}, the drafting +
  * action-economy + name {@link import("./selectors") selectors}, and the
@@ -31,6 +30,7 @@ export * from "./locator"
 export * from "./spatial-reads"
 export * from "./load-session"
 export * from "./session-shell"
+export * from "./session-intent"
 export * from "./sweep"
 export * from "./participant-view"
 export * from "./to-setup"
@@ -45,9 +45,10 @@ export * from "./selectors"
 export * from "./end-of-turn"
 export {
   combatEventSchema,
+  startCombatEventSchema,
+  removeParticipantEventSchema,
   BATTLE_CONDITION_AXIS_ACTIONS,
   ACTION_ECONOMY_ACTIONS,
-  VITALS_POOLS,
   type StartCombatEvent,
   type DraftCombatantEvent,
   type EndTurnEvent,
@@ -59,12 +60,8 @@ export {
   type CounterEvent,
   type ActionEconomyEvent,
   type CombatEvent,
-  type ComponentWriteEvent,
-  type MechanicTransitionEvent,
-  type UseResourceEvent,
   type SessionEvent,
   type BattleConditionAxisAction,
   type ActionEconomyAction,
-  type VitalsPool,
 } from "./session-event"
 export type { RegistryKeyInvariants } from "./disjointness"

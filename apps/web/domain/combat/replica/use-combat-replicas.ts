@@ -43,6 +43,7 @@ import { logCombatReplicaEvent } from "./events"
 import { mintCombatEntityIdentity, mintEncounterIdentity } from "./identity"
 import {
   combatDurableMutations,
+  createEncounterSessionInvocation,
   encounterMutations,
   writeCombatEntity,
   writeEncounterInline,
@@ -50,8 +51,12 @@ import {
   type CombatDurableState,
   type EncounterInvocation,
   type EncounterReplicaState,
+  type EncounterSessionEvent,
 } from "./mutations"
-import type { CombatReplicaRejection } from "./rejection"
+import type {
+  CombatReplicaRejection,
+  CombatWriteDispatchError,
+} from "./rejection"
 
 export type CombatBootstrapUnavailableReason =
   | CombatAcceptedError
@@ -229,6 +234,9 @@ export interface UseCombatReplicasArgs {
   readonly participantMeta: Record<ParticipantId, ParticipantMeta>
   /** The (optimistic) roster — which participants get channels right now. */
   readonly rosterIds: ParticipantId[]
+  /** Setup needs only the draft Encounter root. Durable entity roots are
+   *  licensed and hydrated only by the live console. */
+  readonly includeDurableRoots?: boolean
   /** Refreshes encounter-owned state after bootstrap proves the encounter is
    *  no longer live. Accepted component snapshots never use this callback. */
   readonly onEncounterUnavailable: () => void
@@ -236,6 +244,17 @@ export interface UseCombatReplicasArgs {
 
 export interface UseCombatReplicasReturn {
   handleOf: (participantId: ParticipantId) => CombatWriteHandle | undefined
+  mutateEncounter: (
+    event: EncounterSessionEvent,
+    options: { readonly roundComplete: boolean }
+  ) => Result<
+    ManagedMutationReceipt<
+      CombatReplicaRejection,
+      CombatSessionRemote,
+      CombatBootstrapUnavailableReason
+    >,
+    CombatWriteDispatchError
+  >
   /**
    * Waits for every root's in-flight writes to reach a trusted outcome.
    * Lifecycle commands that change the encounter out from under the replicas
@@ -283,6 +302,7 @@ export function useCombatReplicas({
   encounterId,
   participantMeta,
   rosterIds,
+  includeDurableRoots = true,
   onEncounterUnavailable,
 }: UseCombatReplicasArgs): UseCombatReplicasReturn {
   const durableRef = useRef(new Map<string, DurableControllerEntry>())
@@ -494,15 +514,17 @@ export function useCombatReplicas({
   }
 
   const rosterIdSet = new Set<string>(rosterIds)
-  const durableEntityIds = [
-    ...new Set(
-      Object.entries(participantMeta).flatMap(([participantId, meta]) =>
-        rosterIdSet.has(participantId) && meta.storage === "durable"
-          ? [meta.characterId]
-          : []
-      )
-    ),
-  ].sort()
+  const durableEntityIds = includeDurableRoots
+    ? [
+        ...new Set(
+          Object.entries(participantMeta).flatMap(([participantId, meta]) =>
+            rosterIdSet.has(participantId) && meta.storage === "durable"
+              ? [meta.characterId]
+              : []
+          )
+        ),
+      ].sort()
+    : []
   const durableKey = durableEntityIds.join("|")
 
   // Sync the controller set to the roster: create missing (one batched
@@ -611,6 +633,30 @@ export function useCombatReplicas({
     }
   }
 
+  function mutateEncounter(
+    event: EncounterSessionEvent,
+    options: { readonly roundComplete: boolean }
+  ): Result<
+    ManagedMutationReceipt<
+      CombatReplicaRejection,
+      CombatSessionRemote,
+      CombatBootstrapUnavailableReason
+    >,
+    CombatWriteDispatchError
+  > {
+    const entry = encounterRef.current
+    if (entry === null) return err("write-unavailable")
+    const snapshot = entry.controller.getSnapshot()
+    if (snapshot.status !== "ready") return err("write-unavailable")
+    const invocation = createEncounterSessionInvocation(
+      snapshot.replica.value,
+      event,
+      options
+    )
+    if (!invocation.ok) return err(invocation.error)
+    return ok(entry.controller.mutate(invocation.value))
+  }
+
   // Channel keys are loader-projected meta, not transport internals — derived
   // directly so subscriptions begin before any bootstrap resolves (a
   // pre-bootstrap ping notifies an empty bridge; the bootstrap read is the
@@ -639,6 +685,7 @@ export function useCombatReplicas({
 
   return {
     handleOf,
+    mutateEncounter,
     settleAll,
     pcChannels,
     // The payload is no longer parsed client-side: a ping is only ever an

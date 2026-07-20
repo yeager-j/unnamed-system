@@ -1,7 +1,13 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useOptimistic, useRef, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useOptimistic,
+  useRef,
+  useTransition,
+} from "react"
 import { toast } from "sonner"
 
 import {
@@ -9,14 +15,23 @@ import {
   type EncounterState,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import {
+  mapInstanceEventSchema,
+  type MapInstanceEvent,
+} from "@workspace/game-v2/spatial"
 import { type Result } from "@workspace/result"
 
 import {
-  dispatchCombatEvent,
+  dispatchCombatCommand,
+  type CombatCommandDispatchEvent,
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
-import { composeCombatModel } from "@/domain/combat/compose-combat-model"
+import { useEncounterIntent } from "@/components/combat/console/use-encounter-intent"
+import {
+  composeCombatModel,
+  encounterRootDiffersFromLoaderFrame,
+} from "@/domain/combat/compose-combat-model"
 import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
@@ -40,10 +55,9 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
 
 /**
  * The live DM console's owner-mode write surface, rewritten onto engine v2
- * (UNN-535) — the encounter analog of `useInventoryEditor`. It mirrors the
- * server's reducers optimistically, so the frame the DM sees is structurally
- * identical to what `applyCombatEventAction` persists; failures toast while
- * React reverts the optimistic state automatically.
+ * (UNN-535) — the encounter analog of `useInventoryEditor`. The Encounter and
+ * Map Replicas own ordinary intent prediction; the remaining optimistic frame
+ * mirrors only command-owned roster changes.
  *
  * **One optimistic container (UNN-535).** v1's two containers (session +
  * instance, each with its own reducer) collapse into a single
@@ -51,8 +65,9 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * `{ session, mapInstance }` reduced by {@link reduceConsoleOptimistic} — the
  * same composition root the server runs, plus the paired roster arms. Combat
  * components are composed over that frame from Replica projections; the
- * container no longer predicts them. Encounter events retain one serialized
- * version queue; spatial intent is owned by the Map Instance Replica.
+ * container no longer predicts them. Start/add/remove and encounter-end
+ * commands retain one serialized version queue; spatial intent is owned by
+ * the Map Instance Replica.
  *
  * **Component writes** (HP/SP damage & heal — on inline enemies *and* durable
  * PCs, deliberately superseding UNN-482's read-only PC vitals per UNN-535's
@@ -62,15 +77,12 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * **Those writes do NOT ride the encounter version queue** — each replica owns its
  * own ordering, delivery, dedup, retry, and projection. Anything that must
  * not overtake them says so explicitly by awaiting `replicas.settleAll()`
- * (see {@link endEncounter}); the encounter queue serializes only the event
- * wire.
+ * (see {@link endEncounter}); the encounter queue serializes only commands.
  *
- * **Realtime (UNN-373):** the encounter channel's ping still carries the
- * encounter version compare plus Map Replica invalidations and
- * feeds the microtask-deduped `scheduleRefresh`. The per-PC channels no
- * longer classify anything — a ping reaching a replica is only an
- * invalidation signal, and the transport's causal gate decides causality.
- * Both the channel list and the ping fan-in come off `useCombatReplicas`.
+ * **Realtime (UNN-373):** encounter and PC pings are Replica invalidations.
+ * Ordinary accepted roots render directly; route refresh is reserved for a
+ * ready Encounter root that proves command-owned loader metadata diverged.
+ * Map pings invalidate the Map Replica independently.
  *
  * **The combat-end write is the one route-varying seam (UNN-536).** The mapless
  * encounter ends via the two-row {@link endCombatAction}; a delve ends via the
@@ -116,17 +128,15 @@ export function useCombatConsole(
     serverVersion: encounter.version,
     refetchVersion: () => fetchEncounterVersion(encounter.shortId),
   })
-  const { versionRef } = encounterWrite
-
   const refreshScheduled = useRef(false)
-  function scheduleRefresh() {
+  const scheduleRefresh = useCallback(() => {
     if (refreshScheduled.current) return
     refreshScheduled.current = true
     queueMicrotask(() => {
       refreshScheduled.current = false
       router.refresh()
     })
-  }
+  }, [router])
 
   // The app's ownership decision point (UNN-646) now also exposes the ready
   // projections that own component rendering (UNN-653). Controller membership
@@ -146,26 +156,43 @@ export function useCombatConsole(
     participantMeta,
   })
 
+  useEffect(() => {
+    const root = replicas.encounterReplicaSnapshot?.value
+    if (
+      root !== undefined &&
+      encounterRootDiffersFromLoaderFrame(root, {
+        status: encounter.status,
+        session: data.session,
+        participantMeta,
+      })
+    ) {
+      scheduleRefresh()
+    }
+  }, [
+    data.session,
+    encounter.status,
+    participantMeta,
+    replicas.encounterReplicaSnapshot,
+    scheduleRefresh,
+  ])
+
+  const { dispatchIntent } = useEncounterIntent({
+    mutateEncounter: replicas.mutateEncounter,
+    onRemoteVersion: (version) => encounterWrite.bump(version),
+  })
+
   useRealtimeChannel({
     domain: "encounter",
     shortId: encounter.shortId,
     onPing: (data) => {
-      // The inline replica treats every encounter ping as an invalidation;
-      // its causal gate decides what the pull means.
-      replicas.notifyEncounterPing()
-      mapReplica.notify()
       const ping = parseVersionPing(data, "encounter")
       if (!ping) return
-      // The channel carries both aggregates. Map pings already invalidated the
-      // Replica above; only encounter pings participate in this version check.
-      if (ping.kind === "mapInstance") return
-      if (ping.version <= versionRef.current) return
-      scheduleRefresh()
+      if (ping.kind === "mapInstance") mapReplica.notify()
+      else replicas.notifyEncounterPing()
     },
     onReconnect: () => {
       replicas.notifyReconnect()
       mapReplica.notify()
-      router.refresh()
     },
   })
 
@@ -193,31 +220,42 @@ export function useCombatConsole(
               }
               continue
             }
-            if (
-              event.kind === "startCombat" ||
-              event.kind === "removeParticipant" ||
-              (event.kind === "addParticipant" &&
-                event.setup.zoneId !== undefined)
-            ) {
-              const settled = await mapReplica.settle()
-              if (!settled.ok) {
-                toast.error("Couldn't finish saving the map. Try again.")
-                return
-              }
-            }
-            const result = await dispatchCombatEvent({
-              event,
-              encounterId: encounter.id,
-              applyOptimistic,
-              encounterWrite,
-            })
-            if (!result.ok) {
-              toast.error(combatErrorMessage(result.error))
+            if (isMapEvent(event)) {
+              toast.error("That map operation isn't available here.")
               return
             }
-            if (result.value.instanceVersion !== undefined) {
-              mapReplica.notify()
+            if (isCombatCommandEvent(event)) {
+              if (
+                event.kind === "startCombat" ||
+                event.kind === "removeParticipant" ||
+                (event.kind === "addParticipant" &&
+                  event.setup.zoneId !== undefined)
+              ) {
+                const settled = await mapReplica.settle()
+                if (!settled.ok) {
+                  toast.error("Couldn't finish saving the map. Try again.")
+                  return
+                }
+              }
+              const result = await dispatchCombatCommand({
+                event,
+                encounterId: encounter.id,
+                applyOptimistic,
+                encounterWrite,
+              })
+              if (!result.ok) {
+                toast.error(combatErrorMessage(result.error))
+                return
+              }
+              if (result.value.instanceVersion !== undefined) {
+                mapReplica.notify()
+              }
+              continue
             }
+            const result = await dispatchIntent(event, {
+              roundComplete: view.roundComplete,
+            })
+            if (!result?.ok) return
           }
         },
         () => toast.error("Couldn't save. Try again.")
@@ -232,7 +270,7 @@ export function useCombatConsole(
   const { dispatchWrite } = useCombatantWrite({
     handleOf: replicas.handleOf,
     // The inline door's committed encounter version keeps the surviving
-    // event queue's token fresh across the two protocols sharing the row.
+    // command queue's token fresh across the two protocols sharing the row.
     onRemoteVersion: (version) => encounterWrite.bump(version),
   })
 
@@ -330,4 +368,18 @@ export function useCombatConsole(
       dispatch({ kind: "draftCombatant", participantId }),
     onAdvanceRound: () => dispatch({ kind: "advanceRound" }),
   }
+}
+
+function isCombatCommandEvent(
+  event: ConsoleDispatchEvent
+): event is CombatCommandDispatchEvent {
+  return (
+    event.kind === "startCombat" ||
+    event.kind === "addParticipant" ||
+    event.kind === "removeParticipant"
+  )
+}
+
+function isMapEvent(event: ConsoleDispatchEvent): event is MapInstanceEvent {
+  return mapInstanceEventSchema.safeParse(event).success
 }

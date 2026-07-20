@@ -31,10 +31,11 @@ import {
   type EntityVersionVector,
 } from "../../entity/replica/cursor"
 import {
+  adjustEncounterCounter,
   combatDurableMutations,
   encounterMutations,
+  endEncounterTurn,
   writeCombatEntity,
-  writeEncounterInline,
   type CombatDurableInvocation,
   type CombatDurableState,
   type CombatWriteRefusal,
@@ -312,7 +313,7 @@ function inlineShellParticipant(
 function createEncounterWorld() {
   const session: SessionShell = {
     round: 1,
-    currentActorId: null,
+    currentActorId: p1,
     advantage: null,
     firstSide: null,
     participants: [
@@ -376,7 +377,11 @@ function createEncounterWorld() {
       }),
     advance: () =>
       authority.commitExternal(
-        writeEncounterInline({ participantId: p2, write: damage(1) })
+        adjustEncounterCounter({
+          participantId: p2,
+          counter: "lumina",
+          delta: 1,
+        })
       ),
   }
 }
@@ -407,9 +412,10 @@ function createEncounterScenario(): EncounterScenario {
       return {
         ...encounterIdentity,
         mutationId: next,
-        invocation: writeEncounterInline({
+        invocation: adjustEncounterCounter({
           participantId: p1,
-          write: damage(2),
+          counter: "lumina",
+          delta: 2,
         }),
       }
     },
@@ -481,23 +487,44 @@ describe("replica contract — encounter binding (recorded Remote)", () => {
       retryBudget: RETRY_BUDGET,
       fixtures: {
         writes: [
-          writeEncounterInline({ participantId: p1, write: damage(3) }),
-          writeEncounterInline({ participantId: p1, write: damage(5) }),
+          adjustEncounterCounter({
+            participantId: p1,
+            counter: "lumina",
+            delta: 3,
+          }),
+          adjustEncounterCounter({
+            participantId: p1,
+            counter: "lumina",
+            delta: 5,
+          }),
         ],
         // Against the initial roster: the participant never existed.
-        refused: writeEncounterInline({
+        refused: adjustEncounterCounter({
           participantId: ghost,
-          write: damage(1),
+          counter: "lumina",
+          delta: 1,
         }),
-        external: writeEncounterInline({ participantId: p2, write: damage(1) }),
+        external: adjustEncounterCounter({
+          participantId: p2,
+          counter: "lumina",
+          delta: 1,
+        }),
         conflicting: {
-          pending: writeEncounterInline({
-            participantId: p1,
-            write: usePrisma,
+          pending: endEncounterTurn({
+            expected: {
+              round: 1,
+              currentActorId: p1,
+              actorId: p1,
+              turnsTakenThisRound: 0,
+            },
           }),
-          external: writeEncounterInline({
-            participantId: p1,
-            write: usePrisma,
+          external: endEncounterTurn({
+            expected: {
+              round: 1,
+              currentActorId: p1,
+              actorId: p1,
+              turnsTakenThisRound: 0,
+            },
           }),
         },
         vetoError: "capability-missing",

@@ -13,6 +13,7 @@ import {
   encounterTarget,
   getCharacterCurrentHP,
   getDurableParticipantSide,
+  getInlineEnemyOverlay,
   getInlineEnemyVitals,
   resetEncounterFixtures,
   setCharacterCurrentHP,
@@ -465,7 +466,7 @@ test("catalog enemy HP is adjustable on its inline entity (UNN-309/535)", async 
   await expect(drawer.getByText("15 / 16")).toBeVisible()
 })
 
-test("drawer edits session-overlay ailments + action economy (UNN-310)", async ({
+test("rapid session-overlay intents compose without stale optimism (UNN-310/656)", async ({
   page,
 }) => {
   // Ailments / action economy live on the session blob, which
@@ -475,11 +476,28 @@ test("drawer edits session-overlay ailments + action economy (UNN-310)", async (
   await page.getByRole("button", { name: "Open Goblin detail" }).click()
   const drawer = combatantDrawer(page)
 
-  // Action economy: Reaction toggles from available to used.
-  await drawer.getByRole("button", { name: "Reaction available" }).click()
+  // Three action-economy mutations land without sharing the command queue.
+  for (const action of ["Move", "Standard", "Reaction"]) {
+    await drawer.getByRole("button", { name: `${action} available` }).click()
+  }
   await expect(
     drawer.getByRole("button", { name: "Reaction used" })
   ).toBeVisible()
+
+  // Two rapid increases preserve the axis' existing extend semantics: 3t + 3t.
+  const increaseAttack = drawer.getByRole("button", {
+    name: "Increase Attack",
+  })
+  await increaseAttack.click()
+  await increaseAttack.click()
+  await expect(drawer.getByText("6t")).toBeVisible()
+
+  // Add Lumina at 1, then two rapid additive adjustments must compose to 3.
+  await drawer.getByRole("button", { name: "Add counter" }).click()
+  await page.getByRole("button", { name: /Lumina/ }).click()
+  const increaseLumina = drawer.getByRole("button", { name: "Increase Lumina" })
+  await increaseLumina.click()
+  await increaseLumina.click()
 
   // Ailments are a permissive multi-select: setting Burn marks its toggle
   // pressed (the picker portals out of the modal sheet, so scope to the page;
@@ -489,6 +507,16 @@ test("drawer edits session-overlay ailments + action economy (UNN-310)", async (
   const burnToggle = page.getByRole("button", { name: /Burn.*max HP/ })
   await burnToggle.click()
   await expect(burnToggle).toHaveAttribute("aria-pressed", "true")
+
+  await expect
+    .poll(async () => getInlineEnemyOverlay(encounterTarget.live.id, "Goblin"))
+    .toMatchObject({
+      ailments: ["burn"],
+      battleConditions: { attack: "increased" },
+      conditionDurations: { attack: 6 },
+      counters: { lumina: 3 },
+      turnState: { movesUsed: 1, standardsUsed: 1, reactionsUsed: 1 },
+    })
 })
 
 test("End encounter flips the live console to the ended stub (UNN-320)", async ({
