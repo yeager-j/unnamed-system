@@ -111,7 +111,7 @@ const pushCombatDurableMutation = createMutationPushDoor({
  * home's sole sanctioned writer: the campaign DM.
  *
  * `Remote = { version }` — the client folds it into the console's surviving
- * event-queue token so the two protocols sharing the encounter row keep each
+ * command-queue token so the two protocols sharing the encounter row keep each
  * other fresh.
  */
 export async function pushCombatSessionMutationAction(

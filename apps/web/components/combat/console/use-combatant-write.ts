@@ -45,7 +45,7 @@ export function useCombatantWrite({
 }: {
   handleOf: (participantId: ParticipantId) => CombatWriteHandle | undefined
   /** Fed the inline door's committed encounter version (`Remote`), so the
-   *  surviving event-queue token stays fresh across the two protocols
+   *  surviving command-queue token stays fresh across the two protocols
    *  sharing the encounter row. */
   onRemoteVersion?: (version: number) => void
 }): { dispatchWrite: DispatchCombatantWrite } {

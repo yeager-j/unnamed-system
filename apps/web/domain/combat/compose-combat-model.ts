@@ -4,7 +4,6 @@ import type { ReplicaSnapshot } from "@workspace/replica"
 
 import type { ParticipantMeta } from "./participant-meta"
 import {
-  pickCombatComponents,
   type CombatDurableState,
   type CombatEntityComponents,
   type EncounterReplicaState,
@@ -29,6 +28,34 @@ export interface CombatReplicaSnapshots {
   >
 }
 
+/**
+ * Replica invalidations normally converge locally. A route refresh is needed
+ * only when the accepted Encounter root reveals a command-owned fact whose
+ * hydration still belongs to the loader frame: lifecycle or roster/locator
+ * shape. Session intent fields are intentionally absent from this comparison.
+ */
+export function encounterRootDiffersFromLoaderFrame(
+  root: EncounterReplicaState,
+  loader: {
+    readonly status: EncounterReplicaState["status"]
+    readonly session: EncounterState["session"]
+    readonly participantMeta: Record<string, ParticipantMeta>
+  }
+): boolean {
+  if (root.status !== loader.status) return true
+  if (root.session.participants.length !== loader.session.participants.length) {
+    return true
+  }
+  return root.session.participants.some((shell, index) => {
+    if (loader.session.participants[index]?.id !== shell.id) return true
+    const meta = loader.participantMeta[shell.id]
+    if (shell.entity.storage === "inline") return meta?.storage !== "inline"
+    return (
+      meta?.storage !== "durable" || meta.characterId !== shell.entity.entityId
+    )
+  })
+}
+
 const COMBAT_COMPONENT_KEYS = [
   "vitals",
   "skillPool",
@@ -38,14 +65,11 @@ const COMBAT_COMPONENT_KEYS = [
 
 /**
  * The one composition seam joining ready Replica projections onto the
- * event-owned encounter frame (UNN-653; encounter root UNN-655). This ticket
- * takes exactly the facts whose writes ride the replicas today — the four
- * combat-writable components, inline ones read from the encounter root's
- * shell (narrowed to the same four keys at this seam; the root itself is
- * unredacted storage), durable ones from their entity roots. The remaining
- * encounter-owned facts (scalars, roster order, overlays) stay with the
- * event frame until their intents ride the encounter replica (UNN-656),
- * which widens this seam in place.
+ * event-owned encounter frame (UNN-653; widened by UNN-656). A ready Encounter
+ * root owns the session facts migrated to it: round, current actor, every
+ * participant overlay, and the full stored entity for inline participants.
+ * Command-owned roster shape and durable hydration still come from the RSC
+ * frame until UNN-657; ready durable roots replace only their combat subset.
  */
 export function composeCombatModel({
   eventFrame,
@@ -58,54 +82,59 @@ export function composeCombatModel({
   durableReplicaSnapshots: ReadonlyMap<string, CombatDurableReplicaSnapshot>
   participantMeta: Record<string, ParticipantMeta>
 }): EncounterState {
-  let changed = false
+  const encounterSession = encounterReplicaSnapshot?.value.session
+  let changed = encounterSession !== undefined
   const participants = eventFrame.session.participants.map((participant) => {
     const meta = participantMeta[participant.id]
-    const projected = projectedComponents(
-      participant.id,
-      meta,
-      encounterReplicaSnapshot,
-      durableReplicaSnapshots
+    const shell = encounterSession?.participants.find(
+      (entry) => entry.id === participant.id
     )
-    if (projected === undefined) return participant
+    if (shell?.entity.storage === "inline") {
+      changed = true
+      return {
+        ...participant,
+        entity: shell.entity.entity,
+        overlay: shell.overlay,
+      }
+    }
 
+    const projected =
+      meta?.storage === "durable"
+        ? durableReplicaSnapshots.get(meta.characterId)?.value.components
+        : undefined
+    if (shell === undefined && projected === undefined) return participant
     changed = true
     return {
       ...participant,
-      entity: {
-        ...participant.entity,
-        components: replaceCombatComponents(
-          participant.entity.components,
-          projected
-        ),
-      },
+      ...(shell === undefined ? {} : { overlay: shell.overlay }),
+      ...(projected === undefined
+        ? {}
+        : {
+            entity: {
+              ...participant.entity,
+              components: replaceCombatComponents(
+                participant.entity.components,
+                projected
+              ),
+            },
+          }),
     }
   })
 
   if (!changed) return eventFrame
   return {
     ...eventFrame,
-    session: { ...eventFrame.session, participants },
+    session: {
+      ...eventFrame.session,
+      ...(encounterSession === undefined
+        ? {}
+        : {
+            round: encounterSession.round,
+            currentActorId: encounterSession.currentActorId,
+          }),
+      participants,
+    },
   }
-}
-
-function projectedComponents(
-  participantId: string,
-  meta: ParticipantMeta | undefined,
-  encounterReplicaSnapshot: EncounterReplicaSnapshot | null,
-  durableReplicaSnapshots: ReadonlyMap<string, CombatDurableReplicaSnapshot>
-): CombatEntityComponents | undefined {
-  if (meta?.storage === "durable") {
-    return durableReplicaSnapshots.get(meta.characterId)?.value.components
-  }
-  if (meta?.storage === "inline") {
-    const shell = encounterReplicaSnapshot?.value.session.participants.find(
-      (participant) => participant.id === participantId
-    )
-    if (shell?.entity.storage !== "inline") return undefined
-    return pickCombatComponents(shell.entity.entity.components)
-  }
-  return undefined
 }
 
 function replaceCombatComponents(

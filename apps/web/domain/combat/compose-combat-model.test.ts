@@ -10,7 +10,10 @@ import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { ReplicaSnapshot } from "@workspace/replica"
 
-import { composeCombatModel } from "./compose-combat-model"
+import {
+  composeCombatModel,
+  encounterRootDiffersFromLoaderFrame,
+} from "./compose-combat-model"
 import type { ParticipantMeta } from "./participant-meta"
 import type {
   CombatDurableState,
@@ -139,7 +142,7 @@ describe("composeCombatModel", () => {
     ).toBe(frame)
   })
 
-  it("joins durable and inline projections while preserving event-owned facts", () => {
+  it("joins durable roots with Encounter-owned session facts", () => {
     const frame = eventFrame()
     const durable = snapshot<CombatDurableState>({
       components: { vitals: { base: 20, damage: 7 } },
@@ -157,6 +160,7 @@ describe("composeCombatModel", () => {
 
     expect(model.mapInstance).toBe(frame.mapInstance)
     expect(model.session.round).toBe(3)
+    expect(model.session.currentActorId).toBeNull()
     expect(model.session.participants[0]!.overlay).toBe(
       frame.session.participants[0]!.overlay
     )
@@ -244,11 +248,12 @@ describe("composeCombatModel", () => {
     expect(components.vitals?.damage).toBe(8)
     expect(components.skillPool).toBeUndefined()
     expect(components.resources).toBeUndefined()
-    expect(components.identity).toEqual({ name: "enemy-1" })
+    expect(components.identity).toBeUndefined()
   })
 
-  it("narrows an inline shell to the four combat keys — a non-combat inline component never reaches the view through this seam", () => {
+  it("renders the full inline stored entity and overlay from the Encounter root", () => {
     const frame = eventFrame()
+    frame.session.participants[2]!.overlay.allegiance.side = "players"
     const model = composeCombatModel({
       eventFrame: frame,
       encounterReplicaSnapshot: encounterSnapshot({
@@ -262,10 +267,10 @@ describe("composeCombatModel", () => {
     })
     const components = model.session.participants[2]!.entity.components
 
-    // The frame's own presentation survives; the root's does not replace it —
-    // the encounter root is unredacted storage, and THIS seam is where inline
-    // projections narrow to the combat-writable subset.
-    expect(components.presentation).toEqual({ portraitUrl: "enemy-1.png" })
+    expect(components.presentation).toEqual({ portraitUrl: "projected.png" })
+    expect(model.session.participants[2]?.overlay.allegiance.side).toBe(
+      "enemies"
+    )
   })
 
   it("keeps the event-frame participant when a ready inline root has no entry", () => {
@@ -316,5 +321,68 @@ describe("composeCombatModel", () => {
       model.session.participants[0]!.entity.components.vitals?.damage
     ).toBe(7)
     expect(model.session.participants[1]).toBe(added)
+  })
+})
+
+describe("encounterRootDiffersFromLoaderFrame", () => {
+  it("ignores migrated session facts and detects only command-owned divergence", () => {
+    const frame = eventFrame()
+    const shell = encounterSnapshot({}).value
+    const completeMeta: Record<string, ParticipantMeta> = {
+      ...meta,
+      [unknown]: { storage: "inline" },
+    }
+    const sameRosterRoot: EncounterReplicaState = {
+      status: "live",
+      session: {
+        ...shell.session,
+        round: 99,
+        currentActorId: null,
+        participants: frame.session.participants.map((participant) => {
+          const participantMeta = completeMeta[participant.id]
+          return {
+            id: participant.id,
+            overlay: defaultOverlay({ side: "enemies" }),
+            entity:
+              participantMeta?.storage === "durable"
+                ? {
+                    storage: "durable" as const,
+                    entityId: participantMeta.characterId,
+                  }
+                : {
+                    storage: "inline" as const,
+                    entity: participant.entity,
+                  },
+          }
+        }),
+      },
+    }
+    const loader = {
+      status: "live" as const,
+      session: frame.session,
+      participantMeta: completeMeta,
+    }
+
+    expect(encounterRootDiffersFromLoaderFrame(sameRosterRoot, loader)).toBe(
+      false
+    )
+    expect(
+      encounterRootDiffersFromLoaderFrame(
+        { ...sameRosterRoot, status: "ended" },
+        loader
+      )
+    ).toBe(true)
+    expect(
+      encounterRootDiffersFromLoaderFrame(
+        {
+          ...sameRosterRoot,
+          session: {
+            ...sameRosterRoot.session,
+            participants: sameRosterRoot.session.participants.slice(1),
+          },
+        },
+        loader
+      )
+    ).toBe(true)
   })
 })

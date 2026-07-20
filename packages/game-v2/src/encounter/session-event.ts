@@ -2,15 +2,11 @@ import { z } from "zod/v4"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
-import {
-  participantIdSchema,
-  type ParticipantId,
-} from "@workspace/game-v2/kernel/participant-id.schema"
+import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
 import {
   COMBAT_ADVANTAGES,
   COMBAT_SIDES,
 } from "@workspace/game-v2/kernel/vocab/combat"
-import type { MechanicKind } from "@workspace/game-v2/kernel/vocab/mechanics"
 
 import {
   AILMENT_KEYS,
@@ -23,23 +19,15 @@ import {
  * The session reducer's **event vocabulary** (ADR §2.2; CD4/CD5/CD6, amended
  * CD19) — a type-only leaf the reducer + each slice import without pulling in the
  * orchestrator that imports them back (mirrors v1's `foundation/encounter/
- * session-event.ts`). It declares **two** unions, deliberately split:
- *
- * - {@link CombatEvent} — the **generic DM-console wire**: the eight v1 families
+ * session-event.ts`). {@link CombatEvent} is the schema-backed engine
+ * vocabulary: the eight v1 families
  *   ported 1:1 (same kinds/payloads/no-op contracts) with three honest renames
  *   (`addCombatant→addParticipant`, `removeCombatant→removeParticipant`,
  *   `combatantId→participantId`). It is **inferred from {@link combatEventSchema}**
  *   (the schema is the single source); the per-family aliases below are `Extract`
- *   views over it, so no event shape is authored twice.
- * - {@link ComponentWriteEvent} — the **router-only** vitals family. It is
- *   **deliberately schema-less**: it **leaves** the generic wire (CD19) and is
- *   **excluded** from {@link combatEventSchema}, so a durable/vitals target is
- *   *unrepresentable on the generic wire by parse*. There is nothing to infer it
- *   from, so it stays hand-written; its sole mint point is the un-exported
- *   {@link toSessionEvent}, which the impure write-router (UNN-520) calls.
- *
- * The reducer consumes the union of both — {@link SessionEvent} — over one
- * exhaustive switch; the wire only ever yields a {@link CombatEvent}.
+ *   views over it, so no event shape is authored twice. UNN-656 deleted the
+ *   former router-only component event family; component writes use Writers
+ *   directly through their Replica mutations.
  */
 
 // --- Event action vocabulary -------------------------------------------------
@@ -59,13 +47,6 @@ export type BattleConditionAxisAction =
 export const ACTION_ECONOMY_ACTIONS = ["move", "standard", "reaction"] as const
 
 export type ActionEconomyAction = (typeof ACTION_ECONOMY_ACTIONS)[number]
-
-/** The two depletion pools a vitals write targets — `hp` → the {@link
- *  import("@workspace/game-v2/vitals/vitals.schema").Vitals} component, `sp` → the
- *  {@link import("@workspace/game-v2/vitals/skill-pool.schema").SkillPool}. */
-export const VITALS_POOLS = ["hp", "sp"] as const
-
-export type VitalsPool = (typeof VITALS_POOLS)[number]
 
 // --- The generic wire: combatEventSchema (the single source) ------------------
 
@@ -110,12 +91,19 @@ const addParticipantSetupSchema = z.object({
  * envelope} (apps/web, UNN-520) composes over this schema and inherits the
  * exclusion.
  */
+export const startCombatEventSchema = z.object({
+  kind: z.literal("startCombat"),
+  advantage: z.enum(COMBAT_ADVANTAGES),
+  firstSide: z.enum(COMBAT_SIDES),
+})
+
+export const removeParticipantEventSchema = z.object({
+  kind: z.literal("removeParticipant"),
+  participantId: participantIdSchema,
+})
+
 export const combatEventSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("startCombat"),
-    advantage: z.enum(COMBAT_ADVANTAGES),
-    firstSide: z.enum(COMBAT_SIDES),
-  }),
+  startCombatEventSchema,
   z.object({
     kind: z.literal("draftCombatant"),
     participantId: participantIdSchema,
@@ -126,10 +114,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("addParticipant"),
     setup: addParticipantSetupSchema,
   }),
-  z.object({
-    kind: z.literal("removeParticipant"),
-    participantId: participantIdSchema,
-  }),
+  removeParticipantEventSchema,
   z.object({
     kind: z.literal("setSide"),
     participantId: participantIdSchema,
@@ -188,9 +173,8 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
 ])
 
 /**
- * One event on the **generic DM-console wire** — the eight v1 families ported 1:1,
- * inferred from {@link combatEventSchema} (the single source). The vitals family is
- * **not** here — it left to {@link ComponentWriteEvent} (CD19).
+ * One schema-backed encounter event. Application boundaries may expose a
+ * strict subset; the command action accepts only start/add/remove after UNN-656.
  */
 export type CombatEvent = z.infer<typeof combatEventSchema>
 
@@ -293,138 +277,5 @@ export type ActionEconomyEvent = Extract<
   { kind: "adjustActionEconomy" }
 >
 
-// --- The router-only family: ComponentWriteEvent (vitals) --------------------
-
-/**
- * The **router-only** vitals family (CD6, amended CD19) — the restructured
- * signed-depletion deltas that replace v1's absolute `adjustEnemyVitals`. Each
- * targets a pool (`hp`/`sp`); `damageParticipant`/`healParticipant` apply through
- * the depletion operations and `setParticipantMax` writes the component's `base`.
- *
- * It is **excluded** from {@link combatEventSchema} (the generic wire), so it is
- * unrepresentable on that wire — there is no schema to infer it from, by design, so
- * it stays hand-written. Its sole constructor is {@link toSessionEvent}
- * (un-exported outside this module); the impure write-router (UNN-520) calls it to
- * dispatch an **ephemeral** vitals write through the reducer, and the router's
- * authoritative storage-home check guarantees a durable target never reaches it.
- */
-export type ComponentWriteEvent = {
-  kind: "damageParticipant" | "healParticipant" | "setParticipantMax"
-  participantId: ParticipantId
-  pool: VitalsPool
-  amount: number
-}
-
-/**
- * The router-only **mechanics** arm (UNN-520) — one ephemeral mechanic-state
- * write, dispatched by the write-router when the target participant's home is
- * the session blob. `transition` is the mechanic's own serializable descriptor
- * (CD19): *the Writer validates it against
- * `MECHANICS_BY_KIND[mechanic].transitions.schema` (and `WriterDeps`) before
- * minting; the minted event is total for the reducer* — deps never enter the
- * pure reducer, which trusts the descriptor and applies it through the same
- * registry `apply`. Like {@link ComponentWriteEvent}, it is excluded from
- * {@link combatEventSchema} and mintable only via {@link
- * toMechanicTransitionEvent} (un-exported from the barrel).
- */
-export type MechanicTransitionEvent = {
-  kind: "mechanicTransition"
-  participantId: ParticipantId
-  mechanic: MechanicKind
-  transition: unknown
-}
-
-/**
- * The router-only **resources** arm (UNN-520) — one ephemeral consumable use.
- * The reducer applies the total depletion increment (`prismaUsed + 1`); the
- * **affordability** check (`applyUsePrisma`'s refusal at the resolved
- * `maxPrisma`) lives in the Writer pre-mint, because the max is a resolved
- * value (`WriterDeps`) the pure reducer must not derive. Mintable only via
- * {@link toUseResourceEvent} (un-exported from the barrel).
- */
-export type UseResourceEvent = {
-  kind: "useResource"
-  participantId: ParticipantId
-  resource: "prisma"
-}
-
-/**
- * The reducer's input — the union of the generic wire and the router-only family.
- * {@link createReduceSession} switches over this exhaustively; the wire validator
- * only ever produces the {@link CombatEvent} half.
- */
-export type SessionEvent =
-  | CombatEvent
-  | ComponentWriteEvent
-  | MechanicTransitionEvent
-  | UseResourceEvent
-
-// --- The router's sole ComponentWriteEvent constructor (un-exported) ----------
-
-/** Which depletion component a router write names (the router's own vocabulary). */
-type VitalsComponent = "vitals" | "skillPool"
-
-/** The router's write verb, mapped to a {@link ComponentWriteEvent} kind. */
-type VitalsOp = "damage" | "heal" | "setMax"
-
-const OP_TO_KIND = {
-  damage: "damageParticipant",
-  heal: "healParticipant",
-  setMax: "setParticipantMax",
-} as const satisfies Record<VitalsOp, ComponentWriteEvent["kind"]>
-
-const COMPONENT_TO_POOL = {
-  vitals: "hp",
-  skillPool: "sp",
-} as const satisfies Record<VitalsComponent, VitalsPool>
-
-/**
- * The **sole** constructor of a {@link ComponentWriteEvent} (CD19). Translates the
- * write-router's domain vocabulary (`component` + `op`) into the wire-internal
- * vitals event the reducer consumes. **Deliberately not re-exported from
- * `encounter/index.ts`** (it is omitted from the barrel): the impure write-router
- * module (UNN-520) imports it via its deep path, and no other code can mint a
- * vitals event — closing the arm-selection risk together with the {@link
- * combatEventSchema} exclusion and the router's authoritative storage-home check.
- */
-export function toSessionEvent(intent: {
-  participantId: ParticipantId
-  component: VitalsComponent
-  op: VitalsOp
-  amount: number
-}): ComponentWriteEvent {
-  return {
-    kind: OP_TO_KIND[intent.op],
-    participantId: intent.participantId,
-    pool: COMPONENT_TO_POOL[intent.component],
-    amount: intent.amount,
-  }
-}
-
-/**
- * The **sole** constructor of a {@link MechanicTransitionEvent} — the mechanics
- * sibling of {@link toSessionEvent}, under the same containment: deep-path
- * import only (omitted from the barrel), called exclusively by the impure
- * write-router (UNN-520) after it validated `transition` against the mechanic's
- * registry schema.
- */
-export function toMechanicTransitionEvent(intent: {
-  participantId: ParticipantId
-  mechanic: MechanicKind
-  transition: unknown
-}): MechanicTransitionEvent {
-  return { kind: "mechanicTransition", ...intent }
-}
-
-/**
- * The **sole** constructor of a {@link UseResourceEvent} — the resources sibling
- * of {@link toSessionEvent}, under the same containment: deep-path import only,
- * called exclusively by the impure write-router (UNN-520) after the Writer's
- * affordability check passed.
- */
-export function toUseResourceEvent(intent: {
-  participantId: ParticipantId
-  resource: "prisma"
-}): UseResourceEvent {
-  return { kind: "useResource", ...intent }
-}
+/** The total reducer now consumes exactly the schema-backed public vocabulary. */
+export type SessionEvent = CombatEvent

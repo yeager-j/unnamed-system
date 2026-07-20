@@ -239,7 +239,11 @@ describe("applyCombatEventAction — auth + parse boundary", () => {
       applyCombatEventAction({
         encounterId: ENCOUNTER_ID,
         expectedVersion: 0,
-        event: { kind: "endTurn" },
+        event: {
+          kind: "startCombat",
+          advantage: "neutral",
+          firstSide: "players",
+        },
       })
     ).rejects.toThrow("forbidden")
     expect(loadEncounterForWrite).not.toHaveBeenCalled()
@@ -271,59 +275,28 @@ describe("applyCombatEventAction — auth + parse boundary", () => {
   )
 })
 
-describe("applyCombatEventAction — generic session events", () => {
-  it("reduces + saves the blob, fires the encounter ping", async () => {
+describe("applyCombatEventAction — command-only boundary", () => {
+  it.each([
+    { kind: "endTurn" },
+    { kind: "setRound", round: 2 },
+    { kind: "setAilment", participantId: PC_ID, ailment: "burn" },
+    {
+      kind: "adjustCounter",
+      participantId: PC_ID,
+      counter: "lumina",
+      delta: 1,
+    },
+  ])("rejects migrated session intent $kind", async (event) => {
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      event: { kind: "setAilment", participantId: PC_ID, ailment: "burn" },
+      // @ts-expect-error — migrated session intent is no longer a command.
+      event,
     })
 
-    expect(result).toEqual(ok({ version: 1 }))
-    const blob = lastSavedBlob()
-    const pc = blob.participants.find((p) => p.id === PC_ID)!
-    expect((pc.overlay as { ailments: string[] }).ailments).toEqual(["burn"])
-    expect(publishEncounterPing).toHaveBeenCalledWith("enc1", {
-      version: 1,
-      status: "draft",
-    })
-  })
-
-  it("persists a durable participant as a reference, never embedded", async () => {
-    await applyCombatEventAction({
-      encounterId: ENCOUNTER_ID,
-      expectedVersion: 0,
-      event: { kind: "endTurn" },
-    })
-    const blob = lastSavedBlob()
-    expect(blob.participants.find((p) => p.id === PC_ID)!.locator).toEqual({
-      storage: "durable",
-      entityId: "char-1",
-    })
-  })
-
-  it("fails closed (locator-missing) when a participant has no locator", async () => {
-    loadEncounterForWrite.mockResolvedValue(
-      ok(makeLoaded({ locators: new Map() }))
-    )
-    const result = await applyCombatEventAction({
-      encounterId: ENCOUNTER_ID,
-      expectedVersion: 0,
-      event: { kind: "endTurn" },
-    })
-    expect(result).toEqual(err("locator-missing"))
+    expect(result).toEqual(err("invalid-input"))
+    expect(loadEncounterCampaignId).not.toHaveBeenCalled()
     expect(saveEncounterSession).not.toHaveBeenCalled()
-  })
-
-  it("propagates a stale guarded write", async () => {
-    saveEncounterSession.mockResolvedValue(err("stale"))
-    const result = await applyCombatEventAction({
-      encounterId: ENCOUNTER_ID,
-      expectedVersion: 0,
-      event: { kind: "endTurn" },
-    })
-    expect(result).toEqual(err("stale"))
-    expect(publishEncounterPing).not.toHaveBeenCalled()
   })
 })
 

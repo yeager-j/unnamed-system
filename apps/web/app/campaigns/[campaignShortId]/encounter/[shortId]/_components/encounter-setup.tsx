@@ -222,6 +222,7 @@ export function EncounterSetup({
                   setEngagement(row.id, engagement)
                 }
                 onRemove={() => removeParticipant(row.id)}
+                disabled={isPending}
               />
             ))}
           </ul>

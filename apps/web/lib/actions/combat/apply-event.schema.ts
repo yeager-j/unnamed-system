@@ -1,7 +1,8 @@
 import { z } from "zod/v4"
 
 import {
-  combatEventSchema,
+  removeParticipantEventSchema,
+  startCombatEventSchema,
   storedEntitySchema,
 } from "@workspace/game-v2/encounter"
 import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -14,16 +15,12 @@ import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 import { encounterMutationBase } from "../encounter/encounter-mutation.schema"
 
 /**
- * Input schema for the v2 {@link applyCombatEventAction} (UNN-520) — the
- * parallel twin of v1's `ApplyCombatEventSchema` over engine-v2's event
- * vocabulary. The envelope composes over {@link combatEventSchema} and so
- * **inherits its `ComponentWriteEvent` exclusion** (CD19): a vitals/durable
- * component write is *unrepresentable on this wire by parse* — it travels only
- * through the write-router's own action.
+ * Command-only input schema for {@link applyCombatEventAction}. UNN-656 removes
+ * ordinary session intent from this boundary; it accepts only start/add/remove.
  *
  * The engine's `addParticipant` arm is placement-blind (position is Instance
  * state, not a session field), so the wire carries its own
- * {@link addParticipantWireSchema} **ahead of** the engine schema in the union:
+ * {@link addParticipantWireSchema} alongside the two engine command schemas:
  * the same roster setup plus the optional `zoneId` the paired occupancy write
  * needs, and a two-arm entity source — `{ entity }` inline, `{ entityId }` the
  * durable mid-combat joiner (R6.2) the action hydrates from the character row.
@@ -50,7 +47,11 @@ const addParticipantWireSchema = z.object({
 export type AddParticipantWireEvent = z.infer<typeof addParticipantWireSchema>
 
 export const ApplyCombatEventSchema = encounterMutationBase.extend({
-  event: z.union([addParticipantWireSchema, combatEventSchema]),
+  event: z.union([
+    addParticipantWireSchema,
+    startCombatEventSchema,
+    removeParticipantEventSchema,
+  ]),
 })
 
 export type ApplyCombatEventInput = z.input<typeof ApplyCombatEventSchema>

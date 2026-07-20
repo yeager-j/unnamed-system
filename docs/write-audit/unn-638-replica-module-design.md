@@ -42,6 +42,17 @@ Related: [Zero mutation-interface study](unn-638-zero-api-study.md) · UNN-639
 > registered mutation to the shell built from the locked row — one apply on
 > both sides — and Open decisions 6 and 7 gained the records below. Broad
 > session-intent migration remains UNN-656.
+>
+> **Encounter session-intent revision (2026-07-19, UNN-656).** The
+> storage-native Encounter Replica is now the sole prediction, ordering,
+> retry, and rebase authority for ordinary encounter-row intent. Each family
+> has a stable named mutation and a pure game-v2 shell operation with typed
+> refusals; there is no generic session-event mutation. Ready roots render
+> round, current actor, overlays, and full inline state directly. Draft setup
+> bootstraps only the Encounter root; ended encounters mint no identity.
+> Start/add/remove and encounter-end remain commands. Because those commands
+> still share the row's expected version, UNN-657—not UNN-656—owns removal of
+> the command queue and restoration of `Remote = void`.
 
 ## Summary
 
@@ -758,6 +769,57 @@ once. Builder step is an unversioned subtype LWW action.
 | Authentication, Store, Drizzle, and guarded commit            | Showtime authority adapter                                                                                                |
 | Fog/redaction and protected routing                           | Showtime authority and read adapters                                                                                      |
 
+### UNN-656 Encounter intent inventory
+
+| Existing event                              | Replica form                                                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `draftCombatant`                            | Preconditioned `encounter.draftCombatant`: round, actor, target side, target turn count.                                                           |
+| `endTurn`                                   | Preconditioned `encounter.endTurn`: actor, round, actor turn count.                                                                                |
+| `advanceRound`                              | Preconditioned `encounter.advanceRound`: round, actor, roster order, all participant turn counts; minted only from a round-complete composed view. |
+| `setCurrentActor`, `setActed`               | Desired values with current-frame preconditions; missing participants refuse.                                                                      |
+| `setRound`, `setSide`                       | Replayable desired values; side is allowed in draft/live and refuses after end.                                                                    |
+| condition axis                              | Increase/decrease are replayable extend/flip operations; clear is desired neutral.                                                                 |
+| condition flags, ailments, cleared counters | Replayable desired values.                                                                                                                         |
+| counter and action-economy adjustments      | Replayable additive operations with non-zero integer deltas.                                                                                       |
+| inline/durable component writes             | Existing `encounter.writeInline` and `combat.entity.write`.                                                                                        |
+| start/add/remove/end                        | Command-only; no Encounter mutation.                                                                                                               |
+
+The complete surviving encounter writer inventory is start, add, remove,
+catalog-enemy materialization, standalone end, and dungeon end. Spatial intent
+belongs to the separate Map Instance Replica. The obsolete router-only
+component event constructors and reducer arms are deleted rather than carried
+forward as a second authority.
+
+The remaining command queue, `fetchEncounterVersion`, and recorded
+`Remote = { version }` are a deliberate compatibility bridge: every Encounter
+Replica Remote is folded into that queue so classic commands cannot dispatch
+with an older row token. UNN-657 owns the coordinator's removal and the return
+to `Remote = void`.
+
+Measured at implementation completion, UNN-656's production diff is **+1,422 /
+-980 lines (net +442)**, excluding tests, E2E, and decision records. The added
+surface is explicit domain policy (named schemas, shell-intent rules, and one
+receipt binding); the deleted surface is the generic optimistic event arm,
+router-only component-event vocabulary, and the superseded reducer families.
+
+That aggregate obscures the application result. Counting source code in
+`apps/web` only—excluding tests/E2E, JSON, Markdown and decision records, blank
+lines, comment-only lines, and generated `next-env.d.ts`—the app grew from
+**67,982 to 68,581 lines: +599 (+0.9%)**. UNN-656 therefore achieved the
+behavioral migration, but it did **not** achieve application contraction.
+Ordinary session prediction, ordering, retry, rebase, and typed refusal now
+have one Encounter Replica authority, but the migration still carries a
+compatibility layer for the six surviving commands.
+
+UNN-657 must delete that layer rather than merely wrap it. Its explicit
+contraction inventory is the recorded Encounter `Remote = { version }`, the
+session/inline `onRemoteVersion` folds, live and setup `encounterWrite` /
+`useQueuedWrite`, `fetchEncounterVersion`, expected-version command envelopes
+and stale retry, and the surviving classic combat command router/action. The
+post-UNN-657 review must measure the cumulative `apps/web` responsibility and
+LOC result; failure to contract the coordination surface is a stop condition
+before Replica 1.0 stabilization.
+
 Across `apps/web/lib/sync` and the main entity/combat write consumers, the current
 production coordination surface is approximately 1,786 lines. The replica is expected
 to absorb or eliminate roughly 700–1,000 of those lines plus their implementation-level
@@ -964,13 +1026,15 @@ the abstract:
 6. **Resolved (UNN-646).** The entity binding uses the default `Remote = void`; the
    combat session door is the first production non-void `Remote` (`{ version }` — the
    committed encounter version, recorded with the outcome, reproduced verbatim on
-   deduplicated redelivery, and folded into the console's surviving event-queue token so
+   deduplicated redelivery, and folded into the console's surviving command-queue token so
    the two protocols sharing the encounter row keep each other fresh). The recorded-mode
    replica-contract law runs against it. **UNN-655 re-examined and kept it:** the
    classic event wire (`useQueuedWrite`) still shares the encounter row, and the
    asynchronous accepted pull cannot keep that queue's token fresh at commit time —
-   nothing simpler suffices. Removal condition: UNN-656 retiring the encounter event
-   queue, at which point the door reverts to the default `Remote = void`.
+   nothing simpler suffices. **UNN-656 retired ordinary session events from
+   the queue but retained start/add/remove, catalog materialization, and end
+   commands. UNN-657 is the removal owner:** once it replaces that final
+   command coordinator, the door reverts to the default `Remote = void`.
 7. **Resolved (UNN-646), with the rule the combat evidence produced: replica granularity
    follows the authority's commit scope — the row-lock + auth boundary — never the UI's
    dispatch scope.** Read the rule strictly: the commit scope is _every_ lock the commit
@@ -990,7 +1054,7 @@ the abstract:
    Full decision record: `apps/web/domain/combat/replica/AGENTS.md`.
 
    **Re-proved by UNN-655 (the storage-native encounter root).** The inline root
-   widened to the *full atomically-stored fact set of its one row* — `status` plus the
+   widened to the _full atomically-stored fact set of its one row_ — `status` plus the
    whole session shell — and stopped exactly at the row boundary. Granularity remains
    encounter row + entity rows + Map Instance row, not one combined combat replica,
    because the widening direction is the row's fact set, never the surface's: durable
@@ -1003,6 +1067,7 @@ the abstract:
    view seam (`composeCombatModel` joins the Encounter, Map Instance, and durable
    entity projections plus loader metadata into the dissolved `Session`-shaped view),
    never in a root; the derived view is neither an authority nor a transport payload.
+
 8. **Resolved (UNN-645/646).** The entity roots (owner and combat-durable) expose the
    per-class version vector with a product-order classifier (`unknown` on mixed
    dimensions → recovery read); the inline combat root exposes the scalar encounter

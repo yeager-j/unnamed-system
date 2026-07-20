@@ -77,7 +77,7 @@ export function CombatantSetupRow({
           onChange={onEngagementChange}
           disabled={disabled}
         />
-        <SideToggle side={side} onChange={onSideChange} />
+        <SideToggle side={side} onChange={onSideChange} disabled={disabled} />
         <Button
           size="icon-sm"
           variant="ghost"

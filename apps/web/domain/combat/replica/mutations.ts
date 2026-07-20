@@ -1,15 +1,28 @@
 import { z } from "zod/v4"
 
-import type { SessionShell } from "@workspace/game-v2/encounter"
+import {
+  ACTION_ECONOMY_ACTIONS,
+  AILMENT_KEYS,
+  applyEncounterSessionIntent,
+  BATTLE_CONDITION_AXIS_ACTIONS,
+  BATTLE_CONDITION_AXIS_KEYS,
+  BATTLE_CONDITION_FLAG_KEYS,
+  COUNTER_KEYS,
+  type CombatEvent,
+  type EncounterSessionIntent,
+  type SessionIntentRefusal,
+  type SessionShell,
+} from "@workspace/game-v2/encounter"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
+import { COMBAT_SIDES } from "@workspace/game-v2/kernel/vocab/combat"
 import {
   defineMutation,
   defineMutations,
   type InvocationOf,
   type MutationRegistry,
 } from "@workspace/replica"
-import { err, ok } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
@@ -102,8 +115,10 @@ export type CombatWriteRefusal = EntityWriteRefusal | "participant-not-found"
  */
 export type EncounterWriteRefusal =
   | CombatWriteRefusal
+  | SessionIntentRefusal
   | "participant-not-inline"
   | "encounter-not-live"
+  | "encounter-ended"
 
 /**
  * The durable home's mutation: args ARE the encounter door's existing
@@ -180,8 +195,341 @@ export const writeEncounterInline = defineMutation({
   },
 })
 
+const turnFrameSchema = z.object({
+  round: z.number().int().positive(),
+  currentActorId: participantIdSchema.nullable(),
+})
+
+const participantTurnsSchema = z.object({
+  participantId: participantIdSchema,
+  turnsTakenThisRound: z.number().int().nonnegative(),
+})
+
+const nonZeroIntegerSchema = z
+  .number()
+  .int()
+  .refine((value) => value !== 0)
+
+export const draftEncounterCombatant = defineMutation({
+  name: "encounter.draftCombatant",
+  args: z.object({
+    participantId: participantIdSchema,
+    expected: turnFrameSchema.extend({
+      side: z.enum(COMBAT_SIDES),
+      turnsTakenThisRound: z.number().int().nonnegative(),
+    }),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "draftCombatant", ...args })
+  },
+})
+
+export const endEncounterTurn = defineMutation({
+  name: "encounter.endTurn",
+  args: z.object({
+    expected: turnFrameSchema.extend({
+      actorId: participantIdSchema,
+      turnsTakenThisRound: z.number().int().nonnegative(),
+    }),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "endTurn", ...args })
+  },
+})
+
+export const advanceEncounterRound = defineMutation({
+  name: "encounter.advanceRound",
+  args: z.object({
+    expected: turnFrameSchema.extend({
+      participants: z.array(participantTurnsSchema),
+    }),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "advanceRound", ...args })
+  },
+})
+
+export const setEncounterParticipantSide = defineMutation({
+  name: "encounter.setSide",
+  args: z.object({
+    participantId: participantIdSchema,
+    side: z.enum(COMBAT_SIDES),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    if (state.status === "ended") {
+      return err<EncounterWriteRefusal>("encounter-ended")
+    }
+    return applySessionIntent(state, { kind: "setSide", ...args })
+  },
+})
+
+export const setEncounterCurrentActor = defineMutation({
+  name: "encounter.setCurrentActor",
+  args: z.object({
+    participantId: participantIdSchema,
+    expected: turnFrameSchema,
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, {
+      kind: "setCurrentActor",
+      ...args,
+    })
+  },
+})
+
+export const setEncounterParticipantActed = defineMutation({
+  name: "encounter.setActed",
+  args: z.object({
+    participantId: participantIdSchema,
+    hasActed: z.boolean(),
+    expected: turnFrameSchema.extend({
+      turnsTakenThisRound: z.number().int().nonnegative(),
+    }),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "setActed", ...args })
+  },
+})
+
+export const setEncounterRound = defineMutation({
+  name: "encounter.setRound",
+  args: z.object({ round: z.number().int().positive() }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "setRound", ...args })
+  },
+})
+
+export const adjustEncounterBattleConditionAxis = defineMutation({
+  name: "encounter.adjustBattleConditionAxis",
+  args: z.object({
+    participantId: participantIdSchema,
+    axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
+    action: z.enum(BATTLE_CONDITION_AXIS_ACTIONS),
+    turns: z.number().int().positive().optional(),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, {
+      kind: "adjustBattleConditionAxis",
+      ...args,
+    })
+  },
+})
+
+export const setEncounterBattleConditionFlag = defineMutation({
+  name: "encounter.setBattleConditionFlag",
+  args: z.object({
+    participantId: participantIdSchema,
+    flag: z.enum(BATTLE_CONDITION_FLAG_KEYS),
+    value: z.boolean(),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, {
+      kind: "setBattleConditionFlag",
+      ...args,
+    })
+  },
+})
+
+export const setEncounterAilment = defineMutation({
+  name: "encounter.setAilment",
+  args: z.object({
+    participantId: participantIdSchema,
+    ailment: z.enum(AILMENT_KEYS),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "setAilment", ...args })
+  },
+})
+
+export const clearEncounterAilment = defineMutation({
+  name: "encounter.clearAilment",
+  args: z.object({
+    participantId: participantIdSchema,
+    ailment: z.enum(AILMENT_KEYS),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "clearAilment", ...args })
+  },
+})
+
+export const adjustEncounterCounter = defineMutation({
+  name: "encounter.adjustCounter",
+  args: z.object({
+    participantId: participantIdSchema,
+    counter: z.enum(COUNTER_KEYS),
+    delta: nonZeroIntegerSchema,
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "adjustCounter", ...args })
+  },
+})
+
+export const clearEncounterCounter = defineMutation({
+  name: "encounter.clearCounter",
+  args: z.object({
+    participantId: participantIdSchema,
+    counter: z.enum(COUNTER_KEYS),
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, { kind: "clearCounter", ...args })
+  },
+})
+
+export const adjustEncounterActionEconomy = defineMutation({
+  name: "encounter.adjustActionEconomy",
+  args: z.object({
+    participantId: participantIdSchema,
+    action: z.enum(ACTION_ECONOMY_ACTIONS),
+    delta: nonZeroIntegerSchema,
+  }),
+  apply(state: EncounterReplicaState, args) {
+    return applyLiveSessionIntent(state, {
+      kind: "adjustActionEconomy",
+      ...args,
+    })
+  },
+})
+
+function applyLiveSessionIntent(
+  state: EncounterReplicaState,
+  intent: EncounterSessionIntent
+) {
+  if (state.status !== "live") {
+    return err<EncounterWriteRefusal>("encounter-not-live")
+  }
+  return applySessionIntent(state, intent)
+}
+
+function applySessionIntent(
+  state: EncounterReplicaState,
+  intent: EncounterSessionIntent
+) {
+  const applied = applyEncounterSessionIntent(state.session, intent)
+  if (!applied.ok) return err<EncounterWriteRefusal>(applied.error)
+  if (applied.value === state.session) return ok(state)
+  return ok({ ...state, session: applied.value })
+}
+
+export type EncounterSessionEvent = Exclude<
+  CombatEvent,
+  { kind: "startCombat" | "addParticipant" | "removeParticipant" }
+>
+
+export function createEncounterSessionInvocation(
+  state: EncounterReplicaState,
+  event: EncounterSessionEvent,
+  options: { readonly roundComplete: boolean }
+): Result<EncounterInvocation, SessionIntentRefusal> {
+  const expectedFrame = {
+    round: state.session.round,
+    currentActorId: state.session.currentActorId,
+  }
+
+  switch (event.kind) {
+    case "draftCombatant": {
+      const participant = participantOf(state.session, event.participantId)
+      if (participant === undefined) return err("participant-not-found")
+      return ok(
+        draftEncounterCombatant({
+          participantId: event.participantId,
+          expected: {
+            ...expectedFrame,
+            side: participant.overlay.allegiance.side,
+            turnsTakenThisRound:
+              participant.overlay.turnState.turnsTakenThisRound,
+          },
+        })
+      )
+    }
+    case "endTurn": {
+      const actorId = state.session.currentActorId
+      if (actorId === null) return err("turn-frame-changed")
+      const actor = participantOf(state.session, actorId)
+      if (actor === undefined) return err("participant-not-found")
+      return ok(
+        endEncounterTurn({
+          expected: {
+            ...expectedFrame,
+            actorId,
+            turnsTakenThisRound: actor.overlay.turnState.turnsTakenThisRound,
+          },
+        })
+      )
+    }
+    case "advanceRound":
+      if (!options.roundComplete) return err("round-no-longer-complete")
+      return ok(
+        advanceEncounterRound({
+          expected: {
+            ...expectedFrame,
+            participants: state.session.participants.map((participant) => ({
+              participantId: participant.id,
+              turnsTakenThisRound:
+                participant.overlay.turnState.turnsTakenThisRound,
+            })),
+          },
+        })
+      )
+    case "setSide":
+      return ok(setEncounterParticipantSide(event))
+    case "setCurrentActor":
+      return ok(setEncounterCurrentActor({ ...event, expected: expectedFrame }))
+    case "setActed": {
+      const participant = participantOf(state.session, event.participantId)
+      if (participant === undefined) return err("participant-not-found")
+      return ok(
+        setEncounterParticipantActed({
+          ...event,
+          expected: {
+            ...expectedFrame,
+            turnsTakenThisRound:
+              participant.overlay.turnState.turnsTakenThisRound,
+          },
+        })
+      )
+    }
+    case "setRound":
+      return ok(setEncounterRound(event))
+    case "adjustBattleConditionAxis":
+      return ok(adjustEncounterBattleConditionAxis(event))
+    case "setBattleConditionFlag":
+      return ok(setEncounterBattleConditionFlag(event))
+    case "setAilment":
+      return ok(setEncounterAilment(event))
+    case "clearAilment":
+      return ok(clearEncounterAilment(event))
+    case "adjustCounter":
+      return ok(adjustEncounterCounter(event))
+    case "clearCounter":
+      return ok(clearEncounterCounter(event))
+    case "adjustActionEconomy":
+      return ok(adjustEncounterActionEconomy(event))
+  }
+}
+
+function participantOf(session: SessionShell, participantId: string) {
+  return session.participants.find(
+    (participant) => participant.id === participantId
+  )
+}
+
 export type CombatDurableInvocation = InvocationOf<typeof writeCombatEntity>
-export type EncounterInvocation = InvocationOf<typeof writeEncounterInline>
+export type EncounterInvocation =
+  | InvocationOf<typeof writeEncounterInline>
+  | InvocationOf<typeof draftEncounterCombatant>
+  | InvocationOf<typeof endEncounterTurn>
+  | InvocationOf<typeof advanceEncounterRound>
+  | InvocationOf<typeof setEncounterParticipantSide>
+  | InvocationOf<typeof setEncounterCurrentActor>
+  | InvocationOf<typeof setEncounterParticipantActed>
+  | InvocationOf<typeof setEncounterRound>
+  | InvocationOf<typeof adjustEncounterBattleConditionAxis>
+  | InvocationOf<typeof setEncounterBattleConditionFlag>
+  | InvocationOf<typeof setEncounterAilment>
+  | InvocationOf<typeof clearEncounterAilment>
+  | InvocationOf<typeof adjustEncounterCounter>
+  | InvocationOf<typeof clearEncounterCounter>
+  | InvocationOf<typeof adjustEncounterActionEconomy>
 
 export const combatDurableMutations: MutationRegistry<
   CombatDurableState,
@@ -193,4 +541,20 @@ export const encounterMutations: MutationRegistry<
   EncounterReplicaState,
   EncounterInvocation,
   EncounterWriteRefusal
-> = defineMutations([writeEncounterInline])
+> = defineMutations([
+  writeEncounterInline,
+  draftEncounterCombatant,
+  endEncounterTurn,
+  advanceEncounterRound,
+  setEncounterParticipantSide,
+  setEncounterCurrentActor,
+  setEncounterParticipantActed,
+  setEncounterRound,
+  adjustEncounterBattleConditionAxis,
+  setEncounterBattleConditionFlag,
+  setEncounterAilment,
+  clearEncounterAilment,
+  adjustEncounterCounter,
+  clearEncounterCounter,
+  adjustEncounterActionEconomy,
+])

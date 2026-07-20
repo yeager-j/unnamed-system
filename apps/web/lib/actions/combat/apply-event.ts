@@ -50,10 +50,8 @@ import {
 } from "./apply-event.schema"
 
 /**
- * The **v2 generic-wire shell** (UNN-520) — the parallel twin of v1's
- * `applyCombatEvent` over engine-v2: it applies one wire event to a v2
- * encounter and saves the result, version-guarded. The routing structure
- * mirrors v1 exactly; the differences are the v2 seams:
+ * The surviving v2 encounter-command shell: it applies start/add/remove to a
+ * v2 encounter and saves the result, version-guarded.
  *
  * - The encounter loads through {@link loadEncounterForWrite} (blob parsed as
  *   {@link import("@workspace/game-v2/encounter").StoredSession}, storage homes
@@ -68,9 +66,8 @@ import {
  *   R6.2) hydrates from its character row and registers its durable locator
  *   before the save — the fail-closed saver turns a forgotten registration into
  *   a test failure rather than a home-loss data bug.
- * - The envelope inherits the `ComponentWriteEvent` exclusion (CD19): vitals /
- *   durable component writes are unrepresentable here and travel only through
- *   the write-router's own action (`./commit/`).
+ * - The envelope is command-only: start/add/remove. Ordinary encounter-row
+ *   session intent and component Writes travel through their Replicas.
  *
  * Auth-first like v1: `requireCampaignDM` trips `forbidden()` before any heavy
  * load. Pings + revalidation reuse the existing encounter channel machinery.
@@ -109,8 +106,7 @@ export async function applyCombatEventAction(
     )
   }
 
-  const next = createReduceSession(newId)(loadedSession.session, event)
-  return persistSession(row, next, loadedSession, expectedVersion, row.status)
+  return err("invalid-input")
 }
 
 /** Server-side id mint shared by the reducer + paired helpers. */

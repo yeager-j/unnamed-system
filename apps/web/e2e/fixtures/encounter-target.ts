@@ -4,6 +4,7 @@ import {
   defaultOverlay,
   overlayComponentsSchema,
   storedSessionSchema,
+  type OverlayComponents,
   type StoredParticipant,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
@@ -336,6 +337,25 @@ export async function getInlineEnemyVitals(
     if (!loaded.ok) throw new Error(`inline entity failed to load: ${name}`)
     const { components } = loaded.value
     if (components.identity?.name === name) return components.vitals
+  }
+  return undefined
+}
+
+export async function getInlineEnemyOverlay(
+  encounterId: string,
+  name: string
+): Promise<OverlayComponents | undefined> {
+  const session = await getStoredSession(encounterId)
+  for (const participant of session.participants) {
+    if (participant.locator.storage !== "inline") continue
+    const loaded = loadEntity(
+      participant.locator.entity.id,
+      participant.locator.entity.components
+    )
+    if (!loaded.ok) throw new Error(`inline entity failed to load: ${name}`)
+    if (loaded.value.components.identity?.name === name) {
+      return overlayComponentsSchema.parse(participant.overlay)
+    }
   }
   return undefined
 }

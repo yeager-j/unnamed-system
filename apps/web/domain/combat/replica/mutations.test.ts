@@ -1,13 +1,7 @@
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
-import {
-  createReduceSession,
-  defaultOverlay,
-  type Session,
-  type SessionEvent,
-  type SessionShell,
-} from "@workspace/game-v2/encounter"
+import { defaultOverlay, type SessionShell } from "@workspace/game-v2/encounter"
 import {
   asParticipantId,
   type ParticipantId,
@@ -16,8 +10,12 @@ import {
 import type { CombatEntityWrite } from "../../entity/commit/write.schema"
 import { applyEntityWrite } from "../../entity/commit/writers"
 import {
+  adjustEncounterCounter,
   combatDurableMutations,
+  createEncounterSessionInvocation,
+  draftEncounterCombatant,
   encounterMutations,
+  endEncounterTurn,
   pickCombatComponents,
   writeCombatEntity,
   writeEncounterInline,
@@ -224,64 +222,178 @@ describe("writeEncounterInline (storage-native encounter root)", () => {
   })
 })
 
-/**
- * The semantic-preservation evidence licensing UNN-655's authority-body swap:
- * before the storage-native root, the session door committed through
- * `mintSessionEvent → createReduceSession`; now both sides run the registered
- * `writeEncounterInline.apply`. `mintLegacySessionEvent` freezes the deleted
- * mint's mapping as this test's spec, and the property proves the new apply
- * and the old reduce path produce identical addressed-participant components
- * (or identical refusals) across the three combat write families.
- */
-function mintLegacySessionEvent(
-  participantId: ParticipantId,
-  write: CombatEntityWrite
-): SessionEvent {
-  switch (write.component) {
-    case "vitals":
-    case "skillPool":
-      return {
-        kind:
-          write.op === "damage"
-            ? "damageParticipant"
-            : write.op === "heal"
-              ? "healParticipant"
-              : "setParticipantMax",
-        participantId,
-        pool: write.component === "vitals" ? "hp" : "sp",
-        amount: write.amount,
-      }
-    case "resources":
-      return { kind: "useResource", participantId, resource: "prisma" }
-    case "mechanics":
-      return {
-        kind: "mechanicTransition",
-        participantId,
-        mechanic: write.mechanic,
-        transition: write.transition,
-      }
-  }
-}
+describe("Encounter session intent mutations", () => {
+  it("exposes a stable named invocation for every migrated event family", () => {
+    const events = [
+      { kind: "draftCombatant", participantId: goblin.id },
+      { kind: "setSide", participantId: goblin.id, side: "players" },
+      { kind: "setCurrentActor", participantId: goblin.id },
+      { kind: "setActed", participantId: goblin.id, hasActed: true },
+      { kind: "setRound", round: 2 },
+      {
+        kind: "adjustBattleConditionAxis",
+        participantId: goblin.id,
+        axis: "attack",
+        action: "increase",
+      },
+      {
+        kind: "setBattleConditionFlag",
+        participantId: goblin.id,
+        flag: "charged",
+        value: true,
+      },
+      { kind: "setAilment", participantId: goblin.id, ailment: "burn" },
+      { kind: "clearAilment", participantId: goblin.id, ailment: "burn" },
+      {
+        kind: "adjustCounter",
+        participantId: goblin.id,
+        counter: "lumina",
+        delta: 1,
+      },
+      { kind: "clearCounter", participantId: goblin.id, counter: "lumina" },
+      {
+        kind: "adjustActionEconomy",
+        participantId: goblin.id,
+        action: "move",
+        delta: 1,
+      },
+    ] as const
 
-/** Dissolve a live encounter root into the runtime session the reducer eats. */
-function dissolveForReduce(state: EncounterReplicaState): Session {
-  return {
-    round: state.session.round,
-    currentActorId: state.session.currentActorId,
-    advantage: state.session.advantage,
-    firstSide: state.session.firstSide,
-    participants: state.session.participants.map((participant) => ({
-      id: participant.id,
-      entity:
-        participant.entity.storage === "inline"
-          ? participant.entity.entity
-          : { id: participant.entity.entityId, components: {} },
-      overlay: participant.overlay,
-    })),
-  }
-}
+    const names = events.map((event) => {
+      const invocation = createEncounterSessionInvocation(liveState, event, {
+        roundComplete: false,
+      })
+      expect(invocation.ok).toBe(true)
+      return invocation.ok ? invocation.value.name : ""
+    })
 
-function legacyAuthorityApply(
+    expect(names).toEqual([
+      "encounter.draftCombatant",
+      "encounter.setSide",
+      "encounter.setCurrentActor",
+      "encounter.setActed",
+      "encounter.setRound",
+      "encounter.adjustBattleConditionAxis",
+      "encounter.setBattleConditionFlag",
+      "encounter.setAilment",
+      "encounter.clearAilment",
+      "encounter.adjustCounter",
+      "encounter.clearCounter",
+      "encounter.adjustActionEconomy",
+    ])
+  })
+
+  it("preserves root identity for an accepted desired-value no-op", () => {
+    const invocation = createEncounterSessionInvocation(
+      liveState,
+      { kind: "setSide", participantId: goblin.id, side: "enemies" },
+      { roundComplete: false }
+    )
+    expect(invocation.ok).toBe(true)
+    if (!invocation.ok) return
+    const definition = encounterMutations.get(invocation.value.name)!
+    const applied = definition.apply(liveState, invocation.value.args, {
+      phase: "optimistic",
+    })
+    expect(applied).toEqual({ ok: true, value: liveState })
+  })
+
+  it("composes additive invocations and replays them over a newer base", () => {
+    const invocation = adjustEncounterCounter({
+      participantId: goblin.id,
+      counter: "lumina",
+      delta: 2,
+    })
+    const definition = encounterMutations.get(invocation.name)!
+    const first = definition.apply(liveState, invocation.args, {
+      phase: "optimistic",
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+    const second = definition.apply(first.value, invocation.args, {
+      phase: "optimistic",
+    })
+    expect(second.ok).toBe(true)
+    if (!second.ok) return
+    const replayed = definition.apply(
+      {
+        ...liveState,
+        session: { ...liveState.session, round: 4 },
+      },
+      invocation.args,
+      { phase: "rebase" }
+    )
+    expect(replayed.ok).toBe(true)
+    expect(second.value.session.participants[1]?.overlay.counters.lumina).toBe(
+      4
+    )
+    expect(replayed.ok && replayed.value.session.round).toBe(4)
+  })
+
+  it("refuses turn and draft intent when the observed frame changed", () => {
+    const active = {
+      ...liveState,
+      session: { ...liveState.session, currentActorId: goblin.id },
+    }
+    const end = endEncounterTurn({
+      expected: {
+        round: 1,
+        currentActorId: goblin.id,
+        actorId: goblin.id,
+        turnsTakenThisRound: 0,
+      },
+    })
+    const endDefinition = encounterMutations.get(end.name)!
+    expect(
+      endDefinition.apply(
+        { ...active, session: { ...active.session, round: 2 } },
+        end.args,
+        { phase: "rebase" }
+      )
+    ).toEqual({ ok: false, error: "turn-frame-changed" })
+
+    const draft = draftEncounterCombatant({
+      participantId: goblin.id,
+      expected: {
+        round: 1,
+        currentActorId: null,
+        side: "enemies",
+        turnsTakenThisRound: 0,
+      },
+    })
+    const draftDefinition = encounterMutations.get(draft.name)!
+    expect(
+      draftDefinition.apply(
+        { ...liveState, session: { ...liveState.session, round: 2 } },
+        draft.args,
+        { phase: "rebase" }
+      )
+    ).toEqual({ ok: false, error: "draft-no-longer-valid" })
+  })
+
+  it("allows setSide in draft but refuses every intent after end", () => {
+    const side = createEncounterSessionInvocation(
+      { ...liveState, status: "draft" },
+      { kind: "setSide", participantId: goblin.id, side: "players" },
+      { roundComplete: false }
+    )
+    expect(side.ok).toBe(true)
+    if (!side.ok) return
+    const definition = encounterMutations.get(side.value.name)!
+    expect(
+      definition.apply({ ...liveState, status: "draft" }, side.value.args, {
+        phase: "optimistic",
+      }).ok
+    ).toBe(true)
+    expect(
+      definition.apply({ ...liveState, status: "ended" }, side.value.args, {
+        phase: "rebase",
+      })
+    ).toEqual({ ok: false, error: "encounter-ended" })
+  })
+})
+
+function writerApply(
   state: EncounterReplicaState,
   participantId: ParticipantId,
   write: CombatEntityWrite
@@ -290,21 +402,20 @@ function legacyAuthorityApply(
     (participant) => participant.id === participantId
   )
   if (addressed?.entity.storage !== "inline") {
-    throw new Error("legacy comparison expects an inline participant")
+    throw new Error("writer comparison expects an inline participant")
   }
   const validated = applyEntityWrite(addressed.entity.entity.components, write)
   if (!validated.ok) return validated
-  const reduced = createReduceSession(() => "unused-id")(
-    dissolveForReduce(state),
-    mintLegacySessionEvent(participantId, write)
-  )
-  const participant = reduced.participants.find(
-    (entry) => entry.id === participantId
-  )
-  return { ok: true as const, value: participant!.entity.components }
+  return {
+    ok: true as const,
+    value: {
+      ...addressed.entity.entity.components,
+      ...validated.value,
+    },
+  }
 }
 
-describe("writeEncounterInline ≡ the legacy mint + reduce authority body", () => {
+describe("writeEncounterInline applies the shared Writer contract", () => {
   const participantId = asParticipantId("p-target")
 
   const arbitraryComponents = fc.record(
@@ -345,7 +456,7 @@ describe("writeEncounterInline ≡ the legacy mint + reduce authority body", () 
         (components, write) => {
           const state = stateOf(components)
           const applied = applyEncounter(state, "p-target", write)
-          const legacy = legacyAuthorityApply(state, participantId, write)
+          const legacy = writerApply(state, participantId, write)
 
           expect(applied.ok).toBe(legacy.ok)
           if (!applied.ok || !legacy.ok) {
@@ -379,7 +490,7 @@ describe("writeEncounterInline ≡ the legacy mint + reduce authority body", () 
     }
     const state = stateOf(components)
     const applied = applyEncounter(state, "p-target", write)
-    const legacy = legacyAuthorityApply(state, participantId, write)
+    const legacy = writerApply(state, participantId, write)
 
     expect(applied.ok).toBe(true)
     expect(legacy.ok).toBe(true)
