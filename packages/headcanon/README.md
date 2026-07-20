@@ -57,6 +57,8 @@ refresh transition coalesces requests and retries one uncovered refresh after on
 second. Two completed uncovered attempts produce a typed `behind`,
 `missing-axis`, or `refresh-error` stall while leaving accepted predictions
 mounted. `retryRefresh()` and genuinely fresher invalidations reset that budget.
+Promise-returning adapters complete from their promise; void carriers such as
+`router.refresh()` consume an attempt only when the root receives the next canon.
 
 `createObservedRoot` is the watch-only specialization. It exposes the canonical
 value, freshness and invalidation status, and `retryRefresh()` without a mutation

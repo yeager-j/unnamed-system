@@ -171,6 +171,8 @@ export function useIncorporation<State>(
   const acceptedRef = useRef(new Map<string, AcceptedStamp>())
   const observedRef = useRef(new Map<AxisId, Revision>())
   const activeRefreshRef = useRef(false)
+  const activeCompletionRef = useRef<"canon" | "request" | null>(null)
+  const requestedCanonRef = useRef<Canon<unknown> | null>(null)
   const attemptsRef = useRef(0)
   const failedAttemptsRef = useRef(0)
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -231,6 +233,8 @@ export function useIncorporation<State>(
 
       if (failed) failedAttemptsRef.current += 1
       activeRefreshRef.current = false
+      activeCompletionRef.current = null
+      requestedCanonRef.current = null
 
       if (isCovered()) {
         attemptsRef.current = 0
@@ -270,20 +274,32 @@ export function useIncorporation<State>(
     clearGraceTimer()
     clearRetryTimer()
     activeRefreshRef.current = true
+    activeCompletionRef.current = "canon"
+    requestedCanonRef.current = canonRef.current
     attemptsRef.current += 1
     setRefreshState({ freshness: "refreshing", stallReason: null })
 
     // React 19 entangles isPending across overlapping async Actions. The held
-    // optimistic Action would therefore hide this transition's settled edge;
-    // the adapter request lifetime is the coordinator's independent signal.
+    // optimistic Action would therefore hide this transition's settled edge.
+    // A returned Promise owns completion; a void carrier completes when it
+    // delivers the next canon through this hook's input.
     startRefreshTransition(async () => {
-      let failed = false
+      let completion: void | Promise<void>
       try {
-        await refreshRef.current.request()
+        completion = refreshRef.current.request()
       } catch {
-        failed = true
+        completeRefresh(true)
+        return
       }
-      completeRefresh(failed)
+
+      if (completion === undefined) return
+      activeCompletionRef.current = "request"
+      try {
+        await completion
+        completeRefresh(false)
+      } catch {
+        completeRefresh(true)
+      }
     })
   }, [clearGraceTimer, clearRetryTimer, completeRefresh, isCovered])
   startRefreshRef.current = startRefresh
@@ -390,6 +406,14 @@ export function useIncorporation<State>(
   }, [invalidations, observeInvalidation, observedAxes])
 
   useEffect(() => {
+    if (
+      activeRefreshRef.current &&
+      activeCompletionRef.current === "canon" &&
+      requestedCanonRef.current !== canon
+    ) {
+      completeRefresh(false)
+    }
+
     if (!isCovered()) return
 
     clearGraceTimer()
@@ -397,7 +421,7 @@ export function useIncorporation<State>(
     attemptsRef.current = 0
     failedAttemptsRef.current = 0
     setRefreshState(CURRENT_REFRESH_STATE)
-  }, [canon, clearGraceTimer, clearRetryTimer, isCovered])
+  }, [canon, clearGraceTimer, clearRetryTimer, completeRefresh, isCovered])
 
   useEffect(() => {
     mountedRef.current = true

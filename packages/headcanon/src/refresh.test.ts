@@ -98,7 +98,7 @@ function setupPredictedRefresh(options: {
   readonly invalidations?: InvalidationAdapter
   readonly request?: () => void | Promise<void>
 }) {
-  const request = vi.fn(options.request ?? (() => undefined))
+  const request = vi.fn(options.request ?? (async () => undefined))
   const adapter: RefreshAdapter = {
     acceptanceGraceMs: options.acceptanceGraceMs,
     request,
@@ -161,14 +161,19 @@ describe("refresh adapters", () => {
 
 verifyRefreshContract({
   name: "router-shaped",
+  completion: "canon",
   useRefresh(request) {
     return { acceptanceGraceMs: 250, request }
   },
 })
 verifyRefreshContract({
   name: "snapshot-shaped",
+  completion: "request",
   useRefresh(request) {
-    return { acceptanceGraceMs: 0, request }
+    return {
+      acceptanceGraceMs: 0,
+      request: async () => request(),
+    }
   },
 })
 
@@ -189,6 +194,34 @@ describe("refresh incorporation", () => {
     await flushMicrotasks()
     expect(snapshot.request).toHaveBeenCalledOnce()
     expect(snapshot.result.current.status.freshness).toBe("refreshing")
+  })
+
+  it("waits for a void carrier to deliver canon before consuming an attempt", async () => {
+    const { request, result, rerender } = setupPredictedRefresh({
+      acceptanceGraceMs: 0,
+      request: () => undefined,
+    })
+    await flushMicrotasks()
+
+    expect(request).toHaveBeenCalledOnce()
+    await advance(5_000)
+    expect(request).toHaveBeenCalledOnce()
+    expect(result.current.status.freshness).toBe("refreshing")
+
+    rerender({ currentCanon: canon(0, 0) })
+    await flushMicrotasks()
+    await advance(999)
+    expect(request).toHaveBeenCalledOnce()
+    await advance(1)
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(result.current.status.freshness).toBe("refreshing")
+
+    rerender({ currentCanon: canon(0, 0) })
+    await flushMicrotasks()
+    expect(result.current.status).toMatchObject({
+      freshness: "stalled",
+      stallReason: "behind",
+    })
   })
 
   it("deduplicates an own-write invalidation against recorded acceptance", async () => {
@@ -436,7 +469,7 @@ describe("createObservedRoot", () => {
 
   it("resets a stalled budget only for a genuinely fresher invalidation", async () => {
     const invalidations = controlledInvalidations()
-    const request = vi.fn()
+    const request = vi.fn(async () => undefined)
     const adapter: RefreshAdapter = { acceptanceGraceMs: 0, request }
     function useRefresh() {
       return adapter

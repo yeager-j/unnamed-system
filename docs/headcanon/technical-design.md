@@ -559,9 +559,12 @@ Two adapters ship in version one, with carrier-specific acceptance grace:
   the caller's snapshot state and declares zero grace because no Action payload
   can update that state.
 
-The package invokes either adapter inside its own React transition. This matters
-because `router.refresh()` returns `void`: transition completion, followed by a
-canon coverage check, is the observable refresh completion signal.
+The package invokes either adapter inside its own React transition. React 19
+entangles pending state across overlapping async Actions, so that transition's
+pending flag is not operation-local completion evidence. A promise-returning
+adapter owns its completion; a void adapter completes when the carrier next
+delivers canon through the root input. Coverage is checked only after that
+carrier-specific completion signal.
 
 ### React binding
 
@@ -985,11 +988,13 @@ stateDiagram-v2
 - There is at most one refresh transition in flight per mounted root.
 - The refresh coordinator uses a dedicated `useTransition`, separate from the
   transitions held open for optimistic Actions, and wraps
-  `refresh.request()` in that transition. Otherwise an accepted Action waiting
-  for canonization would make refresh completion unobservable.
-- For router refresh, completion means that transition was pending and then
-  settled; `router.refresh()` itself returns no promise.
-- For snapshot refresh, the adapter's promise joins the same transition.
+  `refresh.request()` in that transition for scheduling. It does not use the
+  transition's entangled pending flag as operation-local completion evidence.
+- For router refresh, `router.refresh()` returns no promise, so completion means
+  that the carrier delivered a new canon input after the request began.
+- For snapshot refresh, the adapter's promise is the completion signal. A
+  synchronous snapshot adapter follows the same next-canon rule as any void
+  carrier.
 - On refresh completion, the package checks the newest delivered canon; adapter
   completion alone never proves freshness.
 - If requirements remain uncovered, the package waits one second and performs
@@ -1467,8 +1472,8 @@ queues, optimistic logs, receipt SQL, refresh generations, or cache-tag maps.
 - an observe-only root refreshes and stalls without a mutation interface;
 - router acceptance waits 250 ms while snapshot acceptance refreshes
   immediately;
-- a dedicated refresh transition completes observably while optimistic Actions
-  remain open;
+- a void refresh carrier does not consume an attempt until it delivers canon,
+  even while optimistic Actions remain open;
 - router and snapshot refresh adapters share retry and stall behavior; and
 - deliberate negative controls make accumulation, rollback, coverage, and stall
   tests fail.
@@ -1498,9 +1503,9 @@ It proves:
 ### Refresh and cache contract
 
 `verifyRefreshContract` runs against router-shaped and snapshot-shaped harnesses.
-It proves transition completion, coalescing, 250 ms RSC grace, zero snapshot
-grace, the shared two-attempt budget, one-second retry delay, manual reset, and
-missing-axis classification.
+It proves carrier-specific completion, coalescing, 250 ms RSC grace, zero
+snapshot grace, the shared two-attempt budget, one-second retry delay, manual
+reset, and missing-axis classification.
 
 The Drizzle fixture also proves that a multi-axis canon is loaded from one
 consistent database observation. A deliberate multi-statement Read Committed

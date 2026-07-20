@@ -4,8 +4,8 @@
 
 **Context:** UNN-666's Headcanon refresh coordinator needed to count completed refresh attempts while accepted predictions remained mounted; using the hook's pending-to-settled edge left the retry and stall states unreachable.
 
-**Position:** `if (wasPending && !isPending) completeRefresh()` looked operation-local, but React 19 entangled the overlapping async Actions. The coordinator instead completes from the refresh adapter's own request lifetime.
+**Position:** `if (wasPending && !isPending) completeRefresh()` looked operation-local, but React 19 entangled the overlapping async Actions. The coordinator instead uses a returned adapter promise or the next canon delivered by a void carrier.
 
 **Principle:** aggregate framework status is not evidence that one operation completed. Home completion on the operation whose lifetime it describes (→ Code Style #10, Home state according to lifetime).
 
-**Action:** kept a dedicated refresh transition for scheduling, used adapter completion for the two-attempt budget, and retained a predicted-root contract proving refresh can stall while its optimistic Action remains open.
+**Action:** kept a dedicated refresh transition for scheduling, homed completion on the adapter promise or canon carrier, and retained a predicted-root contract proving refresh can stall while its optimistic Action remains open.
