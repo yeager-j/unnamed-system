@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 
 /**
@@ -58,9 +58,10 @@ export async function loadEntityRowById(
  * a deleted character must read as absent.
  */
 export async function loadLiveEntityRowById(
-  entityId: string
+  entityId: string,
+  executor: WriteExecutor = db
 ): Promise<EntityRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(entity)
     .where(and(eq(entity.id, entityId), isNull(entity.deletedAt)))
@@ -90,10 +91,11 @@ export async function loadEntityRowByShortId(
  * hydration only; use {@link loadLiveEntityRowsByIds} for occupancy/setup reads.
  */
 export async function loadEntityRowsByIds(
-  entityIds: readonly string[]
+  entityIds: readonly string[],
+  executor: WriteExecutor = db
 ): Promise<EntityRow[]> {
   if (entityIds.length === 0) return []
-  return db
+  return executor
     .select()
     .from(entity)
     .where(inArray(entity.id, [...entityIds]))

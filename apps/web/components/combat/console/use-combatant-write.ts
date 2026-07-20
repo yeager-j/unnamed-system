@@ -41,13 +41,8 @@ export type DispatchCombatantWrite = (
  */
 export function useCombatantWrite({
   handleOf,
-  onRemoteVersion,
 }: {
   handleOf: (participantId: ParticipantId) => CombatWriteHandle | undefined
-  /** Fed the inline door's committed encounter version (`Remote`), so the
-   *  surviving command-queue token stays fresh across the two protocols
-   *  sharing the encounter row. */
-  onRemoteVersion?: (version: number) => void
 }): { dispatchWrite: DispatchCombatantWrite } {
   const dispatchWrite: DispatchCombatantWrite = (participantId, write) =>
     guardWrite(
@@ -71,8 +66,6 @@ export function useCombatantWrite({
 
     const remote = await receipt.remote
     if (!remote.ok) return failed(remote.error)
-
-    if (remote.value !== undefined) onRemoteVersion?.(remote.value.version)
     return ok(undefined)
   }
 

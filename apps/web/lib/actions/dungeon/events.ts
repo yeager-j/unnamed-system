@@ -4,11 +4,16 @@ import { reduceDungeon } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
+import { type WriteExecutor } from "@/lib/db/client"
 import {
   loadDungeonCampaignId,
   loadDungeonRowById,
 } from "@/lib/db/queries/load-dungeon"
-import { saveDungeonState } from "@/lib/db/writes/dungeon"
+import {
+  lockDungeonRowForLifecycle,
+  saveDungeonState,
+} from "@/lib/db/writes/dungeon"
+import { guardMany } from "@/lib/db/writes/guard-many"
 import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import {
@@ -19,27 +24,18 @@ import {
 import { revalidateDungeon } from "./revalidate"
 
 /**
- * The impure shell that drives the dungeon run console (ADR — *Reducer topology*,
- * *Temporal layers invoke spatial transitions*): it applies one event to a delve
- * and saves the result, version-guarded. The wire event is a union of the turn
- * loop {@link import("@workspace/game-v2/spatial").DungeonEvent} and the spatial
- * {@link MapInstanceEvent}; this action **routes on** {@link isDungeonEvent} to
- * the right reducer + row, the exploration-time peer of `applyCombatEvent`.
+ * The impure shell that drives the dungeon run console's turn loop (ADR —
+ * *Reducer topology*; de-versioned by UNN-657): it applies one
+ * `markActed`/`advanceTurn` event to a delve under the dungeon-row lifecycle
+ * lock and saves guarded on the locked row's own version. Spatial events are
+ * intentionally absent — they travel through the Map Instance Replica.
  *
- * Flow: parse → authorize against the owning campaign **before** any state load
- * (`requireCampaignDM` trips `forbidden()` for a non-DM) → branch:
- *
- * - **Turn-loop event** (`markActed`/`advanceTurn`) → `reduceDungeon`, single-row
- *   `saveDungeonState` guarded on `expectedVersion`. Returns the dungeon version.
- * Spatial events are intentionally absent: they travel through the Map
- * Instance Replica.
- *
- * Each branch fires a `dungeon`-channel ping (UNN-468) — a `dungeon`-kind ping
- * for the turn-loop row, a `mapInstance`-kind ping for the spatial row — so the
- * fog view refreshes over realtime (polling stays the degraded fallback). The two
- * atomic cross-container gestures — delve-start and search-that-reveals — live in
- * their own actions (`delve-start.ts`, `search-reveal.ts`), not here; every move
- * and reveal is single-row.
+ * Preconditions on the LOCKED row: the delve must be `active` (D11's seal —
+ * frozen history is structural), and `advanceTurn` must find the counter at
+ * its semantic `expectedTurn` — a duplicate or raced advance refuses
+ * `turn-already-advanced` rather than silently consuming a second turn.
+ * `markActed` on an already-acted id is the reducer's same-ref no-op: the
+ * action reports `ok` with the current version and writes nothing.
  */
 export async function applyDungeonEvent(
   input: ApplyDungeonEventInput
@@ -47,7 +43,7 @@ export async function applyDungeonEvent(
   const parsed = ApplyDungeonEventSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion, event } = parsed.data
+  const { dungeonId, event, expectedTurn } = parsed.data
 
   const campaignId = await loadDungeonCampaignId(dungeonId)
   if (campaignId === null) return err("dungeon-not-found")
@@ -56,21 +52,41 @@ export async function applyDungeonEvent(
   const dungeon = await loadDungeonRowById(dungeonId)
   if (dungeon === null) return err("dungeon-not-found")
 
-  // D11 (UNN-589): the event vocabulary writes only running delves — a draft or
-  // done dungeon's rows are immutable through it (frozen history is structural,
-  // not assumed). This plain read alone can't beat a racing finish; the race is
-  // closed by finish's instance freeze — whichever write commits second fails
-  // its version guard, and the retry re-reads the status here and refuses.
-  if (dungeon.status !== "active") return err("delve-not-active")
+  const result = await guardMany<
+    { version: number; committed: boolean },
+    ApplyDungeonEventError
+  >(async (tx: WriteExecutor) => {
+    const locked = await lockDungeonRowForLifecycle(tx, dungeonId)
+    if (!locked.ok) return locked
+    if (locked.value.status !== "active") return err("delve-not-active")
+    if (
+      event.kind === "advanceTurn" &&
+      locked.value.state.turnCounter !== expectedTurn
+    ) {
+      return err("turn-already-advanced")
+    }
 
-  const next = reduceDungeon(dungeon.state, event)
-  const saved = await saveDungeonState(dungeonId, next, expectedVersion)
-  if (!saved.ok) return saved
-
-  publishDungeonPing(dungeon.shortId, {
-    version: saved.value.version,
-    status: dungeon.status,
+    const next = reduceDungeon(locked.value.state, event)
+    if (next === locked.value.state) {
+      return ok({ version: locked.value.version, committed: false })
+    }
+    const saved = await saveDungeonState(
+      dungeonId,
+      next,
+      locked.value.version,
+      tx
+    )
+    if (!saved.ok) return saved
+    return ok({ version: saved.value.version, committed: true })
   })
-  revalidateDungeon(dungeon)
-  return ok({ version: saved.value.version })
+  if (!result.ok) return result
+
+  if (result.value.committed) {
+    publishDungeonPing(dungeon.shortId, {
+      version: result.value.version,
+      status: dungeon.status,
+    })
+    revalidateDungeon(dungeon)
+  }
+  return ok({ version: result.value.version })
 }

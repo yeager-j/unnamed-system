@@ -63,7 +63,7 @@ export async function finishExpeditionAction(
   const parsed = FinishExpeditionSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion } = parsed.data
+  const { dungeonId } = parsed.data
 
   const variant = await loadDungeonVariantForWrite(dungeonId)
   if (variant === null) return err("dungeon-not-found")
@@ -82,11 +82,7 @@ export async function finishExpeditionAction(
     { version: number; instanceVersion: number; regionShortId: string },
     FinishExpeditionError
   >(async (tx: WriteExecutor) => {
-    const locked = await lockDungeonRowForLifecycle(
-      tx,
-      dungeonId,
-      expectedVersion
-    )
+    const locked = await lockDungeonRowForLifecycle(tx, dungeonId)
     if (!locked.ok) return locked
     if (locked.value.status !== "active") return err("delve-not-active")
 
@@ -129,7 +125,7 @@ export async function finishExpeditionAction(
     const flipped = await setDungeonStatus(
       dungeonId,
       "done",
-      expectedVersion,
+      locked.value.version,
       tx
     )
     if (!flipped.ok) return flipped

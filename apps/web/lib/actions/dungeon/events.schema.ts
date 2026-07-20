@@ -8,21 +8,31 @@ import {
 import type { DungeonWriteError } from "@/lib/db/writes/dungeon"
 
 /**
- * Input schema for {@link applyDungeonEvent} (UNN-464): the dungeon id + the
- * dungeon optimistic-concurrency token, plus the event — a union of the turn-loop
- * {@link dungeonEventSchema} (`markActed`/`advanceTurn`, written to the dungeon
- * row) **and** the spatial {@link mapInstanceEventSchema} (a move/reveal, written
- * to the Map Instance row). The action routes on {@link isDungeonEvent} to the
- * right reducer + row, the exploration-time peer of `applyCombatEvent`.
+ * Input schema for {@link applyDungeonEvent} (UNN-464; de-versioned by
+ * UNN-657): the dungeon id plus the turn-loop event
+ * ({@link dungeonEventSchema} — `markActed`/`advanceTurn`, written to the
+ * dungeon row). Spatial events are intentionally absent: they travel through
+ * the Map Instance Replica.
  *
- * Spatial events are intentionally absent: they travel through the Map Instance
- * Replica, leaving this wire with one aggregate and one version token.
+ * No client version token. `advanceTurn` instead carries `expectedTurn` — the
+ * turn the DM was looking at when they advanced, a SEMANTIC precondition
+ * (exactly like the Encounter mutations' expected frames): a duplicate or
+ * raced advance finds the locked counter already past it and refuses
+ * `turn-already-advanced`, which the console treats as quiet convergence.
+ * `markActed` is a desired-state fold (an already-acted id no-ops) and needs
+ * no precondition.
  */
-export const ApplyDungeonEventSchema = z.object({
-  dungeonId: z.string(),
-  expectedVersion: z.number().int().nonnegative(),
-  event: dungeonEventSchema,
-})
+export const ApplyDungeonEventSchema = z
+  .object({
+    dungeonId: z.string(),
+    event: dungeonEventSchema,
+    expectedTurn: z.number().int().nonnegative().optional(),
+  })
+  .refine(
+    (data) =>
+      data.event.kind !== "advanceTurn" || data.expectedTurn !== undefined,
+    { message: "advanceTurn requires expectedTurn" }
+  )
 
 export type ApplyDungeonEventInput = z.input<typeof ApplyDungeonEventSchema>
 
@@ -30,15 +40,9 @@ export function isDungeonEvent(event: unknown): event is DungeonEvent {
   return dungeonEventSchema.safeParse(event).success
 }
 
-/**
- * Routes a wire event to the turn-loop arm. The dungeon and spatial unions share
- * no `kind`, so the discriminated-union parse is effectively a cheap discriminator
- * check ("route by parse, not a hand-maintained kind list" — the v2 doctrine).
- * Declared once beside the wire union it discriminates; the client router and the
- * server action both route through it.
- */
 /** The turn-loop path is sealed to active delves. */
 export type ApplyDungeonEventError =
   | "invalid-input"
   | "delve-not-active"
+  | "turn-already-advanced"
   | DungeonWriteError

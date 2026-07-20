@@ -32,8 +32,8 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/writes/dungeon", () => ({
-  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
-    lockDungeonRowForLifecycle(tx, id, v),
+  lockDungeonRowForLifecycle: (tx: unknown, id: string) =>
+    lockDungeonRowForLifecycle(tx, id),
   saveDungeonState: (id: string, state: DungeonState, v: number, tx: unknown) =>
     saveDungeonState(id, state, v, tx),
 }))
@@ -167,7 +167,7 @@ describe("searchRevealAction", () => {
       (instanceState as MapInstanceState).reveal.revealedConnectionIds
     ).toEqual(["c1"])
 
-    expect(lockDungeonRowForLifecycle).toHaveBeenCalledWith("tx", DUNGEON_ID, 0)
+    expect(lockDungeonRowForLifecycle).toHaveBeenCalledWith("tx", DUNGEON_ID)
     expect(lockDungeonRowForLifecycle.mock.invocationCallOrder[0]).toBeLessThan(
       loadMapInstanceById.mock.invocationCallOrder[0]!
     )

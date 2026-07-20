@@ -20,8 +20,8 @@ import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { endCombatAction } from "./end-combat"
 
 const requireCampaignDM = vi.fn()
-const loadEncounterCampaignId = vi.fn()
-const loadEncounterForWrite = vi.fn()
+const loadEncounterEnvelopeById = vi.fn()
+const loadEncounterForWriteLocked = vi.fn()
 const loadMapInstanceById = vi.fn()
 const saveEncounterSession = vi.fn()
 const saveMapInstanceState = vi.fn()
@@ -34,10 +34,11 @@ vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter", () => ({
-  loadEncounterCampaignId: (id: string) => loadEncounterCampaignId(id),
+  loadEncounterEnvelopeById: (id: string) => loadEncounterEnvelopeById(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
-  loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
+  loadEncounterForWriteLocked: (tx: unknown, id: string) =>
+    loadEncounterForWriteLocked(tx, id),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
@@ -192,8 +193,16 @@ function makeLoaded(status: EncounterRow["status"]): LoadedEncounterForWrite {
 
 beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
-  loadEncounterCampaignId.mockReset().mockResolvedValue(CAMPAIGN_ID)
-  loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded("live")))
+  loadEncounterEnvelopeById.mockReset().mockResolvedValue({
+    id: ENCOUNTER_ID,
+    shortId: "enc1",
+    campaignId: CAMPAIGN_ID,
+    status: "live",
+    mapInstanceId: MAP_INSTANCE_ID,
+  })
+  loadEncounterForWriteLocked
+    .mockReset()
+    .mockResolvedValue(ok(makeLoaded("live")))
   loadMapInstanceById.mockReset().mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: makeInstanceState(),
@@ -207,11 +216,7 @@ beforeEach(() => {
   publishEncounterInstancePing.mockReset()
 })
 
-const INPUT = {
-  encounterId: ENCOUNTER_ID,
-  expectedVersion: 4,
-  expectedInstanceVersion: 7,
-}
+const INPUT = { encounterId: ENCOUNTER_ID }
 
 describe("endCombatAction — the composed combat-end (CD16)", () => {
   it("saves the SWEPT session: every overlay fresh, sides preserved", async () => {
@@ -278,7 +283,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
   })
 
   it("rejects a non-live encounter", async () => {
-    loadEncounterForWrite.mockResolvedValue(ok(makeLoaded("draft")))
+    loadEncounterForWriteLocked.mockResolvedValue(ok(makeLoaded("draft")))
     const result = await endCombatAction(INPUT)
     expect(result).toEqual(err("encounter-not-live"))
     expect(saveEncounterSession).not.toHaveBeenCalled()
@@ -287,7 +292,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
   it("fails closed when a participant has no locator", async () => {
     const loaded = makeLoaded("live")
     loaded.loaded.locators.delete(GOBLIN_ID)
-    loadEncounterForWrite.mockResolvedValue(ok(loaded))
+    loadEncounterForWriteLocked.mockResolvedValue(ok(loaded))
 
     const result = await endCombatAction(INPUT)
     expect(result).toEqual(err("locator-missing"))

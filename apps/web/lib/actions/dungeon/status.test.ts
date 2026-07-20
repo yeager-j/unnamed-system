@@ -37,8 +37,8 @@ vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
 }))
 vi.mock("@/lib/db/writes/dungeon", () => ({
-  lockDungeonRowForLifecycle: (tx: unknown, id: string, v: number) =>
-    lockDungeonRowForLifecycle(tx, id, v),
+  lockDungeonRowForLifecycle: (tx: unknown, id: string) =>
+    lockDungeonRowForLifecycle(tx, id),
   mapActivationRaceToActiveDelve: async (p: unknown) => p,
   setDungeonStatus: (id: string, status: string, v: number, tx: unknown) =>
     setDungeonStatus(id, status, v, tx),
@@ -173,15 +173,19 @@ describe("setDungeonStatusAction", () => {
     expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "active", 0, "tx")
   })
 
-  it("refuses going active when the locked row is no longer draft", async () => {
-    // The friendly pre-read passed, but under the lock the row is already active
-    // (a racing start won) — the legal-transition check on the locked row refuses.
+  it("converges when the locked row already holds the target status (desired state)", async () => {
+    // The friendly pre-read passed, but under the lock the row is already
+    // active (a racing start won — or this is a redelivered flip). The target
+    // already holds, so the command reports ok with the current version and
+    // writes, pings, and revalidates nothing.
     lockDungeonRowForLifecycle.mockResolvedValue(ok(lockedRow("active")))
 
     const result = await setDungeonStatusAction(goActive)
 
-    expect(result).toEqual({ ok: false, error: "delve-not-draft" })
+    expect(result).toEqual({ ok: true, value: { version: 0 } })
     expect(setDungeonStatus).not.toHaveBeenCalled()
+    expect(publishDungeonPing).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it("refuses going done when the locked row is not active (still draft)", async () => {
@@ -235,12 +239,12 @@ describe("setDungeonStatusAction", () => {
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 
-  it("propagates a stale lock (lost the version race) without writing", async () => {
-    lockDungeonRowForLifecycle.mockResolvedValue(err("stale"))
+  it("propagates a vanished dungeon from the lifecycle lock without writing", async () => {
+    lockDungeonRowForLifecycle.mockResolvedValue(err("dungeon-not-found"))
 
     const result = await setDungeonStatusAction(goActive)
 
-    expect(result).toEqual({ ok: false, error: "stale" })
+    expect(result).toEqual({ ok: false, error: "dungeon-not-found" })
     expect(setDungeonStatus).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
   })

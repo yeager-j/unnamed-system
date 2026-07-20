@@ -83,7 +83,7 @@ export async function startExpeditionAction(
   const parsed = StartExpeditionSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion, placements } = parsed.data
+  const { dungeonId, placements } = parsed.data
 
   const variant = await loadDungeonVariantForWrite(dungeonId)
   if (variant === null) return err("dungeon-not-found")
@@ -147,11 +147,7 @@ export async function startExpeditionAction(
       { version: number; instanceVersion: number },
       StartExpeditionError
     >(async (tx: WriteExecutor) => {
-      const locked = await lockDungeonRowForLifecycle(
-        tx,
-        dungeon.id,
-        expectedVersion
-      )
+      const locked = await lockDungeonRowForLifecycle(tx, dungeon.id)
       if (!locked.ok) return locked
       if (locked.value.status !== "draft") return err("delve-not-draft")
 
@@ -178,7 +174,7 @@ export async function startExpeditionAction(
         tx,
         dungeon.id,
         { ...locked.value.state, generation: ledger },
-        expectedVersion
+        locked.value.version
       )
       if (!flipped.ok) return flipped
       return ok({

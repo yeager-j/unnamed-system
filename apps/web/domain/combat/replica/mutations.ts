@@ -15,11 +15,18 @@ import {
   type ParticipantShell,
   type SessionIntentRefusal,
   type SessionShell,
+  type StoredEntity,
 } from "@workspace/game-v2/encounter"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
-import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
-import { COMBAT_SIDES } from "@workspace/game-v2/kernel/vocab/combat"
+import {
+  participantIdSchema,
+  type ParticipantId,
+} from "@workspace/game-v2/kernel/participant-id.schema"
+import {
+  COMBAT_SIDES,
+  type CombatSide,
+} from "@workspace/game-v2/kernel/vocab/combat"
 import {
   defineMutation,
   defineMutations,
@@ -493,10 +500,27 @@ function applySessionIntent(
   return ok({ ...state, session: applied.value })
 }
 
-export type EncounterSessionEvent = Exclude<
-  CombatEvent,
-  { kind: "startCombat" | "addParticipant" | "removeParticipant" }
->
+/**
+ * The zone-less inline roster add as the consoles dispatch it (UNN-657): a
+ * batch of whole stored entities with client-minted participant ids. The one
+ * roster gesture that is replica intent — placed and durable adds, removes,
+ * and lifecycle remain commands.
+ */
+export interface AddInlineParticipantsEvent {
+  readonly kind: "addInlineParticipants"
+  readonly participants: readonly {
+    readonly participantId: ParticipantId
+    readonly side: CombatSide
+    readonly entity: StoredEntity
+  }[]
+}
+
+export type EncounterSessionEvent =
+  | Exclude<
+      CombatEvent,
+      { kind: "startCombat" | "addParticipant" | "removeParticipant" }
+    >
+  | AddInlineParticipantsEvent
 
 export function createEncounterSessionInvocation(
   state: EncounterReplicaState,
@@ -509,6 +533,12 @@ export function createEncounterSessionInvocation(
   }
 
   switch (event.kind) {
+    case "addInlineParticipants":
+      return ok(
+        addEncounterInlineParticipants({
+          participants: [...event.participants],
+        })
+      )
     case "draftCombatant": {
       const participant = participantOf(state.session, event.participantId)
       if (participant === undefined) return err("participant-not-found")

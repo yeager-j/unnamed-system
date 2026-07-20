@@ -50,7 +50,7 @@ export async function searchRevealAction(
   const parsed = SearchRevealSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { dungeonId, expectedVersion, characterId, event } = parsed.data
+  const { dungeonId, characterId, event } = parsed.data
 
   const dungeon = await loadDungeonRowById(dungeonId)
   if (dungeon === null) return err("dungeon-not-found")
@@ -64,11 +64,7 @@ export async function searchRevealAction(
     { version: number; instanceVersion: number },
     SearchRevealError
   >(async (tx: WriteExecutor) => {
-    const locked = await lockDungeonRowForLifecycle(
-      tx,
-      dungeon.id,
-      expectedVersion
-    )
+    const locked = await lockDungeonRowForLifecycle(tx, dungeon.id)
     if (!locked.ok) return locked
     if (locked.value.status !== "active") return err("delve-not-active")
     const nextDungeon = reduceDungeon(locked.value.state, {
@@ -88,7 +84,7 @@ export async function searchRevealAction(
     const dng = await saveDungeonState(
       dungeon.id,
       nextDungeon,
-      expectedVersion,
+      locked.value.version,
       tx
     )
     if (!dng.ok) return dng

@@ -27,9 +27,10 @@ export async function generateMetadata({
  * The catalog browse-and-add sub-route (UNN-346): `/campaigns/{c}/encounter/{e}/setup`.
  * DM-only via {@link getEncounterForDM} (same 404 for missing / not-your-campaign
  * as the console). Only a `draft` encounter can take catalog adds — a `live` or
- * `ended` one redirects back to the console. The commit is the v2 bulk add
- * (`addCatalogEnemiesAction`, session-only — no Instance token), so the browser
- * needs only the roster's side counts for its header summary.
+ * `ended` one redirects back to the console. The commit is Encounter Replica
+ * intent (`encounter.addInlineParticipants`, UNN-657) — materialized
+ * client-side by `buildReinforcements`, session-only, no version token — so
+ * the browser needs only the roster's side counts for its header summary.
  */
 export default async function CombatEnemiesPage({ params }: PageProps) {
   const { campaignShortId, shortId } = await params
@@ -51,7 +52,6 @@ export default async function CombatEnemiesPage({ params }: PageProps) {
       shortId={shortId}
       campaignShortId={campaignShortId}
       encounterName={encounter.name}
-      expectedVersion={encounter.version}
       committedPlayers={sides.filter((side) => side === "players").length}
       committedEnemies={sides.filter((side) => side === "enemies").length}
     />

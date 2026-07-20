@@ -77,6 +77,7 @@ export interface EncounterEnvelope {
   shortId: string
   campaignId: string
   status: EncounterStatus
+  mapInstanceId: string
 }
 
 export async function loadEncounterEnvelopeById(
@@ -88,6 +89,7 @@ export async function loadEncounterEnvelopeById(
       shortId: encounters.shortId,
       campaignId: encounters.campaignId,
       status: encounters.status,
+      mapInstanceId: encounters.mapInstanceId,
     })
     .from(encounters)
     .where(eq(encounters.id, encounterId))

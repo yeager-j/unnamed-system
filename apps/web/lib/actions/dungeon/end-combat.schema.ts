@@ -6,17 +6,18 @@ import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
 /**
- * Input for {@link import("./end-combat").endDungeonCombatAction} — the inverse of
- * the Begin (UNN-536, PR11c). One transaction flips the delve's live encounter to
- * `ended`, prunes the shared Instance back to its empty-in-exploration profile, and
- * advances the dungeon turn the fight consumed, so it guards **three** rows: the
- * encounter, its Map Instance, and the dungeon.
+ * Input for {@link import("./end-combat").endDungeonCombatAction} — the inverse
+ * of the Begin (UNN-536, PR11c; de-versioned by UNN-657). One transaction flips
+ * the delve's live encounter to `ended`, prunes the shared Instance back to its
+ * empty-in-exploration profile, and advances the dungeon turn the fight
+ * consumed — three rows locked in the canonical dungeon → mapInstance →
+ * encounter order, preconditions validated in-transaction. No client version
+ * tokens; a redelivered end is a desired-state no-op that must NOT advance the
+ * turn a second time.
  */
 export const EndDungeonCombatSchema = z.object({
   encounterId: z.string(),
   dungeonId: z.string(),
-  expectedEncounterVersion: z.number().int().nonnegative(),
-  expectedDungeonVersion: z.number().int().nonnegative(),
 })
 
 export type EndDungeonCombatInput = z.input<typeof EndDungeonCombatSchema>

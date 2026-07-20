@@ -127,16 +127,17 @@ export async function activateDungeonWithState(
 }
 
 /**
- * The lifecycle-serialization read (D11, UNN-589): `SELECT … FOR UPDATE` on the
- * dungeon row + a version compare, as the **first statement** of every lifecycle
- * `guardMany` body (expedition start/finish, combat start/end, the generic
- * status flip). From this statement to commit the transaction holds the dungeon
- * row lock, so every competing lifecycle action blocks here and, when it
- * unblocks, sees the winner's bumped version and returns `"stale"` — which is
+ * The lifecycle-serialization read (D11, UNN-589; de-versioned by UNN-657):
+ * `SELECT … FOR UPDATE` on the dungeon row, as the **first statement** of
+ * every lifecycle `guardMany` body (expedition start/finish, combat start/end,
+ * the generic status flip). From this statement to commit the transaction
+ * holds the dungeon row lock, so every competing lifecycle action blocks here
+ * and, when it unblocks, re-reads the winner's committed truth — which is
  * what makes the body's *cross-row* reads (live encounter, instance, region)
- * stable without pessimistic locks on those rows. Same-row facts (status) are
- * re-checked on the locked row, so the pre-transaction friendly checks can stay
- * where they are for error copy.
+ * stable without pessimistic locks on those rows. Semantic preconditions
+ * (status, turn) are checked on the LOCKED row by each caller; the caller
+ * saves guarded on `row.version` (vacuous guard). The client `expectedVersion`
+ * compare retired with the command queue.
  *
  * A tombstoned (`deletedAt`) row reads as `"dungeon-not-found"`: `archiveDungeon`
  * writes the tombstone without a version bump, but its UPDATE takes this same
@@ -149,8 +150,7 @@ export async function activateDungeonWithState(
  */
 export async function lockDungeonRowForLifecycle(
   tx: WriteExecutor,
-  dungeonId: string,
-  expectedVersion: number
+  dungeonId: string
 ): Promise<Result<DungeonRow, DungeonWriteError>> {
   const [row] = await tx
     .select()
@@ -158,7 +158,6 @@ export async function lockDungeonRowForLifecycle(
     .where(eq(dungeons.id, dungeonId))
     .for("update")
   if (!row || row.deletedAt !== null) return err("dungeon-not-found")
-  if (row.version !== expectedVersion) return err("stale")
   return ok({ ...row, state: dungeonStateSchema.parse(row.state) })
 }
 
