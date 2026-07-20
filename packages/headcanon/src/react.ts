@@ -37,6 +37,7 @@ import {
 export type MutationLifecycleError<Error> =
   | { readonly kind: "domain"; readonly error: Error }
   | { readonly kind: "replay-refused"; readonly error: Error }
+  | { readonly kind: "delivery-cancelled" }
   | {
       readonly kind: "root-unmounted"
       readonly outcome: "unknown" | "accepted"
@@ -398,8 +399,12 @@ export function createPredictedRootWithDeliveryErrorClassifier<
             classifyDeliveryError(error)
           } catch (controlFlow) {
             if (entry.delivery === "sending") {
+              const lifecycleError = { kind: "delivery-cancelled" } as const
               entry.delivery = "cancelled"
+              entry.accepted.resolve(err(lifecycleError))
+              entry.canonized.resolve(err(lifecycleError))
               removeFromQueue(queueRef.current, entry.envelope.mutationId)
+              ledgerRef.current.delete(entry.envelope.mutationId)
               entry.releaseAction.reject(controlFlow)
             }
             if (activeTokenRef.current) renderCoordinator()

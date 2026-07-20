@@ -18,6 +18,7 @@ import {
 export const MAX_VERSIONED_BASE_AXES = 128
 
 const AXIS_CACHE_TAG_PREFIX = "headcanon:axis:v1:"
+const INVALIDATION_PUBLICATION_TIMEOUT_MS = 1_000
 
 /** Derives the one bounded, versioned cache tag owned by an axis. */
 export function axisCacheTag(axis: AxisId): string {
@@ -42,6 +43,27 @@ export function tagVersionedBase<
 
 type ExpireAxis = (tag: string) => void
 
+async function publishInvalidation(
+  stamp: AcceptedStamp,
+  invalidations: InvalidationPublisher
+): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const timedOut = new Promise<void>((resolve) => {
+    timeout = setTimeout(resolve, INVALIDATION_PUBLICATION_TIMEOUT_MS)
+  })
+
+  try {
+    await Promise.race([
+      Promise.resolve().then(() => invalidations.publish(randomUUID(), stamp)),
+      timedOut,
+    ])
+  } catch {
+    // Realtime publication is advisory; cache expiry remains authoritative.
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function finalizeStamp(
   stamp: AcceptedStamp,
   invalidations: InvalidationPublisher,
@@ -52,13 +74,8 @@ async function finalizeStamp(
     expireAxis(axisCacheTag(axisId(rawAxis)))
   }
 
-  try {
-    await invalidations.publish(randomUUID(), stamp)
-  } catch {
-    // Realtime publication is advisory; cache expiry remains authoritative.
-  }
-
   refreshRoute?.()
+  await publishInvalidation(stamp, invalidations)
 }
 
 /** Finalizes a non-protocol commit made inside a Server Action. */

@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ok, type Result } from "@workspace/result"
 
@@ -51,6 +51,10 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("axis cache tags", () => {
   it("derives a bounded, versioned SHA-256 tag without exposing the axis", () => {
     const axis = axisId(`secret/${"x".repeat(1_000)}`)
@@ -95,7 +99,7 @@ describe("Next commit finalization", () => {
   const second = axisId("entity/second")
   const accepted = stamp({ [first]: 3, [second]: 5 })
 
-  it("expires every axis, publishes one shared event, then refreshes", async () => {
+  it("expires every axis, refreshes, then publishes one shared event", async () => {
     const events: string[] = []
     nextCache.updateTag.mockImplementation((tag) => {
       events.push(`update:${tag}`)
@@ -110,10 +114,10 @@ describe("Next commit finalization", () => {
       `update:${axisCacheTag(first)}`,
       `update:${axisCacheTag(second)}`,
     ])
-    const published = events.slice(2, 4)
+    expect(events[2]).toBe("refresh")
+    const published = events.slice(3, 5)
     expect(published).toHaveLength(2)
     expect(published[0]?.split(":")[1]).toBe(published[1]?.split(":")[1])
-    expect(events.at(-1)).toBe("refresh")
   })
 
   it("uses immediate revalidation outside a Server Action and never refreshes", async () => {
@@ -138,6 +142,25 @@ describe("Next commit finalization", () => {
 
     expect(nextCache.updateTag).toHaveBeenCalledTimes(2)
     expect(nextCache.refresh).toHaveBeenCalledOnce()
+  })
+
+  it("bounds stalled advisory publication after refreshing the route", async () => {
+    vi.useFakeTimers()
+    const finalization = finalizeExternalActionCommit(accepted, {
+      publish: () => new Promise<void>(() => undefined),
+    })
+    const settled = vi.fn()
+    void finalization.then(settled)
+
+    expect(nextCache.updateTag).toHaveBeenCalledTimes(2)
+    expect(nextCache.refresh).toHaveBeenCalledOnce()
+    await Promise.resolve()
+    expect(settled).not.toHaveBeenCalled()
+
+    await vi.runAllTimersAsync()
+
+    await expect(finalization).resolves.toBeUndefined()
+    expect(settled).toHaveBeenCalledOnce()
   })
 })
 

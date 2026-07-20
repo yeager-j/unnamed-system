@@ -622,6 +622,7 @@ interface PredictedRoot<State, Invocation, Error> {
 type MutationLifecycleError<Error> =
   | { kind: "domain"; error: Error }
   | { kind: "replay-refused"; error: Error }
+  | { kind: "delivery-cancelled" }
   | { kind: "root-unmounted"; outcome: "unknown" | "accepted" }
 
 interface MutationReceipt<Error> {
@@ -714,8 +715,10 @@ The package's Next client binding also owns thrown-request classification. It
 uses Next's `unstable_rethrow` before converting an ordinary Server Action or
 network rejection into `delivery: "uncertain"`, so `redirect`, `notFound`,
 `forbidden`, `unauthorized`, and other framework control-flow signals retain
-their framework behavior. `guard-write-transition.ts` does not remain as an
-application synchronization helper.
+their framework behavior. A control-flow cancellation settles both mutation
+receipts with `delivery-cancelled` and removes the ledger entry before the
+signal propagates. `guard-write-transition.ts` does not remain as an application
+synchronization helper.
 
 ### Authority executor
 
@@ -891,8 +894,9 @@ After a new or duplicate acceptance commits, the Next executor performs one
 package-owned finalization sequence:
 
 1. call `updateTag(axisCacheTag(axis))` for every stamped axis;
-2. publish one invalidation entry per stamped axis, sharing one event ID;
-3. call Next's server-side `refresh()` for the invoking route; and
+2. call Next's server-side `refresh()` for the invoking route;
+3. make one timeout-bounded publication attempt with one entry per stamped
+   axis, sharing one event ID; and
 4. return the recorded accepted stamp.
 
 `updateTag`, rather than stale-while-revalidate `revalidateTag(..., "max")`, is
