@@ -521,11 +521,11 @@ async function loadCachedCharacter(shortId: string) {
   "use cache"
 
   const canon = await loadCharacterCanon(shortId)
-  return tagCanon(canon)
+  return tagVersionedBase(canon)
 }
 ```
 
-`tagCanon` applies one package-derived `cacheTag` for every axis in
+`tagVersionedBase` applies one package-derived `cacheTag` for every axis in
 `canon.revisions` and returns the canon unchanged. `axisCacheTag(axis)` is a
 bounded, versioned SHA-256-based tag, so raw identifiers cannot exceed Next's
 tag limit or collide through ad hoc string conventions.
@@ -535,6 +535,12 @@ observed axes. Next currently drops tags after the 128th in one call, which
 would silently break the coherence invariant. The spike must measure combat
 canons against this ceiling; it does not split calls or invent grouped tags
 without evidence that their invalidation semantics remain sound.
+
+These forms were verified against the pinned Next.js 16.1.6 declarations:
+`cacheTag(...tags)`, `updateTag(tag)`, and server `refresh()` are imported from
+`next/cache`; the non-Action path uses
+`revalidateTag(tag, { expire: 0 })`. The context split is therefore represented
+in the package API rather than hidden behind one configurable invalidator.
 
 An uncached loader uses `defineCanon` and needs no tag. The same canon
 shape crosses both paths.
@@ -1059,7 +1065,7 @@ storage axis
   -> other-view refresh after invalidation
 ```
 
-The loader knows which axes its value observes, so `tagCanon` tags them.
+The loader knows which axes its value observes, so `tagVersionedBase` tags them.
 The handler knows which axes it advanced, so its accepted stamp invalidates the
 same derived tags. No action wrapper maintains a parallel list of core cache
 keys.
@@ -1070,7 +1076,7 @@ revision is not yet modeled. That is additional application knowledge, not a
 second home for axis coherence.
 
 The Phase 0 fixture includes a deliberately mis-cached loader that omits
-`tagCanon`. The test must show:
+`tagVersionedBase`. The test must show:
 
 1. the mutation is accepted;
 2. both automatic refresh attempts reproduce the old cached canon;
@@ -1515,7 +1521,7 @@ all rows used by a projector contribute dependency axes and that an absent or
 changing dynamic set contributes a stable container axis.
 
 The Next fixture includes the deliberately mis-cached loader negative control.
-The correct loader calls `tagCanon`; the executor uses the same derived
+The correct loader calls `tagVersionedBase`; the executor uses the same derived
 tags and `updateTag`. A 129-axis cached canon must fail at the helper boundary
 instead of accepting a partially tagged entry.
 
