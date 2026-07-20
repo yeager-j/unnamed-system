@@ -1,6 +1,6 @@
 # Zero spike
 
-**Status:** Research baseline plus finalized package design  
+**Status:** Research baseline plus finalized package design<br>
 **Started:** 2026-07-20
 
 ## Purpose
@@ -13,7 +13,8 @@ write feel instant?” It already does. The useful question is:
 > Which protocol and interface decisions did Zero make around that idea, why,
 > and which of them should Showtime adopt without adopting Zero?
 
-This folder contains two factual baselines and one proposal:
+This folder contains two factual baselines, one finalized proposal, and its
+independent assessment:
 
 1. [Zero's current interface and stealable decisions](./zero-interface.md) — a
    primary-source survey of Zero 1.x, including corrections to assumptions based
@@ -25,6 +26,9 @@ This folder contains two factual baselines and one proposal:
    technical design for a Zero-like mutation package built around
    server-authoritative rebase, global storage-owned revision axes, complete
    versioned bases, and invalidation-only realtime.
+4. [Deep technical-design assessment](./deep-review-outcome.md) — the
+   multi-agent stress test, contraction ledger, implementation risks, and
+   amendments incorporated into revision 4.
 
 The proposal is intentionally a spike design, not an adoption decision. Its
 contract fixture, Drizzle/Ably adapters, and character/combat/dungeon bindings

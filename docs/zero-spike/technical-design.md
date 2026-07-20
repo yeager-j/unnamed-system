@@ -1,8 +1,8 @@
 # Predicted mutations for React and Next.js
 
-**Status:** Finalized spike design, revision 3  
-**Date:** 2026-07-20  
-**Working package name:** `@scope/predicted`  
+**Status:** Finalized spike design, revision 5<br>
+**Date:** 2026-07-20<br>
+**Working package name:** `@scope/predicted`<br>
 **Supersedes:** the [earlier framework-independent proposal](./OLD-replica-module-design.md)
 
 ## Summary
@@ -16,6 +16,9 @@ client database, or a second read authority:
   second supported carrier.
 - A client hook folds named deterministic mutations over that base with
   reducer-form `useOptimistic`.
+- A private lifecycle ledger records envelopes, delivery, receipts, and
+  deferred milestones; it never becomes a second projected-state store or
+  replay engine.
 - The client sends intent and a stable mutation ID through a dedicated Server
   Action. It sends no expected revision.
 - The authority loads current state, reruns the domain transition, and performs
@@ -35,6 +38,8 @@ client database, or a second read authority:
   complete base. Realtime never supplies state.
 - An observe-only root gives watch views the same invalidation, refresh, and
   stall machinery without a mutation interface.
+- An optional package-owned polling fallback preserves watch liveness while
+  realtime is unavailable.
 - Pending mutations replay over every newer base. An accepted mutation remains
   predicted until the mounted base covers its entire accepted revision vector.
 
@@ -206,6 +211,10 @@ simple root queue owns delivery order.
   a browser outbox.
 - Cross-tab mutation queues or Zero-style client groups.
 - Parallel client delivery within one mounted view in version one.
+- Coalescing, replacing, or rewriting queued envelopes. Autosave-style surfaces
+  debounce and flush by calling `mutate` once; a queued envelope is never
+  rewritten into newer intent under an existing mutation ID, which would break
+  canonical receipt equality.
 - CRDTs, field-level merge policies, or automatic semantic conflict resolution.
 - Transactions across databases or authorities.
 - Application authentication, authorization, domain rules, lock order, or
@@ -223,6 +232,7 @@ simple root queue owns delivery order.
 | Axis               | A globally identified monotonic revision line owned by storage, such as one entity version column   |
 | Base               | A complete server-projected value plus the revisions of every axis that value observes              |
 | Projection         | The current base with all still-pending mutations replayed in dispatch order                        |
+| Lifecycle ledger   | Private mutation metadata for delivery and receipts; never a second projected-state store           |
 | Mutation           | A stable name plus validated, serializable intent arguments                                         |
 | Predictor          | The pure function that applies one mutation to client-visible state or returns a typed refusal      |
 | Handler            | The authority-only function that authorizes, loads current state, applies domain rules, and commits |
@@ -231,6 +241,7 @@ simple root queue owns delivery order.
 | Incorporation      | A mounted base covers every axis and revision in an accepted stamp                                  |
 | Refresh adapter    | One verb that asks the application's carrier to deliver another complete base                       |
 | Invalidation       | Advisory axis revisions saying an observed base may be stale; never domain state                    |
+| Container axis     | A stable axis whose revision represents existence or membership of a dynamic projected set          |
 | Uncertain delivery | A request whose response was lost, so the authority may or may not have committed it                |
 
 ## Core types
@@ -276,7 +287,8 @@ by that projection.
 The package interface includes these rules, not only its TypeScript signatures:
 
 1. A base value and its complete observed revision vector come from one
-   authoritative observation.
+   authoritative observation: one SQL statement, appropriate locks, or a
+   transaction isolation level that preserves one snapshot across every query.
 2. Each axis has one globally stable identity tied to the storage fact whose
    lifetime it describes.
 3. Revisions are safe integers, losslessly serialized, and monotonically
@@ -304,6 +316,14 @@ The package interface includes these rules, not only its TypeScript signatures:
     or the explicit external-commit finalizer.
 16. Authority handlers are transaction-rerunnable: they perform no effect
     outside the supplied transaction before terminal acceptance.
+17. A base observes every axis whose change can alter its projected value, not
+    only axes its mounted root can mutate.
+18. A query over the existence or membership of a dynamic set observes a stable
+    container axis that advances when that set changes.
+19. `useOptimistic` is the only mechanism that computes predicted domain state.
+    The private lifecycle ledger may duplicate the canonical invocation needed
+    for delivery, but it stores no second `State`, patch projection, or replay
+    result.
 
 Invariants 2, 4, 5, and 6 replace the earlier proposal's view-scoped lane plus
 per-client incorporation watermark. They are valid because each storage axis is
@@ -334,20 +354,21 @@ state and server projection remain correct when Ably is unavailable.
 
 ## Ownership
 
-| Decision                             | Package                                                                            | Application                                                                  |
-| ------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Mutation naming and argument parsing | Registry machinery and wire envelope                                               | Names, schemas, compatibility policy                                         |
-| Client prediction                    | Ordered replay, lifecycle, rollback, conflict recording                            | Pure predictor and domain error type                                         |
-| Client delivery order                | One queue per mounted root                                                         | Root lifetime only                                                           |
-| Ambiguous delivery                   | Stable ID, retry, uncertain state                                                  | UI retry affordance                                                          |
-| Axis identity                        | Stable type, vector algebra, tag/channel derivation                                | Storage-owned axis namespace factories                                       |
-| Authority deduplication              | Receipt protocol and Drizzle implementation                                        | Database instance and migration adoption                                     |
-| Authoritative mutation               | Executor lifecycle, contention retry                                               | Auth, policy, current-state load, domain handler, lock order, guarded commit |
-| Base delivery                        | Accept and reconcile complete versioned bases                                      | Loader, projection, redaction, carrier                                       |
-| Cache coherence                      | Axis-to-tag convention, tag helper, stamp invalidation                             | Call loader helper; add unrelated route tags only when needed                |
-| Refresh                              | Carrier grace, coalescing, transition tracking, fallback, stall detection          | Select router or snapshot adapter                                            |
-| Realtime                             | Axis-entry schema, subscriptions, monotonic comparison, capability-refresh trigger | Ably credentials, token issuance, and viewer policy                          |
-| UI error policy                      | Honest lifecycle state and typed outcomes                                          | Toasts, inline messages, retry controls                                      |
+| Decision                             | Package                                                                                               | Application                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Mutation naming and argument parsing | Registry machinery and wire envelope                                                                  | Names, schemas, compatibility policy                                         |
+| Client prediction                    | Ordered replay, private lifecycle ledger, rollback, conflict recording                                | Pure predictor and domain error type                                         |
+| Client delivery order                | One queue per mounted root                                                                            | Root lifetime only                                                           |
+| Ambiguous delivery                   | Stable ID, retry, uncertain state                                                                     | UI retry affordance                                                          |
+| Axis identity                        | Stable type, vector algebra, tag/channel derivation                                                   | Storage-owned axis namespace factories                                       |
+| Authority deduplication              | Receipt protocol and Drizzle implementation                                                           | Database instance and migration adoption                                     |
+| Authoritative mutation               | Executor lifecycle, contention retry                                                                  | Auth, policy, current-state load, domain handler, lock order, guarded commit |
+| Base delivery                        | Accept and reconcile complete versioned bases                                                         | Loader, projection, redaction, carrier                                       |
+| Cache coherence                      | Axis-to-tag convention, tag helper, stamp invalidation                                                | Call loader helper; add unrelated route tags only when needed                |
+| Refresh                              | Carrier grace, coalescing, transition tracking, fallback, stall detection                             | Select router or snapshot adapter                                            |
+| Realtime                             | Axis-entry schema, subscriptions, monotonic comparison, capability refresh, optional polling fallback | Ably credentials, token issuance, viewer policy, polling interval            |
+| Next control flow                    | Preserve framework navigation/auth signals before classifying transport failure                       | UI presentation for ordinary rejected requests                               |
+| UI error policy                      | Honest lifecycle state and typed outcomes                                                             | Toasts, inline messages, retry controls                                      |
 
 There is intentionally no generic database repository and no generic read
 transport. Drizzle varies the transactional receipt ledger. Application
@@ -363,7 +384,7 @@ packages/predicted/
   src/
     index.ts              # definitions, envelopes, axes, vectors, shared types
     react.ts              # predicted root, one queue, incorporation state machine
-    refresh.ts            # refresh seam and snapshot adapter
+    refresh.ts            # refresh seam, snapshot adapter, polling fallback
     next/client.ts        # router refresh adapter
     next/server.ts        # executor finalization, cache tags, external commits
     drizzle.ts            # Postgres receipt table + transactional adapter
@@ -446,17 +467,39 @@ return <EntityProvider base={base}>{children}</EntityProvider>
 ```
 
 The combat console's base includes its encounter and map-instance axes plus the
-global entity axes for every durable participant it can mutate. The dungeon
-console includes both its dungeon and map-instance axes. These are loader
-contracts, not client routing decisions.
+global entity axes for every durable participant whose changes can alter the
+projection, whether or not that root can mutate the participant. The dungeon
+console includes both its dungeon and map-instance axes plus every other axis
+on which its projection depends. These are loader contracts, not client routing
+decisions.
 
 Axis factories live with the storage model and are imported by loaders and
 handlers. The package treats their results as opaque stable strings.
 
-For a multi-axis base, “one authoritative observation” means one SQL statement
-or one consistent read transaction. Independently awaited queries can produce a
-torn value/vector pair and do not satisfy the loader contract, even if every
-individual row is valid.
+For a multi-axis base, “one authoritative observation” means one SQL statement,
+appropriate row locking, or a transaction isolation level that guarantees one
+snapshot across every projection query. PostgreSQL's default Read Committed
+isolation does not satisfy this merely by wrapping several `SELECT`s in a
+transaction: successive statements may see different committed snapshots.
+Independently awaited queries have the same problem.
+
+The default mechanism for a multi-query loader is a read-only `REPEATABLE READ`
+transaction: every statement shares one snapshot, and a transaction that writes
+nothing cannot fail with a serialization error, so no retry handling is
+required.
+
+The revision vector describes all projection dependencies, not only writable
+targets. Dynamic sets also need an already-observable container axis. For
+example, a view with no current encounter cannot observe an encounter row that
+does not exist; it observes a dungeon, map-instance, or dedicated membership
+axis that advances when the live encounter appears, disappears, or changes.
+Roster and placement queries follow the same rule.
+
+Vector construction belongs in the authoritative query/projector module. A
+small package collector may accumulate `(axis, revision)` pairs from the exact
+rows used during projection, but route components must not maintain parallel
+dependency manifests. The collector is a convenience inside the loader, not a
+new read adapter.
 
 ### Cached loader helper
 
@@ -541,7 +584,12 @@ interface PredictedRoot<State, Invocation, Error> {
     pending: number
     delivery: "idle" | "sending" | "uncertain"
     freshness: "current" | "grace" | "refreshing" | "stalled"
-    invalidations: "disabled" | "active" | "reauthorizing" | "unavailable"
+    invalidations:
+      | "disabled"
+      | "active"
+      | "reauthorizing"
+      | "polling"
+      | "unavailable"
     missingAxes: readonly AxisId[]
   }
   conflicts: readonly ReplayConflict<Error>[]
@@ -563,6 +611,36 @@ interface MutationReceipt<Error> {
 immediately and allocates no ID. A locally accepted mutation receives a random
 opaque ID, enters reducer-form `useOptimistic`, and joins the root's one ordered
 delivery queue.
+
+The package also records that mutation in a private lifecycle ledger keyed by
+mutation ID. The ledger contains the canonical envelope, delivery state,
+accepted stamp or rejection, retry metadata, and the `accepted` and
+`incorporated` deferreds. It does not contain a second projected `State`, a
+patch projection, or another reducer. React remains the sole owner of the
+predicted domain value.
+
+Each optimistic mutation has its own held-open Action lifetime. Acceptance may
+release its delivery queue slot without settling that Action; incorporation
+settles only that mutation. Settling A while B remains accepted-but-uncovered
+must remove A and replay B exactly once over the new base. If React cannot
+support that behavior without a second domain-state store or replay engine, the
+spike fails.
+
+Rendered coverage does not depend on Action settlement timing. The root keeps
+acceptance state — a map from mutation ID to accepted vector, updated outside
+render — and the optimistic reducer closes over it: an update whose accepted
+vector the rendering base already covers reduces to identity. The first render
+of a covering base therefore excludes A's predicted effect in the same pass
+that includes A's authoritative result, so A is never applied twice even if
+A's held-open Action settles a beat later. Settlement is then bookkeeping: the
+coordinator resolves `incorporated`, settles the Action, and React drops the
+already-identity entry.
+
+The optimistic reducer remains pure. It may return an internal replay frame
+containing `value` and refused mutation IDs, but it never mutates the lifecycle
+ledger, cancels delivery, resolves promises, or records conflicts during
+render. After React commits the frame, the coordinator reconciles refusals into
+the ledger before scheduling another unsent delivery.
 
 `createObservedRoot` is the zero-mutation specialization of the same module. It
 uses an empty registry and exposes only `value`, freshness and invalidation
@@ -600,6 +678,13 @@ per stamped axis, and asks Next to refresh the current route. The wrapper adds
 path or tag invalidation only for a genuinely additional projection such as a
 summary list that does not observe the mutated axis directly.
 
+The package's Next client binding also owns thrown-request classification. It
+uses Next's `unstable_rethrow` before converting an ordinary Server Action or
+network rejection into `delivery: "uncertain"`, so `redirect`, `notFound`,
+`forbidden`, `unauthorized`, and other framework control-flow signals retain
+their framework behavior. `guard-write-transition.ts` does not remain as an
+application synchronization helper.
+
 ### Authority executor
 
 ```ts
@@ -617,15 +702,18 @@ const executeEntityMutation = createNextMutationExecutor({
 ```
 
 Handlers are exhaustive over registered mutation names. They receive the
-adapter's transaction, parsed arguments, and trusted context. They return a
-typed domain outcome plus the revision vector committed by that transaction:
+adapter's transaction, parsed arguments, trusted context, and an attempt-local
+stamp accumulator. They return a typed domain outcome; the executor constructs
+the accepted vector from every recorded advance rather than trusting a
+hand-built return object:
 
 ```ts
-async function executeEntityWrite({ tx, args, actor }) {
-  // Resolve target and storage home from current trusted state.
-  // Authorize and load current state inside tx.
-  // Run the same Writer against authoritative components.
-  // Guard the internal current revision and return the advanced axis vector.
+async function executeEntityWrite({ tx, args, actor, stamp }) {
+  const entity = await loadAuthorizedEntity(tx, actor, args.entityId)
+  const next = applyAuthoritativeWriter(entity, args.write)
+  const revision = await commitGuardedWrite(tx, entity, next)
+  stamp.record(entityVitalsAxis(entity.id), revision)
+  return ok()
 }
 ```
 
@@ -657,14 +745,20 @@ attempts by default: the initial attempt plus one contention retry.
 
 Each attempt:
 
-1. begins a transaction and claims or locks the mutation receipt identity;
-2. loads the current authoritative rows;
-3. authorizes contextual policy using current trusted facts;
-4. runs the registered domain handler against that state;
-5. applies application-owned lock order for multi-row commands;
-6. performs guarded writes using only revisions read inside this attempt;
-7. records the terminal typed rejection or accepted vector; and
-8. commits domain effects and receipt atomically.
+1. begins an outer transaction and claims or locks the mutation receipt
+   identity;
+2. starts a handler savepoint and an empty attempt-local stamp accumulator;
+3. loads the current authoritative rows inside that savepoint;
+4. authorizes contextual policy using current trusted facts;
+5. runs the registered domain handler against that state;
+6. applies application-owned lock order for multi-row commands;
+7. performs guarded writes using only revisions read inside this attempt and
+   records every successful version advance in the accumulator;
+8. on acceptance, retains the savepoint work, records its accumulated vector,
+   and commits domain effects plus receipt atomically; or
+9. on terminal typed rejection, rolls back the handler savepoint, records the
+   rejection in the still-active outer receipt transaction, and commits only
+   that receipt.
 
 If a guarded write loses a race, the attempt rolls back without a receipt and
 the executor reruns the handler against newer state. If the second attempt also
@@ -677,6 +771,17 @@ produce effects only through the supplied database transaction; Ably publishes,
 Blob writes, email, and other external work belong in post-acceptance
 finalization or a transactional outbox. A lost compare-and-swap can invoke a
 handler twice even though redelivery later remains effectively-once.
+
+Handlers also never throw framework control flow. A mutation's outcomes are
+typed values; `redirect` and its siblings belong to the door before the
+executor runs, and navigation after acceptance is a caller UI decision.
+
+Existing multi-row helpers must expose transaction-neutral bodies that accept
+the supplied executor. `guardMany` cannot continue to own another outer
+transaction inside a protocol handler, and the migration must not create
+parallel `commitX` and `commitXInPredictedTransaction` variants. Drizzle's
+nested-transaction support supplies the savepoint; domain lock order remains
+application-owned inside it.
 
 A preconditioned command may return a terminal domain conflict on the newer
 state. A generally replayable command simply produces the transition that its
@@ -781,6 +886,11 @@ rejection also releases the queue, settles that optimistic action, and replays
 all later pending mutations over the unchanged base. Only uncertain delivery,
 not projection catch-up, blocks the queue.
 
+Acceptance also merges the accepted vector into the root's observed-invalidation
+metadata. The write's own Ably echo then compares non-fresher and schedules no
+refresh; echo suppression falls out of the ordinary comparison rule rather than
+being a special case.
+
 ### 6. Incorporate
 
 On every new base, the package:
@@ -882,10 +992,11 @@ stateDiagram-v2
 `missing-axis` is normally a loader contract defect, not a transient network
 state.
 
-### Cross-route loader contract
+### Projection and incorporation loader contract
 
-Every base from which a mutation can be invoked must observe every axis that the
-authority may stamp for that mutation:
+Every base observes all axes whose changes can alter its projected value. A
+base from which a mutation can be invoked additionally observes every axis that
+the authority may stamp for that mutation:
 
 - a character sheet carries its entity's four axes;
 - an encounter console that can mutate a durable participant carries that
@@ -893,6 +1004,11 @@ authority may stamp for that mutation:
 - a dungeon console that can commit dungeon + instance work carries both axes;
   and
 - a route that can advance dungeon + region carries both axes.
+
+A view that projects a dynamic set also carries its stable container axis even
+when the set is empty. Dynamic member axes describe changes to existing
+members; the container axis announces additions, removals, and changes in which
+member exists.
 
 The rule is mechanical: every revision increment is stamped, cache-expired, and
 published. A row used only as a lock or precondition may be read and guarded
@@ -1020,14 +1136,27 @@ dungeon → map instance → encounter → region. Every protocol mutation follo
 the same receipt-first order, so the receipt layer does not invent a competing
 domain lock order.
 
+The outer transaction owns the receipt lock. The handler runs in Drizzle's
+nested-transaction savepoint with a fresh stamp accumulator. Acceptance keeps
+the handler's writes and stores the accumulated stamp. A terminal typed
+rejection rolls the savepoint back and stores only the rejection receipt in the
+outer transaction. Contention, serialization failure, or an unexpected throw
+rolls back the outer transaction and stores no terminal receipt. Attempt-local
+stamp entries are discarded with any rolled-back attempt.
+
 The adapter must prove:
 
 - receipt and every stamped domain effect commit or roll back together;
+- every successful modeled version increment records exactly one axis revision
+  in the attempt-local accumulator;
 - a two- or three-row stamp is impossible without all corresponding writes;
 - duplicate delivery never reruns the handler;
 - a duplicate reproduces the original vector or rejection;
 - same ID plus different canonical invocation fails closed;
-- an unexpected exception or contention retry stores no receipt;
+- a terminal rejection after partial handler work rolls that work back before
+  the rejection receipt commits;
+- an unexpected exception, serialization failure, or contention retry stores no
+  receipt;
 - two concurrent deliveries of the same ID produce one effect; and
 - a typed rejection is terminal and reproducible.
 
@@ -1088,6 +1217,30 @@ outbox; the first version does not hide best-effort delivery behind an
 exactly-once name.
 
 The package also ships in-memory and no-realtime adapters.
+
+### Polling fallback
+
+Watch roots must remain live when realtime is unavailable. The package ships a
+composable polling fallback around any invalidation adapter:
+
+```ts
+const invalidations = withPollingFallback(ablyInvalidations, {
+  intervalMs: 1500,
+  pauseWhenHidden: true,
+})
+```
+
+The application chooses the interval because product freshness and load are
+application policy. The package owns the timer lifetime, document-visibility
+handling, cancellation, no-overlap guarantee, refresh coalescing, transition
+tracking, and recovery to realtime. While the primary adapter is unavailable,
+status becomes `invalidations: "polling"`; when it becomes active again,
+polling stops. A root using the intentional no-realtime adapter may use the
+same wrapper as its primary invalidation mechanism.
+
+Polling requests the existing refresh adapter and never fetches or merges state
+itself. It therefore preserves the same complete-base read authority rather
+than introducing another read path.
 
 ## Replay and conflicts
 
@@ -1167,9 +1320,11 @@ observe a write that bypasses both paths.
 
 ## Error and availability model
 
-Expected boundary and domain failures use `Result`. Framework control flow,
-authorization behavior, and unexpected programmer failures remain application
-decisions at the Server Action door.
+Expected boundary and domain failures use `Result`. Authentication and
+authorization decisions remain at the application-owned Server Action door;
+the package's Next binding preserves framework control-flow throws before it
+classifies ordinary transport failures. Unexpected programmer failures still
+throw.
 
 The client exposes independent delivery, freshness, and invalidation facts:
 
@@ -1185,6 +1340,7 @@ The client exposes independent delivery, freshness, and invalidation facts:
 | `invalidations: disabled`      | The root intentionally uses the no-realtime adapter              | Rely on own-write and explicit refresh      |
 | `invalidations: active`        | Every observed axis has an authorized active subscription        | Normal                                      |
 | `invalidations: reauthorizing` | The observed axis set changed and capabilities are refreshing    | Continue with authoritative reads           |
+| `invalidations: polling`       | Realtime is unavailable and package-owned fallback is refreshing | Live with bounded polling latency           |
 | `invalidations: unavailable`   | Ably is disconnected, unauthorized, or failed to attach          | Surface degraded live updates when relevant |
 
 Ably disconnection does not disable writes. A Server Action failure does not
@@ -1266,20 +1422,30 @@ queues, optimistic logs, receipt SQL, refresh generations, or cache-tag maps.
 - a new complete base replays remaining mutations atomically;
 - a singleton accepted vector remains mounted until covered;
 - a multi-axis accepted vector remains mounted until every axis is covered;
+- A and B can both remain accepted-but-uncovered, then a base covering only A
+  settles A and replays B exactly once without applying A twice;
+- a covered update reduces to identity in the same render that first delivers
+  its covering base, before its Action settles;
 - terminal acceptance releases the delivery queue before incorporation;
 - one missing stamped axis produces `stalled: missing-axis`;
 - replay refusal cancels and settles an envelope that was never sent without
   corrupting later replay;
 - replay refusal does not retract sending or uncertain delivery;
+- replay refusal is observed from a pure replay frame and causes no reducer
+  side effect, including under React's development replay behavior;
 - an ambiguous response preserves prediction and canonical envelope identity;
 - an uncertain head pauses later root mutations;
 - a duplicate recovery settles the original receipt;
 - unmount settles unresolved receipt promises and releases held transitions;
 - invalidations compare only intersecting observed axes;
 - observed invalidations never mutate base revisions;
+- an own-write echo invalidation arriving after acceptance schedules no
+  refresh;
 - an observe-only root refreshes and stalls without a mutation interface;
 - router acceptance waits 250 ms while snapshot acceptance refreshes
   immediately;
+- a dedicated refresh transition completes observably while optimistic Actions
+  remain open;
 - router and snapshot refresh adapters share retry and stall behavior; and
 - deliberate negative controls make accumulation, rollback, coverage, and stall
   tests fail.
@@ -1295,6 +1461,10 @@ It proves:
 - a preconditioned command can reject against current authority;
 - one internal CAS loss reruns load and handler;
 - the first attempt's transactional effects roll back before the handler reruns;
+- a terminal rejection after partial handler work rolls back to its savepoint
+  and commits only the rejection receipt;
+- attempt-local stamp entries disappear on rollback, while every committed
+  version increment appears in the accepted vector;
 - exhausted contention stores no receipt and preserves the mutation ID;
 - complete handler registration;
 - atomic single- and multi-axis receipts;
@@ -1310,8 +1480,11 @@ grace, the shared two-attempt budget, one-second retry delay, manual reset, and
 missing-axis classification.
 
 The Drizzle fixture also proves that a multi-axis base is loaded from one
-consistent database observation; a deliberate torn loader must fail the base
-contract.
+consistent database observation. A deliberate multi-statement Read Committed
+loader must demonstrate the torn-read failure; the one-statement, locked, or
+snapshot-isolated implementation must pass. Loader contracts also prove that
+all rows used by a projector contribute dependency axes and that an absent or
+changing dynamic set contributes a stable container axis.
 
 The Next fixture includes the deliberately mis-cached loader negative control.
 The correct loader calls `tagVersionedBase`; the executor uses the same derived
@@ -1326,7 +1499,17 @@ event before one coalesced refresh, per-axis deduplication, monotonic comparison
 capability refresh before attaching a newly observed hashed channel,
 post-attachment gap refresh, unavailable-state reporting, observed-axis
 subscription changes, burst coalescing, unsubscribe cleanup, and absence of
-domain data.
+domain data. The polling-fallback contract proves no overlapping refreshes,
+pause/resume on document visibility, unmount cancellation, transition to
+`polling` while realtime is unavailable, and prompt shutdown when realtime
+recovers.
+
+### Next binding contract
+
+The Next client fixture proves that an ordinary thrown Server Action rejection
+becomes uncertain delivery while `redirect`, `notFound`, `forbidden`,
+`unauthorized`, and other framework signals survive `unstable_rethrow` and are
+never converted into a domain or transport error.
 
 ### Application laws
 
@@ -1353,9 +1536,11 @@ The first fixture is a small Next.js application with:
 - a Drizzle/Postgres receipt ledger;
 - a real Server Action using `updateTag` and server `refresh()`;
 - in-memory invalidations in deterministic tests;
+- polling fallback for the watch carrier;
 - the mis-cached-loader negative control; and
-- Playwright stories for predict → accept → incorporate, cross-carrier
-  invalidation, and accepted → stalled.
+- Playwright stories for independent A/B incorporation, predict → accept →
+  incorporate, cross-carrier invalidation, degraded polling, and accepted →
+  stalled.
 
 This unlike consumer is an early falsification tool. A second real project is
 still required before declaring the interface stable.
@@ -1376,7 +1561,9 @@ entity/{id}/inventory
 entity/{id}/progression
 encounter/{id}
 map-instance/{id}
+map-instance/{id}/encounter-membership
 dungeon/{id}
+dungeon/{id}/roster-membership
 region/{id}
 ```
 
@@ -1391,7 +1578,7 @@ not globally unique, its tenant namespace becomes part of the axis.
 - ownership and DM authorization;
 - restricted-Archetype and narrative gates;
 - Drizzle storage columns and guarded updates;
-- multi-row `guardMany` and domain lock order;
+- transaction-neutral multi-row write bodies and domain lock order;
 - server projection, tombstone policy, and fog redaction; and
 - UI-specific error presentation.
 
@@ -1402,11 +1589,14 @@ not globally unique, its tenant namespace becomes part of the axis.
 - per-class, per-character, and dual-lane client spines;
 - mutation UUID allocation and ambiguous redelivery;
 - transactional receipt deduplication;
+- outer transaction ownership, handler savepoints, and stamp accumulation;
 - optimistic Action lifetime, rejection rollback, and replay conflicts;
 - accepted-vector incorporation tracking;
 - axis cache-tag derivation and invalidation;
 - Ably axis-entry parsing, subscription, and refresh coalescing;
-- watch-only snapshot subscription and refetch coordination; and
+- watch-only snapshot subscription and refetch coordination;
+- Next control-flow preservation currently implemented by
+  `guard-write-transition`; and
 - generic lifecycle observability.
 
 ### Entity columns become mutations
@@ -1416,6 +1606,10 @@ identity-version columns join the entity mutation registry. They need not become
 game-v2 Writers; a registered predictor and authoritative handler are enough.
 What matters is that every user-facing `identity` write shares the same axis,
 receipt, cache, and invalidation protocol.
+
+Debounced autosave keeps its draft value in UI state and flushes one `mutate`
+per settled edit. Envelope coalescing is a non-goal, so the debounce lives
+before the protocol, not inside it.
 
 ### Character route
 
@@ -1429,7 +1623,8 @@ The encounter base observes:
 
 - its encounter axis;
 - its map-instance axis; and
-- the appropriate entity axis for every durable participant it can mutate.
+- every entity and membership axis whose changes can alter the projection,
+  including durable participants it cannot mutate.
 
 An intent still carries no trusted storage-home claim. The authority reloads
 the participant locator and decides inline encounter storage versus durable
@@ -1447,9 +1642,15 @@ interface.
 Public fog watchers bind their complete redacted snapshot to an observe-only
 root. Its empty mutation registry leaves the package responsible for Ably
 authorization and subscriptions, monotonic axis comparison, coalesced snapshot
-refetch, and stall detection without exposing a mutation operation. This
-replaces `use-snapshot-subscription` and removes the last read-only `lib/sync`
-runtime rather than leaving a second reconciliation architecture behind.
+refetch, degraded polling, and stall detection without exposing a mutation
+operation. This replaces `use-snapshot-subscription` and removes the last
+read-only `lib/sync` runtime rather than leaving a second reconciliation
+architecture behind.
+
+Their loader audit must include absence dependencies. “No live encounter” and
+“no member in this roster slot” are projected facts, so the base observes a
+stable dungeon, map-instance, or dedicated membership axis that advances when
+those facts change.
 
 ### Dungeon and multi-row commits
 
@@ -1556,28 +1757,63 @@ existing server read authority answer those questions.
 
 ## Risks and falsification tests
 
-| Risk                                                               | Evidence that falsifies the design                                                                |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `useOptimistic` cannot hold accepted actions through incorporation | The hook needs a second public pending store or relies on behavior the React fixture cannot prove |
-| Complete bases cannot cover cross-route writes consistently        | Combat or dungeon repeatedly reports `missing-axis` despite correct authority commits             |
-| Axis vectors become broad dependency manifests                     | Ordinary handlers return large or unstable vectors unrelated to atomic writes                     |
-| Multi-axis bases are torn across reads                             | A loader pairs state from one row revision with another row's older or newer projection           |
-| Server-authoritative contention retry distorts existing Stores     | Handlers cannot rerun safely without invasive persistence rewrites or hidden external effects     |
-| One root queue causes unacceptable UX blocking                     | An uncertain low-value write prevents unrelated important gestures for a material interval        |
-| Cache tagging remains disciplinary                                 | A normal new loader can omit the helper without a contract or architecture gate detecting it      |
-| A useful base exceeds Next's cache-tag ceiling                     | A combat or party projection needs more than 128 observed axes in one cached entry                |
-| Refresh completion cannot be observed reliably                     | Router transitions settle without any dependable point to perform coverage and retry decisions    |
-| Drizzle transaction integration is too restrictive                 | Receipts cannot share the exact transaction and lock order of existing multi-row commands         |
-| Canonical equality differs by environment                          | Honest redelivery with equivalent parsed JSON fails receipt equality                              |
-| Ably abstraction leaks                                             | Callers manage axis subscriptions, event deduplication, or refresh races themselves               |
-| Hashed capability enumeration is too large or dynamic              | Combat tokens become impractical or axis-set changes cannot reauthorize before attachment         |
-| External version writers remain common                             | New raw version bumps repeatedly require manual cache/realtime repair                             |
-| Protocol receipts grow without bound                               | Measured retention cost is material before a safe cleanup window can be stated                    |
+| Risk                                                           | Evidence that falsifies the design                                                                      |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Independent optimistic Actions cannot settle separately        | Covering A while B remains pending applies A twice, drops B, or requires a second projected-state store |
+| Complete bases cannot cover cross-route writes consistently    | Combat or dungeon repeatedly reports `missing-axis` despite correct authority commits                   |
+| Axis vectors become route-level dependency manifests           | Pages hand-maintain axes instead of query/projector modules deriving them from observed rows            |
+| Dynamic-set absence has no observable axis                     | Creating an encounter or adding a roster member cannot invalidate a view that observed its absence      |
+| Multi-axis bases are torn across reads                         | A default Read Committed loader pairs state from different statement snapshots                          |
+| Server-authoritative contention retry distorts existing Stores | Migration creates parallel transaction variants or cannot isolate terminal rejection with a savepoint   |
+| One root queue causes unacceptable UX blocking                 | An uncertain low-value write prevents unrelated important gestures for a material interval              |
+| Cache tagging remains disciplinary                             | A normal new loader can omit the helper without a contract or architecture gate detecting it            |
+| A useful base exceeds Next's cache-tag ceiling                 | A combat or party projection needs more than 128 observed axes in one cached entry                      |
+| Refresh completion cannot be observed reliably                 | Router transitions settle without any dependable point to perform coverage and retry decisions          |
+| Drizzle transaction integration is too restrictive             | Receipts cannot share the exact transaction and lock order of existing multi-row commands               |
+| Canonical equality differs by environment                      | Honest redelivery with equivalent parsed JSON fails receipt equality                                    |
+| Ably abstraction leaks                                         | Callers manage axis subscriptions, event deduplication, or refresh races themselves                     |
+| Hashed capability enumeration is too large or dynamic          | Combat tokens become impractical or axis-set changes cannot reauthorize before attachment               |
+| Watch liveness regresses without realtime                      | An unavailable Ably connection leaves a mounted watch stale because polling remains app-owned or absent |
+| Next control flow becomes a transport error                    | Redirect, not-found, forbidden, or unauthorized signals are swallowed into uncertain delivery           |
+| External version writers remain common                         | New raw version bumps repeatedly require manual cache/realtime repair                                   |
+| Protocol receipts grow without bound                           | Measured retention cost is material before a safe cleanup window can be stated                          |
+| Showtime bindings do not contract                              | Old queues, refs, realtime comparison, or refresh scheduling survive underneath package calls           |
 
 The correct response may be to narrow or abandon the package. It should not be
 another round of type parameters and supplied callbacks.
 
 ## Implementation sequence
+
+### Application contraction gate
+
+Package growth is acceptable; application coordination growth is not. Phases 0
+and 1 add package and fixture code but must not add general-purpose `apps/web`
+wrappers in anticipation of migration. Each Showtime cutover keeps a deletion
+ledger of application production code, coordination tests, and concepts.
+
+The Phase 2 character binding is the first adoption gate. As a planning target,
+`use-entity-write.tsx` should fall from roughly 480 lines to 150–220, and the
+character slice should remove roughly 300–500 net production lines. The numbers
+are diagnostics, not quotas; the hard requirement is that queues, version refs,
+stale refetch, realtime comparison, refresh scheduling, and incorporation no
+longer exist in that binding. If the existing provider remains intact around or
+under `mutate`, the spike stops before Phase 3.
+
+By the end of Phase 3:
+
+- `apps/web/lib/sync` contains no synchronization runtime;
+- `guard-write-transition` has moved behind the Next binding or out of the sync
+  architecture;
+- `write-lanes.ts`, dual-version client coordination, and stale-version fetch
+  actions are deleted;
+- no component compares a realtime revision or schedules synchronization
+  refresh; and
+- application tests no longer construct queues, monotonic token stores, or
+  refresh generations.
+
+The expected result is roughly 1,100–1,800 net production lines removed from
+`apps/web`, plus deletion of coordination tests. The deletion test, not the
+numeric estimate, decides whether the package is deep.
 
 ### Phase 0 — Contract fixture
 
@@ -1585,23 +1821,29 @@ another round of type parameters and supplied callbacks.
 2. Build in-memory authority, refresh, and invalidation adapters.
 3. Implement global axes, vector coverage, one root queue, canonical JSON, and
    the incorporation state machine.
-4. Prove negative controls for accumulation, deduplication, multi-axis coverage,
-   refresh stall, and a mis-cached loader.
-5. Exercise RSC and snapshot carriers over one shared axis in a real Next.js
+4. Prove independent Action settlement: A incorporates while B remains pending
+   and is replayed exactly once over the new base.
+5. Prove negative controls for pure replay, accumulation, deduplication,
+   multi-axis coverage, dynamic-set absence, torn reads, refresh stall, and a
+   mis-cached loader.
+6. Exercise RSC and snapshot carriers over one shared axis in a real Next.js
    fixture.
 
-Exit: the complete lifecycle works without Showtime code, and `stalled` is
-proved to detect an intentionally stale cached base.
+Exit: the complete lifecycle works without Showtime code, independent Actions
+settle without a second projected-state store, and `stalled` detects an
+intentionally stale cached base.
 
 ### Phase 1 — Drizzle and Ably adapters
 
 1. Add the Postgres receipt table and Drizzle transaction adapter.
 2. Prove duplicate, canonical-equality, contention, and concurrent-delivery
    behavior against Postgres.
-3. Prove atomic two-axis receipt and domain commit.
+3. Prove nested-savepoint rejection, attempt-local stamp accumulation, and
+   atomic two-axis receipt plus domain commit.
 4. Add axis-entry Ably publisher/subscriber and its contract harness.
-5. Prove hashed-channel capability refresh and attachment-gap recovery.
-6. Verify publication failure does not corrupt database outcomes.
+5. Add the package-owned polling fallback and its visibility/lifetime contract.
+6. Prove hashed-channel capability refresh and attachment-gap recovery.
+7. Verify publication failure does not corrupt database outcomes.
 
 Exit: production adapters pass the same interfaces as in-memory counterparts.
 
@@ -1615,7 +1857,8 @@ Exit: production adapters pass the same interfaces as in-memory counterparts.
 6. Delete its client expected-version and stale machinery.
 
 Exit: the ordinary binding is materially smaller and old coordination is
-replaced rather than layered underneath.
+replaced rather than layered underneath. Failure to meet the hard Phase 2
+contraction gate ends the spike before combat or dungeon migration.
 
 ### Phase 3 — Cross-view and multi-axis proof
 
@@ -1645,6 +1888,10 @@ The spike succeeds when:
 
 - ordinary client call sites know only the projected value, typed `mutate`,
   status, conflicts, and an optional retry control;
+- the private lifecycle ledger contains protocol metadata but no second
+  projected state, patch projection, or replay engine;
+- covering accepted mutation A while B remains pending settles A and replays B
+  exactly once;
 - the client wire contains intent and mutation identity but no expected
   revision, lane, axis, actor, or storage-home claim;
 - authority contention retries current state without surfacing generic stale;
@@ -1654,6 +1901,10 @@ The spike succeeds when:
 - every incremented revision appears in the accepted stamp;
 - one mounted base can observe entity, encounter, dungeon, instance, and region
   axes without package-specific routing;
+- every projection dependency is derived in its query/projector module, and
+  every dynamic-set absence or membership query has a stable container axis;
+- multi-query bases use a snapshot-preserving observation rather than assuming
+  a default Read Committed transaction is consistent;
 - singleton and atomic vector stamps use the same interface;
 - accepted mutations remain predicted until every stamped axis is covered;
 - missing axes and stale cached bases become deterministic `stalled` states;
@@ -1662,18 +1913,25 @@ The spike succeeds when:
 - cached loaders and accepted handlers share one axis-derived tag convention;
 - ambiguous retry reuses canonical invocation bytes and one mutation ID;
 - Drizzle receipts and every stamped domain write commit atomically;
+- terminal rejection rolls handler work back to a savepoint before its receipt
+  commits, and accepted stamps come from the attempt-local accumulator;
 - duplicate delivery returns the original vector or rejection;
 - Ably carries only singleton axis revisions and triggers the supplied
   authoritative refresh;
 - hashed-channel capability changes reauthorize before new subscriptions attach;
+- watch roots retain bounded polling liveness while realtime is unavailable;
+- Next framework control-flow throws are never classified as uncertain
+  delivery;
 - RSC and snapshot refresh adapters pass one contract suite;
 - public watch-only views use observe-only roots rather than a separate sync
   runtime;
 - current Showtime domain laws remain green;
 - name/pronoun/portrait/notes writes no longer bypass the axis protocol;
 - character and combat views share the same entity axes;
-- a dungeon dual write deletes client dual-token stale coordination; and
-- the migrated bindings delete more coordination than they add.
+- a dungeon dual write deletes client dual-token stale coordination;
+- Phase 2 materially contracts the character binding before Phase 3 begins; and
+- the completed migration deletes the synchronization runtime rather than
+  delegating through it.
 
 The spike fails if it needs a generic read transport, view-local axis
 translation, per-axis client queues, a large callback graph, or
@@ -1703,11 +1961,14 @@ now:
 10. Whether safe-integer revisions are sufficient for a second real project.
 11. Whether exact hashed-channel capability enumeration remains practical for
     the largest observed axis sets.
+12. Whether the existing approximately 1.5-second watch polling interval remains
+    appropriate once polling is centralized in the package.
 
 ## Sources and related documents
 
 - [Zero's current interface and stealable decisions](./zero-interface.md)
 - [Showtime's current entity read/write architecture](./current-architecture.md)
+- [Deep multi-agent design assessment](./deep-review-outcome.md)
 - [Next.js Server Actions and mutations](https://nextjs.org/docs/app/getting-started/updating-data)
 - [Next.js `use server` directive](https://nextjs.org/docs/app/api-reference/directives/use-server)
 - [Next.js `refresh`](https://nextjs.org/docs/app/api-reference/functions/refresh)
@@ -1715,9 +1976,12 @@ now:
 - [Next.js `cacheTag`](https://nextjs.org/docs/app/api-reference/functions/cacheTag)
 - [Next.js `updateTag`](https://nextjs.org/docs/app/api-reference/functions/updateTag)
 - [Next.js `revalidateTag`](https://nextjs.org/docs/app/api-reference/functions/revalidateTag)
+- [Next.js `unstable_rethrow`](https://nextjs.org/docs/app/api-reference/functions/unstable_rethrow)
 - [React `useOptimistic`](https://react.dev/reference/react/useOptimistic)
 - [Ably capabilities](https://ably.com/docs/auth/capabilities)
 - [Ably token authentication and dynamic authorization](https://ably.com/docs/auth/token)
 - [RFC 8785 JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
+- [Drizzle transactions and nested savepoints](https://orm.drizzle.team/docs/transactions)
+- [PostgreSQL transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html)
 - [Zero mutators](https://zero.rocicorp.dev/docs/mutators)
 - [Zero queries](https://zero.rocicorp.dev/docs/queries)
