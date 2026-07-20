@@ -69,6 +69,35 @@ describe("canonicalInvocation", () => {
     expect(first.sha256).not.toBe(second.sha256)
   })
 
+  it("ignores inherited toJSON methods after validation", async () => {
+    const expected = await canonical({ nested: ["safe"] })
+    const objectToJson = vi.fn(() => ({ attacker: "object" }))
+    const arrayToJson = vi.fn(() => ({ attacker: "array" }))
+    let actual: Awaited<ReturnType<typeof canonical>>
+
+    Object.defineProperty(Object.prototype, "toJSON", {
+      configurable: true,
+      value: objectToJson,
+    })
+    Object.defineProperty(Array.prototype, "toJSON", {
+      configurable: true,
+      value: arrayToJson,
+    })
+
+    try {
+      actual = await canonical({ nested: ["safe"] })
+    } finally {
+      Reflect.deleteProperty(Array.prototype, "toJSON")
+      Reflect.deleteProperty(Object.prototype, "toJSON")
+    }
+
+    expect(actual.json).toBe(expected.json)
+    expect(actual.bytes).toEqual(expected.bytes)
+    expect(actual.sha256).toBe(expected.sha256)
+    expect(objectToJson).not.toHaveBeenCalled()
+    expect(arrayToJson).not.toHaveBeenCalled()
+  })
+
   it.each([
     ["undefined", { nested: undefined }, "undefined"],
     ["bigint", { nested: 1n }, "bigint"],

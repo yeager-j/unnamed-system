@@ -159,6 +159,41 @@ function validateJsonValue(
   }
 }
 
+function dataPropertyValue(object: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(object, key)
+  if (!descriptor || !("value" in descriptor)) {
+    throw new Error("Validated canonical invocation changed before isolation")
+  }
+  return descriptor.value
+}
+
+/**
+ * Copies validated JSON away from prototypes that `canonicalize` may consult.
+ * The dependency intentionally honors `toJSON`; receipt identity must not.
+ */
+function isolateFromInheritedToJson(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value
+
+  if (Array.isArray(value)) {
+    const isolated = new Array<unknown>(value.length)
+    Object.defineProperty(isolated, "toJSON", { value: undefined })
+
+    for (let index = 0; index < value.length; index += 1) {
+      isolated[index] = isolateFromInheritedToJson(
+        dataPropertyValue(value, String(index))
+      )
+    }
+
+    return isolated
+  }
+
+  const isolated: Record<string, unknown> = Object.create(null)
+  for (const key of Object.keys(value)) {
+    isolated[key] = isolateFromInheritedToJson(dataPropertyValue(value, key))
+  }
+  return isolated
+}
+
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
     ""
@@ -180,7 +215,7 @@ export async function canonicalInvocation<Name extends string, Args>(
   const validationError = validateJsonValue(envelope, [], new WeakSet())
   if (validationError) return err(validationError)
 
-  const json = canonicalize(envelope)
+  const json = canonicalize(isolateFromInheritedToJson(envelope))
   if (json === undefined) {
     throw new Error("Validated canonical invocation did not serialize")
   }
