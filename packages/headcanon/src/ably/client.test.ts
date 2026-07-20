@@ -286,6 +286,45 @@ describe("Ably invalidation capability lifecycle", () => {
     )
   })
 
+  it("closes every attachment gap after a partial failure recovers", async () => {
+    const service = new FakeAblyService()
+    const channelA = await ablyAxisChannelName("preview", axisA)
+    const channelB = await ablyAxisChannelName("preview", axisB)
+    service.failedAttachments.add(channelB)
+    const gapA = vi.fn()
+    const gapB = vi.fn()
+    const observedA = subscription([axisA], { onSubscriptionGap: gapA })
+    const observedB = subscription([axisB], { onSubscriptionGap: gapB })
+    const adapter = createAblyInvalidationAdapter({
+      realtime: service.realtime,
+      namespace: "preview",
+    })
+
+    adapter.subscribe(observedA)
+    adapter.subscribe(observedB)
+    await adapter.settled()
+
+    expect(observedA.onStatusChange).toHaveBeenLastCalledWith("unavailable")
+    expect(observedB.onStatusChange).toHaveBeenLastCalledWith("unavailable")
+    expect(gapA).not.toHaveBeenCalled()
+    expect(gapB).not.toHaveBeenCalled()
+
+    service.failedAttachments.delete(channelB)
+    adapter.retry()
+    await adapter.settled()
+
+    expect(observedA.onStatusChange).toHaveBeenLastCalledWith("active")
+    expect(observedB.onStatusChange).toHaveBeenLastCalledWith("active")
+    expect(gapA).toHaveBeenCalledOnce()
+    expect(gapB).toHaveBeenCalledOnce()
+    expect(
+      service.history.filter((entry) => entry === `attach:${channelA}`)
+    ).toHaveLength(1)
+    expect(
+      service.history.filter((entry) => entry === `attach:${channelB}`)
+    ).toHaveLength(2)
+  })
+
   it("surfaces connection loss and refreshes once after recovery", async () => {
     const service = new FakeAblyService()
     const gap = vi.fn()

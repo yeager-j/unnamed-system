@@ -107,6 +107,7 @@ export function createAblyInvalidationAdapter(options: {
 }): AblyInvalidationAdapter {
   const subscriptions = new Set<InvalidationSubscription>()
   const activeChannels = new Map<string, ActiveChannel>()
+  const axesAwaitingGapClosure = new Set<AxisId>()
   let status: InvalidationStatus = "reauthorizing"
   let requestedGeneration = 0
   let completedGeneration = 0
@@ -145,6 +146,7 @@ export function createAblyInvalidationAdapter(options: {
   ): Promise<void> => {
     active.channel.unsubscribe(ABLY_AXIS_INVALIDATION_EVENT, active.listener)
     activeChannels.delete(name)
+    axesAwaitingGapClosure.delete(active.axis)
     try {
       await active.channel.detach()
     } catch (error) {
@@ -217,7 +219,9 @@ export function createAblyInvalidationAdapter(options: {
     )
     for (const result of attachmentResults) {
       if (result.status === "fulfilled") {
-        activeChannels.set(...result.value)
+        const [name, active] = result.value
+        activeChannels.set(name, active)
+        axesAwaitingGapClosure.add(active.axis)
       }
     }
     const attachmentFailure = attachmentResults.find(
@@ -232,19 +236,19 @@ export function createAblyInvalidationAdapter(options: {
     if (connectionUnavailable) return
     setStatus("active")
     const closesConnectionGap = closeGapAfterReconcile
-    closeGapAfterReconcile = false
-    if (added.length > 0 || closesConnectionGap) {
-      const addedAxes = new Set(added.map(([, axis]) => axis))
+    if (axesAwaitingGapClosure.size > 0 || closesConnectionGap) {
       for (const subscription of subscriptions) {
         if (
           !closesConnectionGap &&
-          !subscription.axes.some((axis) => addedAxes.has(axis))
+          !subscription.axes.some((axis) => axesAwaitingGapClosure.has(axis))
         ) {
           continue
         }
         subscription.onSubscriptionGap?.()
       }
     }
+    axesAwaitingGapClosure.clear()
+    closeGapAfterReconcile = false
   }
 
   const runReconciliation = () => {
