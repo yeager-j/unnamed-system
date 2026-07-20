@@ -41,6 +41,7 @@ concurrency token, and envelope:
 | ----------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `entity/replica/`       | strict owner, recorded as a typed rejection                                               | `{ entityId, envelope: { clientGroupId, clientId, mutationId, invocation } }`                                                                                                                                                             | ordered dedup-row lock, then entity-row lock                                                    |
 | `entity/` classic seams | strict owner for lifecycle; owner-or-campaign-DM inside the combat Store                  | explicit identity precondition for lifecycle; `{ entityId, expectedVersion, write }` inside combat                                                                                                                                        | per-write-class guard (`bumpEntityVersionGuarded`)                                              |
+| Stage Map / Set autosave | strict owner (`requireMapOwner` / `requireTemplateSetOwner`)                              | field-scoped patch only — no client version token (UNN-661)                                                                                                                                                                               | per-field LWW; one serialize-latest spine per editor                                            |
 | `encounter/`            | `requireCampaignDM`                                                                       | semantic args only (`{ encounterId, … }`) — no client version token (UNN-657)                                                                                                                                                             | authority row locks in-transaction                                                              |
 | `combat/` commands      | `requireCampaignDM`                                                                       | named commands (`start-combat`, `roster`, `end-combat`): semantic args + client-minted participant ids as idempotency keys — no client version token (UNN-657)                                                                            | canonical locks (dungeon → mapInstance → encounter → entity), locked-row vacuous guards, documented natural idempotency |
 | `combat/replica/`       | typed rejections: durable push = class→posture (`authorizeEntityWriteForClass`) at request start + locked liveness/roster in-transaction; encounter push = `authorizeCampaignDMForEncounter` + apply-level liveness under the row lock; batched snapshot = `requireCampaignDM` (throwing read door) + liveness | durable `{ encounterId, entityId, envelope }`, encounter `{ encounterId, envelope }`, batched accepted request | ordered dedup-row lock (`replicaClient` / `encounterReplicaClient`), then `encounters` (both doors), then `entity` for the durable arm — no client `expectedVersion` |
@@ -150,10 +151,13 @@ execute once. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 
-**The other aggregates** (`encounter/`, campaign, map, dungeon) are classic
-per-file Server Actions. The Zod schema lives in `<slice>.schema.ts` alongside the
-action (a `"use server"` module can only export async functions, so a client that
-pre-validates imports the schema file directly). The skeleton:
+**The other aggregates** (`encounter/`, campaign, map, dungeon) are per-file
+Server Actions. Most retain classic optimistic concurrency; Stage Map and
+Template Set autosaves are the named exception: their single-owner, field-scoped
+commands are deliberate LWW writes serialized within each editor (UNN-661). The
+Zod schema lives in `<slice>.schema.ts` alongside the action (a `"use server"`
+module can only export async functions, so a client that pre-validates imports
+the schema file directly). The skeleton:
 
 ```ts
 // lib/actions/<aggregate>/<slice>.ts
@@ -194,7 +198,7 @@ The per-aggregate envelopes and gates are the table above.
 
 ## Concurrency
 
-Classic aggregate doors use **optimistic concurrency**; the owner entity replica
+Classic aggregate doors generally use **optimistic concurrency**; the owner entity replica
 uses an entity-row lock plus its ordered per-client dedup ledger. The durable
 `entity` row still carries four class tokens — `identityVersion`, `vitalsVersion`,
 `inventoryVersion`, `progressionVersion` (`VersionClass`,
@@ -209,8 +213,8 @@ with `entity` component **columns**, so `SET`ing them touches only the written
 components and cannot clobber a sibling class's column. A multi-component patch
 (rest, levelUp) must keep its columns inside one class.
 
-The other aggregates carry a single `version` per row (`encounter`,
-`map-instance`, …), bumped and guarded the same way. Every wrapper:
+The other guarded aggregates carry a single `version` per row (`encounter`,
+`map-instance`, …), bumped and guarded the same way. Every guarded wrapper:
 
 - Conditions the `UPDATE` on `WHERE id = ? AND <token> = ?` and increments the
   token atomically in the same `SET`.
@@ -218,6 +222,12 @@ The other aggregates carry a single `version` per row (`encounter`,
   `"<aggregate>-not-found"` by a follow-up existence check).
 - Returns the new `version` in the success value so the client can chain
   follow-up saves without a re-fetch.
+
+Stage Map and Template Set autosaves retain their row `version` only as an
+authority-owned revision counter. Their field-scoped updates advance it without
+conditioning on a client token; the editor's serialize-latest helper prevents a
+slow same-tab save from being overtaken, while concurrent tabs intentionally use
+per-field last-writer-wins.
 
 Per-class scoping is the load-bearing property: a debounced narrative save in
 flight is not falsely staled by a vitals-counter blur. Two writes in the _same_

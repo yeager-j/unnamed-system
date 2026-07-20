@@ -23,7 +23,7 @@ const { saveTemplateSetAction } =
   await import("@/lib/actions/template-set/save")
 const { toast } = await import("sonner")
 
-type TemplateSetSaveResult = Result<{ version: number }, SaveTemplateSetError>
+type TemplateSetSaveResult = Result<void, SaveTemplateSetError>
 
 type SaveCall = {
   input: SaveTemplateSetInput
@@ -76,12 +76,11 @@ const CONTENT_B: TemplateSetContent = {
   closureChance: 0.1,
 }
 
-function render(serverVersion = 0) {
+function render() {
   return renderHook(() =>
     useTemplateSetAutoSave({
       templateSetId: "set-1",
       serverName: "Grammar",
-      serverVersion,
     })
   )
 }
@@ -120,7 +119,7 @@ describe("useTemplateSetAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+      calls[0]!.resolve(ok(undefined))
     })
     await flushMicrotasks()
 
@@ -152,6 +151,26 @@ describe("useTemplateSetAutoSave", () => {
     expect(result.current.save.status).toBe("error")
   })
 
+  it("does not let an older failed save revert a newer waiting name", async () => {
+    const calls = installControlledSave()
+    const { result } = render()
+
+    act(() => result.current.name.onChange("First"))
+    act(() => result.current.name.flush())
+    await flushMicrotasks()
+    act(() => result.current.name.onChange("Latest"))
+    act(() => result.current.name.flush())
+
+    await act(async () => {
+      calls[0]!.resolve(err("template-set-not-found"))
+    })
+    await flushMicrotasks()
+
+    expect(result.current.name.value).toBe("Latest")
+    expect(calls).toHaveLength(2)
+    expect(calls[1]!.input.patch).toEqual({ field: "name", name: "Latest" })
+  })
+
   it("keeps content edits on failure and self-heals on the next identical save", async () => {
     const calls = installControlledSave()
     const { result } = render()
@@ -162,7 +181,7 @@ describe("useTemplateSetAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     await act(async () => {
-      calls[0]!.resolve(err("stale"))
+      calls[0]!.resolve(err("template-set-not-found"))
     })
     await flushMicrotasks()
     expect(result.current.save.status).toBe("error")
@@ -175,7 +194,7 @@ describe("useTemplateSetAutoSave", () => {
     expect(calls).toHaveLength(2)
   })
 
-  it("toasts the stale-specific copy on a stale failure, generic otherwise", async () => {
+  it("toasts a save failure", async () => {
     const calls = installControlledSave()
     const { result } = render()
 
@@ -183,18 +202,7 @@ describe("useTemplateSetAutoSave", () => {
     act(() => result.current.name.flush())
     await flushMicrotasks()
     await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    expect(toast.error).toHaveBeenLastCalledWith(
-      "Couldn't sync the set — refresh to see the latest changes."
-    )
-
-    act(() => result.current.name.onChange("Weave"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[1]!.resolve(err("template-set-not-found"))
+      calls[0]!.resolve(err("template-set-not-found"))
     })
     await flushMicrotasks()
     expect(toast.error).toHaveBeenLastCalledWith(
@@ -202,32 +210,27 @@ describe("useTemplateSetAutoSave", () => {
     )
   })
 
-  it("serializes name + content on one shared token: the second reads the bumped version", async () => {
+  it("serializes name + content so the second cannot overtake a slow first save", async () => {
     const calls = installControlledSave()
-    const { result } = render(0)
+    const { result } = render()
 
-    // Blur the name, then immediately queue a content save — they share one token
-    // and one queue, so the content save chains behind the name save.
+    // Blur the name, then immediately schedule content. Only one row write may
+    // be in flight, so content waits for the slow name save.
     act(() => result.current.name.onChange("Meridian"))
     act(() => result.current.name.flush())
     act(() => result.current.saveContent(CONTENT_B))
     act(() => vi.advanceTimersByTime(600))
     await flushMicrotasks()
 
-    // Only the name save has dispatched, at the initial version 0.
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.input.expectedVersion).toBe(0)
     expect(calls[0]!.input.patch.field).toBe("name")
 
-    // Name succeeds and bumps the shared token to 1.
     await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+      calls[0]!.resolve(ok(undefined))
     })
     await flushMicrotasks()
 
-    // Now content dispatches — reading the freshly-bumped version 1, not 0.
     expect(calls).toHaveLength(2)
-    expect(calls[1]!.input.expectedVersion).toBe(1)
     expect(calls[1]!.input.patch.field).toBe("content")
   })
 
@@ -247,7 +250,7 @@ describe("useTemplateSetAutoSave", () => {
     expect(calls[0]!.input.patch).toEqual({ field: "name", name: "Draft" })
 
     await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+      calls[0]!.resolve(ok(undefined))
     })
     await flushMicrotasks()
     expect(calls).toHaveLength(2)

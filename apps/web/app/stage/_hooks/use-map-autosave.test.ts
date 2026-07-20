@@ -17,7 +17,7 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 const { saveMapAction } = await import("@/lib/actions/save-map")
 const { toast } = await import("sonner")
 
-type MapSaveResult = Result<{ version: number }, SaveMapError>
+type MapSaveResult = Result<void, SaveMapError>
 
 type SaveCall = {
   input: SaveMapInput
@@ -69,13 +69,12 @@ const GEOMETRY_B: MapGeometry = {
   connections: {},
 }
 
-function render(serverVersion = 0) {
+function render() {
   return renderHook(() =>
     useMapAutoSave({
       mapId: "map-1",
       serverName: "Atlas",
       serverGeometry: GEOMETRY_A,
-      serverVersion,
     })
   )
 }
@@ -134,6 +133,26 @@ describe("useMapAutoSave", () => {
     expect(result.current.save.status).toBe("error")
   })
 
+  it("does not let an older failed save revert a newer waiting name", async () => {
+    const calls = installControlledSave()
+    const { result } = render()
+
+    act(() => result.current.name.onChange("First"))
+    act(() => result.current.name.flush())
+    await flushMicrotasks()
+    act(() => result.current.name.onChange("Latest"))
+    act(() => result.current.name.flush())
+
+    await act(async () => {
+      calls[0]!.resolve(err("map-not-found"))
+    })
+    await flushMicrotasks()
+
+    expect(result.current.name.value).toBe("Latest")
+    expect(calls).toHaveLength(2)
+    expect(calls[1]!.input.patch).toEqual({ field: "name", name: "Latest" })
+  })
+
   it("keeps geometry edits on failure and self-heals on the next identical save", async () => {
     const calls = installControlledSave()
     const { result } = render()
@@ -144,7 +163,7 @@ describe("useMapAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     await act(async () => {
-      calls[0]!.resolve(err("stale"))
+      calls[0]!.resolve(err("map-not-found"))
     })
     await flushMicrotasks()
     expect(result.current.save.status).toBe("error")
@@ -157,7 +176,7 @@ describe("useMapAutoSave", () => {
     expect(calls).toHaveLength(2)
   })
 
-  it("toasts the stale-specific copy on a stale failure, generic otherwise", async () => {
+  it("toasts a save failure", async () => {
     const calls = installControlledSave()
     const { result } = render()
 
@@ -165,18 +184,7 @@ describe("useMapAutoSave", () => {
     act(() => result.current.name.flush())
     await flushMicrotasks()
     await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    expect(toast.error).toHaveBeenLastCalledWith(
-      "Couldn't sync the map — refresh to see the latest changes."
-    )
-
-    act(() => result.current.name.onChange("Rune"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[1]!.resolve(err("map-not-found"))
+      calls[0]!.resolve(err("map-not-found"))
     })
     await flushMicrotasks()
     expect(toast.error).toHaveBeenLastCalledWith(
@@ -184,32 +192,27 @@ describe("useMapAutoSave", () => {
     )
   })
 
-  it("serializes name + geometry on one shared token: the second reads the bumped version", async () => {
+  it("serializes name + geometry so the second cannot overtake a slow first save", async () => {
     const calls = installControlledSave()
-    const { result } = render(0)
+    const { result } = render()
 
-    // Blur the name, then immediately queue a geometry save — they share one
-    // token and one queue, so the geometry save chains behind the name save.
+    // Blur the name, then immediately schedule geometry. Only one row write may
+    // be in flight, so geometry waits for the slow name save.
     act(() => result.current.name.onChange("Meridian"))
     act(() => result.current.name.flush())
     act(() => result.current.saveGeometry(GEOMETRY_B))
     act(() => vi.advanceTimersByTime(600))
     await flushMicrotasks()
 
-    // Only the name save has dispatched, at the initial version 0.
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.input.expectedVersion).toBe(0)
     expect(calls[0]!.input.patch.field).toBe("name")
 
-    // Name succeeds and bumps the shared token to 1.
     await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+      calls[0]!.resolve(ok(undefined))
     })
     await flushMicrotasks()
 
-    // Now geometry dispatches — reading the freshly-bumped version 1, not 0.
     expect(calls).toHaveLength(2)
-    expect(calls[1]!.input.expectedVersion).toBe(1)
     expect(calls[1]!.input.patch.field).toBe("geometry")
   })
 
@@ -229,7 +232,7 @@ describe("useMapAutoSave", () => {
     expect(calls[0]!.input.patch).toEqual({ field: "name", name: "Draft" })
 
     await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+      calls[0]!.resolve(ok(undefined))
     })
     await flushMicrotasks()
     expect(calls).toHaveLength(2)

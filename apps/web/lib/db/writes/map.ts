@@ -6,7 +6,7 @@ import { type Result } from "@workspace/result"
 import { db } from "@/lib/db/client"
 import { maps } from "@/lib/db/schema/map"
 import { insertWithShortId } from "@/lib/db/short-id"
-import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
+import { lastWriterWinsUpdate } from "@/lib/db/writes/last-writer-wins-update"
 
 /**
  * Persistence for the `map` table — the user-owned dungeon templates (Dungeon Map
@@ -14,12 +14,14 @@ import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
  * auth-free; the owner authorization (`requireMapOwner`) lives at the Server
  * Action boundary that calls it.
  *
- * A single `version` token guards every mutation through the shared
- * {@link guardedVersionUpdate}. These run on the base `db` — Map authoring is
- * single-owner with no cross-row atomic gesture (no `guardMany`).
+ * Map authoring is single-owner and each autosave patches one field, so writes
+ * use deliberate last-writer-wins concurrency. The row's `version` remains an
+ * authority-owned revision counter so an older, still-open versioned client
+ * fails stale instead of overlooking a new LWW write during deployment overlap.
+ * Current write commands neither send nor return it.
  */
 
-type MapWriteError = "map-not-found" | "stale"
+type MapWriteError = "map-not-found"
 
 /**
  * Creates an empty Map owned by `userId` with a minted, collision-retried
@@ -47,30 +49,25 @@ export async function createMap(input: {
 }
 
 /**
- * The guarded geometry write: replaces the whole `geometry` blob and bumps
- * `version`, conditioned on the caller's `expectedVersion`. Returns the new
- * version on success. **This is the write UNN-461's canvas node-drag /
- * adjacency edits call.**
+ * Replaces the whole `geometry` blob and advances the row revision. This is the
+ * write UNN-461's canvas node-drag / adjacency edits call.
  */
 export async function saveMapGeometry(
   mapId: string,
-  geometry: MapGeometry,
-  expectedVersion: number
-): Promise<Result<{ version: number }, MapWriteError>> {
-  return bumpMapVersionGuarded(mapId, expectedVersion, { geometry })
+  geometry: MapGeometry
+): Promise<Result<void, MapWriteError>> {
+  return updateMap(mapId, { geometry })
 }
 
 /**
- * The guarded name write — the autosaved Map name (no Save button). Same guarded
- * primitive as {@link saveMapGeometry}, different patch: name and geometry share
- * the one `version` token, each round-tripping it on its own save.
+ * The autosaved Map name (no Save button). Same per-field LWW primitive as
+ * {@link saveMapGeometry}, different patch.
  */
 export async function renameMap(
   mapId: string,
-  name: string,
-  expectedVersion: number
-): Promise<Result<{ version: number }, MapWriteError>> {
-  return bumpMapVersionGuarded(mapId, expectedVersion, { name })
+  name: string
+): Promise<Result<void, MapWriteError>> {
+  return updateMap(mapId, { name })
 }
 
 /**
@@ -84,16 +81,13 @@ export async function deleteMap(mapId: string): Promise<void> {
   await db.delete(maps).where(eq(maps.id, mapId))
 }
 
-/** The shared single-version guard, bound to this aggregate's table + error. */
-async function bumpMapVersionGuarded(
+async function updateMap(
   mapId: string,
-  expectedVersion: number,
   patch: Partial<typeof maps.$inferInsert>
-): Promise<Result<{ version: number }, MapWriteError>> {
-  return guardedVersionUpdate({
+): Promise<Result<void, MapWriteError>> {
+  return lastWriterWinsUpdate({
     table: maps,
     id: mapId,
-    expectedVersion,
     patch,
     notFound: "map-not-found",
   })

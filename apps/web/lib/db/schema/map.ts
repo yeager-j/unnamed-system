@@ -11,9 +11,8 @@ import { users } from "./user"
  * snapshot that owns the live spatial runtime; the template itself holds no
  * runtime. Its whole authored {@link MapGeometry} (Zones, connections +
  * `hidden`/`locked`, node `(x,y)`, descriptions + DM notes) persists as one
- * `geometry` jsonb blob, guarded by a single `version` token — the same
- * optimistic-concurrency shape as the encounter `session` and the Instance
- * `state`.
+ * `geometry` jsonb blob. Stage autosave is field-scoped LWW; `version` remains an
+ * authority-owned revision counter rather than a client concurrency token.
  *
  * `shortId` backs the owner-only My Maps editor URL (`/stage/maps/{shortId}`). Writes
  * gate on the owner (`requireMapOwner`, `map.userId === viewer`); the snapshot

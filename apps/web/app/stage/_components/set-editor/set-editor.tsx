@@ -38,7 +38,7 @@ export interface PortalMapOption {
  *
  * One client tree, mounted once: `content` is the single source of truth for
  * the whole blob, every edit flows `content → setContent → saveContent`
- * (whole-blob autosave through the shared version token), and selection rides
+ * (serialized whole-blob autosave), and selection rides
  * the `?item=` search param so items are URL-addressable without remounting
  * the editor (see `selection.ts`). Lint re-runs as a pure `useMemo` on every
  * content change — advisory only, never save-blocking.
@@ -57,7 +57,6 @@ export function SetEditor({
   const { name, saveContent, save } = useTemplateSetAutoSave({
     templateSetId: set.id,
     serverName: set.name,
-    serverVersion: set.version,
   })
 
   const selection = selectionFromParam(searchParams.get("item"))

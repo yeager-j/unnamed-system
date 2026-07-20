@@ -130,7 +130,7 @@ test("editing a Map leaves a referencing Instance unchanged (snapshot isolation)
       },
     },
   })
-  const result = await saveMapGeometry(map.id, geometry, 0)
+  const result = await saveMapGeometry(map.id, geometry)
   expect(result.ok).toBe(true)
 
   const [row] = await getDb()

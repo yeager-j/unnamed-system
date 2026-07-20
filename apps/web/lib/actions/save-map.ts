@@ -13,25 +13,21 @@ import {
 
 /**
  * Autosaves a Map field (UNN-460, owner-only). `requireMapOwner` gates the write;
- * the discriminated `patch` routes to the matching version-guarded write
- * (`renameMap` / `saveMapGeometry`), which bumps `version` and returns the new
- * token so the client's optimistic ref advances. A `"stale"` result means a
- * concurrent save moved the token (cross-tab only — Map authoring is
- * single-owner); the standalone editor hook surfaces it by reverting the field +
- * a toast, *not* the silent refetch-and-retry the character autosave gets from
- * `dispatchCharacterWriteWithRetry`. No `revalidatePath`: the editor renders the
- * optimistic value and the version round-trip keeps it honest.
+ * the discriminated `patch` routes to the matching field-scoped LWW write
+ * (`renameMap` / `saveMapGeometry`). Map authoring is single-owner; this tab
+ * serializes saves while concurrent tabs deliberately resolve in database update
+ * order. No `revalidatePath`: the editor owns the draft it just persisted.
  */
 export async function saveMapAction(
   input: SaveMapInput
-): Promise<Result<{ version: number }, SaveMapError>> {
+): Promise<Result<void, SaveMapError>> {
   const parsed = SaveMapSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const { mapId, expectedVersion, patch } = parsed.data
+  const { mapId, patch } = parsed.data
   const map = await requireMapOwner(mapId)
 
   return patch.field === "name"
-    ? renameMap(map.id, patch.name, expectedVersion)
-    : saveMapGeometry(map.id, patch.geometry, expectedVersion)
+    ? renameMap(map.id, patch.name)
+    : saveMapGeometry(map.id, patch.geometry)
 }
