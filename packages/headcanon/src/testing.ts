@@ -357,7 +357,11 @@ export type MutationAuthorityContractAxis =
   | "primary"
   | "secondary"
   | "rollback-when-zero"
-export type MutationAuthorityContractBehavior = "accept" | "reject" | "throw"
+export type MutationAuthorityContractBehavior =
+  | "accept"
+  | "reject"
+  | "throw"
+  | "mutate-args-when-zero"
 
 export interface MutationAuthorityContractArgs {
   readonly amount: number
@@ -425,7 +429,8 @@ function isContractArgs(value: unknown): value is AuthorityContractArgs {
     ) ||
     (input.behavior !== "accept" &&
       input.behavior !== "reject" &&
-      input.behavior !== "throw") ||
+      input.behavior !== "throw" &&
+      input.behavior !== "mutate-args-when-zero") ||
     typeof input.effect !== "string" ||
     (input.maximumPrimary !== null &&
       (typeof input.maximumPrimary !== "number" ||
@@ -580,6 +585,14 @@ export function createInMemoryMutationAuthorityContractHarness(): MutationAuthor
               stamp.record(axis, stampedRevision)
             }
 
+            if (
+              args.behavior === "mutate-args-when-zero" &&
+              current.primary === 0
+            ) {
+              const mutableArgs = args as { amount: number }
+              mutableArgs.amount = 100
+            }
+
             if (args.behavior === "throw") {
               throw new Error("authority contract exception")
             }
@@ -721,6 +734,26 @@ export function verifyMutationAuthorityContract(
         effects: ["once-after-retry"],
       })
       expect(stamp.revisions[PRIMARY_AXIS]).toBe(2)
+      expect(await driver.attemptCount(envelope.mutationId)).toBe(2)
+    })
+
+    it("gives every contention attempt fresh canonical arguments", async () => {
+      const driver = await harness.create()
+      const envelope = authorityEnvelope(
+        14,
+        contractArgs({
+          behavior: "mutate-args-when-zero",
+          effect: "fresh-arguments",
+        })
+      )
+      await driver.contendNext(10)
+
+      requireAccepted(await driver.execute(envelope))
+
+      expect(await driver.read()).toMatchObject({
+        primary: 11,
+        effects: ["fresh-arguments"],
+      })
       expect(await driver.attemptCount(envelope.mutationId)).toBe(2)
     })
 

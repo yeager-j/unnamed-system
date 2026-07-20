@@ -3,7 +3,7 @@ import type { StandardSchemaV1 } from "@standard-schema/spec"
 import { err, ok, type Result } from "@workspace/result"
 
 import {
-  canonicalInvocation,
+  prepareCanonicalInvocation,
   type CanonicalInvocation,
   type CanonicalInvocationError,
 } from "./canonical-invocation"
@@ -279,9 +279,12 @@ export function createMutationExecutor<
       name: definition.name,
       args: parsedArguments.value,
     }
-    const canonical = await canonicalInvocation(options.protocol.id, invocation)
-    if (!canonical.ok) {
-      return err({ code: "canonical-invocation", error: canonical.error })
+    const prepared = await prepareCanonicalInvocation(
+      options.protocol.id,
+      invocation
+    )
+    if (!prepared.ok) {
+      return err({ code: "canonical-invocation", error: prepared.error })
     }
 
     const handler = (
@@ -296,11 +299,16 @@ export function createMutationExecutor<
       {
         actor,
         mutationId: parsedEnvelope.value.mutationId,
-        canonical: canonical.value,
+        canonical: prepared.value.canonical,
       },
       (tx, stamp) =>
         Promise.resolve(
-          handler({ tx, args: parsedArguments.value, actor, stamp })
+          handler({
+            tx,
+            args: structuredClone(prepared.value.invocation.args),
+            actor,
+            stamp,
+          })
         )
     )
   }
