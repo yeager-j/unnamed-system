@@ -408,16 +408,18 @@ describe("createPredictedRoot", () => {
     expect(controlled.send).toHaveBeenCalledTimes(1)
   })
 
-  it("isolates the queued envelope from later argument mutation", () => {
-    const { result, deliveries } = setup()
+  it("isolates delivery and replay from later argument mutation", () => {
+    const { result, deliveries, rerender } = setup()
     const args = { amount: 1 }
 
     act(() => {
       mutate(result, add(args))
     })
     args.amount = 99
+    rerender({ currentCanon: canon(10, 10) })
 
     expect(deliveries[0]?.envelope.invocation.args.amount).toBe(1)
+    expect(result.current.value).toBe(11)
   })
 
   it("does not retract replay-refused sending delivery", async () => {

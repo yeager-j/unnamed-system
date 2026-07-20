@@ -500,7 +500,10 @@ export function createPredictedRoot<
         queueRef.current.push(mutationId)
 
         startTransition(async () => {
-          addOptimistic({ mutationId, invocation })
+          addOptimistic({
+            mutationId,
+            invocation: entry.envelope.invocation,
+          })
           renderCoordinator()
           await entry.releaseAction.promise
         })
