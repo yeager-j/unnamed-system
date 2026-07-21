@@ -39,17 +39,24 @@ concurrency token, and envelope:
 
 | Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
-| `entity/`    | `requireOwnerOrCampaignDMForEntity` / `requireEntityOwner` (in the Store) | `{ entityId, expectedVersion, write }` (the descriptor router — UNN-551) | per-write-class on the `entity` row (`bumpEntityVersionGuarded`) |
+| `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates), rerun inside the Store's transaction + pre-checked at the door (UNN-674) | `{ entityId, expectedVersion, write }` — `expectedVersion` now **vestigial** (server-read) | per-write-class on the `entity` row, **server-authoritative** (`commitEntityWrite` reads the class version and guards on it; a lost race is contention/`stale`) |
 | `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
 | `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
 
-> **The `entity/` aggregate (UNN-551)** is the descriptor → Writer → Store pipeline
-> for durable component writes: `commitEntityWrite` (auth + assemble + pure Writer
-> + guarded column commit) and `bumpEntityVersionGuarded`. The neutral vocabulary
-> (schema, `ENTITY_WRITERS`) lives in `domain/entity/commit/`. It is the shared engine
-> both the character surfaces (the entity door, `applyEntityWriteAction`) and
-> combat's durable arm (the encounter door forwards here) commit through — one
-> write architecture, two doors.
+> **The `entity/` aggregate (UNN-551; transactional refactor UNN-674)** is the
+> descriptor → Writer → Store pipeline for durable component writes. `commitEntityWrite`
+> is now the **one executor-neutral Store** — it takes a supplied executor (the
+> Headcanon authority's savepoint transaction, or the standalone `db`) and runs the
+> whole commit inside it: load → contextual authorization (`authorize-write`) →
+> pure Writer → **server-authoritative** guarded UPDATE (it reads the class version
+> and guards on it — no client token) → axis stamp. It fires no ping/revalidation;
+> post-acceptance finalization is the caller's (the executor's axis invalidation, or
+> a standalone door's ping + refresh). The neutral vocabulary (schema, `ENTITY_WRITERS`)
+> lives in `domain/entity/commit/`. Three callers share the one Store: the Headcanon
+> handler (`mutations/execute-entity-write.ts`), the legacy character door
+> (`applyEntityWriteAction`), and combat's durable arm — one write architecture,
+> one implementation. (`bumpEntityVersionGuarded` survives only for the app-column
+> actions in `columns.ts` / `finalize`.)
 
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` door (the descriptor → Writer →
@@ -69,12 +76,13 @@ revalidate.
 **Durable character writes go through the entity door** (`lib/actions/entity/`,
 ADR §2.4). A character surface's provider dispatches a serializable
 component-write **descriptor** (`entityWriteSchema`, `domain/entity/commit/write.schema.ts`)
-to `applyEntityWriteAction`, which hands off to `commitEntityWrite` — the shared
-Store that owns auth, assembling the row into a runtime `Entity`, running the pure
-**Writer** (`ENTITY_WRITERS.applyOp`), and the guarded column commit
-(`bumpEntityVersionGuarded`). App-owned entity columns (name, portrait, pronouns,
-notes) stay classic per-field actions (`lib/actions/entity/columns.ts`) composing
-the same guard. PC lifecycle state (`builderStep`, `status`) lives on the
+to `applyEntityWriteAction`, which authenticates (`requireActor`) and hands off to
+`commitEntityWrite(db, actor, …)` — the shared executor-neutral Store that owns
+contextual authorization, assembling the row into a runtime `Entity`, running the
+pure **Writer** (`ENTITY_WRITERS.applyOp`), and the server-authoritative guarded
+commit; the door owns only the post-commit ping + revalidation. App-owned entity
+columns (name, portrait, pronouns, notes) stay classic per-field actions
+(`lib/actions/entity/columns.ts`) composing `bumpEntityVersionGuarded`. PC lifecycle state (`builderStep`, `status`) lives on the
 unversioned `playerCharacter` subtype; `finalize` spans the guarded entity and
 subtype halves. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm

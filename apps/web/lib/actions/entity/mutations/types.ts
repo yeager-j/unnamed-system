@@ -1,7 +1,10 @@
 import type { DrizzleHandlerTx } from "@workspace/headcanon/drizzle"
 
 import type { EntityWriteRefusal } from "@/domain/entity/commit/writers"
+import type { Actor } from "@/lib/auth/actor"
 import type { getDb } from "@/lib/db/client"
+
+import type { EntityWriteAuthRejection } from "../authorize-write"
 
 /**
  * Shared types for the Headcanon `entity.write` authority (UNN-673), kept in a
@@ -16,19 +19,21 @@ import type { getDb } from "@/lib/db/client"
  */
 export type EntityMutationTx = DrizzleHandlerTx<ReturnType<typeof getDb>>
 
-/** The trusted actor an entity mutation executes as — authentication only; the
- *  door owns per-entity authorization (UNN-673 AC #5). */
-export interface EntityMutationActor {
-  readonly userId: string
-}
+/** The trusted actor an entity mutation executes as — authentication only, the
+ *  same {@link Actor} the door derives from the session. Per-entity authorization
+ *  is a decision the handler makes with it inside the transaction (UNN-674). */
+export type EntityMutationActor = Actor
 
 /**
- * A terminal domain refusal for `entity.write`. The Writer refusals plus the two
- * authority-load outcomes; **contention is not here** — a lost guarded write
- * calls `throwMutationContention()` so the executor retries against fresh state,
- * it is never a terminal rejection.
+ * A terminal domain refusal for `entity.write`. The Writer refusals, the two
+ * authority-load outcomes, and the contextual authorization refusals the handler
+ * now returns inside the transaction (UNN-674 — the doors translate these to
+ * `forbidden()`). **Contention is not here** — a lost guarded write calls
+ * `throwMutationContention()` so the executor retries against fresh state, it is
+ * never a terminal rejection.
  */
 export type EntityMutationRejection =
   | EntityWriteRefusal
   | "entity-not-found"
   | "entity-load-failed"
+  | EntityWriteAuthRejection

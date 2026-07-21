@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   campaignArticle,
   campaignEventPlacement,
@@ -26,11 +26,14 @@ import { entity, type EntityRow } from "@/lib/db/schema/entity"
  */
 export type LoadedCampaignNpc = CampaignNpcRow & { entity: EntityRow }
 
-/** The campaign's live NPCs, name-ordered — the NPC list page + linker read. */
+/** The campaign's live NPCs, name-ordered — the NPC list page + linker read.
+ *  Accepts an optional `executor` so the transactional entity handler's narrative
+ *  gate reads the bond lanes inside its own attempt (UNN-674); defaults to `db`. */
 export async function loadCampaignNpcs(
-  campaignId: string
+  campaignId: string,
+  executor: WriteExecutor = db
 ): Promise<LoadedCampaignNpc[]> {
-  const rows = await db
+  const rows = await executor
     .select({ entity, npc: campaignNpc })
     .from(entity)
     .innerJoin(campaignNpc, eq(campaignNpc.entityId, entity.id))

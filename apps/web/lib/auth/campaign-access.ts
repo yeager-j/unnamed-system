@@ -1,5 +1,6 @@
 import { forbidden } from "next/navigation"
 
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
   loadPlayerCharacterById,
@@ -15,14 +16,20 @@ import { auth } from "./index"
  * (`campaignId → campaign.dmUserId`), may write it. Two queries max — the campaign
  * is loaded only on a non-owner viewer of a placed PC. Reads the lifecycle facts
  * off the player-character subtype (R3 — UNN-573).
+ *
+ * Exported and executor-parameterized (UNN-674) so the transactional entity
+ * handler can rerun the same DM check inside its attempt against the same
+ * snapshot; the throwing gates below and the standalone doors keep the `db`
+ * default.
  */
-async function isOwnerOrCampaignDM(
+export async function isOwnerOrCampaignDM(
   viewerId: string,
-  pc: { userId: string; campaignId: string | null }
+  pc: { userId: string; campaignId: string | null },
+  executor: WriteExecutor = db
 ): Promise<boolean> {
   if (pc.userId === viewerId) return true
   if (pc.campaignId) {
-    const campaign = await loadCampaignRowById(pc.campaignId)
+    const campaign = await loadCampaignRowById(pc.campaignId, executor)
     if (campaign && campaign.dmUserId === viewerId) return true
   }
   return false

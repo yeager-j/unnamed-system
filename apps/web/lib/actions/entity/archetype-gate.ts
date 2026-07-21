@@ -1,42 +1,45 @@
-import { forbidden } from "next/navigation"
-
 import { isNarrativelyLocked } from "@workspace/game-v2/archetypes/atlas"
+import { err, ok, type Result } from "@workspace/result"
 
 import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { getArchetype } from "@/domain/game-engine-v2"
 import { loadNarrativeGate } from "@/domain/planner/load-narrative-gate"
-import { auth } from "@/lib/auth"
-import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
+import type { WriteExecutor } from "@/lib/db/client"
+import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 
 /**
  * The viewer-identity authorization for an Archetype rank-spend — the one entity
  * write whose legality depends on *who* the viewer is and the *campaign story*,
  * not just stored state. Shared by both entity-write doors (the legacy
- * `applyEntityWriteAction` and the Headcanon `applyEntityMutationAction`, UNN-673)
- * so the rule has one home: the pure Writer is catalog-only (it runs on the
- * optimistic client too), so this gate is the door's responsibility.
+ * `applyEntityWriteAction` and the Headcanon `applyEntityMutationAction`) so the
+ * rule has one home: the pure Writer is catalog-only (it runs on the optimistic
+ * client too), so this gate is the authority's responsibility.
  *
- * A no-op for every write that is not `archetypes/spendArchetypeRank`. Trips
- * `forbidden()` (HTTP 403) when the target Archetype is hidden from the viewer's
- * Atlas allowlist or narratively locked for a placed character.
+ * Since UNN-674 it is a **typed rejection**, not a `forbidden()` throw, and reads
+ * the already-loaded PC + a supplied executor: it runs *inside* the transactional
+ * handler so contention rerun re-evaluates it against current state and the
+ * handler never throws framework control flow. The doors translate a rejection to
+ * `forbidden()` at their boundary. A no-op for every write that is not
+ * `archetypes/spendArchetypeRank`.
  */
+export type ArchetypeGateRejection = "archetype-hidden" | "archetype-locked"
+
 export async function refuseGatedArchetypeSpend(
-  entityId: string,
+  executor: WriteExecutor,
+  email: string | null,
+  pc: LoadedPlayerCharacter,
   write: EntityWrite
-): Promise<void> {
+): Promise<Result<void, ArchetypeGateRejection>> {
   if (write.component !== "archetypes" || write.op !== "spendArchetypeRank") {
-    return
+    return ok(undefined)
   }
 
-  const session = await auth()
-  if (
-    hiddenArchetypeKeysFor(session?.user?.email).includes(write.archetypeKey)
-  ) {
-    forbidden()
+  if (hiddenArchetypeKeysFor(email).includes(write.archetypeKey)) {
+    return err("archetype-hidden")
   }
 
-  await refuseNarrativelyLockedUnlock(entityId, write.archetypeKey)
+  return refuseNarrativelyLockedUnlock(executor, pc, write.archetypeKey)
 }
 
 /**
@@ -46,30 +49,36 @@ export async function refuseGatedArchetypeSpend(
  * `isNarrativelyLocked` the Atlas renders from, so what displays locked and what
  * refuses to unlock can't drift. Ranking up an **owned** Archetype stays legal —
  * acquisition is permanent; a bond regress never re-locks holdings. The common
- * paths (not placed / gating off) short-circuit after two reads.
+ * paths (not placed / gating off) short-circuit after one read. Reads the
+ * archetypes off the PC the handler already loaded (UNN-674), so no re-query.
  */
 async function refuseNarrativelyLockedUnlock(
-  entityId: string,
+  executor: WriteExecutor,
+  pc: LoadedPlayerCharacter,
   archetypeKey: string
-): Promise<void> {
-  const character = await loadPlayerCharacterById(entityId)
-  if (!character?.campaignId) return
+): Promise<Result<void, "archetype-locked">> {
+  if (!pc.campaignId) return ok(undefined)
 
-  const archetypes = character.entity.archetypes
+  const archetypes = pc.entity.archetypes
   const owned = archetypes?.roster.some((entry) => entry.key === archetypeKey)
-  if (owned) return
+  if (owned) return ok(undefined)
 
-  const gate = await loadNarrativeGate({
-    campaignId: character.campaignId,
-    originArchetypeKey: archetypes?.origin ?? null,
-  })
-  if (gate === undefined) return
+  const gate = await loadNarrativeGate(
+    {
+      campaignId: pc.campaignId,
+      originArchetypeKey: archetypes?.origin ?? null,
+    },
+    executor
+  )
+  if (gate === undefined) return ok(undefined)
 
   const target = getArchetype(archetypeKey)
-  if (!target) return
+  if (!target) return ok(undefined)
 
   const originLineage = archetypes?.origin
     ? (getArchetype(archetypes.origin)?.lineage ?? null)
     : null
-  if (isNarrativelyLocked(target, gate, originLineage)) forbidden()
+  return isNarrativelyLocked(target, gate, originLineage)
+    ? err("archetype-locked")
+    : ok(undefined)
 }

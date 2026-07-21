@@ -3,13 +3,17 @@ import { unauthorized } from "next/navigation"
 import { auth } from "./index"
 
 /**
- * A trusted, authenticated actor — the signed-in user's id, derived from the
- * server session and never from the wire. This is **authentication only**;
- * per-resource authorization (ownership, DM) is a separate decision made at the
- * point that resource is touched.
+ * A trusted, authenticated actor — the signed-in user's id (and email), derived
+ * from the server session and never from the wire. This is **authentication
+ * only**; per-resource authorization (ownership, DM, restricted-Archetype) is a
+ * separate decision made at the point that resource is touched. The `email`
+ * feeds the viewer-identity restricted-Archetype gate (`hiddenArchetypeKeysFor`)
+ * when contextual authorization runs inside a transactional handler (UNN-674),
+ * so the gate no longer reaches for the session itself.
  */
 export interface Actor {
   readonly userId: string
+  readonly email: string | null
 }
 
 /**
@@ -23,5 +27,5 @@ export async function requireActor(): Promise<Actor> {
   const userId = session?.user?.id
   if (!userId) unauthorized()
 
-  return { userId }
+  return { userId, email: session?.user?.email ?? null }
 }

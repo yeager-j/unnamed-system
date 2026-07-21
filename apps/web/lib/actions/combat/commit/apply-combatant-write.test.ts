@@ -10,6 +10,7 @@ import {
   asParticipantId,
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
+import { MutationContentionError } from "@workspace/headcanon/drizzle"
 import { err, ok } from "@workspace/result"
 
 import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
@@ -18,18 +19,25 @@ import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { applyCombatantWriteAction } from "./apply-combatant-write"
 
 // The router's seams: the v2 write-path loader, the session auth gate + guarded
-// blob write (session arm), and the shared native durable Store (durable arm,
-// which owns its own auth + guard, tested in entity-row-store's own suite). Stub
-// them; the descriptor schema, the Writers, the reducer, and the fail-closed
-// saver run for real — the contract under test is the *routing*, not the durable
-// commit's arithmetic.
+// blob write (session arm), and the shared executor-neutral durable Store (durable
+// arm — it owns its own load + auth + guard + stamp, tested in the Store's own
+// suite). Stub them; the descriptor schema, the Writers, the reducer, and the
+// fail-closed saver run for real — the contract under test is the *routing*, not
+// the durable commit's arithmetic.
 const requireCampaignDM = vi.fn()
+const requireActor = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const saveEncounterSession = vi.fn()
 const commitEntityWrite = vi.fn()
 const publishEncounterPing = vi.fn()
+const publishCharacterPing = vi.fn()
 const revalidateEncounter = vi.fn()
+const forbidden = vi.fn(() => {
+  throw new Error("forbidden")
+})
 
+vi.mock("next/navigation", () => ({ forbidden: () => forbidden() }))
+vi.mock("@/lib/auth/actor", () => ({ requireActor: () => requireActor() }))
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
 }))
@@ -45,12 +53,24 @@ vi.mock("@/lib/db/writes/encounter", () => ({
   ) => saveEncounterSession(id, stored, v, tx),
 }))
 vi.mock("@/lib/actions/entity/entity-row-store", () => ({
-  commitEntityWrite: (id: string, write: unknown, v: number) =>
-    commitEntityWrite(id, write, v),
+  commitEntityWrite: (
+    executor: unknown,
+    actor: unknown,
+    args: unknown,
+    stamp: unknown
+  ) => commitEntityWrite(executor, actor, args, stamp),
+}))
+vi.mock("../../entity/authorize-write", () => ({
+  isEntityWriteAuthRejection: (rejection: string) =>
+    rejection === "unauthorized" ||
+    rejection === "archetype-hidden" ||
+    rejection === "archetype-locked",
 }))
 vi.mock("@/lib/realtime/publish", () => ({
   publishEncounterPing: (shortId: string, ping: unknown) =>
     publishEncounterPing(shortId, ping),
+  publishCharacterPing: (shortId: string, kind: string, versions: unknown) =>
+    publishCharacterPing(shortId, kind, versions),
 }))
 vi.mock("../../encounter/revalidate", () => ({
   revalidateEncounter: (encounter: { shortId: string }) =>
@@ -60,6 +80,7 @@ vi.mock("../../encounter/revalidate", () => ({
 const ENCOUNTER_ID = "encounter-1"
 const PC_ID = asParticipantId("c-pc")
 const GOBLIN_ID = asParticipantId("c-goblin")
+const ACTOR = { userId: "u1", email: "u1@example.com" }
 
 function makeSession(): Session {
   return {
@@ -127,21 +148,27 @@ function makeLoaded(): LoadedEncounterForWrite {
 }
 
 beforeEach(() => {
-  requireCampaignDM.mockReset().mockResolvedValue({ id: "campaign-1" })
-  loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded()))
-  saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 5 }))
-  commitEntityWrite
-    .mockReset()
-    .mockResolvedValue(ok({ version: 8, shortId: "chr1" }))
-  publishEncounterPing.mockReset()
-  revalidateEncounter.mockReset()
+  vi.clearAllMocks()
+  requireCampaignDM.mockResolvedValue({ id: "campaign-1" })
+  requireActor.mockResolvedValue(ACTOR)
+  loadEncounterForWrite.mockResolvedValue(ok(makeLoaded()))
+  saveEncounterSession.mockResolvedValue(ok({ version: 5 }))
+  commitEntityWrite.mockResolvedValue(
+    ok({
+      version: 8,
+      shortId: "chr1",
+      versionClass: "vitals",
+      status: "finalized",
+    })
+  )
 })
 
 const BASE = { encounterId: ENCOUNTER_ID }
 /** The session arm's honest envelope — the encounter token only (UNN-567). */
 const INLINE = { ...BASE, expectedVersion: 4 }
-/** The durable arm's honest envelope — the entity `vitals` token only, no
- *  encounter rider (UNN-567). */
+/** The durable arm's envelope — the entity token is still required on the wire so
+ *  a mis-routed session write fails closed, though its value is no longer read
+ *  (server-authoritative guard, UNN-674). */
 const DURABLE = { ...BASE, expectedCharacterVersion: 7 }
 
 describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => {
@@ -188,16 +215,26 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
     expect(result).toEqual(
       ok({ version: 8, channel: { domain: "character", shortId: "chr1" } })
     )
-    // Forwarded verbatim to the native store, keyed by the locator's entity id
-    // and guarded on the wire's entity-version token; the store owns auth + commit.
+    // Forwarded to the executor-neutral Store, keyed by the locator's entity id,
+    // as the authenticated actor and standalone `db` executor; the Store owns
+    // load + auth + the server-authoritative guarded commit + the axis stamp.
     expect(commitEntityWrite).toHaveBeenCalledWith(
-      "char-1",
-      { component: "vitals", op: "damage", amount: 5 },
-      7
+      expect.anything(),
+      ACTOR,
+      {
+        entityId: "char-1",
+        write: { component: "vitals", op: "damage", amount: 5 },
+      },
+      expect.anything()
     )
     // A durable write NEVER reaches the session blob — the routing invariant.
     expect(saveEncounterSession).not.toHaveBeenCalled()
-    // But it DOES revalidate this encounter's route (UNN-567): the RSC payload
+    // The ping (relocated out of the version guard) invalidates every other
+    // watcher of the character channel...
+    expect(publishCharacterPing).toHaveBeenCalledWith("chr1", "entity", {
+      vitals: 8,
+    })
+    // ...and it DOES revalidate this encounter's route (UNN-567): the RSC payload
     // rides the transition response, so the console's optimistic frame doesn't
     // flash back to the stale base while waiting for the pc-ping refresh.
     expect(revalidateEncounter).toHaveBeenCalledWith(
@@ -257,10 +294,11 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
     expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
-  it("durable arm: the store's own gate rejection propagates (owner-or-campaign-DM)", async () => {
-    // The durable gate lives inside `commitEntityWrite` (one gate for the sheet
-    // buttons and the console); a `forbidden()` there surfaces as a rejection.
-    commitEntityWrite.mockRejectedValue(new Error("forbidden"))
+  it("durable arm: the Store's typed authorization refusal becomes a forbidden()", async () => {
+    // The durable gate lives inside the Store (one gate for the sheet buttons and
+    // the console); it returns a typed refusal, which the arm translates to a 403
+    // to preserve combat's forbidden() posture (UNN-674).
+    commitEntityWrite.mockResolvedValue(err("unauthorized"))
     await expect(
       applyCombatantWriteAction({
         ...DURABLE,
@@ -268,6 +306,7 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
         write: { component: "vitals", op: "heal", amount: 2 },
       })
     ).rejects.toThrow("forbidden")
+    expect(forbidden).toHaveBeenCalledOnce()
     expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 })
@@ -362,20 +401,25 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
         participantId: PC_ID,
         write,
       })
-      expect(commitEntityWrite).toHaveBeenCalledWith("char-1", write, 7)
+      expect(commitEntityWrite).toHaveBeenCalledWith(
+        expect.anything(),
+        ACTOR,
+        { entityId: "char-1", write },
+        expect.anything()
+      )
     }
   })
 
-  it("propagates the store's guard error (stale) and revalidates nothing", async () => {
-    commitEntityWrite.mockResolvedValue(err("stale"))
+  it("maps a lost race (contention) to `stale` and revalidates nothing", async () => {
+    commitEntityWrite.mockRejectedValue(new MutationContentionError())
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...DURABLE,
       participantId: PC_ID,
-      expectedCharacterVersion: 6,
       write: { component: "vitals", op: "damage", amount: 1 },
     })
     expect(result).toEqual(err("stale"))
     expect(revalidateEncounter).not.toHaveBeenCalled()
+    expect(publishCharacterPing).not.toHaveBeenCalled()
   })
 
   it("routes setMax to the store now that a durable max is a real write (v2)", async () => {
@@ -387,9 +431,13 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
       write: { component: "vitals", op: "setMax", amount: 40 },
     })
     expect(commitEntityWrite).toHaveBeenCalledWith(
-      "char-1",
-      { component: "vitals", op: "setMax", amount: 40 },
-      7
+      expect.anything(),
+      ACTOR,
+      {
+        entityId: "char-1",
+        write: { component: "vitals", op: "setMax", amount: 40 },
+      },
+      expect.anything()
     )
   })
 })
