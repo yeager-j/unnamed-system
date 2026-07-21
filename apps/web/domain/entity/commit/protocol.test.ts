@@ -7,23 +7,39 @@ import {
 } from "@/lib/__fixtures__/seed-characters"
 
 import {
+  entityIdentity,
+  entityIdentityArgs,
   entityProtocol,
   entityWrite,
   entityWriteArgs,
   type EntityCanonValue,
 } from "./protocol"
 
+const SEED_IDENTITY = {
+  name: "Ortus",
+  pronouns: "they/them",
+  portraitUrl: null,
+  notes: null,
+}
+
 function seedState(slug: string): EntityCanonValue {
   const entity = seedCharacterToEntity(
     SEED_CHARACTERS.find((c) => c.slug === slug)!
   )
-  return { entity, resolved: resolveEntity(entity) }
+  return {
+    entity,
+    resolved: resolveEntity(entity),
+    identity: { ...SEED_IDENTITY },
+  }
 }
 
 describe("entity protocol registration", () => {
-  it("registers entity.write under a versioned protocol id", () => {
+  it("registers both write species under one versioned protocol id", () => {
     expect(entityProtocol.id).toBe("showtime.entity.v1")
     expect(entityProtocol.mutationsByName["entity.write"]).toBe(entityWrite)
+    expect(entityProtocol.mutationsByName["entity.identity"]).toBe(
+      entityIdentity
+    )
   })
 
   it("factories an invocation carrying only name + args", () => {
@@ -86,5 +102,78 @@ describe("entity.write predictor", () => {
     const a = entityWrite.predict(state, args)
     const b = entityWrite.predict(state, args)
     expect(a).toEqual(b)
+  })
+
+  it("carries the identity columns through untouched", () => {
+    const state = seedState("warrior")
+    const result = entityWrite.predict(state, {
+      entityId: state.entity.id,
+      write: { component: "vitals", op: "damage", amount: 1 },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.identity).toEqual(SEED_IDENTITY)
+  })
+})
+
+describe("entity.identity wire (AC #2)", () => {
+  it("carries one field per invocation and no expected revision", () => {
+    const parsed = entityIdentityArgs.parse({
+      entityId: "e1",
+      write: { field: "name", value: "  Vela  " },
+      expectedVersion: 7,
+      pronouns: "she/her",
+    })
+    expect(parsed).toEqual({
+      entityId: "e1",
+      write: { field: "name", value: "Vela" },
+    })
+    expect(Object.keys(parsed).sort()).toEqual(["entityId", "write"])
+  })
+
+  it("rejects a write that names no field", () => {
+    expect(
+      entityIdentityArgs.safeParse({
+        entityId: "e1",
+        write: { name: "Vela", pronouns: "she/her" },
+      }).success
+    ).toBe(false)
+  })
+})
+
+describe("entity.identity predictor", () => {
+  it("replaces only the submitted column", () => {
+    const state = seedState("warrior")
+
+    const result = entityIdentity.predict(state, {
+      entityId: state.entity.id,
+      write: { field: "pronouns", value: "she/her" },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.identity).toEqual({
+      ...SEED_IDENTITY,
+      pronouns: "she/her",
+    })
+    // Pure: the input state is untouched, and the entity half is shared by
+    // reference rather than re-derived — an identity write resolves nothing.
+    expect(state.identity.pronouns).toBe("they/them")
+    expect(result.value.entity).toBe(state.entity)
+    expect(result.value.resolved).toBe(state.resolved)
+  })
+
+  it("canonicalizes a cleared optional column to null, as the authority does", () => {
+    const state = seedState("warrior")
+
+    const cleared = entityIdentity.predict(state, {
+      entityId: state.entity.id,
+      write: { field: "pronouns", value: "   " },
+    })
+
+    expect(cleared.ok).toBe(true)
+    if (!cleared.ok) return
+    expect(cleared.value.identity.pronouns).toBeNull()
   })
 })

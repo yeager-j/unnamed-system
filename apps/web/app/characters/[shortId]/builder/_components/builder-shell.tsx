@@ -20,7 +20,7 @@ import {
   type MovementSlug,
 } from "@/domain/character/builder-steps"
 import { useEntityIdentityQueue } from "@/domain/entity/use-entity-write"
-import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
+import { setEntityBuilderStepAction } from "@/lib/actions/entity/builder-step"
 import { characterBuilderPath } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 

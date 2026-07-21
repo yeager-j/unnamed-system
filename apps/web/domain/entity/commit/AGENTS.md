@@ -31,14 +31,26 @@ explicit-`undefined` deletion, the exact edge the negative control proves.
 ## Two write species — explained once
 
 - **Engine-component state** (vitals, rest, level, narrative, …) rides the
-  descriptor router here: server reads the row, applies the pure op, merges —
-  per-field discipline is structural (UNN-226 unrepresentable).
-- **App-owned columns** (name, portrait, pronouns, notes, builderStep, status,
-  campaignId) stay classic per-field Server Actions composing
-  `bumpEntityVersionGuarded` with their declared class.
+  `entityWriteSchema` descriptor + `ENTITY_WRITERS`: server reads the row, applies
+  the pure op, merges — per-field discipline is structural (UNN-226
+  unrepresentable).
+- **App-owned identity columns** (name, portrait, pronouns, notes) ride the
+  `identityWriteSchema` descriptor + `identityWritePatch` (`identity.ts`). No
+  Writer, no `durableClass` to derive — they are the `identity` class by
+  construction — but the same per-field discipline: one field per invocation, the
+  patch composed server-side.
 
 Both are the same D35 storage projection surfacing at the write layer; do not
-route one through the other.
+route one through the other. **They do, however, share one write _protocol_**
+(Headcanon P2c — UNN-675): `entity.write` and `entity.identity` are both
+registered mutations on `entityProtocol`, so both take a receipt, stamp the axis
+they advance, and get its cache-tag expiry and realtime invalidation from the one
+executor. Two descriptors, one protocol.
+
+The remaining app columns are **not** on it, and the reason is mechanical: PC
+lifecycle state (`builderStep`, `status`, `campaignId`) lives on the unversioned
+`playerCharacter` subtype, so it advances no modeled version column and has no
+axis to stamp. Those stay plain owner-gated actions (`entity/builder-step.ts`).
 
 ## Adding a write family
 
@@ -48,6 +60,12 @@ switch. The encounter wire admits only `combatEntityWriteSchema` — extend it
 ONLY for state a combat surface genuinely writes; the rejection test pins the
 subset. A multi-component patch (rest, levelUp) must keep its columns inside
 one version class — CH15's disjoint-footprint guarantee is per class.
+
+An **identity column** is smaller: one arm in `identityWriteSchema` + one case in
+`identityWritePatch`. Keep bounds in the schema and canonicalization in the patch
+— the schema must re-admit its own output, because the client sends the args it
+built and the authority parses them again, and both sides run the patch so the
+prediction and the stored column agree by construction.
 
 ## The two optimistic hooks (Open Q5 — container split stays, policy split ended)
 

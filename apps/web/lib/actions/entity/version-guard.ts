@@ -1,10 +1,13 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
+import { revision, type StampAccumulator } from "@workspace/headcanon"
+import { throwMutationContention } from "@workspace/headcanon/drizzle"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityWritePatch } from "@/domain/entity/commit/writers"
-import { db } from "@/lib/db/client"
+import { entityAxisFor } from "@/lib/db/axes"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 import type { VersionClass } from "@/lib/db/version-classes"
 import { publishCharacterPing } from "@/lib/realtime/publish"
@@ -31,18 +34,30 @@ import { publishCharacterPing } from "@/lib/realtime/publish"
  * `character`-domain channel the DM console's per-PC subscription listens on
  * (`ParticipantMeta.characterShortId`), so a durable write in combat invalidates
  * every watcher. A guard-rejected write publishes nothing.
+ *
+ * **Legacy: `finalize` is its last caller.** The Stores that replaced it
+ * (`commitEntityWrite`, `commitIdentityWrite`) read the class version off the row
+ * they loaded and guard on that, so no client token is sent or trusted, a lost
+ * race is contention for the authority to rerun, and the advance is recorded on a
+ * stamp the executor turns into cache-tag expiry plus axis invalidation. Nothing
+ * of that happens here. Do not add callers; P2e's gate (UNN-677) decides whether
+ * finalize is routed through the executor or allowlisted with a rationale.
  */
 
 export type EntityGuardError = "entity-not-found" | "stale"
 
 /**
- * The app-owned column half of a guarded write (ADR §2.4: "app-column writes
- * stay classic per-field Server Actions ... both compose
- * `bumpEntityVersionGuarded`"). Only the substrate content columns are guarded
- * here; the PC-lifecycle columns moved to the `playerCharacter` subtype (R3 —
- * UNN-573) and write unguarded through it — `builderStep` as a plain subtype
- * update, `status` as finalize's follow-on flip, `campaignId` as placement (v1
- * parity).
+ * The app-owned column half of a guarded write. Only the substrate content
+ * columns are guarded here; the PC-lifecycle columns moved to the
+ * `playerCharacter` subtype (R3 — UNN-573) and write unguarded through it —
+ * `builderStep` as a plain subtype update, `status` as finalize's follow-on flip,
+ * `campaignId` as placement (v1 parity).
+ *
+ * Since UNN-675 the *ordinary* writes to these columns come from
+ * `identityWritePatch` through the `entity.identity` mutation, which composes
+ * exactly this shape without going through `bumpEntityVersionGuarded`. This type
+ * survives as the column half of {@link EntityRowPatch}, which finalize — the one
+ * write spanning both halves — still needs.
  */
 export type EntityColumnPatch = Partial<
   Pick<EntityRow, "name" | "portraitUrl" | "pronouns" | "notes">
@@ -92,6 +107,63 @@ export function entityVersionIncrement(
     case "progression":
       return { progressionVersion: sql`${entity.progressionVersion} + 1` }
   }
+}
+
+/**
+ * **The one protocol-side guarded axis advance** (UNN-675) — every registered
+ * entity mutation's commit tail, shared by `commitEntityWrite` and
+ * `commitIdentityWrite` and by whatever combat and dungeon add next.
+ *
+ * It takes the row the attempt *already observed* rather than a version, so a
+ * client token is not merely discouraged here but unrepresentable: the expected
+ * version can only be the one this attempt read. From there the rule is fixed —
+ * `SET` the patch plus the class increment, conditioned on `(id, <class>Version)`;
+ * a zero-row result is a lost race, so it throws contention for the authority to
+ * rerun the whole handler rather than returning a rejection; and the committed
+ * version is parsed into a {@link revision} and recorded on the attempt's stamp.
+ *
+ * That last step is the load-bearing one: an advance recorded on the stamp is an
+ * advance the executor will expire the cache tag for and publish an invalidation
+ * for. Bumping a version column *without* stamping is precisely the incoherence
+ * the P2e gate (UNN-677) exists to forbid, so keeping the bump and the stamp in
+ * one function makes the pair impossible to separate by accident.
+ *
+ * Compare {@link bumpEntityVersionGuarded}, the legacy form directly below: it
+ * takes a client `expectedVersion`, reports a lost race as `"stale"` for the
+ * caller to resolve, and pings instead of stamping. Only `finalize` still uses it.
+ */
+export async function advanceEntityAxisGuarded(
+  executor: WriteExecutor,
+  row: EntityRow,
+  versionClass: VersionClass,
+  patch: EntityRowPatch,
+  stamp: StampAccumulator
+): Promise<number> {
+  const column = VERSION_COLUMNS[versionClass]
+  const expectedVersion = row[VERSION_ROW_KEYS[versionClass]]
+
+  const updated = await executor
+    .update(entity)
+    .set({ ...patch, ...entityVersionIncrement(versionClass) })
+    .where(and(eq(entity.id, row.id), eq(column, expectedVersion)))
+    .returning({ version: column })
+
+  // Zero rows = the class token moved between our read and write: a lost race,
+  // not a rejection. Retry the whole handler against current state.
+  if (updated.length === 0) throwMutationContention()
+
+  const committedVersion = updated[0]!.version
+  const nextRevision = revision(committedVersion)
+  if (!nextRevision.ok) {
+    // A persisted version column that is not a non-negative safe integer is a
+    // storage-integrity fault, not an expected outcome.
+    throw new Error(
+      `entity ${row.id} ${versionClass}Version is not a valid revision`
+    )
+  }
+
+  stamp.record(entityAxisFor[versionClass](row.id), nextRevision.value)
+  return committedVersion
 }
 
 async function staleOrMissing(

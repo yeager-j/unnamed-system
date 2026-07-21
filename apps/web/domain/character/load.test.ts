@@ -31,8 +31,8 @@ function loadedCharacter(): LoadedCharacter {
       status: "finalized",
       builderStep: 0,
       name: entity.components.identity?.name ?? "",
-      portraitUrl: null,
-      pronouns: null,
+      portraitUrl: "https://blob.example/portraits/a.png",
+      pronouns: "they/them",
       notes: null,
       versions: { identity: 3, vitals: 7, inventory: 1, progression: 5 },
     },
@@ -54,12 +54,22 @@ describe("toCharacterCanon (AC #3)", () => {
     expect(Object.keys(canon.revisions)).toHaveLength(4)
   })
 
-  it("carries the entity-centric value, not the profile", () => {
+  it("carries what the four axes govern, not the whole profile", () => {
     const loaded = loadedCharacter()
     const canon = toCharacterCanon(loaded)
 
     expect(canon.value.entity).toBe(loaded.entity)
     expect(canon.value.resolved).toBe(loaded.resolved)
+    expect(canon.value.identity).toEqual({
+      name: loaded.profile.name,
+      pronouns: "they/them",
+      portraitUrl: "https://blob.example/portraits/a.png",
+      notes: null,
+    })
+    // The unversioned subtype lifecycle facts and the immutable ids stay out:
+    // no axis revision speaks for them (UNN-675).
     expect(canon.value).not.toHaveProperty("profile")
+    expect(canon.value.identity).not.toHaveProperty("status")
+    expect(canon.value.identity).not.toHaveProperty("builderStep")
   })
 })

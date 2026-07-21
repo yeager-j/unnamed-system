@@ -126,23 +126,34 @@ export const loadCharacterByShortId = cache(
 
 /**
  * Projects a loaded character into a Headcanon {@link Canon} observing the four
- * entity axes (UNN-673, AC #3). The canon value is entity-centric — the authored
- * {@link Entity} and its {@link ResolvedEntity} — deliberately **not** the
- * `profile`: the app-owned columns stay their own read home (the three-homes
- * rule), and the predicted root never manages them.
+ * entity axes (UNN-673, AC #3). The canon value is what those axes govern: the
+ * authored {@link Entity}, its {@link ResolvedEntity}, and the identity columns
+ * the `identity` axis owns (UNN-675). It is still not the whole `profile` — ids
+ * are immutable and `status`/`builderStep` are unversioned subtype facts, so no
+ * axis revision speaks for them.
  *
- * The four revisions come from one `entity`-row observation (a single SELECT in
- * {@link loadCharacterByShortId}), so they share one snapshot — the
- * "one authoritative observation" invariant holds without a snapshot-isolated
- * multi-query loader. `defineCanon` brands the raw version integers and throws if
- * a stored column is not a valid revision.
+ * The identity slice and the four revisions come from one `entity`-row observation
+ * (a single SELECT in {@link loadCharacterByShortId}), so they share one snapshot
+ * — the "one authoritative observation" invariant holds without a
+ * snapshot-isolated multi-query loader. `defineCanon` brands the raw version
+ * integers and throws if a stored column is not a valid revision.
+ *
+ * **Transitional (removed by the P2d provider cutover, UNN-676):** these four
+ * columns are also still carried on {@link CharacterProfile}, because the mounted
+ * provider reads them from there and no client predicts them yet. The two
+ * projections cannot diverge — both are built here from one row read — and P2d
+ * sources the profile's identity fields from the predicted value instead.
  */
 export function toCharacterCanon(
   loaded: LoadedCharacter
 ): Canon<EntityCanonValue> {
-  const { id, versions } = loaded.profile
+  const { id, versions, name, pronouns, portraitUrl, notes } = loaded.profile
   return defineCanon({
-    value: { entity: loaded.entity, resolved: loaded.resolved },
+    value: {
+      entity: loaded.entity,
+      resolved: loaded.resolved,
+      identity: { name, pronouns, portraitUrl, notes },
+    },
     revisions: {
       [entityAxisFor.identity(id)]: versions.identity,
       [entityAxisFor.vitals(id)]: versions.vitals,

@@ -40,6 +40,7 @@ concurrency token, and envelope:
 | Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
 | `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates), rerun inside the Store's transaction + pre-checked at the door (UNN-674) | `{ entityId, expectedVersion, write }` — `expectedVersion` now **vestigial** (server-read) | per-write-class on the `entity` row, **server-authoritative** (`commitEntityWrite` reads the class version and guards on it; a lost race is contention/`stale`) |
+| `entity/` identity columns | strict owner, rerun inside the Store's transaction + pre-checked at the door (UNN-675) | `{ entityId, write: { field, value } }` — no expected revision at all | `identityVersion`, server-authoritative; exhausted contention surfaces as `contention`, never `stale` |
 | `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
 | `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
 
@@ -55,8 +56,20 @@ concurrency token, and envelope:
 > lives in `domain/entity/commit/`. Three callers share the one Store: the Headcanon
 > handler (`mutations/execute-entity-write.ts`), the legacy character door
 > (`applyEntityWriteAction`), and combat's durable arm — one write architecture,
-> one implementation. (`bumpEntityVersionGuarded` survives only for the app-column
-> actions in `columns.ts` / `finalize`.)
+> one implementation.
+>
+> **The identity columns joined it in UNN-675 (Headcanon P2c).** Name, pronouns,
+> portrait, and notes are now the registered `entity.identity` mutation:
+> `commitIdentityWrite` (`identity-store.ts`) is their executor-neutral Store, and
+> `mutations/apply-identity.ts` is their one door. So every user-facing write that
+> advances `entity/{id}/identity` goes through the executor and gets a receipt,
+> axis cache-tag expiry, and axis invalidation — an untracked bump would strand a
+> pending prediction once the provider mounts a predicted root (P2d). Portrait
+> upload is deliberately two-stage (`portrait.ts` stores the Blob and returns the
+> URL; the mutation commits it), because a rerunnable handler must not repeat a
+> non-transactional effect. `bumpEntityVersionGuarded` now survives only for
+> `finalize` — the last version bump outside the protocol, which P2e's gate
+> (UNN-677) either routes or allowlists.
 
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` door (the descriptor → Writer →
@@ -81,10 +94,11 @@ to `applyEntityWriteAction`, which authenticates (`requireActor`) and hands off 
 contextual authorization, assembling the row into a runtime `Entity`, running the
 pure **Writer** (`ENTITY_WRITERS.applyOp`), and the server-authoritative guarded
 commit; the door owns only the post-commit ping + revalidation. App-owned entity
-columns (name, portrait, pronouns, notes) stay classic per-field actions
-(`lib/actions/entity/columns.ts`) composing `bumpEntityVersionGuarded`. PC lifecycle state (`builderStep`, `status`) lives on the
-unversioned `playerCharacter` subtype; `finalize` spans the guarded entity and
-subtype halves. The neutral descriptor +
+columns (name, portrait, pronouns, notes) take the sibling identity door
+(`lib/actions/entity/mutations/apply-identity.ts`) with their own per-field
+descriptor — same protocol, same axis, no Writer. PC lifecycle state
+(`builderStep`, `status`) lives on the unversioned `playerCharacter` subtype;
+`finalize` spans the guarded entity and subtype halves. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 
@@ -145,6 +159,12 @@ projection (CH15) makes per-field safety **structural**: a patch's keys are 1:1
 with `entity` component **columns**, so `SET`ing them touches only the written
 components and cannot clobber a sibling class's column. A multi-component patch
 (rest, levelUp) must keep its columns inside one class.
+
+`bumpEntityVersionGuarded` itself is down to one caller (`finalize`): the Stores
+that replaced it read the class version off the row they loaded and guard on
+**that**, so a client token is neither sent nor trusted, and a lost race is
+contention for the authority to rerun rather than a `stale` the client must
+resolve. Treat the client-token form as legacy; do not add callers.
 
 The other aggregates carry a single `version` per row (`encounter`,
 `map-instance`, …), bumped and guarded the same way. Every wrapper:

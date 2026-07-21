@@ -12,14 +12,9 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import {
-  useEntityIdentityQueue,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
-import {
-  removeEntityPortraitAction,
-  uploadEntityPortraitAction,
-} from "@/lib/actions/entity/columns"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { applyIdentityWriteAction } from "@/lib/actions/entity/mutations/apply-identity"
+import { uploadEntityPortraitAction } from "@/lib/actions/entity/portrait"
 import {
   MAX_PORTRAIT_BYTES,
   messageForPortraitUploadError,
@@ -34,16 +29,16 @@ import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
  * with the name field for attention. Once uploaded, the image fills the
  * same circular frame.
  *
- * Upload pipeline: the entity portrait column actions serialize on the shared
- * identity queue. Upload is deliberately single-attempt because retrying a
- * stale response would upload the same Blob twice; removal uses the ordinary
- * one-shot stale retry. Client-side mime + size guards mirror what the server
- * enforces so the user gets fast feedback.
+ * Upload pipeline (UNN-675): two stages, because a Headcanon authority handler is
+ * rerunnable and must not perform the Blob write. `uploadEntityPortraitAction`
+ * stores the file and returns its URL; the `portraitUrl` arm of `entity.identity`
+ * then commits that URL on the identity axis. Removal is the same mutation with a
+ * `null` value. Client-side mime + size guards mirror what the server enforces so
+ * the user gets fast feedback.
  */
 export function PortraitArea() {
   const { profile } = useLoadedCharacter()
   const portraitUrl = profile.portraitUrl
-  const identityQueue = useEntityIdentityQueue()
   const [pending, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -69,30 +64,37 @@ export function PortraitArea() {
       guardWriteTransition(
         async () => {
           const formData = new FormData()
-          const result = await identityQueue.enqueueOnce((expectedVersion) => {
-            formData.append("entityId", identityQueue.entityId)
-            formData.append("expectedVersion", String(expectedVersion))
-            formData.append("file", file)
-            return uploadEntityPortraitAction(formData)
-          })
-          if (result.ok) return
-          toast.error(messageForPortraitUploadError(result.error))
+          formData.append("entityId", profile.id)
+          formData.append("file", file)
+
+          const uploaded = await uploadEntityPortraitAction(formData)
+          if (!uploaded.ok) {
+            toast.error(messageForPortraitUploadError(uploaded.error))
+            return
+          }
+
+          const committed = await setPortrait(uploaded.value.url)
+          if (!committed.ok) {
+            toast.error("Couldn't save the portrait. Try again.")
+          }
         },
         () => toast.error("Couldn't upload the portrait. Try again.")
       )
     )
   }
 
+  function setPortrait(url: string | null) {
+    return applyIdentityWriteAction({
+      entityId: profile.id,
+      write: { field: "portraitUrl", value: url },
+    })
+  }
+
   function onRemove() {
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await identityQueue.enqueue((expectedVersion) =>
-            removeEntityPortraitAction({
-              entityId: identityQueue.entityId,
-              expectedVersion,
-            })
-          )
+          const result = await setPortrait(null)
           if (result.ok) return
           toast.error("Couldn't remove the portrait. Try again.")
         },
