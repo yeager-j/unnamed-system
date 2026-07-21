@@ -2,6 +2,8 @@
 
 import { forbidden } from "next/navigation"
 
+import { revisionAt } from "@workspace/headcanon"
+
 import { ENTITY_WRITERS } from "@/domain/entity/commit/writers"
 import { requireActor } from "@/lib/auth/actor"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
@@ -91,10 +93,10 @@ export async function applyEntityMutationAction(envelope: unknown) {
   }
 
   if (outcome.ok && outcome.value.kind === "accepted" && bridge) {
-    const revision =
-      outcome.value.stamp.revisions[
-        entityAxisFor[bridge.versionClass](bridge.entityId)
-      ]
+    const revision = revisionAt(
+      outcome.value.stamp.revisions,
+      entityAxisFor[bridge.versionClass](bridge.entityId)
+    )
     if (revision !== undefined) {
       publishCharacterPing(bridge.shortId, "entity", {
         [bridge.versionClass]: revision,

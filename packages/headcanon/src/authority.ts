@@ -14,6 +14,7 @@ import type {
 } from "./protocol"
 import {
   acceptedStamp,
+  defineCoordinate,
   revision,
   type AcceptedStamp,
   type AxisId,
@@ -53,9 +54,11 @@ export function createStampAccumulator(): ReadableStampAccumulator {
       revisions.set(axis, parsedRevision.value)
     },
     accepted() {
-      const vector = Object.create(null) as Record<AxisId, Revision>
+      // A plain object built through `defineCoordinate` — an accepted stamp
+      // rides a Server Action response, so it must survive React's serializer.
+      const vector = {} as Record<AxisId, Revision>
       for (const [axis, stampedRevision] of revisions) {
-        vector[axis] = stampedRevision
+        defineCoordinate(vector, axis, stampedRevision)
       }
       return acceptedStamp(Object.freeze(vector))
     },

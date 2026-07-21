@@ -4,6 +4,7 @@ export {
   covers,
   defineCanon,
   revision,
+  revisionAt,
   revisionVector,
   type AcceptedStamp,
   type AxisId,
