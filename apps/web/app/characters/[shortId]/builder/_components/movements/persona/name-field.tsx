@@ -6,7 +6,7 @@ import {
   useEntityColumnSave,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { updateEntityNameAction } from "@/lib/actions/entity/columns"
+import { applyIdentityWriteAction } from "@/lib/actions/entity/mutations/apply-identity"
 
 const MAX_LENGTH = 64
 
@@ -17,9 +17,9 @@ const MAX_LENGTH = 64
  * supporting it. Auto-focused on mount so the player can start typing
  * immediately.
  *
- * Reuses the same debounced-autosave plumbing as the sheet header's editable
- * name (debounced keystroke + blur save, optimistic concurrency on the
- * identity token, Escape-revert) — a classic per-field column action.
+ * Reuses the same debounced-autosave plumbing as every other identity field
+ * (debounced keystroke + blur save, Escape-revert), dispatching the `name` arm of
+ * the `entity.identity` mutation through the identity door (UNN-675).
  */
 export function NameField() {
   const { profile } = useLoadedCharacter()
@@ -27,11 +27,10 @@ export function NameField() {
     serverValue: profile.name,
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, { entityId, expectedVersion }) => {
-      const result = await updateEntityNameAction({
+    save: async (next, { entityId }) => {
+      const result = await applyIdentityWriteAction({
         entityId,
-        name: next.trim(),
-        expectedVersion,
+        write: { field: "name", value: next.trim() },
       })
       if (result.ok) {
         return {

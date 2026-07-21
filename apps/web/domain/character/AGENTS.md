@@ -40,6 +40,17 @@ question:
 | `entity.components` | what the player **authored**         | `path.choice`, `archetypes.origin`, narrative  |
 | `resolved`          | what the engine **derived** from it  | `vitals.maxHP/currentHP`, resolved skills      |
 
+`toCharacterCanon` (UNN-673/UNN-675) is **not** a fourth home and not a merge: it
+is the same three answers re-projected for the write protocol, carrying only what
+the four entity axes govern — the authored components, their resolved derivation,
+and the four identity columns the `identity` axis owns. It deliberately excludes
+`profile`'s ids (immutable) and its `status`/`builderStep` (unversioned subtype
+facts) precisely because no axis revision speaks for them, which is the same
+discipline as the table above rather than an exception to it. Until the P2d
+provider cutover the identity columns are projected both here and onto `profile`;
+they are built in one function from one row read, so they cannot diverge, and P2d
+removes the duplicate by sourcing `profile` from the predicted value.
+
 The standing temptation — it will look like a harmless convenience — is to
 spread these into one merged view-model ("`CharacterView`", "`SheetData`",
 a context that flattens all three). **Don't.** That object is

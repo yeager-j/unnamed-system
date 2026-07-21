@@ -426,9 +426,16 @@ function useRetryingDispatch(caller: string) {
 }
 
 /**
- * Debounced **column** auto-save (the app-column species — name, pronouns):
- * same lifecycle, but the leaf supplies its own per-field Server Action and
- * the class is fixed to `identity`.
+ * Debounced **identity-column** auto-save (name, pronouns, notes): the same
+ * lifecycle, bound to the identity door.
+ *
+ * Since UNN-675 these writes are the registered `entity.identity` mutation, so the
+ * leaf's `save` no longer receives an expected version — the authority reads the
+ * version it guards on. The class spine still serializes sibling identity fields
+ * and folds the committed version forward for the un-migrated `entity.write`
+ * wire; the retry pipeline's `"stale"` branch is simply unreachable from here,
+ * because the door cannot return one. All of it goes with the P2d cutover
+ * (UNN-676), where this hook becomes a `mutate` call.
  */
 export function useEntityColumnSave<TValue, TError extends string>(
   args: Omit<
@@ -437,7 +444,7 @@ export function useEntityColumnSave<TValue, TError extends string>(
   > & {
     save: (
       value: TValue,
-      args: { entityId: string; expectedVersion: number }
+      args: { entityId: string }
     ) => Promise<
       | { ok: true; value: { value: TValue; version: number } }
       | { ok: false; error: TError }
@@ -451,27 +458,28 @@ export function useEntityColumnSave<TValue, TError extends string>(
   return useDebouncedAutoSave<TValue, TError>({
     ...rest,
     saveQueueRef: queueRefs.identity,
-    save: (value, expectedVersion) =>
-      save(value, { entityId, expectedVersion }),
+    save: (value) => save(value, { entityId }),
     dispatchWrite: (action) => dispatchWithRetry("identity", action),
   })
 }
 
 /**
- * The identity-class queue for one-shot lifecycle and column actions. Callers
- * never read or bump the token themselves: guarded actions enqueue through the
- * retrying protocol, Blob upload uses the single-attempt arm, and subtype-only
- * writes serialize as unversioned steps on the same spine.
+ * The identity-class queue for the two remaining one-shot lifecycle actions:
+ * finalize (guarded, single-attempt — a retried finalize would re-seed) and the
+ * builder step (an unversioned subtype write serialized on the same spine so it
+ * cannot interleave with a guarded identity commit). Callers never read or bump
+ * the token themselves.
+ *
+ * The retrying `enqueue` arm went with the column actions in UNN-675: their
+ * successor is a registered mutation whose authority owns concurrency, so nothing
+ * on this spine needs a client-side stale retry any more.
  */
 export function useEntityIdentityQueue() {
-  const { entityId, enqueue, enqueueOnce, enqueueStep } = useWriteApi(
+  const { entityId, enqueueOnce, enqueueStep } = useWriteApi(
     "useEntityIdentityQueue"
   )
   return {
     entityId,
-    enqueue: <TSuccess extends { version: number }, TError>(
-      action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
-    ) => enqueue("identity", action),
     enqueueOnce: <TSuccess extends { version: number }, TError>(
       action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
     ) => enqueueOnce("identity", action),

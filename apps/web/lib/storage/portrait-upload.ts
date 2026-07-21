@@ -55,8 +55,7 @@ export async function uploadPortrait(
   if (file.size > MAX_PORTRAIT_BYTES) return err("too-large")
   if (!ACCEPTED_MIME_TYPES.has(file.type)) return err("invalid-mime")
 
-  const extension = extensionFor(file.type)
-  const pathname = `portraits/${crypto.randomUUID()}.${extension}`
+  const pathname = portraitBlobPathname(file.type)
 
   try {
     // Pass the store-scoped token explicitly. The SDK's default resolution
@@ -98,6 +97,24 @@ export function messageForPortraitUploadError(error: string): string {
       return "Couldn't upload. Try again."
   }
 }
+
+/**
+ * The Blob object path a portrait upload writes to. Randomized so the object is
+ * not guessable from any other character data and a re-upload never collides
+ * with the old one.
+ *
+ * Exported because the write protocol admits only URLs of this shape
+ * ({@link import("@/domain/entity/commit/identity.schema").isStoredPortraitUrl}) —
+ * the descriptor cannot import this module (depcheck's domain-purity rule), so
+ * `domain/entity/commit/identity.test.ts` pins the correspondence instead. Change
+ * this path and that test tells you the grammar moved out from under it.
+ */
+export function portraitBlobPathname(mime: string): string {
+  return `portraits/${crypto.randomUUID()}.${extensionFor(mime)}`
+}
+
+/** The accepted mime types, for the correspondence test above. */
+export const PORTRAIT_MIME_TYPES: readonly string[] = [...ACCEPTED_MIME_TYPES]
 
 function extensionFor(mime: string): string {
   switch (mime) {

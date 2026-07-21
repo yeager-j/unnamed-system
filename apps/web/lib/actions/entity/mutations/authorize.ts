@@ -1,4 +1,5 @@
 import {
+  entityWrite,
   entityWriteArgs,
   type EntityWriteArgs,
 } from "@/domain/entity/commit/protocol"
@@ -16,6 +17,11 @@ import {
  * reruns it inside the transaction and the door pre-checks it via
  * `requireEntityWriteAuthorized`; this module only lifts the target out of the
  * envelope for that pre-check.
+ *
+ * Since the protocol registered a second mutation (UNN-675) the invocation **name**
+ * is the discriminant, not the args shape: `entity.identity` has its own door and
+ * its own gate, and inferring "is this an `entity.write`?" from a structural parse
+ * alone would be one coincidence away from wrong.
  */
 export function parseEntityWriteTarget(
   envelope: unknown
@@ -23,6 +29,7 @@ export function parseEntityWriteTarget(
   if (typeof envelope !== "object" || envelope === null) return null
   const invocation = (envelope as { invocation?: unknown }).invocation
   if (typeof invocation !== "object" || invocation === null) return null
+  if ((invocation as { name?: unknown }).name !== entityWrite.name) return null
 
   const parsed = entityWriteArgs.safeParse(
     (invocation as { args?: unknown }).args

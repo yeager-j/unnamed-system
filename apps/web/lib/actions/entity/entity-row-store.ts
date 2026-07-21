@@ -1,7 +1,4 @@
-import { and, eq } from "drizzle-orm"
-
-import { revision, type StampAccumulator } from "@workspace/headcanon"
-import { throwMutationContention } from "@workspace/headcanon/drizzle"
+import { type StampAccumulator } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityWriteArgs } from "@/domain/entity/commit/protocol"
@@ -12,20 +9,14 @@ import {
 } from "@/domain/entity/commit/writers"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import type { Actor } from "@/lib/auth/actor"
-import { entityAxisFor } from "@/lib/db/axes"
 import type { WriteExecutor } from "@/lib/db/client"
 import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
-import { entity } from "@/lib/db/schema/entity"
 import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
 
 import { authorizeEntityWrite } from "./authorize-write"
 import type { EntityMutationRejection } from "./mutations/types"
-import {
-  entityVersionIncrement,
-  VERSION_COLUMNS,
-  VERSION_ROW_KEYS,
-} from "./version-guard"
+import { advanceEntityAxisGuarded } from "./version-guard"
 
 /**
  * The durable **entity Store** (UNN-551; ADR §2.4) — the one native commit path
@@ -98,34 +89,17 @@ export async function commitEntityWrite(
   const patch = applyEntityWrite(loaded.value.components, write)
   if (!patch.ok) return patch
 
-  const column = VERSION_COLUMNS[durableClass]
-  const expectedVersion = pc.entity[VERSION_ROW_KEYS[durableClass]]
-
-  const updated = await executor
-    .update(entity)
-    .set({ ...patch.value, ...entityVersionIncrement(durableClass) })
-    .where(and(eq(entity.id, entityId), eq(column, expectedVersion)))
-    .returning({ version: column, shortId: entity.shortId })
-
-  // Zero rows = the class token moved between our read and write: a lost race,
-  // not a rejection. Retry the whole handler against current state.
-  if (updated.length === 0) throwMutationContention()
-
-  const committedVersion = updated[0]!.version
-  const nextRevision = revision(committedVersion)
-  if (!nextRevision.ok) {
-    // A persisted version column that is not a non-negative safe integer is a
-    // storage-integrity fault, not an expected outcome.
-    throw new Error(
-      `entity ${entityId} ${durableClass}Version is not a valid revision`
-    )
-  }
-
-  stamp.record(entityAxisFor[durableClass](entityId), nextRevision.value)
+  const version = await advanceEntityAxisGuarded(
+    executor,
+    pc.entity,
+    durableClass,
+    patch.value,
+    stamp
+  )
 
   return ok({
-    version: committedVersion,
-    shortId: updated[0]!.shortId,
+    version,
+    shortId: pc.entity.shortId,
     versionClass: durableClass,
     status: pc.status,
   })
