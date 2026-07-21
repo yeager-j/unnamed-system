@@ -121,10 +121,14 @@ export function EnemyCatalogBrowser({
 
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
-              <UsersIcon className="size-4" /> {committedPlayers}
+              <UsersIcon className="size-4" aria-hidden />
+              <span className="sr-only">Committed players: </span>
+              {committedPlayers}
             </span>
             <span className="flex items-center gap-1">
-              <SkullIcon className="size-4" /> {committedEnemies}
+              <SkullIcon className="size-4" aria-hidden />
+              <span className="sr-only">Committed enemies: </span>
+              {committedEnemies}
             </span>
           </div>
         </div>
