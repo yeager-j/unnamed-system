@@ -4,7 +4,7 @@
 
 The web app is **four tiers** — `app` (feature routes + private `_components`/`_hooks`),
 `components` (cross-feature kits), `domain` + `lib` (the two data tiers). `depcheck.mjs`
-runs on `npm run depcheck` and enforces three things:
+runs on `npm run depcheck` and enforces four things:
 
 - **Tier direction.** Import your own tier or DOWN, never UP: `app → components → domain ≈ lib`.
   `domain` and `lib` are **peers** (rank 2) — actions compose domain Writers, queries return
@@ -14,7 +14,7 @@ runs on `npm run depcheck` and enforces three things:
   from within the directory that contains it, so one feature subtree can't reach into another's
   internals. Code two features share moves DOWN a tier (kit/domain/lib). `ISOLATION_ALLOWLIST`
   is now empty — UNN-611 extracted the two grandfathered reuses into `components/shared/`
-  (the maps canvas → `shared/canvas`, the sheet explore cards → `shared/sheet-cards`); a *new*
+  (the maps canvas → `shared/canvas`, the sheet explore cards → `shared/sheet-cards`); a _new_
   cross-feature import fails the gate outright, and the fix is the same move-down, not a re-add.
 - **Domain purity** (functional core / imperative shell). Within `domain/`, only the
   **marked-impure** files may runtime-import `lib`: a client hook (`use-*`) or a loader
@@ -29,6 +29,11 @@ runs on `npm run depcheck` and enforces three things:
   the sole app-directory exemption (seam-layer code). Existing violations live in
   `ENGINE_IMPORT_ALLOWLIST` (`depcheck-allowlist.mjs`); remove an entry in the same change that
   removes its final engine import — the gate rejects stale entries and new violations.
+- **Modeled version writes.** The four entity version columns may be incremented only in the
+  stamped guard primitive. Its closed caller graph is recorded in `VERSION_WRITER_ALLOWLIST`:
+  registered mutation handlers, the stamped Stores they compose, and approved external commits.
+  An external entry must call its declared finalizer. Every entry records a rationale and removal
+  condition; the gate rejects raw bumps, new/stale callers, and missing finalizers.
 
 ## Project Structure
 

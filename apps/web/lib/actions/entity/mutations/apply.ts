@@ -16,7 +16,11 @@ import {
   requireEntityWriteAuthorized,
 } from "../authorize-write"
 import { revalidateCharacterList, revalidateEntity } from "../revalidate"
-import { parseEntityWriteTarget, parseIdentityWriteTarget } from "./authorize"
+import {
+  parseEntityWriteTarget,
+  parseFinalizeTarget,
+  parseIdentityWriteTarget,
+} from "./authorize"
 import { executeEntityMutation } from "./executor"
 
 /**
@@ -53,6 +57,8 @@ export async function applyEntityMutationAction(envelope: unknown) {
 
   const write = parseEntityWriteTarget(envelope)
   const identity = write ? null : parseIdentityWriteTarget(envelope)
+  const finalize = write || identity ? null : parseFinalizeTarget(envelope)
+  const identityAxisTarget = identity ?? finalize
 
   let bridge: {
     entityId: string
@@ -71,10 +77,12 @@ export async function applyEntityMutationAction(envelope: unknown) {
       shortId: pc.entity.shortId,
       versionClass: ENTITY_WRITERS[write.write.component].durableClass,
     }
-  } else if (identity) {
-    const { entity: row } = await requireEntityOwner(identity.entityId)
+  } else if (identityAxisTarget) {
+    const { entity: row } = await requireEntityOwner(
+      identityAxisTarget.entityId
+    )
     bridge = {
-      entityId: identity.entityId,
+      entityId: identityAxisTarget.entityId,
       shortId: row.shortId,
       versionClass: "identity",
     }
@@ -125,8 +133,8 @@ export async function applyEntityMutationAction(envelope: unknown) {
     : identity
       ? identity.write.field === "name" ||
         identity.write.field === "portraitUrl"
-      : false
-  if (outcome.ok && changesCharacterList) {
+      : finalize !== null
+  if (outcome.ok && outcome.value.kind === "accepted" && changesCharacterList) {
     revalidateCharacterList()
   }
 

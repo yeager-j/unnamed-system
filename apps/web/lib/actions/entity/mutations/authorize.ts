@@ -1,8 +1,11 @@
 import {
+  entityFinalize,
+  entityFinalizeArgs,
   entityIdentity,
   entityIdentityArgs,
   entityWrite,
   entityWriteArgs,
+  type EntityFinalizeArgs,
   type EntityIdentityArgs,
   type EntityWriteArgs,
 } from "@/domain/entity/commit/protocol"
@@ -41,6 +44,16 @@ export function parseIdentityWriteTarget(
 ): EntityIdentityArgs | null {
   const args = invocationArgsFor(envelope, entityIdentity.name)
   const parsed = entityIdentityArgs.safeParse(args)
+  return parsed.success ? parsed.data : null
+}
+
+/** The finalize twin — exact invocation-name discrimination plus the registered
+ * argument schema, used for the door's ownership pre-check. */
+export function parseFinalizeTarget(
+  envelope: unknown
+): EntityFinalizeArgs | null {
+  const args = invocationArgsFor(envelope, entityFinalize.name)
+  const parsed = entityFinalizeArgs.safeParse(args)
   return parsed.success ? parsed.data : null
 }
 

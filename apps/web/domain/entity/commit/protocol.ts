@@ -6,9 +6,17 @@ import {
   defineProtocol,
   rejections,
 } from "@workspace/headcanon"
-import { ok, type Result } from "@workspace/result"
+import { err, ok, type Result } from "@workspace/result"
 
-import { resolveEntity } from "@/domain/game-engine-v2"
+import {
+  validateFinalize,
+  type FinalizeRefusal,
+} from "@/domain/entity/finalize"
+import {
+  getArchetype,
+  resolveEntity,
+  startingWeaponForLineage,
+} from "@/domain/game-engine-v2"
 
 import { applyIdentityWrite, type EntityIdentity } from "./identity"
 import { identityWriteSchema } from "./identity.schema"
@@ -17,10 +25,10 @@ import { entityWriteSchema } from "./write.schema"
 import { applyEntityWrite, type EntityWriteRefusal } from "./writers"
 
 /**
- * The Headcanon entity protocol binding (P2a — UNN-673; P2c — UNN-675): the two
- * user-facing durable write species, named and registered for optimistic
- * prediction — `entity.write` for engine components, `entity.identity` for the
- * app-owned identity columns.
+ * The Headcanon entity protocol binding (P2a–P2e): three user-facing durable
+ * write species — `entity.write` for engine components, `entity.identity` for
+ * app-owned identity columns, and the preconditioned `entity.finalize` lifecycle
+ * command.
  *
  * This is the shared, client-safe half — stable wire names, Standard
  * Schema-compatible argument parsers, and the pure predictors. `entity.write`
@@ -82,11 +90,27 @@ export type EntityWritePredictionError = EntityWriteRefusal
  * `delivery: "uncertain"`), and executor envelope errors (programmer bugs —
  * the send adapter throws them loudly).
  */
-export type EntityAuthorityRejection = "entity-not-found" | "entity-load-failed"
+export type EntityAuthorityRejection =
+  | "entity-not-found"
+  | "entity-load-failed"
+  | "entity-not-draft"
+
+export type EntityFinalizeRefusal =
+  | Exclude<FinalizeRefusal, { kind: "missing-requirement" }>
+  | "missing-finalize-requirement"
+
+export function toEntityFinalizeRefusal(
+  refusal: FinalizeRefusal
+): EntityFinalizeRefusal {
+  return typeof refusal === "object" ? "missing-finalize-requirement" : refusal
+}
 
 /** The client-facing failure surface of a registered entity mutation: any
  *  predictor refusal plus the declared authority rejections. */
-export type EntityMutationError = EntityWriteRefusal | EntityAuthorityRejection
+export type EntityMutationError =
+  | EntityWriteRefusal
+  | EntityFinalizeRefusal
+  | EntityAuthorityRejection
 
 const entityWrite = defineMutation({
   name: "entity.write",
@@ -138,12 +162,36 @@ const entityIdentity = defineMutation({
   },
 })
 
+/** Finalize is a preconditioned mutation with no client projection. Its
+ *  authoritative handler seeds components and flips the subtype status in one
+ *  receipt transaction; the predictor only rejects an invalid visible draft. */
+export const entityFinalizeArgs = z.object({ entityId: z.string().min(1) })
+export type EntityFinalizeArgs = z.infer<typeof entityFinalizeArgs>
+
+const entityFinalize = defineMutation({
+  name: "entity.finalize",
+  args: entityFinalizeArgs,
+  predict(
+    state: EntityCanonValue
+  ): Result<EntityCanonValue, EntityFinalizeRefusal> {
+    const valid = validateFinalize(
+      state.identity.name,
+      state.entity.components,
+      {
+        getArchetype,
+        startingWeaponForLineage,
+      }
+    )
+    return valid.ok ? ok(state) : err(toEntityFinalizeRefusal(valid.error))
+  },
+})
+
 /** The registered entity mutation protocol. The versioned `id` is a deployed
  *  protocol string — a stale tab may call a newer server. */
 export const entityProtocol = defineProtocol({
   id: "showtime.entity.v1",
-  mutations: [entityWrite, entityIdentity],
+  mutations: [entityWrite, entityIdentity, entityFinalize],
   rejections: rejections<EntityAuthorityRejection>(),
 })
 
-export { entityIdentity, entityWrite }
+export { entityFinalize, entityIdentity, entityWrite }
