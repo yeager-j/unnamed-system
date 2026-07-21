@@ -4,9 +4,12 @@ import { notFound } from "next/navigation"
 import { cache } from "react"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import { defineCanon, type Canon } from "@workspace/headcanon"
 
+import type { EntityCanonValue } from "@/domain/entity/commit/protocol"
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
+import { entityAxisFor } from "@/lib/db/axes"
 import {
   loadLivePlayerCharactersByIds,
   loadPlayerCharacterByShortId,
@@ -120,6 +123,34 @@ export const loadCharacterByShortId = cache(
     return loaded
   }
 )
+
+/**
+ * Projects a loaded character into a Headcanon {@link Canon} observing the four
+ * entity axes (UNN-673, AC #3). The canon value is entity-centric — the authored
+ * {@link Entity} and its {@link ResolvedEntity} — deliberately **not** the
+ * `profile`: the app-owned columns stay their own read home (the three-homes
+ * rule), and the predicted root never manages them.
+ *
+ * The four revisions come from one `entity`-row observation (a single SELECT in
+ * {@link loadCharacterByShortId}), so they share one snapshot — the
+ * "one authoritative observation" invariant holds without a snapshot-isolated
+ * multi-query loader. `defineCanon` brands the raw version integers and throws if
+ * a stored column is not a valid revision.
+ */
+export function toCharacterCanon(
+  loaded: LoadedCharacter
+): Canon<EntityCanonValue> {
+  const { id, versions } = loaded.profile
+  return defineCanon({
+    value: { entity: loaded.entity, resolved: loaded.resolved },
+    revisions: {
+      [entityAxisFor.identity(id)]: versions.identity,
+      [entityAxisFor.vitals(id)]: versions.vitals,
+      [entityAxisFor.inventory(id)]: versions.inventory,
+      [entityAxisFor.progression(id)]: versions.progression,
+    },
+  })
+}
 
 /**
  * A batch of characters by entity id, resolved partyless — what the dungeon
