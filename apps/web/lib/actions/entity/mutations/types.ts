@@ -1,5 +1,6 @@
 import type { DrizzleHandlerTx } from "@workspace/headcanon/drizzle"
 
+import type { EntityFinalizeRefusal } from "@/domain/entity/commit/protocol"
 import type { EntityWriteRefusal } from "@/domain/entity/commit/writers"
 import type { Actor } from "@/lib/auth/actor"
 import type { getDb } from "@/lib/db/client"
@@ -36,13 +37,14 @@ export type EntityMutationActor = Actor
  * `throwMutationContention()` so the executor retries against fresh state, it is
  * never a terminal rejection.
  *
- * Every member must stay a string literal: `rejection.ts` round-trips a stored
- * terminal rejection through JSON on duplicate-receipt recovery, and its string
- * assumption is load-bearing.
+ * Every member stays a string literal so `rejection.ts` can validate a stored
+ * receipt without reconstructing domain objects.
  */
 export type EntityMutationRejection =
   | EntityWriteRefusal
+  | EntityFinalizeRefusal
   | "entity-not-found"
   | "entity-load-failed"
+  | "entity-not-draft"
   | EntityWriteAuthRejection
   | IdentityWriteRejection

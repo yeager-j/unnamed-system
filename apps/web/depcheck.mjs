@@ -8,6 +8,8 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import {
   ENGINE_IMPORT_ALLOWLIST,
   ISOLATION_ALLOWLIST,
+  MODELED_VERSION_BUMP_ALLOWLIST,
+  VERSION_WRITER_ALLOWLIST,
 } from "./depcheck-allowlist.mjs"
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url))
@@ -34,6 +36,34 @@ const TIER_RANK = new Map([
   ["lib", 2],
 ])
 const TIER_ROOTS = [...TIER_RANK.keys()]
+
+/** Derives the modeled column names from the existing VersionClass runtime
+ * tuple, keeping the architecture gate a projection rather than a second
+ * authority for the class vocabulary. @param {string} source */
+export function deriveModeledVersionFields(source) {
+  const tuple = source.match(
+    /export\s+const\s+VERSION_CLASSES\s*=\s*\[([\s\S]*?)\]\s+as\s+const/
+  )
+  if (!tuple?.[1]) {
+    throw new Error("depcheck could not read VERSION_CLASSES")
+  }
+  const classes = [...tuple[1].matchAll(/["']([^"']+)["']/g)].map(
+    (match) => match[1]
+  )
+  if (classes.length === 0 || classes.some((name) => !name)) {
+    throw new Error("depcheck found an empty VERSION_CLASSES tuple")
+  }
+  return classes.map((name) => `${name}Version`)
+}
+
+const MODELED_VERSION_FIELDS = deriveModeledVersionFields(
+  readFileSync(join(ROOT, "lib/db/version-classes.ts"), "utf8")
+)
+const VERSION_WRITER_TARGETS = new Set([
+  "lib/actions/entity/entity-row-store",
+  "lib/actions/entity/identity-store",
+  "lib/actions/entity/version-guard",
+])
 
 /**
  * @param {string} dir
@@ -64,6 +94,91 @@ function blankComments(source) {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, (match) => match.replace(/[^\n]/g, " "))
     .replace(/\/\/[^\n]*/g, (match) => " ".repeat(match.length))
+}
+
+/** @param {string} relPath */
+function isApplicationTestFile(relPath) {
+  return (
+    /\.(?:test|spec)\.[^.]+$/.test(relPath) ||
+    relPath.includes("/__fixtures__/") ||
+    relPath.includes("/__laws__/")
+  )
+}
+
+/**
+ * Finds a direct increment of one of the four entity columns modeled as
+ * Headcanon axes. This deliberately treats any local `field + 1` calculation as
+ * a bump: application code has no legitimate reason to mint the next revision
+ * outside the stamped guard primitive.
+ * @param {string} relPath
+ * @param {string} source
+ * @returns {{ file: string; line: number; field: string }[]}
+ */
+export function scanModeledVersionBumps(relPath, source) {
+  const scanned = blankComments(source)
+  /** @type {{ file: string; line: number; field: string }[]} */
+  const violations = []
+  for (const field of MODELED_VERSION_FIELDS) {
+    const pattern = new RegExp(
+      `\\b${field}\\b[\\s\\S]{0,160}?(?:\\+\\s*1\\b|\\+\\+|\\+=\\s*1\\b)`,
+      "g"
+    )
+    let match
+    while ((match = pattern.exec(scanned)) !== null) {
+      violations.push({
+        file: relPath,
+        line: lineAt(scanned, match.index),
+        field,
+      })
+    }
+  }
+  return violations.sort((a, b) => a.line - b.line)
+}
+
+/**
+ * Finds application modules that import the stamped guard or either Store that
+ * wraps it. The allowlist is the explicit closed write graph: registered
+ * handlers, stamped Stores, and approved external-commit modules only.
+ * @param {string} relPath
+ * @param {string} source
+ * @returns {{ file: string; line: number; specifier: string }[]}
+ */
+export function scanVersionWriterImports(relPath, source) {
+  const scanned = blankComments(source)
+  /** @type {{ file: string; line: number; specifier: string }[]} */
+  const imports = []
+  /** @param {string} specifier @param {number} index */
+  const flag = (specifier, index) => {
+    const target = resolveSpecifier(relPath, specifier)?.replace(
+      /\.(?:ts|tsx|js|jsx|mjs|cjs)$/,
+      ""
+    )
+    if (target && VERSION_WRITER_TARGETS.has(target)) {
+      imports.push({ file: relPath, line: lineAt(scanned, index), specifier })
+    }
+  }
+
+  const staticRe =
+    /^[ \t]*(?:import|export)\b([^"';]*?)\bfrom\s*["']([^"']+)["']/gm
+  let match
+  while ((match = staticRe.exec(scanned)) !== null) {
+    if (importClauseIsTypeOnly(match[1] ?? "")) continue
+    if (match[2]) flag(match[2], match.index)
+  }
+  const sideEffectRe = /^[ \t]*import\s*["']([^"']+)["']/gm
+  while ((match = sideEffectRe.exec(scanned)) !== null) {
+    if (match[1]) flag(match[1], match.index)
+  }
+  const dynamicRe = /\b(?:import|require)\s*\(\s*["']([^"']+)["']\s*\)/g
+  while ((match = dynamicRe.exec(scanned)) !== null) {
+    if (match[1]) flag(match[1], match.index)
+  }
+  return imports
+}
+
+/** @param {string} source @param {string} finalizer */
+export function callsRequiredFinalizer(source, finalizer) {
+  return new RegExp(`\\b${finalizer}\\s*\\(`).test(blankComments(source))
 }
 
 const IMPORT_PATTERNS = [
@@ -172,9 +287,7 @@ export function privateIsolationViolation(importerRel, targetRel) {
   const i = segs.findIndex((seg) => seg.startsWith("_"))
   if (i === -1) return false
   const parentDir = segs.slice(0, i).join("/")
-  return !(
-    importerRel === parentDir || importerRel.startsWith(`${parentDir}/`)
-  )
+  return !(importerRel === parentDir || importerRel.startsWith(`${parentDir}/`))
 }
 
 /**
@@ -304,7 +417,8 @@ export function scanDomainPurity(relPath, source) {
     }
   }
 
-  const staticRe = /^[ \t]*(?:import|export)\b([^"';]*?)\bfrom\s*["']([^"']+)["']/gm
+  const staticRe =
+    /^[ \t]*(?:import|export)\b([^"';]*?)\bfrom\s*["']([^"']+)["']/gm
   let m
   while ((m = staticRe.exec(scanned)) !== null) {
     if (importClauseIsTypeOnly(m[1] ?? "")) continue
@@ -419,6 +533,55 @@ function scanTierRoots() {
   return violations
 }
 
+function scanVersionArchitecture() {
+  /** @type {{ file: string; line: number; field: string }[]} */
+  const bumps = []
+  /** @type {{ file: string; line: number; specifier: string }[]} */
+  const writers = []
+  /** @type {Map<string, string>} */
+  const sources = new Map()
+
+  for (const root of TIER_ROOTS) {
+    for (const file of collectSourceFiles(join(ROOT, root))) {
+      const relPath = relative(ROOT, file).split("\\").join("/")
+      if (isApplicationTestFile(relPath)) continue
+      const source = readFileSync(file, "utf8")
+      sources.set(relPath, source)
+      bumps.push(...scanModeledVersionBumps(relPath, source))
+      writers.push(...scanVersionWriterImports(relPath, source))
+    }
+  }
+
+  const bumpFiles = [
+    ...new Set(bumps.map((violation) => violation.file)),
+  ].sort()
+  const writerFiles = [
+    ...new Set(writers.map((violation) => violation.file)),
+  ].sort()
+  const bumpAllowlist = reconcileAllowlist(
+    bumpFiles,
+    MODELED_VERSION_BUMP_ALLOWLIST
+  )
+  const writerEntries = VERSION_WRITER_ALLOWLIST.map((entry) => entry.file)
+  const writerAllowlist = reconcileAllowlist(writerFiles, writerEntries)
+  const writerEntryByFile = new Map(
+    VERSION_WRITER_ALLOWLIST.map((entry) => [entry.file, entry])
+  )
+  const missingFinalizers = writerFiles.filter((file) => {
+    const required = writerEntryByFile.get(file)?.requiredFinalizer
+    if (!required) return false
+    return !callsRequiredFinalizer(sources.get(file) ?? "", required)
+  })
+
+  return {
+    bumps,
+    writers,
+    bumpAllowlist,
+    writerAllowlist,
+    missingFinalizers,
+  }
+}
+
 function run() {
   const { files, violations } = scanGatedRoots()
 
@@ -444,6 +607,7 @@ function run() {
     ),
   ].sort((a, b) => a.localeCompare(b))
   const isolation = reconcileAllowlist(isolationFiles, ISOLATION_ALLOWLIST)
+  const versionArchitecture = scanVersionArchitecture()
 
   const failed =
     result.newViolations.length > 0 ||
@@ -454,12 +618,21 @@ function run() {
     isolation.newViolations.length > 0 ||
     isolation.staleEntries.length > 0 ||
     isolation.duplicateEntries.length > 0 ||
-    !isolation.isSorted
+    !isolation.isSorted ||
+    versionArchitecture.bumpAllowlist.newViolations.length > 0 ||
+    versionArchitecture.bumpAllowlist.staleEntries.length > 0 ||
+    versionArchitecture.bumpAllowlist.duplicateEntries.length > 0 ||
+    !versionArchitecture.bumpAllowlist.isSorted ||
+    versionArchitecture.writerAllowlist.newViolations.length > 0 ||
+    versionArchitecture.writerAllowlist.staleEntries.length > 0 ||
+    versionArchitecture.writerAllowlist.duplicateEntries.length > 0 ||
+    !versionArchitecture.writerAllowlist.isSorted ||
+    versionArchitecture.missingFinalizers.length > 0
 
   if (!failed) {
     console.log(
       `✓ web dependency check passed (${files.length} grandfathered engine-import file(s); ` +
-        `${ISOLATION_ALLOWLIST.length} grandfathered cross-feature file(s); tier gradient clean).`
+        `${ISOLATION_ALLOWLIST.length} grandfathered cross-feature file(s); tier gradient and version-write architecture clean).`
     )
     return
   }
@@ -489,6 +662,42 @@ function run() {
   }
   for (const file of result.duplicateEntries) {
     console.error(`  Duplicate allowlist entry: ${file}`)
+  }
+  for (const file of versionArchitecture.bumpAllowlist.newViolations) {
+    console.error(`  Raw modeled version bump: ${file}`)
+    for (const violation of versionArchitecture.bumps.filter(
+      (candidate) => candidate.file === file
+    )) {
+      console.error(`    ${violation.line}: ${violation.field}`)
+    }
+  }
+  for (const file of versionArchitecture.bumpAllowlist.staleEntries) {
+    console.error(`  Stale modeled-version-bump allowlist entry: ${file}`)
+  }
+  for (const file of versionArchitecture.writerAllowlist.newViolations) {
+    console.error(
+      `  Unapproved entity-axis writer: ${file}\n    └─ route it through a registered mutation handler or an approved external-commit module that calls the finalizer.`
+    )
+  }
+  for (const file of versionArchitecture.writerAllowlist.staleEntries) {
+    console.error(`  Stale version-writer allowlist entry: ${file}`)
+  }
+  for (const file of versionArchitecture.missingFinalizers) {
+    console.error(
+      `  External entity-axis writer missing its required finalizer: ${file}`
+    )
+  }
+  for (const file of versionArchitecture.bumpAllowlist.duplicateEntries) {
+    console.error(`  Duplicate modeled-version-bump allowlist entry: ${file}`)
+  }
+  for (const file of versionArchitecture.writerAllowlist.duplicateEntries) {
+    console.error(`  Duplicate version-writer allowlist entry: ${file}`)
+  }
+  if (!versionArchitecture.bumpAllowlist.isSorted) {
+    console.error("  Modeled-version-bump allowlist entries must be sorted.")
+  }
+  if (!versionArchitecture.writerAllowlist.isSorted) {
+    console.error("  Version-writer allowlist entries must be sorted.")
   }
   if (!result.isSorted) console.error("  Allowlist entries must be sorted.")
   console.error(

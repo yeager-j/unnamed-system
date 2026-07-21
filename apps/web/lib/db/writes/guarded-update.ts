@@ -13,10 +13,10 @@ import { db, type WriteExecutor } from "@/lib/db/client"
  * home for that shape (UNN-597).
  *
  * The entity row's guard is a deliberate **peer, not a caller**
- * ({@link import("../../actions/entity/version-guard").bumpEntityVersionGuarded}):
- * it bumps one of *four* per-write-class tokens, returns the row's `shortId` for
- * a realtime ping, and is character-table-coupled — a different cardinality, not
- * this single-token shape.
+ * ({@link import("../../actions/entity/version-guard").advanceEntityAxisGuarded}):
+ * it bumps one of *four* per-write-class tokens and records the accepted axis on
+ * a stamp — a different cardinality and protocol contract, not this single-token
+ * shape.
  */
 
 /** A table this guard can drive: keyed by `id`, versioned by a single `version`. */

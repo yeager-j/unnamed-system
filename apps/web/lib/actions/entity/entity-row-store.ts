@@ -14,8 +14,10 @@ import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
 import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
 
-import { authorizeEntityWrite } from "./authorize-write"
-import type { EntityMutationRejection } from "./mutations/types"
+import {
+  authorizeEntityWrite,
+  type EntityWriteAuthRejection,
+} from "./authorize-write"
 import { advanceEntityAxisGuarded } from "./version-guard"
 
 /**
@@ -66,12 +68,18 @@ export interface EntityCommit {
   status: PlayerCharacterStatus
 }
 
+export type EntityWriteCommitRejection =
+  | EntityWriteRefusal
+  | "entity-not-found"
+  | "entity-load-failed"
+  | EntityWriteAuthRejection
+
 export async function commitEntityWrite(
   executor: WriteExecutor,
   actor: Actor,
   { entityId, write }: EntityWriteArgs,
   stamp: StampAccumulator
-): Promise<Result<EntityCommit, EntityMutationRejection>> {
+): Promise<Result<EntityCommit, EntityWriteCommitRejection>> {
   const { durableClass } = ENTITY_WRITERS[write.component]
 
   // One authoritative observation of the target PC (substrate + lifecycle) inside
