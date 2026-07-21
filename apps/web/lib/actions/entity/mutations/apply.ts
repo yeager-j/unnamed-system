@@ -15,7 +15,7 @@ import {
   isEntityWriteAuthRejection,
   requireEntityWriteAuthorized,
 } from "../authorize-write"
-import { revalidateCharacterList } from "../revalidate"
+import { revalidateCharacterList, revalidateEntity } from "../revalidate"
 import { parseEntityWriteTarget, parseIdentityWriteTarget } from "./authorize"
 import { executeEntityMutation } from "./executor"
 
@@ -93,6 +93,18 @@ export async function applyEntityMutationAction(envelope: unknown) {
   }
 
   if (outcome.ok && outcome.value.kind === "accepted" && bridge) {
+    // The character subtree still needs an explicit path revalidation, because
+    // the executor's axis finalization cannot reach it: `updateTag` only
+    // expires `"use cache"` entries carrying the axis tag, and this app's
+    // character loader is React `cache()` (per-request memoization), so no
+    // cached entry is tagged with the axis at all. Server components that
+    // *derive* props from entity state therefore go stale — the builder's
+    // Continue gate (`nextGateForStep` over `loaded.entity.components`) is the
+    // one an e2e caught. The predicted root reconciles the client's own
+    // projection; this reconciles the server's. It disappears when the loader
+    // adopts `tagVersionedBase` and the tag convention becomes load-bearing.
+    revalidateEntity({ shortId: bridge.shortId })
+
     const revision = revisionAt(
       outcome.value.stamp.revisions,
       entityAxisFor[bridge.versionClass](bridge.entityId)

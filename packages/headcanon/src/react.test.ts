@@ -728,3 +728,68 @@ describe("createPredictedRoot — retryable delivery", () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// Farewell delivery of never-sent envelopes on unmount (UNN-676)
+// ---------------------------------------------------------------------------
+
+describe("createPredictedRoot — unmount does not discard unsent intent", () => {
+  it("sends queued envelopes on the way down, in queue order", async () => {
+    // The motivating case: a debounced autosave flushed from a leaf's unmount
+    // cleanup. The leaf tears down before the provider, so the mutation is
+    // queued into a root that is already unmounting; dropping it silently
+    // loses the user's last edit.
+    const { result, deliveries, send, unmount } = setup()
+
+    act(() => {
+      mutate(result, add({ amount: 1 }))
+      mutate(result, add({ amount: 2 }))
+    })
+    // The head is in flight; the second envelope has never been sent.
+    expect(send).toHaveBeenCalledTimes(1)
+
+    unmount()
+    await act(async () => {})
+
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(deliveries[1]?.envelope.invocation.args.amount).toBe(2)
+
+    act(() => deliveries[0]?.resolve(ok(stamp(1))))
+  })
+
+  it("does not re-send an envelope whose delivery may already have committed", async () => {
+    const { result, deliveries, send, unmount } = setup()
+
+    act(() => {
+      mutate(result, add({ amount: 1 }))
+    })
+    expect(send).toHaveBeenCalledTimes(1)
+
+    unmount()
+    await act(async () => {})
+
+    // The head was `sending`: its receipt, not a second send, decides it.
+    expect(send).toHaveBeenCalledTimes(1)
+
+    act(() => deliveries[0]?.resolve(ok(stamp(1))))
+  })
+
+  it("still settles a farewell-sent receipt as unmounted-unknown", async () => {
+    const { result, deliveries, unmount } = setup()
+    let queued!: MutationReceipt<CounterError>
+    act(() => {
+      mutate(result, add({ amount: 1 }))
+      queued = mutate(result, add({ amount: 2 }))
+    })
+
+    unmount()
+    await act(async () => {})
+
+    // It left, but no mounted root remains to learn the authority's answer.
+    await expect(queued.accepted).resolves.toEqual(
+      err({ kind: "root-unmounted", outcome: "unknown" })
+    )
+
+    act(() => deliveries[0]?.resolve(ok(stamp(1))))
+  })
+})

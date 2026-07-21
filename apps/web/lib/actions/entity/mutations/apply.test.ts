@@ -14,6 +14,7 @@ const parseEntityWriteTarget = vi.fn()
 const parseIdentityWriteTarget = vi.fn()
 const executeEntityMutation = vi.fn()
 const revalidateCharacterList = vi.fn()
+const revalidateEntity = vi.fn()
 const publishCharacterPing = vi.fn()
 const forbidden = vi.fn(() => {
   throw new Error("forbidden")
@@ -53,6 +54,7 @@ vi.mock("./executor", () => ({
 }))
 vi.mock("../revalidate", () => ({
   revalidateCharacterList: () => revalidateCharacterList(),
+  revalidateEntity: (row: { shortId: string }) => revalidateEntity(row),
 }))
 
 const { applyEntityMutationAction } = await import("./apply")
@@ -182,6 +184,30 @@ describe("applyEntityMutationAction", () => {
     expect(publishCharacterPing).toHaveBeenCalledWith("abc123", "entity", {
       identity: 9,
     })
+  })
+
+  it("revalidates the character subtree on acceptance", async () => {
+    // The executor's axis finalization cannot reach it: `updateTag` only
+    // expires `"use cache"` entries, and the character loader is React
+    // `cache()`. Without this, server components deriving props from entity
+    // state go stale — the builder's Continue gate stayed disabled for the
+    // whole test timeout (caught by e2e/builder.spec.ts).
+    parseEntityWriteTarget.mockReturnValue(target("vitals"))
+
+    await applyEntityMutationAction({})
+
+    expect(revalidateEntity).toHaveBeenCalledWith({ shortId: "abc123" })
+  })
+
+  it("does not revalidate the character subtree for a rejected outcome", async () => {
+    parseEntityWriteTarget.mockReturnValue(target("vitals"))
+    executeEntityMutation.mockResolvedValue(
+      ok({ kind: "rejected", error: "capability-missing" })
+    )
+
+    await applyEntityMutationAction({})
+
+    expect(revalidateEntity).not.toHaveBeenCalled()
   })
 
   it("publishes no ping for a rejected outcome", async () => {

@@ -268,6 +268,8 @@ function freezeEnvelope<Invocation>(
   })
 }
 
+function noop(): void {}
+
 function removeFromQueue(queue: string[], mutationId: string): void {
   const index = queue.indexOf(mutationId)
   if (index >= 0) queue.splice(index, 1)
@@ -611,7 +613,34 @@ export function createPredictedRootWithDeliveryErrorClassifier<
         queueMicrotask(() => {
           if (activeTokenRef.current !== null) return
 
+          // Unmount ends this root's ability to *observe* an outcome; it does
+          // not repeal the user's intent. An envelope that never went out —
+          // typically a debounced autosave flushed from a leaf's unmount
+          // cleanup, where the leaf tears down before the provider — is sent
+          // fire-and-forget on the way down. Safe by construction: the
+          // canonical envelope and durable mutation ID make redelivery
+          // effectively-once at the authority. Queue order is preserved,
+          // because two edits to the same field must not race.
+          //
+          // Only never-delivered entries qualify. A `sending`/`uncertain`
+          // entry may already have committed, and its receipt — not a second
+          // send — is what would resolve it.
+          const undelivered = queueRef.current
+            .map((mutationId) => ledgerRef.current.get(mutationId))
+            .filter((entry) => entry?.delivery === "queued")
+          void undelivered.reduce(
+            (chain, entry) =>
+              chain.then(() =>
+                entry
+                  ? options.send(entry.envelope).then(noop, noop)
+                  : undefined
+              ),
+            Promise.resolve<void>(undefined)
+          )
+
           for (const entry of ledgerRef.current.values()) {
+            // `unknown` stays honest for a farewell send: it left, but no
+            // mounted root remains to learn whether the authority accepted it.
             const outcome = entry.acceptedStamp ? "accepted" : "unknown"
             const lifecycleError = {
               kind: "root-unmounted",
