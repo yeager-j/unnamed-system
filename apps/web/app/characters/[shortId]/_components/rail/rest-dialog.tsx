@@ -63,12 +63,17 @@ export function RestDialog() {
   const needsDice = variant !== "fullRest"
   const spend = Number.parseInt(diceToSpend, 10)
   const rolledAmount = Number.parseInt(rolled, 10)
-  const inputsValid =
-    !needsDice ||
-    (Number.isInteger(spend) &&
-      spend >= 0 &&
-      Number.isInteger(rolledAmount) &&
-      rolledAmount >= 0)
+  const diceLabel = variant === "partialRest" ? "Skill Dice" : "Hit Dice"
+  const rolledLabel = variant === "partialRest" ? "SP rolled" : "HP rolled"
+  const diceError =
+    needsDice && (!Number.isInteger(spend) || spend < 0)
+      ? `${diceLabel} to spend must be 0 or more.`
+      : null
+  const rolledError =
+    needsDice && (!Number.isInteger(rolledAmount) || rolledAmount < 0)
+      ? `${rolledLabel} must be 0 or more.`
+      : null
+  const inputsValid = !diceError && !rolledError
 
   const reset = () => {
     setDiceToSpend("")
@@ -155,9 +160,7 @@ export function RestDialog() {
         {needsDice ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="rest-dice">
-                {variant === "partialRest" ? "Skill Dice" : "Hit Dice"} to spend
-              </Label>
+              <Label htmlFor="rest-dice">{diceLabel} to spend</Label>
               <Input
                 id="rest-dice"
                 type="number"
@@ -165,12 +168,17 @@ export function RestDialog() {
                 inputMode="numeric"
                 value={diceToSpend}
                 onChange={(event) => setDiceToSpend(event.target.value)}
+                aria-invalid={diceError ? true : undefined}
+                aria-describedby={diceError ? "rest-dice-error" : undefined}
               />
+              {diceError ? (
+                <p id="rest-dice-error" className="text-sm text-destructive">
+                  {diceError}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="rest-rolled">
-                {variant === "partialRest" ? "SP rolled" : "HP rolled"}
-              </Label>
+              <Label htmlFor="rest-rolled">{rolledLabel}</Label>
               <Input
                 id="rest-rolled"
                 type="number"
@@ -178,7 +186,14 @@ export function RestDialog() {
                 inputMode="numeric"
                 value={rolled}
                 onChange={(event) => setRolled(event.target.value)}
+                aria-invalid={rolledError ? true : undefined}
+                aria-describedby={rolledError ? "rest-rolled-error" : undefined}
               />
+              {rolledError ? (
+                <p id="rest-rolled-error" className="text-sm text-destructive">
+                  {rolledError}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}

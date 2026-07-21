@@ -185,7 +185,9 @@ function EnemyRow({
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span>L{row.level}</span>
             <span className="flex items-center gap-0.5">
-              <HeartIcon className="size-3" /> {row.maxHP}
+              <HeartIcon className="size-3" aria-hidden />
+              <span className="sr-only">HP </span>
+              {row.maxHP}
             </span>
             {row.weaknesses.map((weakness) => (
               <Badge key={weakness} variant="destructive">

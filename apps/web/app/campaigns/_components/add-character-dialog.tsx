@@ -115,6 +115,7 @@ export function AddCharacterDialog({
                       key={character.id}
                       value={`${character.name} ${character.placedCampaignName ?? ""} ${character.id}`}
                       onSelect={() => setSelected(character)}
+                      aria-selected={isSelected}
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate font-medium">
@@ -127,7 +128,11 @@ export function AddCharacterDialog({
                         </span>
                       </div>
                       <CommandShortcut>
+                        {isSelected ? (
+                          <span className="sr-only">Selected</span>
+                        ) : null}
                         <CheckIcon
+                          aria-hidden
                           className={cn(
                             "size-4 shrink-0",
                             isSelected ? "opacity-100" : "opacity-0"

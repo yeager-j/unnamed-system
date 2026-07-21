@@ -263,6 +263,9 @@ function PrerequisitesSection({ node }: { node: AtlasNode }) {
               ) : null}
               <span className={unmet ? "text-muted-foreground" : undefined}>
                 {name} Rank {prereq.rank}
+                {unmet ? (
+                  <span className="sr-only"> — unmet prerequisite</span>
+                ) : null}
               </span>
             </li>
           )

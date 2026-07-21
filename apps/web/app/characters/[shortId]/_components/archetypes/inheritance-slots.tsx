@@ -141,6 +141,7 @@ function SlotRow({
               className="gap-1 border-destructive/50 py-0 text-destructive"
             >
               <WarningIcon weight="bold" className="size-3" aria-hidden />
+              <span className="sr-only">Inherited talent unavailable: </span>
               Re-select
             </Badge>
           ) : null}
