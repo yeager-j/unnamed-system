@@ -4,6 +4,7 @@ import type { Lineage } from "@workspace/game-v2/kernel/vocab"
 
 import { getArchetype } from "@/domain/game-engine-v2"
 import { availabilityFold } from "@/domain/planner/availability"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadCampaignClock } from "@/lib/db/queries/load-campaign-clock"
 import { loadCampaignNpcs } from "@/lib/db/queries/load-campaign-world"
@@ -18,17 +19,20 @@ import { loadCampaignNpcs } from "@/lib/db/queries/load-campaign-world"
  * `spendArchetypeRank`) — so what renders locked and what refuses to unlock
  * can't drift.
  */
-export async function loadNarrativeGate(input: {
-  campaignId: string | null
-  originArchetypeKey: string | null
-}): Promise<ReadonlyMap<Lineage, number> | undefined> {
+export async function loadNarrativeGate(
+  input: {
+    campaignId: string | null
+    originArchetypeKey: string | null
+  },
+  executor: WriteExecutor = db
+): Promise<ReadonlyMap<Lineage, number> | undefined> {
   if (input.campaignId === null) return undefined
-  const campaign = await loadCampaignRowById(input.campaignId)
+  const campaign = await loadCampaignRowById(input.campaignId, executor)
   if (!campaign?.lineageGating) return undefined
 
   const [clock, npcs] = await Promise.all([
-    loadCampaignClock(campaign.id),
-    loadCampaignNpcs(campaign.id),
+    loadCampaignClock(campaign.id, executor),
+    loadCampaignNpcs(campaign.id, executor),
   ])
   const originLineage = input.originArchetypeKey
     ? (getArchetype(input.originArchetypeKey)?.lineage ?? null)

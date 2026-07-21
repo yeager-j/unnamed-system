@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   campaignClock,
   campaignPeriod,
@@ -18,9 +18,10 @@ import { dungeons } from "@/lib/db/schema/dungeon"
  * started it — the Day Runner's first-run state.
  */
 export async function loadCampaignClock(
-  campaignId: string
+  campaignId: string,
+  executor: WriteExecutor = db
 ): Promise<CampaignClockRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(campaignClock)
     .where(eq(campaignClock.campaignId, campaignId))

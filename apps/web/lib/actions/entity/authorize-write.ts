@@ -62,7 +62,7 @@ export async function authorizeEntityWrite(
       : pc.userId === actor.userId
   if (!ownershipOk) return err("unauthorized")
 
-  return refuseGatedArchetypeSpend(actor.email, pc, write)
+  return refuseGatedArchetypeSpend(executor, actor.email, pc, write)
 }
 
 /**

@@ -5,6 +5,7 @@ import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { getArchetype } from "@/domain/game-engine-v2"
 import { loadNarrativeGate } from "@/domain/planner/load-narrative-gate"
+import type { WriteExecutor } from "@/lib/db/client"
 import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 
 /**
@@ -25,6 +26,7 @@ import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-charact
 export type ArchetypeGateRejection = "archetype-hidden" | "archetype-locked"
 
 export async function refuseGatedArchetypeSpend(
+  executor: WriteExecutor,
   email: string | null,
   pc: LoadedPlayerCharacter,
   write: EntityWrite
@@ -37,7 +39,7 @@ export async function refuseGatedArchetypeSpend(
     return err("archetype-hidden")
   }
 
-  return refuseNarrativelyLockedUnlock(pc, write.archetypeKey)
+  return refuseNarrativelyLockedUnlock(executor, pc, write.archetypeKey)
 }
 
 /**
@@ -51,6 +53,7 @@ export async function refuseGatedArchetypeSpend(
  * archetypes off the PC the handler already loaded (UNN-674), so no re-query.
  */
 async function refuseNarrativelyLockedUnlock(
+  executor: WriteExecutor,
   pc: LoadedPlayerCharacter,
   archetypeKey: string
 ): Promise<Result<void, "archetype-locked">> {
@@ -60,10 +63,13 @@ async function refuseNarrativelyLockedUnlock(
   const owned = archetypes?.roster.some((entry) => entry.key === archetypeKey)
   if (owned) return ok(undefined)
 
-  const gate = await loadNarrativeGate({
-    campaignId: pc.campaignId,
-    originArchetypeKey: archetypes?.origin ?? null,
-  })
+  const gate = await loadNarrativeGate(
+    {
+      campaignId: pc.campaignId,
+      originArchetypeKey: archetypes?.origin ?? null,
+    },
+    executor
+  )
   if (gate === undefined) return ok(undefined)
 
   const target = getArchetype(archetypeKey)

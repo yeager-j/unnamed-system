@@ -18,8 +18,12 @@ vi.mock("@/lib/auth/campaign-access", () => ({
     isOwnerOrCampaignDM(viewerId, pc, executor),
 }))
 vi.mock("./archetype-gate", () => ({
-  refuseGatedArchetypeSpend: (email: unknown, pc: unknown, write: unknown) =>
-    refuseGatedArchetypeSpend(email, pc, write),
+  refuseGatedArchetypeSpend: (
+    executor: unknown,
+    email: unknown,
+    pc: unknown,
+    write: unknown
+  ) => refuseGatedArchetypeSpend(executor, email, pc, write),
 }))
 vi.mock("@/lib/db/queries/load-player-character", () => ({
   loadPlayerCharacterById: (id: string) => loadPlayerCharacterById(id),
@@ -102,6 +106,7 @@ describe("authorizeEntityWrite — one contextual authorization rule", () => {
 
     expect(result).toEqual(err("archetype-locked"))
     expect(refuseGatedArchetypeSpend).toHaveBeenCalledWith(
+      EXECUTOR,
       ACTOR.email,
       pc(),
       expect.objectContaining({ op: "spendArchetypeRank" })
