@@ -54,15 +54,19 @@ Consequences to keep in mind:
   (v1's rule), not the encounter's campaign — one gate for the sheet buttons and
   the console, so the two surfaces can never disagree about who may write a PC row.
 
-**Durable-arm finalization (UNN-567 / UNN-674).** The executor-neutral
+**Durable-arm finalization (UNN-567 / UNN-674 / UNN-676).** The executor-neutral
 `commitEntityWrite` fires **no** ping or revalidation — post-acceptance
-finalization is the caller's job. So the durable arm itself calls
-`publishCharacterPing` (relocated out of the version guard) to invalidate every
-other watcher of the character channel, then `revalidateEncounter` on success —
-the RSC payload rides the write's transition response like the session arm's, so
-the console's optimistic frame no longer flash-reverts while waiting for the
-pc-ping refresh. (Only this encounter's route; any other surface showing the PC
-still catches up via the ping.)
+finalization is the caller's job. So the durable arm itself: calls
+`publishCharacterPing` (relocated out of the version guard) for the console's
+own un-migrated listeners; runs `finalizeExternalActionCommit(stamp, …)` —
+this arm advances a protocol axis outside the mutation executor, so Headcanon
+invariant 15 requires the explicit external-commit finalization (axis cache-tag
+expiry + the axis invalidation the character route's predicted root listens on
+since P2d); then `revalidateEncounter` on success — the RSC payload rides the
+write's transition response like the session arm's, so the console's optimistic
+frame no longer flash-reverts while waiting for the pc-ping refresh. The ping and
+the external finalization collapse into one protocol mutation when Phase 3a binds
+combat.
 
 ## One semantic per storage home — resolved (UNN-551)
 

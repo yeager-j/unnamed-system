@@ -2,7 +2,10 @@ import type { Metadata } from "next"
 import { forbidden, notFound, redirect } from "next/navigation"
 
 import { parseDocumentRef } from "@/domain/character/animus/documents"
-import { loadCharacterByShortId } from "@/domain/character/load"
+import {
+  loadCharacterByShortId,
+  toCharacterMount,
+} from "@/domain/character/load"
 import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
 import { getViewerRole } from "@/lib/auth/viewer-role"
 import { characterBuilderPath } from "@/lib/paths"
@@ -57,7 +60,7 @@ export default async function CharacterAnimusPage({
   return (
     <AnimusWriterShell
       shortId={shortId}
-      loaded={redacted}
+      character={toCharacterMount(redacted)}
       initialRef={initialRef}
     />
   )

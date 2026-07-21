@@ -14,8 +14,10 @@ import {
 import { err, ok, type Result } from "@workspace/result"
 
 import {
+  entityRowVersions,
+  toCharacterMount,
   toCharacterProfile,
-  type LoadedCharacter,
+  type CharacterMount,
 } from "@/domain/character/load"
 import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
 import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
@@ -181,14 +183,15 @@ async function projectSnapshotCore(
 
 /**
  * A durable combatant the watch viewer owns: the roster id it occupies (the key
- * the snapshot's overlay reads correlate on), its loaded `{ profile, entity,
- * resolved }` triple, and the encounter context that triple was resolved with —
- * which the watch column's `EntityWriteProvider` re-folds its optimistic frame
- * through, so a click's predicted numbers match the server's.
+ * the snapshot's overlay reads correlate on), its provider mount (profile +
+ * versioned canon), and the encounter context its derived values are re-folded
+ * with — the watch column's `EntityWriteProvider` re-derives `resolved` from
+ * the predicted entity through it, so a click's predicted numbers match the
+ * server's.
  */
 export interface OwnedEncounterSheet {
   participantId: ParticipantId
-  character: LoadedCharacter
+  character: CharacterMount
   resolveContext: ResolveContext
 }
 
@@ -254,11 +257,12 @@ export async function loadOwnedEncounterSheets(
     return [
       {
         participantId: participant.id,
-        character: {
+        character: toCharacterMount({
           profile: toCharacterProfile({ ...subtypeRow, entity: entityRow }),
           entity: participant.entity,
           resolved: resolveEntity(participant.entity, resolveContext),
-        },
+          versions: entityRowVersions(entityRow),
+        }),
         resolveContext,
       },
     ]

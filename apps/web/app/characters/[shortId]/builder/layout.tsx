@@ -2,7 +2,10 @@ import { forbidden, notFound, redirect } from "next/navigation"
 import { type ReactNode } from "react"
 
 import { BuilderProviderShell } from "@/app/characters/[shortId]/builder/_components/builder-provider-shell"
-import { loadCharacterByShortId } from "@/domain/character/load"
+import {
+  loadCharacterByShortId,
+  toCharacterMount,
+} from "@/domain/character/load"
 import { auth } from "@/lib/auth"
 
 /**
@@ -42,5 +45,9 @@ export default async function BuilderLayout({
   if (loaded.profile.ownerId !== viewerId) forbidden()
   if (loaded.profile.status === "finalized") redirect("/")
 
-  return <BuilderProviderShell loaded={loaded}>{children}</BuilderProviderShell>
+  return (
+    <BuilderProviderShell character={toCharacterMount(loaded)}>
+      {children}
+    </BuilderProviderShell>
+  )
 }

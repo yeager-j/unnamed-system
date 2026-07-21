@@ -650,24 +650,42 @@ accepted stamp or rejection, retry metadata, and the `accepted` and
 patch projection, or another reducer. React remains the sole owner of the
 predicted domain value.
 
-Each optimistic mutation has its own held-open Action lifetime. Acceptance may
-release its delivery queue slot without settling that Action; canonization
-settles only that mutation. Settling A while B remains accepted-but-uncovered
-must remove A and replay B exactly once over the new canon. If React cannot
-support that behavior without a second domain-state store or replay engine, the
-spike fails.
+Each optimistic mutation has its own Action, and the Action's lifetime is the
+mutation's **actively progressing delivery** — queued behind a progressing
+head, sending, or inside the bounded automatic-redelivery backoff. It settles
+at the terminal acceptance or rejection, at a preserved Next control-flow
+signal, when the queue pauses on an unbounded-uncertain head, or on unmount.
+It is **never held for canonization**. The original design held each Action
+open until coverage; UNN-682 falsified that against the real App Router.
+React entangles all transition-lane work — a Server Action's revalidated RSC
+payload, `router.refresh()`, and navigations — with every pending Action and
+commits none of it until all of them settle, so an Action awaiting coverage
+blocks the very commit that could deliver its covering canon (and freezes
+navigation for as long as it waits). The physics, established by
+`apps/headcanon-fixture`'s probe suite: a payload produced while an Action is
+open is parked, wherever the send was dispatched from, and flushes atomically
+in the commit that settles the last pending Action.
 
-Rendered coverage does not depend on Action settlement timing. The root keeps
-acceptance state — a map from mutation ID to accepted vector, updated outside
-render — and feeds it into the pure replay frame alongside the rendering canon.
-The reducer therefore receives current lifecycle facts even when React retains
-an optimistic Action created by an earlier render. An update whose accepted
-vector the rendering canon already covers reduces its domain value to identity.
-The first render of a covering canon therefore excludes A's predicted effect in
-the same pass that includes A's authoritative result, so A is never applied
-twice even if A's held-open Action settles a beat later. Settlement is then
-bookkeeping: the coordinator resolves `canonized`, settles the Action, and React
-drops the already-identity entry.
+That atomic flush is also what preserves the visible handoff on the RSC
+carrier: the acceptance payload carrying the covering canon commits in the
+same render that reverts the settled prediction, so the value flips from
+predicted to authoritative with no canon-without-prediction frame. When the
+committed canon does not yet cover (a stale cached loader, a snapshot carrier
+awaiting its refetch), the prediction's continued visibility rests on React
+retaining settled optimistic updates in its replay queue — retention the
+package treats as best-effort, not a contract.
+
+Rendered coverage therefore depends only on lifecycle facts, never on Action
+settlement timing or React's retention timing. The root keeps acceptance
+state — a map from mutation ID to accepted vector, updated outside render —
+plus the refused and paused ID sets, and feeds them into the pure replay
+frame alongside the rendering canon. Replay is idempotent per mutation ID
+(React may hold an original update and its resume-time re-add
+simultaneously), an update whose accepted vector the rendering canon covers
+reduces to identity in the first covering render (so A is never applied
+twice while B keeps it replayed), a paused update reduces to identity (a
+paused root renders canon truth), and canonization is pure bookkeeping: the
+coordinator resolves `canonized` and drops the ledger entry.
 
 The optimistic reducer remains pure. It may return an internal replay frame
 containing `value` and refused mutation IDs, but it never mutates the lifecycle
@@ -873,6 +891,13 @@ per-axis scheduler independence would add interface and contract weight without
 reliable wire parallelism. Cross-root calls may still be serialized by Next's
 current implementation; the package promises order, not parallel throughput.
 
+Where the send is dispatched from is irrelevant to payload delivery (UNN-682):
+a Server Action invoked from the coordinator's effect and one invoked inside
+the owning Action produce the same parked payload, which commits only when
+every pending Action settles. The queue therefore keeps its effect-driven
+pump; what canonization requires is Action settlement at acceptance, not
+send-inside-Action scope.
+
 ### 3. Execute and record
 
 The executor:
@@ -917,11 +942,19 @@ publication missed around an ambiguous response without rerunning the handler.
 ### 5. Accept
 
 When the client receives the recorded vector, `receipt.accepted` resolves. The
-prediction remains mounted until canonization, but the trusted terminal
-acceptance releases the delivery queue so the next intent can execute. A typed
-rejection also releases the queue, settles that optimistic action, and replays
-all later pending mutations over the unchanged canon. Only uncertain delivery,
-not projection catch-up, blocks the queue.
+trusted terminal acceptance settles the mutation's optimistic Action and
+releases the delivery queue so the next intent can execute (UNN-682: settling
+here is what lets the parked RSC payload commit — the covering canon and the
+prediction's revert land in one atomic flush, so the prediction visibly hands
+off to the authoritative value rather than flickering). A typed rejection also
+releases the queue, settles that optimistic action, and replays all later
+pending mutations over the unchanged canon. Only uncertain delivery, not
+projection catch-up, blocks the queue — and a queue paused on an
+unbounded-uncertain head settles every held Action and renders canon truth,
+because a held Action would freeze canon delivery and navigation for as long
+as the retry affordance sits unused. The envelopes and mutation IDs stay in
+the ledger; a manual retry re-opens the Actions and re-mounts the paused
+predictions for the duration of the attempt.
 
 Acceptance also merges the accepted vector into the root's observed-invalidation
 metadata. The write's own Ably echo then compares non-fresher and schedules no
@@ -933,9 +966,9 @@ being a special case.
 On every new canon, the package:
 
 1. replaces the old authoritative value and observed revision vector;
-2. resolves accepted mutations whose entire vectors are covered;
-3. settles their optimistic actions; and
-4. atomically replays all remaining actions over the new canon.
+2. resolves accepted mutations whose entire vectors are covered (their
+   Actions settled at acceptance — UNN-682); and
+3. atomically replays all remaining actions over the new canon.
 
 `receipt.canonized` resolves only after step 2. This is distinct from
 acceptance even when a Server Action response normally carries both close
@@ -968,9 +1001,13 @@ canon, prove canonization, or become write tokens.
 
 ## Canonization and refresh state machine
 
-Holding an optimistic Action open until its accepted vector is visible is the
-riskiest React mechanic in the design. Version one specifies its fallback
-behavior rather than leaving it to adapter authors.
+The original design held each optimistic Action open until its accepted
+vector was visible and named that the riskiest React mechanic in the design.
+The risk fired (UNN-682): a held Action entangles and blocks the very
+transition commits that deliver canon, so a mounted RSC root could never
+canonize. Actions now settle at terminal acceptance (see React binding); this
+state machine is unchanged in shape but runs against canons that arrive in
+the settlement flush or through the refresh seam afterwards.
 
 ### States
 
@@ -1011,9 +1048,10 @@ stateDiagram-v2
 - If requirements remain uncovered, the package waits one second and performs
   one final coalesced refresh.
 - After two completed refreshes without coverage, freshness becomes `stalled`.
-- Accepted predictions remain mounted while stalled. Their canonization
-  promises remain pending because acceptance is known but projection catch-up
-  is not.
+- Accepted-but-uncovered predictions stay in React's optimistic replay queue
+  on a best-effort retention basis while stalled (their Actions settled at
+  acceptance — UNN-682). Their canonization promises remain pending because
+  acceptance is known but projection catch-up is not.
 - `retryRefresh()` or a genuinely fresher invalidation resets the two-attempt
   budget.
 - Unmounting resolves unsettled receipt promises with `root-unmounted`, records
@@ -1459,21 +1497,27 @@ queues, optimistic logs, receipt SQL, refresh generations, or cache-tag maps.
 - local refusal allocates no mutation ID and performs no action;
 - a typed rejection removes its prediction and preserves later valid intent;
 - a new complete canon replays remaining mutations atomically;
-- a singleton accepted vector remains mounted until covered;
-- a multi-axis accepted vector remains mounted until every axis is covered;
+- a singleton accepted vector stays pending until covered;
+- a multi-axis accepted vector stays pending until every axis is covered;
 - A and B can both remain accepted-but-uncovered, then a canon covering only A
-  settles A and replays B exactly once without applying A twice;
-- a covered update reduces to identity in the same render that first delivers
-  its covering canon, before its Action settles;
-- terminal acceptance releases the delivery queue before canonization;
+  canonizes A and replays B exactly once without applying A twice;
+- a covered accepted update reduces to identity in the first covering render
+  while a sibling keeps it replayed;
+- replay is idempotent per mutation ID (an original update and its
+  resume-time re-add apply once);
+- terminal acceptance settles the optimistic Action and releases the delivery
+  queue before canonization (UNN-682);
 - one missing stamped axis produces `stalled: missing-axis`;
 - replay refusal cancels and settles an envelope that was never sent without
   corrupting later replay;
 - replay refusal does not retract sending or uncertain delivery;
 - replay refusal is observed from a pure replay frame and causes no reducer
   side effect, including under React's development replay behavior;
-- an ambiguous response preserves prediction and canonical envelope identity;
+- an ambiguous response preserves the canonical envelope and mutation ID while
+  the paused root renders canon truth (a held Action would freeze canon
+  delivery and navigation — UNN-682);
 - an uncertain head pauses later root mutations;
+- a manual retry re-mounts every paused prediction for the attempt;
 - a duplicate recovery settles the original receipt;
 - unmount settles unresolved receipt promises and releases held transitions;
 - invalidations compare only intersecting observed axes;
@@ -1567,7 +1611,14 @@ tested as rejection and rollback, not forced into the predictor.
 
 ### End-to-end fixture
 
-The first fixture is a small Next.js application with:
+The fixture's seed exists as `apps/headcanon-fixture` (UNN-682): a real
+App Router consumer with an in-memory authority, the canonize-in-place
+stories the jsdom contract suite structurally cannot express, and a
+`/probe` physics suite (raw `useOptimistic` + Server Action, no headcanon
+code) that locks the React facts the settlement model rests on — payload
+parking behind open Actions, the atomic settlement flush, and
+navigation blocking. It runs in the `e2e` workflow with no database. The
+full fixture (UNN-669) grows from it, adding:
 
 - an RSC-carried collection canon;
 - a snapshot-carried detail canon observing one shared axis;
@@ -1817,6 +1868,22 @@ existing server read authority answer those questions.
 | External version writers remain common                         | New raw version bumps repeatedly require manual cache/realtime repair                                   |
 | Protocol receipts grow without bound                           | Measured retention cost is material before a safe cleanup window can be stated                          |
 | Showtime bindings do not contract                              | Old queues, refs, realtime comparison, or refresh scheduling survive underneath package calls           |
+
+Two rows have already fired and been resolved (UNN-682). *"Refresh completion
+cannot be observed reliably"* fired as its worst case: an Action held open for
+canonization entangles every transition commit, so no carrier could deliver
+canon to a mounted RSC root at all — and a held Action also blocks navigation,
+which made holding untenable on every carrier. The resolution settles Actions
+at terminal acceptance and leans on React's atomic settlement flush for the
+visible handoff. *"Independent optimistic Actions cannot settle separately"*
+was dissolved rather than solved: below the "any Action pending?" bit, Action
+granularity is unobservable (commits only happen when all pending Actions
+settle), so independence lives in the reducer's per-mutation lifecycle facts,
+not in settlement timing. Traded away, deliberately: prediction visibility
+between acceptance and a *late* canonization (stale cached loader, snapshot
+refetch window) now rests on React's best-effort retention of settled
+optimistic updates, and a queue paused on an unbounded-uncertain head renders
+canon truth instead of the prediction until retried.
 
 The correct response may be to narrow or abandon the package. It should not be
 another round of type parameters and supplied callbacks.

@@ -133,12 +133,15 @@ describe("requireEntityWriteAuthorized — the door's throwing pre-check", () =>
     ).rejects.toThrow("forbidden")
   })
 
-  it("passes an authorized write through", async () => {
-    loadPlayerCharacterById.mockResolvedValue(pc())
+  it("passes an authorized write through and returns the loaded target", async () => {
+    const loaded = pc()
+    loadPlayerCharacterById.mockResolvedValue(loaded)
 
+    // The door reuses the pre-check's row read (shortId for the transitional
+    // ping bridge, UNN-676) instead of loading the target twice.
     await expect(
       requireEntityWriteAuthorized(ACTOR, "e1", VITALS)
-    ).resolves.toBeUndefined()
+    ).resolves.toBe(loaded)
     expect(forbidden).not.toHaveBeenCalled()
   })
 })

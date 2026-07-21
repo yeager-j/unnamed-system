@@ -41,8 +41,8 @@ const AtomicCodeMirrorEditor = dynamic(
  * there is no external update to reconcile — the autosave pipeline writes out,
  * never in. A document swap remounts the field (the consumer keys it), which
  * re-seeds from the new `value`. If concurrent authoring is ever needed, the
- * write path's version tokens are where reconciliation belongs — not a
- * value-diffing effect that would race in-flight edits.
+ * write path (the Headcanon canon/mutation protocol) is where reconciliation
+ * belongs — not a value-diffing effect that would race in-flight edits.
  */
 export function MarkdownField({
   value,

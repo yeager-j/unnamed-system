@@ -5,7 +5,10 @@ import { DraftInProgressDialog } from "@/app/characters/[shortId]/_components/dr
 import { CharacterSheet } from "@/app/characters/[shortId]/_components/sheet"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { slugForStepIndex } from "@/domain/character/builder-steps"
-import { loadCharacterByShortId } from "@/domain/character/load"
+import {
+  loadCharacterByShortId,
+  toCharacterMount,
+} from "@/domain/character/load"
 import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
 import { getArchetype } from "@/domain/game-engine-v2"
 import { getViewerRole } from "@/lib/auth/viewer-role"
@@ -87,7 +90,11 @@ export default async function CharacterSheetPage({ params }: PageProps) {
 
   return (
     <ViewerRoleProvider role={role}>
-      <CharacterSheet loaded={redactLoadedCharacterForViewer(loaded, role)} />
+      <CharacterSheet
+        character={toCharacterMount(
+          redactLoadedCharacterForViewer(loaded, role)
+        )}
+      />
     </ViewerRoleProvider>
   )
 }

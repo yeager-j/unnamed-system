@@ -7,14 +7,10 @@ import { err, ok, type Result } from "@workspace/result"
 
 import { useDebouncedAutoSave } from "./use-debounced-auto-save"
 
-/** Stand-in for the entity door's class-version refetch, so the silent-retry
- *  path stays covered after S4 (UNN-562) deleted the v1 dispatch pipeline. */
-const refetchVersion = vi.fn<() => Promise<number>>()
-
 type SaveCall = {
   value: string
-  expectedVersion: number
-  resolve: (result: Result<{ value: string; version: number }, string>) => void
+  flush: boolean
+  resolve: (result: Result<{ value: string }, string>) => void
 }
 
 /**
@@ -26,17 +22,15 @@ type SaveCall = {
 function makeControlledSave(): {
   save: (
     value: string,
-    expectedVersion: number
-  ) => Promise<Result<{ value: string; version: number }, string>>
+    options: { flush: boolean }
+  ) => Promise<Result<{ value: string }, string>>
   calls: SaveCall[]
 } {
   const calls: SaveCall[] = []
-  const save = (value: string, expectedVersion: number) =>
-    new Promise<Result<{ value: string; version: number }, string>>(
-      (resolve) => {
-        calls.push({ value, expectedVersion, resolve })
-      }
-    )
+  const save = (value: string, options: { flush: boolean }) =>
+    new Promise<Result<{ value: string }, string>>((resolve) => {
+      calls.push({ value, flush: options.flush, resolve })
+    })
   return { save, calls }
 }
 
@@ -51,62 +45,28 @@ async function flushMicrotasks(): Promise<void> {
   })
 }
 
-/**
- * A retrying dispatch mirroring the retired v1 `dispatchCharacterWriteWithRetry`
- * contract (UNN-203), inlined here — its production successor is the entity
- * door's `useRetryingDispatch` (exercised by `use-entity-write.test.tsx`). Call
- * `action(version)`; on `"stale"`, refetch the fresh class version once and
- * retry; advance `versionRef` on every success. Keeps the hook's serialization
- * + silent-retry behavior under test without the deleted v1 modules.
- */
-function wrapperDispatch(versionRef: { current: number }) {
-  return async (
-    action: (
-      expectedVersion: number
-    ) => Promise<Result<{ value: string; version: number }, string>>
-  ): Promise<Result<{ value: string; version: number }, string>> => {
-    const first = await action(versionRef.current)
-    if (first.ok) {
-      versionRef.current = first.value.version
-      return first
-    }
-    if (first.error !== "stale") return first
-    versionRef.current = await refetchVersion()
-    const second = await action(versionRef.current)
-    if (second.ok) versionRef.current = second.value.version
-    return second
-  }
-}
-
 describe("useDebouncedAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    refetchVersion.mockReset()
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it("serializes a follow-up save: B reads the post-A version", async () => {
+  it("serializes a follow-up save behind the in-flight one", async () => {
     const { save, calls } = makeControlledSave()
-    const versionRef = { current: 0 }
 
     const { result } = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "",
-        dispatchWrite: wrapperDispatch(versionRef),
-        save,
-      })
+      useDebouncedAutoSave({ serverValue: "", save })
     )
 
-    // Type "A" → wait for debounce → save("A", 0) dispatched.
+    // Type "A" → wait for debounce → save("A") dispatched.
     act(() => result.current.setValue("A"))
     act(() => vi.advanceTimersByTime(500))
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     expect(calls[0]!.value).toBe("A")
-    expect(calls[0]!.expectedVersion).toBe(0)
 
     // Type "B" mid-flight → its save chains; nothing dispatched yet.
     act(() => result.current.setValue("B"))
@@ -114,66 +74,20 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
 
-    // A returns at version 1. Drain microtasks so the chained B fires.
+    // A settles. Drain microtasks so the chained B fires — in order.
     await act(async () => {
-      calls[0]!.resolve(ok({ value: "A", version: 1 }))
+      calls[0]!.resolve(ok({ value: "A" }))
     })
     await flushMicrotasks()
 
     expect(calls).toHaveLength(2)
     expect(calls[1]!.value).toBe("B")
-    // The whole point: B picked up the fresh post-A version, not the stale 0.
-    expect(calls[1]!.expectedVersion).toBe(1)
-  })
-
-  it("sibling fields sharing a versionRef see each other's bump in-frame (UNN-274)", async () => {
-    // Two same-class fields (e.g. Ancestry + Background) are handed the *same*
-    // provider ref. After field A's save bumps it to v1, field B's next save
-    // must read v1 — not the stale v0 it loaded with — so it never stales.
-    const shared = { current: 0 }
-    const a = makeControlledSave()
-    const b = makeControlledSave()
-
-    const fieldA = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "",
-        dispatchWrite: wrapperDispatch(shared),
-        save: a.save,
-      })
-    )
-    const fieldB = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "",
-        dispatchWrite: wrapperDispatch(shared),
-        save: b.save,
-      })
-    )
-
-    // A saves and the server advances to v1.
-    act(() => fieldA.result.current.setValue("Aether"))
-    act(() => fieldA.result.current.flush())
-    await flushMicrotasks()
-    expect(a.calls[0]!.expectedVersion).toBe(0)
-    await act(async () => {
-      a.calls[0]!.resolve(ok({ value: "Aether", version: 1 }))
-    })
-    await flushMicrotasks()
-
-    // B now saves — it reads the shared ref, already advanced to v1.
-    act(() => fieldB.result.current.setValue("Archivist"))
-    act(() => fieldB.result.current.flush())
-    await flushMicrotasks()
-    expect(b.calls[0]!.expectedVersion).toBe(1)
   })
 
   it("sibling fields sharing a save queue serialize back-to-back saves (UNN-274)", async () => {
-    // The real lost-update case: two same-class fields blurred back-to-back,
-    // faster than a round-trip. With a *shared* queue (the provider hands one
-    // per class), B's save chains behind A's instead of dispatching alongside
-    // it at the stale token — so B reads the version A's success just bumped,
-    // and neither stales. Without serialization both would dispatch at v0,
-    // collide, and the second would lose its update.
-    const shared = { current: 0 }
+    // Two fields writing the same row are handed one queue (the planner's
+    // beat trio), so B's save chains behind A's instead of dispatching
+    // alongside it — the row's writes stay in edit order.
     const queue = { current: Promise.resolve() }
     const a = makeControlledSave()
     const b = makeControlledSave()
@@ -181,7 +95,6 @@ describe("useDebouncedAutoSave", () => {
     const fieldA = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "",
-        dispatchWrite: wrapperDispatch(shared),
         saveQueueRef: queue,
         save: a.save,
       })
@@ -189,7 +102,6 @@ describe("useDebouncedAutoSave", () => {
     const fieldB = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "",
-        dispatchWrite: wrapperDispatch(shared),
         saveQueueRef: queue,
         save: b.save,
       })
@@ -204,28 +116,23 @@ describe("useDebouncedAutoSave", () => {
 
     // A has dispatched; B is queued behind it and has NOT dispatched yet.
     expect(a.calls).toHaveLength(1)
-    expect(a.calls[0]!.expectedVersion).toBe(0)
     expect(b.calls).toHaveLength(0)
 
-    // A succeeds and bumps the shared ref to v1.
     await act(async () => {
-      a.calls[0]!.resolve(ok({ value: "Aether", version: 1 }))
+      a.calls[0]!.resolve(ok({ value: "Aether" }))
     })
     await flushMicrotasks()
 
-    // Only now does B dispatch — and it reads the freshly-bumped v1.
+    // Only now does B dispatch.
     expect(b.calls).toHaveLength(1)
-    expect(b.calls[0]!.expectedVersion).toBe(1)
   })
 
   it("on flush, reverts to last-saved when the draft is empty", async () => {
     const { save, calls } = makeControlledSave()
-    const versionRef = { current: 0 }
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "Mira",
-        dispatchWrite: wrapperDispatch(versionRef),
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -237,7 +144,7 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     await act(async () => {
-      calls[0]!.resolve(ok({ value: "Iris", version: 1 }))
+      calls[0]!.resolve(ok({ value: "Iris" }))
     })
     await flushMicrotasks()
     expect(result.current.value).toBe("Iris")
@@ -256,14 +163,9 @@ describe("useDebouncedAutoSave", () => {
 
   it("on unmount, dispatches a fire-and-forget save when the draft is dirty", async () => {
     const { save, calls } = makeControlledSave()
-    const versionRef = { current: 0 }
 
     const { result, unmount } = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "",
-        dispatchWrite: wrapperDispatch(versionRef),
-        save,
-      })
+      useDebouncedAutoSave({ serverValue: "", save })
     )
 
     // Type within the debounce window — nothing dispatched yet.
@@ -275,17 +177,14 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     expect(calls[0]!.value).toBe("dirty")
-    expect(calls[0]!.expectedVersion).toBe(0)
   })
 
   it("on unmount, skips the save when the draft is empty", async () => {
     const { save, calls } = makeControlledSave()
-    const versionRef = { current: 0 }
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "Mira",
-        dispatchWrite: wrapperDispatch(versionRef),
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -303,26 +202,18 @@ describe("useDebouncedAutoSave", () => {
     const consoleErr = vi.spyOn(console, "error").mockImplementation(() => {})
     const calls: SaveCall[] = []
     let callIndex = 0
-    const save = (value: string, expectedVersion: number) =>
-      new Promise<Result<{ value: string; version: number }, string>>(
-        (resolve, reject) => {
-          calls.push({ value, expectedVersion, resolve })
-          const thisIndex = callIndex++
-          // Defer to next microtask so the test can interleave.
-          queueMicrotask(() => {
-            if (thisIndex === 0) reject(new Error("network down"))
-          })
-        }
-      )
-
-    const versionRef = { current: 0 }
-    const { result } = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "Mira",
-        dispatchWrite: wrapperDispatch(versionRef),
-        save,
-        onError,
+    const save = (value: string, options: { flush: boolean }) =>
+      new Promise<Result<{ value: string }, string>>((resolve, reject) => {
+        calls.push({ value, flush: options.flush, resolve })
+        const thisIndex = callIndex++
+        // Defer to next microtask so the test can interleave.
+        queueMicrotask(() => {
+          if (thisIndex === 0) reject(new Error("network down"))
+        })
       })
+
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave({ serverValue: "Mira", save, onError })
     )
 
     // First save throws → revert, no onError (throws aren't typed TError).
@@ -339,7 +230,7 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(2)
     await act(async () => {
-      calls[1]!.resolve(ok({ value: "Iris", version: 1 }))
+      calls[1]!.resolve(ok({ value: "Iris" }))
     })
     await flushMicrotasks()
     expect(result.current.value).toBe("Iris")
@@ -347,96 +238,12 @@ describe("useDebouncedAutoSave", () => {
     consoleErr.mockRestore()
   })
 
-  it("on first-attempt stale, silently refetches + retries before surfacing an error", async () => {
-    const { save, calls } = makeControlledSave()
-    const onError = vi.fn()
-    refetchVersion.mockResolvedValue(5)
-
-    const versionRef = { current: 0 }
-    const { result } = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "Mira",
-        dispatchWrite: wrapperDispatch(versionRef),
-        save,
-        onError,
-      })
-    )
-
-    // Type "Iris", flush — first save dispatched with stale version 0.
-    act(() => result.current.setValue("Iris"))
-    act(() => result.current.flush())
-    await flushMicrotasks()
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.expectedVersion).toBe(0)
-
-    // Server says stale → helper refetches and retries with fresh version 5.
-    await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    await flushMicrotasks()
-
-    expect(refetchVersion).toHaveBeenCalledOnce()
-    expect(calls).toHaveLength(2)
-    expect(calls[1]!.expectedVersion).toBe(5)
-
-    // Retry succeeds → draft sticks, no error surfaced.
-    await act(async () => {
-      calls[1]!.resolve(ok({ value: "Iris", version: 6 }))
-    })
-    await flushMicrotasks()
-
-    expect(result.current.value).toBe("Iris")
-    expect(onError).not.toHaveBeenCalled()
-  })
-
-  it("on second stale (retry also fails), rolls back and surfaces the error", async () => {
-    const { save, calls } = makeControlledSave()
-    const onError = vi.fn()
-    refetchVersion.mockResolvedValue(5)
-
-    const versionRef = { current: 0 }
-    const { result } = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "Mira",
-        dispatchWrite: wrapperDispatch(versionRef),
-        save,
-        onError,
-      })
-    )
-
-    act(() => result.current.setValue("Iris"))
-    act(() => result.current.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    await flushMicrotasks()
-    expect(calls).toHaveLength(2)
-
-    // Second stale → fall through to error path.
-    await act(async () => {
-      calls[1]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-
-    expect(result.current.value).toBe("Mira")
-    expect(onError).toHaveBeenCalledWith("stale")
-  })
-
   it("on failure, rolls the draft back to the last-saved value", async () => {
     const { save, calls } = makeControlledSave()
     const onError = vi.fn()
 
-    const versionRef = { current: 0 }
     const { result } = renderHook(() =>
-      useDebouncedAutoSave({
-        serverValue: "Mira",
-        dispatchWrite: wrapperDispatch(versionRef),
-        save,
-        onError,
-      })
+      useDebouncedAutoSave({ serverValue: "Mira", save, onError })
     )
 
     act(() => result.current.setValue("Iris"))
@@ -449,6 +256,33 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
 
     expect(result.current.value).toBe("Mira")
+    expect(onError).toHaveBeenCalledWith("invalid-input")
+  })
+
+  it("keepDraftOnError preserves the draft while still surfacing the failure", async () => {
+    const { save, calls } = makeControlledSave()
+    const onError = vi.fn()
+
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave({
+        serverValue: "Mira",
+        save,
+        onError,
+        keepDraftOnError: true,
+      })
+    )
+
+    act(() => result.current.setValue("Iris"))
+    act(() => result.current.flush())
+    await flushMicrotasks()
+    await act(async () => {
+      calls[0]!.resolve(err("invalid-input"))
+    })
+    await flushMicrotasks()
+
+    // The paragraph survives the blip; lastSaved is unchanged so the next
+    // flush retries.
+    expect(result.current.value).toBe("Iris")
     expect(onError).toHaveBeenCalledWith("invalid-input")
   })
 })

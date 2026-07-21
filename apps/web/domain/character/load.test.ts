@@ -12,7 +12,11 @@ import {
   entityVitalsAxis,
 } from "@/lib/db/axes"
 
-import { toCharacterCanon, type LoadedCharacter } from "./load"
+import {
+  toCharacterCanon,
+  toCharacterMount,
+  type LoadedCharacter,
+} from "./load"
 
 // `load.ts` is `server-only`; neutralize the build-time guard so its pure
 // `toCharacterCanon` projection can be unit-tested in the node runner.
@@ -34,8 +38,8 @@ function loadedCharacter(): LoadedCharacter {
       portraitUrl: "https://blob.example/portraits/a.png",
       pronouns: "they/them",
       notes: null,
-      versions: { identity: 3, vitals: 7, inventory: 1, progression: 5 },
     },
+    versions: { identity: 3, vitals: 7, inventory: 1, progression: 5 },
   }
 }
 
@@ -71,5 +75,41 @@ describe("toCharacterCanon (AC #3)", () => {
     expect(canon.value).not.toHaveProperty("profile")
     expect(canon.value.identity).not.toHaveProperty("status")
     expect(canon.value.identity).not.toHaveProperty("builderStep")
+  })
+})
+
+describe("toCharacterMount crosses the RSC boundary", () => {
+  /** Every object React's serializer would walk on the way to a Client
+   *  Component, in one flat list. */
+  function reachableObjects(root: unknown): unknown[] {
+    const found: unknown[] = []
+    const seen = new WeakSet<object>()
+    const visit = (value: unknown) => {
+      if (value === null || typeof value !== "object") return
+      if (seen.has(value)) return
+      seen.add(value)
+      found.push(value)
+      for (const nested of Object.values(value)) visit(nested)
+    }
+    visit(root)
+    return found
+  }
+
+  // The mount is a Server Component prop, so React applies "only plain objects,
+  // and a few built-ins, can be passed to Client Components" to the whole tree.
+  // A null-prototype revision vector failed exactly here (the canon is the one
+  // part of this prop the package builds), so the contract is pinned at the
+  // seam that broke, not only inside the package.
+  it("contains no class instance or null-prototype object", () => {
+    const mount = toCharacterMount(loadedCharacter())
+
+    const rejected = reachableObjects(mount).filter((value) => {
+      if (Array.isArray(value)) return false
+      const prototype = Object.getPrototypeOf(value)
+      return prototype !== Object.prototype && prototype !== null
+    })
+
+    expect(rejected).toEqual([])
+    expect(Object.getPrototypeOf(mount.canon.revisions)).toBe(Object.prototype)
   })
 })
