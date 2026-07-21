@@ -6,7 +6,6 @@ import {
   useEntityColumnSave,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { applyIdentityWriteAction } from "@/lib/actions/entity/mutations/apply-identity"
 
 const MAX_LENGTH = 64
 
@@ -18,8 +17,8 @@ const MAX_LENGTH = 64
  * immediately.
  *
  * Reuses the same debounced-autosave plumbing as every other identity field
- * (debounced keystroke + blur save, Escape-revert), dispatching the `name` arm of
- * the `entity.identity` mutation through the identity door (UNN-675).
+ * (debounced keystroke + blur save, Escape-revert), flushing the `name` arm of
+ * the `entity.identity` mutation (UNN-675; predicted since UNN-676).
  */
 export function NameField() {
   const { profile } = useLoadedCharacter()
@@ -27,19 +26,7 @@ export function NameField() {
     serverValue: profile.name,
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, { entityId }) => {
-      const result = await applyIdentityWriteAction({
-        entityId,
-        write: { field: "name", value: next.trim() },
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next.trim(), version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => ({ field: "name", value: next.trim() }),
   })
 
   return (

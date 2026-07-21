@@ -5,7 +5,10 @@ import { LineageAtlas } from "@/app/characters/[shortId]/atlas/_components/linea
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
 import { slugForStepIndex } from "@/domain/character/builder-steps"
-import { loadCharacterByShortId } from "@/domain/character/load"
+import {
+  loadCharacterByShortId,
+  toCharacterMount,
+} from "@/domain/character/load"
 import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
 import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 import { loadNarrativeGate } from "@/domain/planner/load-narrative-gate"
@@ -68,7 +71,7 @@ export default async function LineageAtlasPage({ params }: PageProps) {
   return (
     <ViewerRoleProvider role={role}>
       <EntityWriteProvider
-        loaded={redactLoadedCharacterForViewer(loaded, role)}
+        {...toCharacterMount(redactLoadedCharacterForViewer(loaded, role))}
       >
         <LineageAtlas
           hiddenArchetypeKeys={hiddenArchetypeKeys}

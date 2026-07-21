@@ -38,20 +38,42 @@ export interface CharacterProfile {
   portraitUrl: string | null
   pronouns: string | null
   notes: string | null
-  /** The four per-write-class tokens (CH4) — seeds the provider's refs. */
-  versions: Record<VersionClass, number>
 }
 
 /**
- * What a character route's provider holds: the app profile, the authored
- * runtime {@link Entity} (the optimistic re-fold's base, and where surfaces
- * read authored choices — `path.choice`, `archetypes.origin`, `narrative.*`),
- * and the {@link ResolvedEntity} read-units derivation produced.
+ * What a character route's server side holds: the app profile, the authored
+ * runtime {@link Entity} (where surfaces read authored choices —
+ * `path.choice`, `archetypes.origin`, `narrative.*`), the
+ * {@link ResolvedEntity} read-units derivation produced, and the four axis
+ * revisions observed in the same row read.
+ *
+ * `versions` is **read evidence for the canon, never a write token** (the P2d
+ * cutover, UNN-676): it exists solely so {@link toCharacterCanon} can stamp
+ * the revision vector after route-level redaction has run. No client code
+ * reads it — the mounted provider receives only `{ profile, canon }`.
  */
 export interface LoadedCharacter {
   profile: CharacterProfile
   entity: Entity
   resolved: ResolvedEntity
+  versions: Record<VersionClass, number>
+}
+
+/** The four axis revisions as one `entity`-row observation carries them —
+ *  shared by every loader that assembles a {@link LoadedCharacter}, so the
+ *  column-to-class mapping is decided once. */
+export function entityRowVersions(row: {
+  identityVersion: number
+  vitalsVersion: number
+  inventoryVersion: number
+  progressionVersion: number
+}): Record<VersionClass, number> {
+  return {
+    identity: row.identityVersion,
+    vitals: row.vitalsVersion,
+    inventory: row.inventoryVersion,
+    progression: row.progressionVersion,
+  }
 }
 
 /** The app-owned columns, projected off a loaded player character (R3 — UNN-573):
@@ -72,12 +94,6 @@ export function toCharacterProfile(
     portraitUrl: pc.entity.portraitUrl,
     pronouns: pc.entity.pronouns,
     notes: pc.entity.notes,
-    versions: {
-      identity: pc.entity.identityVersion,
-      vitals: pc.entity.vitalsVersion,
-      inventory: pc.entity.inventoryVersion,
-      progression: pc.entity.progressionVersion,
-    },
   }
 }
 
@@ -103,6 +119,7 @@ function entityRowToLoadedCharacter(
     profile: toCharacterProfile(pc),
     entity: loaded.value,
     resolved: resolveEntity(loaded.value),
+    versions: entityRowVersions(pc.entity),
   }
 }
 
@@ -138,16 +155,18 @@ export const loadCharacterByShortId = cache(
  * snapshot-isolated multi-query loader. `defineCanon` brands the raw version
  * integers and throws if a stored column is not a valid revision.
  *
- * **Transitional (removed by the P2d provider cutover, UNN-676):** these four
- * columns are also still carried on {@link CharacterProfile}, because the mounted
- * provider reads them from there and no client predicts them yet. The two
- * projections cannot diverge — both are built here from one row read — and P2d
- * sources the profile's identity fields from the predicted value instead.
+ * Call this **after** `redactLoadedCharacterForViewer` — the canon value is the
+ * client's optimistic base, so a pre-redaction canon would hand a public viewer
+ * the secrets the route boundary just stripped. The identity columns remain
+ * projected on {@link CharacterProfile} for surfaces outside a provider mount
+ * (roster labels, metadata); inside the mounted frame the provider overlays the
+ * predicted `identity` slice, so the canon is the one client authority.
  */
 export function toCharacterCanon(
   loaded: LoadedCharacter
 ): Canon<EntityCanonValue> {
-  const { id, versions, name, pronouns, portraitUrl, notes } = loaded.profile
+  const { versions } = loaded
+  const { id, name, pronouns, portraitUrl, notes } = loaded.profile
   return defineCanon({
     value: {
       entity: loaded.entity,
@@ -161,6 +180,24 @@ export function toCharacterCanon(
       [entityAxisFor.progression(id)]: versions.progression,
     },
   })
+}
+
+/**
+ * Exactly what a mounted `EntityWriteProvider` needs across the RSC boundary
+ * (P2d — UNN-676): the app profile plus the versioned canon. Deliberately
+ * **not** the whole {@link LoadedCharacter} — the canon value already carries
+ * `entity`/`resolved`, so shipping the triple alongside it would serialize the
+ * component bag twice into the client payload.
+ */
+export interface CharacterMount {
+  profile: CharacterProfile
+  canon: Canon<EntityCanonValue>
+}
+
+/** Projects one (already redacted, where applicable) loaded character into its
+ *  provider-mount shape. */
+export function toCharacterMount(loaded: LoadedCharacter): CharacterMount {
+  return { profile: loaded.profile, canon: toCharacterCanon(loaded) }
 }
 
 /**

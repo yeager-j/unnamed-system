@@ -14,6 +14,7 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { createStampAccumulator } from "@workspace/headcanon"
 import { MutationContentionError } from "@workspace/headcanon/drizzle"
+import { finalizeExternalActionCommit } from "@workspace/headcanon/next/server"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
@@ -31,6 +32,10 @@ import {
 import { revalidateEncounter } from "../../encounter/revalidate"
 import { isEntityWriteAuthRejection } from "../../entity/authorize-write"
 import { commitEntityWrite } from "../../entity/entity-row-store"
+import {
+  entityInvalidationPublisher,
+  reportInvalidationFailure,
+} from "../../entity/mutations/invalidations"
 import type { ApplyCombatantWriteError } from "./apply-combatant-write.schema"
 
 /**
@@ -204,6 +209,17 @@ export function entityRowStore(context: {
       publishCharacterPing(committed.value.shortId, "entity", {
         [committed.value.versionClass]: committed.value.version,
       })
+      // This arm advances a protocol axis outside the mutation executor, so it
+      // must run the explicit external-commit finalization (Headcanon invariant
+      // 15): expire the axis cache tag and publish the axis invalidation the
+      // character route's predicted root now listens on (UNN-676). The legacy
+      // ping above keeps the console's own un-migrated listeners fed; both
+      // collapse into one protocol mutation when Phase 3a binds combat.
+      await finalizeExternalActionCommit(
+        stamp.accepted(),
+        entityInvalidationPublisher,
+        reportInvalidationFailure
+      )
       revalidateEncounter(context.row)
       return ok({
         version: committed.value.version,

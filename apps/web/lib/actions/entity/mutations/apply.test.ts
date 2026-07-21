@@ -2,13 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ok } from "@workspace/result"
 
+import { entityAxisFor } from "@/lib/db/axes"
+
 // The door's collaborators are stubbed so this is a pure unit of the
-// authenticate → pre-authorize → execute → translate/revalidate orchestration.
+// authenticate → pre-authorize → execute → translate/bridge/revalidate
+// orchestration.
 const requireActor = vi.fn()
 const requireEntityWriteAuthorized = vi.fn()
+const requireEntityOwner = vi.fn()
 const parseEntityWriteTarget = vi.fn()
+const parseIdentityWriteTarget = vi.fn()
 const executeEntityMutation = vi.fn()
 const revalidateCharacterList = vi.fn()
+const publishCharacterPing = vi.fn()
 const forbidden = vi.fn(() => {
   throw new Error("forbidden")
 })
@@ -16,6 +22,16 @@ const forbidden = vi.fn(() => {
 vi.mock("next/navigation", () => ({ forbidden: () => forbidden() }))
 vi.mock("@/lib/auth/actor", () => ({
   requireActor: () => requireActor(),
+}))
+vi.mock("@/lib/auth/campaign-access", () => ({
+  requireEntityOwner: (entityId: string) => requireEntityOwner(entityId),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishCharacterPing: (
+    shortId: string,
+    kind: string,
+    versions: Record<string, number>
+  ) => publishCharacterPing(shortId, kind, versions),
 }))
 vi.mock("../authorize-write", () => ({
   requireEntityWriteAuthorized: (actor: unknown, id: string, write: unknown) =>
@@ -28,6 +44,8 @@ vi.mock("../authorize-write", () => ({
 vi.mock("./authorize", () => ({
   parseEntityWriteTarget: (envelope: unknown) =>
     parseEntityWriteTarget(envelope),
+  parseIdentityWriteTarget: (envelope: unknown) =>
+    parseIdentityWriteTarget(envelope),
 }))
 vi.mock("./executor", () => ({
   executeEntityMutation: (envelope: unknown, actor: unknown) =>
@@ -40,16 +58,27 @@ vi.mock("../revalidate", () => ({
 const { applyEntityMutationAction } = await import("./apply")
 
 const ACTOR = { userId: "user-1", email: "user-1@example.com" }
+const PC = { entity: { shortId: "abc123" } }
 
 function target(component: string) {
   return { entityId: "e1", write: { component, op: "damage", amount: 1 } }
 }
 
+function identityTarget(field: string) {
+  return { entityId: "e1", write: { field, value: "next" } }
+}
+
 const accepted = ok({ kind: "accepted", stamp: { revisions: {} } })
+const acceptedStamping = (axis: string, revision: number) =>
+  ok({ kind: "accepted", stamp: { revisions: { [axis]: revision } } })
 
 beforeEach(() => {
   vi.clearAllMocks()
   requireActor.mockResolvedValue(ACTOR)
+  requireEntityWriteAuthorized.mockResolvedValue(PC)
+  requireEntityOwner.mockResolvedValue(PC)
+  parseEntityWriteTarget.mockReturnValue(null)
+  parseIdentityWriteTarget.mockReturnValue(null)
   executeEntityMutation.mockResolvedValue(accepted)
 })
 
@@ -63,6 +92,7 @@ describe("applyEntityMutationAction", () => {
     parseEntityWriteTarget.mockReturnValue(target("vitals"))
     requireEntityWriteAuthorized.mockImplementation(async () => {
       order.push("authorize")
+      return PC
     })
     executeEntityMutation.mockImplementation(async () => {
       order.push("execute")
@@ -80,6 +110,16 @@ describe("applyEntityMutationAction", () => {
     expect(executeEntityMutation).toHaveBeenCalledWith({}, ACTOR)
   })
 
+  it("pre-authorizes an identity target through the ownership gate", async () => {
+    parseIdentityWriteTarget.mockReturnValue(identityTarget("name"))
+
+    await applyEntityMutationAction({})
+
+    expect(requireEntityOwner).toHaveBeenCalledWith("e1")
+    expect(requireEntityWriteAuthorized).not.toHaveBeenCalled()
+    expect(executeEntityMutation).toHaveBeenCalledOnce()
+  })
+
   it("throws (never executes) when unauthenticated", async () => {
     requireActor.mockRejectedValue(new Error("unauthorized"))
 
@@ -88,11 +128,10 @@ describe("applyEntityMutationAction", () => {
   })
 
   it("still executes an unparseable envelope so the executor can reject it", async () => {
-    parseEntityWriteTarget.mockReturnValue(null)
-
     await applyEntityMutationAction({ bad: true })
 
     expect(requireEntityWriteAuthorized).not.toHaveBeenCalled()
+    expect(requireEntityOwner).not.toHaveBeenCalled()
     expect(executeEntityMutation).toHaveBeenCalledOnce()
   })
 
@@ -117,16 +156,66 @@ describe("applyEntityMutationAction", () => {
     expect(forbidden).not.toHaveBeenCalled()
   })
 
-  it("revalidates the character list only for level and archetype writes", async () => {
+  it("republishes an accepted write's advanced class on the legacy character channel", async () => {
+    // Transitional bridge (UNN-676 → deleted in Phase 3a): the combat console
+    // and dungeon watch still reconcile via character pings.
+    parseEntityWriteTarget.mockReturnValue(target("vitals"))
+    executeEntityMutation.mockResolvedValue(
+      acceptedStamping(entityAxisFor.vitals("e1"), 4)
+    )
+
+    await applyEntityMutationAction({})
+
+    expect(publishCharacterPing).toHaveBeenCalledWith("abc123", "entity", {
+      vitals: 4,
+    })
+  })
+
+  it("bridges an accepted identity mutation on its identity class", async () => {
+    parseIdentityWriteTarget.mockReturnValue(identityTarget("pronouns"))
+    executeEntityMutation.mockResolvedValue(
+      acceptedStamping(entityAxisFor.identity("e1"), 9)
+    )
+
+    await applyEntityMutationAction({})
+
+    expect(publishCharacterPing).toHaveBeenCalledWith("abc123", "entity", {
+      identity: 9,
+    })
+  })
+
+  it("publishes no ping for a rejected outcome", async () => {
+    parseEntityWriteTarget.mockReturnValue(target("vitals"))
+    executeEntityMutation.mockResolvedValue(
+      ok({ kind: "rejected", error: "capability-missing" })
+    )
+
+    await applyEntityMutationAction({})
+
+    expect(publishCharacterPing).not.toHaveBeenCalled()
+  })
+
+  it("revalidates the character list only for summary-feeding writes", async () => {
     parseEntityWriteTarget.mockReturnValue(target("level"))
     await applyEntityMutationAction({})
     expect(revalidateCharacterList).toHaveBeenCalledOnce()
 
     vi.clearAllMocks()
     requireActor.mockResolvedValue(ACTOR)
+    requireEntityWriteAuthorized.mockResolvedValue(PC)
     executeEntityMutation.mockResolvedValue(accepted)
+    parseIdentityWriteTarget.mockReturnValue(null)
     parseEntityWriteTarget.mockReturnValue(target("vitals"))
     await applyEntityMutationAction({})
     expect(revalidateCharacterList).not.toHaveBeenCalled()
+
+    vi.clearAllMocks()
+    requireActor.mockResolvedValue(ACTOR)
+    requireEntityOwner.mockResolvedValue(PC)
+    executeEntityMutation.mockResolvedValue(accepted)
+    parseEntityWriteTarget.mockReturnValue(null)
+    parseIdentityWriteTarget.mockReturnValue(identityTarget("name"))
+    await applyEntityMutationAction({})
+    expect(revalidateCharacterList).toHaveBeenCalledOnce()
   })
 })

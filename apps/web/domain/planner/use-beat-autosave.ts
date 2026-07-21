@@ -22,12 +22,10 @@ const BEAT_DEBOUNCE_MS = 800
  * lands.
  *
  * **LWW composition.** A `campaignBeat` carries no version column (D6: prose
- * is last-write-wins), so there is no token to thread and no `"stale"` to
- * retry: `dispatchWrite` just runs the action, and the constant version
- * satisfies the hook's CAS-shaped contract without inventing a counter
- * nothing reads. What still matters is ordering — all three fields share
- * **one save queue**, serializing every write to the row so a body save's
- * mention re-derive never interleaves with a title save.
+ * is last-write-wins), so `save` just runs the action. What still matters is
+ * ordering — all three fields share **one save queue**, serializing every
+ * write to the row so a body save's mention re-derive never interleaves with
+ * a title save.
  *
  * The **body keeps its draft on failure** (`keepDraftOnError` — a paragraph
  * must survive a network blip; the next debounce/blur retries); title and
@@ -56,31 +54,22 @@ export function useBeatAutoSave({
     (field: "title" | "tagline" | "body") =>
     async (
       value: string,
-      _expectedVersion: number,
       options: { flush: boolean }
-    ): Promise<
-      Result<{ value: string; version: number }, SaveBeatProseError>
-    > => {
+    ): Promise<Result<{ value: string }, SaveBeatProseError>> => {
       const result = await saveBeatProseAction({
         campaignId,
         beatId,
         [field]: value,
         revalidate: options.flush,
       })
-      return result.ok ? ok({ value, version: 0 }) : result
+      return result.ok ? ok({ value }) : result
     }
-
-  const lwwDispatch = (
-    action: (
-      expectedVersion: number
-    ) => Promise<Result<{ value: string; version: number }, SaveBeatProseError>>
-  ) => action(0)
 
   return {
     title: useDebouncedAutoSave({
       serverValue: serverTitle,
       saveQueueRef,
-      dispatchWrite: lwwDispatch,
+
       save: saveField("title"),
       debounceMs: BEAT_DEBOUNCE_MS,
       revalidateOnFlush: true,
@@ -88,7 +77,7 @@ export function useBeatAutoSave({
     tagline: useDebouncedAutoSave({
       serverValue: serverTagline,
       saveQueueRef,
-      dispatchWrite: lwwDispatch,
+
       save: saveField("tagline"),
       debounceMs: BEAT_DEBOUNCE_MS,
       revalidateOnFlush: true,
@@ -96,7 +85,7 @@ export function useBeatAutoSave({
     body: useDebouncedAutoSave({
       serverValue: serverBody,
       saveQueueRef,
-      dispatchWrite: lwwDispatch,
+
       save: saveField("body"),
       debounceMs: BEAT_DEBOUNCE_MS,
       keepDraftOnError: true,

@@ -76,10 +76,11 @@ export async function requireEntityWriteAuthorized(
   actor: Actor,
   entityId: string,
   write: EntityWrite
-): Promise<void> {
+): Promise<LoadedPlayerCharacter> {
   const pc = await loadPlayerCharacterById(entityId)
   if (!pc) forbidden()
 
   const authorized = await authorizeEntityWrite(db, actor, pc, write)
   if (!authorized.ok) forbidden()
+  return pc
 }

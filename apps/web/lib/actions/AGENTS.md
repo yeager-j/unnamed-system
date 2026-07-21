@@ -39,8 +39,7 @@ concurrency token, and envelope:
 
 | Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
-| `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates), rerun inside the Store's transaction + pre-checked at the door (UNN-674) | `{ entityId, expectedVersion, write }` — `expectedVersion` now **vestigial** (server-read) | per-write-class on the `entity` row, **server-authoritative** (`commitEntityWrite` reads the class version and guards on it; a lost race is contention/`stale`) |
-| `entity/` identity columns | strict owner, rerun inside the Store's transaction + pre-checked at the door (UNN-675) | `{ entityId, write: { field, value } }` — no expected revision at all | `identityVersion`, server-authoritative; exhausted contention surfaces as `contention`, never `stale` |
+| `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates) for `entity.write`, strict owner for `entity.identity` — rerun inside the Store's transaction + pre-checked at the one door (UNN-674/675/676) | the Headcanon wire: `{ protocol, mutationId, invocation }` — **no expected revision, class, axis, or actor** | per-write-class on the `entity` row, **server-authoritative** (the Store reads the class version and guards on it; a lost race is authority contention, never a client-visible `stale`) |
 | `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
 | `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
 
@@ -52,24 +51,24 @@ concurrency token, and envelope:
 > pure Writer → **server-authoritative** guarded UPDATE (it reads the class version
 > and guards on it — no client token) → axis stamp. It fires no ping/revalidation;
 > post-acceptance finalization is the caller's (the executor's axis invalidation, or
-> a standalone door's ping + refresh). The neutral vocabulary (schema, `ENTITY_WRITERS`)
-> lives in `domain/entity/commit/`. Three callers share the one Store: the Headcanon
-> handler (`mutations/execute-entity-write.ts`), the legacy character door
-> (`applyEntityWriteAction`), and combat's durable arm — one write architecture,
-> one implementation.
+> combat's external-commit finalization + ping). The neutral vocabulary (schema,
+> `ENTITY_WRITERS`) lives in `domain/entity/commit/`. Two callers share the one
+> Store: the Headcanon handler (`mutations/execute-entity-write.ts`) and combat's
+> durable arm — one write architecture, one implementation. (The legacy character
+> door `applyEntityWriteAction` retired with the P2d provider cutover, UNN-676.)
 >
 > **The identity columns joined it in UNN-675 (Headcanon P2c).** Name, pronouns,
-> portrait, and notes are now the registered `entity.identity` mutation:
-> `commitIdentityWrite` (`identity-store.ts`) is their executor-neutral Store, and
-> `mutations/apply-identity.ts` is their one door. So every user-facing write that
-> advances `entity/{id}/identity` goes through the executor and gets a receipt,
-> axis cache-tag expiry, and axis invalidation — an untracked bump would strand a
-> pending prediction once the provider mounts a predicted root (P2d). Portrait
-> upload is deliberately two-stage (`portrait.ts` stores the Blob and returns the
-> URL; the mutation commits it), because a rerunnable handler must not repeat a
-> non-transactional effect. `bumpEntityVersionGuarded` now survives only for
-> `finalize` — the last version bump outside the protocol, which P2e's gate
-> (UNN-677) either routes or allowlists.
+> portrait, and notes are the registered `entity.identity` mutation:
+> `commitIdentityWrite` (`identity-store.ts`) is their executor-neutral Store. So
+> every user-facing write that advances `entity/{id}/identity` goes through the
+> executor and gets a receipt, axis cache-tag expiry, and axis invalidation — an
+> untracked bump would strand a pending prediction under the mounted predicted
+> root (P2d). Portrait upload is deliberately two-stage (`portrait.ts` stores the
+> Blob and returns the URL; the mutation commits it), because a rerunnable handler
+> must not repeat a non-transactional effect. `bumpEntityVersionGuarded` now
+> survives only for `finalize` — the last version bump outside the protocol
+> (server-read guard since UNN-676), which P2e's gate (UNN-677) either routes or
+> allowlists.
 
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` door (the descriptor → Writer →
@@ -87,16 +86,16 @@ but the shape rhymes: parse the wire, authorize, persist version-guarded,
 revalidate.
 
 **Durable character writes go through the entity door** (`lib/actions/entity/`,
-ADR §2.4). A character surface's provider dispatches a serializable
-component-write **descriptor** (`entityWriteSchema`, `domain/entity/commit/write.schema.ts`)
-to `applyEntityWriteAction`, which authenticates (`requireActor`) and hands off to
-`commitEntityWrite(db, actor, …)` — the shared executor-neutral Store that owns
-contextual authorization, assembling the row into a runtime `Entity`, running the
-pure **Writer** (`ENTITY_WRITERS.applyOp`), and the server-authoritative guarded
-commit; the door owns only the post-commit ping + revalidation. App-owned entity
-columns (name, portrait, pronouns, notes) take the sibling identity door
-(`lib/actions/entity/mutations/apply-identity.ts`) with their own per-field
-descriptor — same protocol, same axis, no Writer. PC lifecycle state
+ADR §2.4; the one Headcanon door since UNN-676). The character provider's
+predicted root delivers a mutation envelope (`{ protocol, mutationId, invocation }`)
+to `applyEntityMutationAction` (`mutations/apply.ts`), which authenticates
+(`requireActor`), pre-authorizes fail-closed, and hands the envelope to the
+executor — receipt dedup, the transactional handler, contention retry, axis
+cache-tag expiry, and axis invalidation all live behind it. `entity.write`
+carries a serializable component-write **descriptor** (`entityWriteSchema`,
+`domain/entity/commit/write.schema.ts`) into `commitEntityWrite`; `entity.identity`
+carries the per-field identity descriptor into `commitIdentityWrite` — same
+protocol, same receipt ledger, no Writer for the columns. PC lifecycle state
 (`builderStep`, `status`) lives on the unversioned `playerCharacter` subtype;
 `finalize` spans the guarded entity and subtype halves. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
@@ -198,14 +197,16 @@ descriptor op + Writer case (`domain/entity/commit`), a widget.
 
 ## Client patterns
 
-Character surfaces mount **`EntityWriteProvider`** (over the loaded
-`{ profile, entity, resolved }` triple) and write through **`useEntityWrite`**
-([`domain/entity/use-entity-write.tsx`](../../domain/entity/use-entity-write.tsx)). It predicts
-optimistically via the **same pure Writers** the server validates with
-(`ENTITY_WRITERS`) and re-folds `resolveEntity` client-side, so the optimistic
-frame is structurally identical to the persisted result — engine isomorphism, no
-merge-patch drift — then catches up when route revalidation settles the base. Two
-shapes recur:
+Character surfaces mount **`EntityWriteProvider`** (over `{ profile, canon }`,
+the Headcanon mount since UNN-676) and write through **`useEntityWrite`** /
+**`useIdentityWrite`**
+([`domain/entity/use-entity-write.tsx`](../../domain/entity/use-entity-write.tsx)).
+The registered mutation predictors run the **same pure Writers** the server
+validates with (`ENTITY_WRITERS`) and re-fold `resolveEntity` client-side, so the
+predicted frame is structurally identical to the persisted result — engine
+isomorphism, no merge-patch drift. The package owns delivery order, durable
+mutation identity, replay, and canonization; the binding maps outcomes onto
+toasts/callbacks. Two shapes recur:
 
 ### 1. Debounced auto-save on a free-text field
 
@@ -235,7 +236,7 @@ optimistic state when the transition resolves. (Encounters use the sibling
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                    |
 | `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                   |
-| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback.              |
+| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback. (Non-entity aggregates only — the entity protocol surfaces authority contention as `contention` instead.) |
 | Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered).   |
 
 Auth-gate failures throw via Next's `forbidden()` and never return — the client

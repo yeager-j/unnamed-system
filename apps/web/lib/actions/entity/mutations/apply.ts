@@ -2,45 +2,80 @@
 
 import { forbidden } from "next/navigation"
 
+import { ENTITY_WRITERS } from "@/domain/entity/commit/writers"
 import { requireActor } from "@/lib/auth/actor"
+import { requireEntityOwner } from "@/lib/auth/campaign-access"
+import { entityAxisFor } from "@/lib/db/axes"
+import type { VersionClass } from "@/lib/db/version-classes"
+import { publishCharacterPing } from "@/lib/realtime/publish"
 
 import {
   isEntityWriteAuthRejection,
   requireEntityWriteAuthorized,
 } from "../authorize-write"
 import { revalidateCharacterList } from "../revalidate"
-import { parseEntityWriteTarget } from "./authorize"
+import { parseEntityWriteTarget, parseIdentityWriteTarget } from "./authorize"
 import { executeEntityMutation } from "./executor"
 
 /**
- * The Headcanon **entity door** (UNN-673/UNN-674) — the app-owned Server Action a
- * character surface dispatches an `entity.write` invocation through. Its jobs are
- * authentication, a cheap fail-closed authorization pre-check, and *unrelated*
- * revalidation:
+ * The Headcanon **entity door** (UNN-673/UNN-674; the one door for both
+ * registered mutations since UNN-676) — the app-owned Server Action a character
+ * surface's predicted root delivers every envelope through. Its jobs are
+ * authentication, a cheap fail-closed authorization pre-check, and the
+ * projections the executor's axis finalization does not cover:
  *
  * - `requireActor()` derives the trusted actor (authentication);
- * - `requireEntityWriteAuthorized` runs the same contextual authorization the
- *   handler reruns, tripping `forbidden()` *before* the executor claims a receipt
- *   or takes a lock, so an unauthorized caller writes no receipt;
+ * - the pre-check runs the same authorization the handler reruns —
+ *   `requireEntityWriteAuthorized` for `entity.write`, `requireEntityOwner` for
+ *   `entity.identity` — tripping `forbidden()` *before* the executor claims a
+ *   receipt or takes a lock, so an unauthorized caller writes no receipt;
  * - the executor owns dedup, the transactional handler (which reruns the
  *   authorization inside its attempt), contention retry, axis cache-tag expiry,
  *   route refresh, and axis invalidation publication;
  * - a rare race where the handler's in-transaction authorization refuses after the
  *   pre-check passed surfaces as a rejected outcome — translated back to
- *   `forbidden()` so the 403 contract holds; and
- * - the door adds only the character-list revalidation, an *additional* projection
- *   (the summary list) that does not observe the mutated entity axes.
+ *   `forbidden()` so the 403 contract holds;
+ * - level/Archetype/name/portrait changes revalidate the My Characters summary,
+ *   an *additional* projection that does not observe the mutated axes; and
+ * - the **legacy ping bridge**: the combat console and dungeon watch still
+ *   reconcile through `character:{shortId}` pings, not axis invalidations, so an
+ *   accepted mutation republishes its advanced class on that channel. Deleted
+ *   when Phase 3a moves those bindings onto the axis subscription.
  *
- * The wire carries only `{ protocol, mutationId, invocation: { entityId, write } }`
- * — no expected revision, lane, axis, actor, or storage-home. The actor is derived
- * here; the axis, class, and storage home are derived by the authority.
+ * The wire carries only `{ protocol, mutationId, invocation }` — no expected
+ * revision, lane, axis, actor, or storage-home. The actor is derived here; the
+ * axis, class, and storage home are derived by the authority.
  */
 export async function applyEntityMutationAction(envelope: unknown) {
   const actor = await requireActor()
 
-  const target = parseEntityWriteTarget(envelope)
-  if (target) {
-    await requireEntityWriteAuthorized(actor, target.entityId, target.write)
+  const write = parseEntityWriteTarget(envelope)
+  const identity = write ? null : parseIdentityWriteTarget(envelope)
+
+  let bridge: {
+    entityId: string
+    shortId: string
+    versionClass: VersionClass
+  } | null = null
+
+  if (write) {
+    const pc = await requireEntityWriteAuthorized(
+      actor,
+      write.entityId,
+      write.write
+    )
+    bridge = {
+      entityId: write.entityId,
+      shortId: pc.entity.shortId,
+      versionClass: ENTITY_WRITERS[write.write.component].durableClass,
+    }
+  } else if (identity) {
+    const { entity: row } = await requireEntityOwner(identity.entityId)
+    bridge = {
+      entityId: identity.entityId,
+      shortId: row.shortId,
+      versionClass: "identity",
+    }
   }
 
   const outcome = await executeEntityMutation(envelope, actor)
@@ -55,15 +90,29 @@ export async function applyEntityMutationAction(envelope: unknown) {
     forbidden()
   }
 
-  // A level or Archetype change alters the My Characters summary, which does not
-  // observe the entity's own axes — so the executor's axis finalization does not
-  // cover it. Reuse the same helper the legacy door does (it revalidates `/`,
+  if (outcome.ok && outcome.value.kind === "accepted" && bridge) {
+    const revision =
+      outcome.value.stamp.revisions[
+        entityAxisFor[bridge.versionClass](bridge.entityId)
+      ]
+    if (revision !== undefined) {
+      publishCharacterPing(bridge.shortId, "entity", {
+        [bridge.versionClass]: revision,
+      })
+    }
+  }
+
+  // Summary-list projections that do not observe the entity's own axes: reuse
+  // the same helper the retired standalone doors did (it revalidates `/`,
   // where the list renders). Everything else is reconciled by the executor.
-  if (
-    outcome.ok &&
-    (target?.write.component === "level" ||
-      target?.write.component === "archetypes")
-  ) {
+  const changesCharacterList = write
+    ? write.write.component === "level" ||
+      write.write.component === "archetypes"
+    : identity
+      ? identity.write.field === "name" ||
+        identity.write.field === "portraitUrl"
+      : false
+  if (outcome.ok && changesCharacterList) {
     revalidateCharacterList()
   }
 

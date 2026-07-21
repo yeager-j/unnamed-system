@@ -1,6 +1,9 @@
 import {
+  entityIdentity,
+  entityIdentityArgs,
   entityWrite,
   entityWriteArgs,
+  type EntityIdentityArgs,
   type EntityWriteArgs,
 } from "@/domain/entity/commit/protocol"
 
@@ -26,13 +29,25 @@ import {
 export function parseEntityWriteTarget(
   envelope: unknown
 ): EntityWriteArgs | null {
+  const args = invocationArgsFor(envelope, entityWrite.name)
+  const parsed = entityWriteArgs.safeParse(args)
+  return parsed.success ? parsed.data : null
+}
+
+/** The `entity.identity` twin — same schema-exact lift, for the door's
+ *  ownership pre-check and its transitional finalizations (UNN-676). */
+export function parseIdentityWriteTarget(
+  envelope: unknown
+): EntityIdentityArgs | null {
+  const args = invocationArgsFor(envelope, entityIdentity.name)
+  const parsed = entityIdentityArgs.safeParse(args)
+  return parsed.success ? parsed.data : null
+}
+
+function invocationArgsFor(envelope: unknown, name: string): unknown {
   if (typeof envelope !== "object" || envelope === null) return null
   const invocation = (envelope as { invocation?: unknown }).invocation
   if (typeof invocation !== "object" || invocation === null) return null
-  if ((invocation as { name?: unknown }).name !== entityWrite.name) return null
-
-  const parsed = entityWriteArgs.safeParse(
-    (invocation as { args?: unknown }).args
-  )
-  return parsed.success ? parsed.data : null
+  if ((invocation as { name?: unknown }).name !== name) return null
+  return (invocation as { args?: unknown }).args
 }

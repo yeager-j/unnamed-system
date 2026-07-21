@@ -8,7 +8,7 @@ import { OwnerSheetHeader } from "@/components/combat/watch/owner-sheet-header"
 import { IdentityCard } from "@/components/shared/sheet-cards/identity-card"
 import { TalentsCard } from "@/components/shared/sheet-cards/talents-card"
 import { VirtuesCard } from "@/components/shared/sheet-cards/virtues-card"
-import type { LoadedCharacter } from "@/domain/character/load"
+import type { CharacterMount } from "@/domain/character/load"
 
 /**
  * The dungeon watch's **own-sheet column** during exploration (UNN-566): the
@@ -29,7 +29,7 @@ import type { LoadedCharacter } from "@/domain/character/load"
 export function DungeonExploreSheetColumn({
   characters,
 }: {
-  characters: LoadedCharacter[]
+  characters: CharacterMount[]
 }) {
   const sheets: OwnedSheet[] = characters.map((character) => ({
     key: character.profile.id,

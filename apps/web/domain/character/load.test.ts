@@ -34,8 +34,8 @@ function loadedCharacter(): LoadedCharacter {
       portraitUrl: "https://blob.example/portraits/a.png",
       pronouns: "they/them",
       notes: null,
-      versions: { identity: 3, vitals: 7, inventory: 1, progression: 5 },
     },
+    versions: { identity: 3, vitals: 7, inventory: 1, progression: 5 },
   }
 }
 

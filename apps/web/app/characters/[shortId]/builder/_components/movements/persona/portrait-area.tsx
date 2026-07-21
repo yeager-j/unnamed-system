@@ -12,8 +12,10 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
-import { applyIdentityWriteAction } from "@/lib/actions/entity/mutations/apply-identity"
+import {
+  useIdentityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 import { uploadEntityPortraitAction } from "@/lib/actions/entity/portrait"
 import {
   MAX_PORTRAIT_BYTES,
@@ -32,14 +34,17 @@ import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
  * Upload pipeline (UNN-675): two stages, because a Headcanon authority handler is
  * rerunnable and must not perform the Blob write. `uploadEntityPortraitAction`
  * stores the file and returns its URL; the `portraitUrl` arm of `entity.identity`
- * then commits that URL on the identity axis. Removal is the same mutation with a
- * `null` value. Client-side mime + size guards mirror what the server enforces so
- * the user gets fast feedback.
+ * then commits that URL on the identity axis — predicted since UNN-676, so the
+ * avatar updates the instant the mutation dispatches. Removal is the same
+ * mutation with a `null` value. Client-side mime + size guards mirror what the
+ * server enforces so the user gets fast feedback.
  */
 export function PortraitArea() {
   const { profile } = useLoadedCharacter()
+  const identityWrite = useIdentityWrite()
   const portraitUrl = profile.portraitUrl
-  const [pending, startTransition] = useTransition()
+  const [uploading, startTransition] = useTransition()
+  const pending = uploading || identityWrite.pending
   const inputRef = useRef<HTMLInputElement>(null)
 
   function openPicker() {
@@ -73,34 +78,25 @@ export function PortraitArea() {
             return
           }
 
-          const committed = await setPortrait(uploaded.value.url)
-          if (!committed.ok) {
-            toast.error("Couldn't save the portrait. Try again.")
-          }
+          setPortrait(
+            uploaded.value.url,
+            "Couldn't save the portrait. Try again."
+          )
         },
         () => toast.error("Couldn't upload the portrait. Try again.")
       )
     )
   }
 
-  function setPortrait(url: string | null) {
-    return applyIdentityWriteAction({
-      entityId: profile.id,
-      write: { field: "portraitUrl", value: url },
-    })
+  function setPortrait(url: string | null, message: string) {
+    identityWrite.dispatch(
+      { field: "portraitUrl", value: url },
+      { messages: { error: message } }
+    )
   }
 
   function onRemove() {
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const result = await setPortrait(null)
-          if (result.ok) return
-          toast.error("Couldn't remove the portrait. Try again.")
-        },
-        () => toast.error("Couldn't remove the portrait. Try again.")
-      )
-    )
+    setPortrait(null, "Couldn't remove the portrait. Try again.")
   }
 
   return (

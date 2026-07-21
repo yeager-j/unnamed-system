@@ -65,13 +65,32 @@ export type EntityWriteArgs = z.infer<typeof entityWriteArgs>
  *  the authoritative Writer speaks. */
 export type EntityWritePredictionError = EntityWriteRefusal
 
+/**
+ * The client-facing failure surface of a registered entity mutation (P2d —
+ * UNN-676): the Writer refusals a predictor can also produce, plus the terminal
+ * outcomes only the authority can discover. The predicted root's `Error` type
+ * parameter derives from the predictors' annotations, so both predictors declare
+ * this union even though they locally return only refusals — authority behavior
+ * is allowed to be stricter than client prediction.
+ *
+ * Deliberately absent: authorization rejections (the door translates them to
+ * `forbidden()`, which throws), `"stale"` (the authority reads the version it
+ * guards on — no client token exists to be wrong), and executor envelope errors
+ * (programmer bugs — the send adapter throws them loudly).
+ */
+export type EntityMutationError =
+  | EntityWriteRefusal
+  | "entity-not-found"
+  | "entity-load-failed"
+  | "contention"
+
 const entityWrite = defineMutation({
   name: "entity.write",
   args: entityWriteArgs,
   predict(
     state: EntityCanonValue,
     { write }
-  ): Result<EntityCanonValue, EntityWritePredictionError> {
+  ): Result<EntityCanonValue, EntityMutationError> {
     const patch = applyEntityWrite(state.entity.components, write)
     if (!patch.ok) return patch
 
@@ -101,16 +120,19 @@ export const entityIdentityArgs = z.object({
 export type EntityIdentityArgs = z.infer<typeof entityIdentityArgs>
 
 /**
- * The identity-column predictor. It cannot refuse: the descriptor's parser has
- * already admitted the only failures a column write has (bounds), and ownership —
- * the one remaining gate — is authority knowledge the client cannot evaluate. A
- * `Result` return keeps it uniform with `entity.write` and leaves room for a
- * future refusal without a signature change.
+ * The identity-column predictor. It cannot refuse locally: the descriptor's
+ * parser has already admitted the only failures a column write has (bounds), and
+ * ownership — the one remaining gate — is authority knowledge the client cannot
+ * evaluate. The declared {@link EntityMutationError} covers the authority-side
+ * outcomes the send path can still return.
  */
 const entityIdentity = defineMutation({
   name: "entity.identity",
   args: entityIdentityArgs,
-  predict(state: EntityCanonValue, { write }): Result<EntityCanonValue, never> {
+  predict(
+    state: EntityCanonValue,
+    { write }
+  ): Result<EntityCanonValue, EntityMutationError> {
     return ok({ ...state, identity: applyIdentityWrite(state.identity, write) })
   },
 })

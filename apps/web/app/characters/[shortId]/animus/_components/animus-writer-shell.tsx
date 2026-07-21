@@ -15,7 +15,7 @@ import { AnimusDocumentProvider } from "@/components/animus/animus-context"
 import { WriterPane } from "@/components/animus/writer-pane"
 import { WriterSidebar } from "@/components/animus/writer-sidebar"
 import type { DocumentRef } from "@/domain/character/animus/documents"
-import type { LoadedCharacter } from "@/domain/character/load"
+import type { CharacterMount } from "@/domain/character/load"
 import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 import { characterPath } from "@/lib/paths"
 
@@ -30,16 +30,16 @@ import { characterPath } from "@/lib/paths"
  */
 export function AnimusWriterShell({
   shortId,
-  loaded,
+  character,
   initialRef,
 }: {
   shortId: string
-  loaded: LoadedCharacter
+  character: CharacterMount
   initialRef: DocumentRef
 }) {
   return (
     <AnimusDocumentProvider initialRef={initialRef}>
-      <EntityWriteProvider loaded={loaded}>
+      <EntityWriteProvider profile={character.profile} canon={character.canon}>
         <SidebarProvider
           open
           onOpenChange={() => {}}

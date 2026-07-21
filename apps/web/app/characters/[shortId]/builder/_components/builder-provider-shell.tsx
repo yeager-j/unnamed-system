@@ -11,7 +11,7 @@ import {
 
 import { AnimusDocumentProvider } from "@/components/animus/animus-context"
 import { WriterSidebar } from "@/components/animus/writer-sidebar"
-import type { LoadedCharacter } from "@/domain/character/load"
+import type { CharacterMount } from "@/domain/character/load"
 import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 
 import { BuilderAnimusSidebarHeader } from "./movements/animus/writer-sidebar-header"
@@ -33,10 +33,10 @@ import { BuilderAnimusSidebarHeader } from "./movements/animus/writer-sidebar-he
  * document selection survives a back-and-forth to a sibling movement.
  */
 export function BuilderProviderShell({
-  loaded,
+  character,
   children,
 }: {
-  loaded: LoadedCharacter
+  character: CharacterMount
   children: ReactNode
 }) {
   const pathname = usePathname() ?? ""
@@ -44,7 +44,7 @@ export function BuilderProviderShell({
 
   return (
     <AnimusDocumentProvider>
-      <EntityWriteProvider loaded={loaded}>
+      <EntityWriteProvider profile={character.profile} canon={character.canon}>
         <SidebarProvider
           open={isAnimus}
           onOpenChange={() => {}}

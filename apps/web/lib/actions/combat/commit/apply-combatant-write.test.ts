@@ -32,6 +32,7 @@ const commitEntityWrite = vi.fn()
 const publishEncounterPing = vi.fn()
 const publishCharacterPing = vi.fn()
 const revalidateEncounter = vi.fn()
+const finalizeExternalActionCommit = vi.fn(async (..._args: unknown[]) => {})
 const forbidden = vi.fn(() => {
   throw new Error("forbidden")
 })
@@ -75,6 +76,20 @@ vi.mock("@/lib/realtime/publish", () => ({
 vi.mock("../../encounter/revalidate", () => ({
   revalidateEncounter: (encounter: { shortId: string }) =>
     revalidateEncounter(encounter),
+}))
+// The durable arm's external-commit finalization (UNN-676) — the package half
+// is contract-tested in @workspace/headcanon; the app publisher chain pulls
+// `server-only`, so both are stubbed at this unit's seam.
+vi.mock("@workspace/headcanon/next/server", () => ({
+  finalizeExternalActionCommit: (
+    stamp: unknown,
+    publisher: unknown,
+    report: unknown
+  ) => finalizeExternalActionCommit(stamp, publisher, report),
+}))
+vi.mock("../../entity/mutations/invalidations", () => ({
+  entityInvalidationPublisher: { publish: vi.fn() },
+  reportInvalidationFailure: vi.fn(),
 }))
 
 const ENCOUNTER_ID = "encounter-1"

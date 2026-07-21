@@ -82,24 +82,34 @@ type MutationOf<Protocol> =
     ? Mutations[number]
     : never
 
+// Both extractors re-alias the mutation union through `extends infer` so the
+// conditional distributes per member. Matching the whole union against one
+// `MutationDefinition<...>` fails inference as soon as a protocol registers
+// mutations with different argument schemas (the schema sits in both co- and
+// contravariant positions), silently collapsing State and Error to `never`.
+
 type StateOf<Protocol> =
-  MutationOf<Protocol> extends MutationDefinition<
-    string,
-    infer _Schema,
-    infer State,
-    infer _Error
-  >
-    ? State
+  MutationOf<Protocol> extends infer Mutation
+    ? Mutation extends MutationDefinition<
+        string,
+        infer _Schema,
+        infer State,
+        infer _Error
+      >
+      ? State
+      : never
     : never
 
 type ErrorOf<Protocol> =
-  MutationOf<Protocol> extends MutationDefinition<
-    string,
-    infer _Schema,
-    infer _State,
-    infer Error
-  >
-    ? Error
+  MutationOf<Protocol> extends infer Mutation
+    ? Mutation extends MutationDefinition<
+        string,
+        infer _Schema,
+        infer _State,
+        infer Error
+      >
+      ? Error
+      : never
     : never
 
 export interface PredictedRootOptions<

@@ -10,7 +10,6 @@ import {
   useEntityColumnSave,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { applyIdentityWriteAction } from "@/lib/actions/entity/mutations/apply-identity"
 
 /**
  * The Notes document surface: the shared {@link DocumentEditor} shell bound to
@@ -38,19 +37,7 @@ export function NotesDocumentEditor() {
     serverValue: profile.notes ?? "",
     isEqual: (a, b) => a.trim() === b.trim(),
     onError: () => toast.error("Couldn't save your Notes. Try again."),
-    save: async (next, { entityId }) => {
-      const result = await applyIdentityWriteAction({
-        entityId,
-        write: { field: "notes", value: next },
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next, version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => ({ field: "notes", value: next }),
   })
 
   return (
