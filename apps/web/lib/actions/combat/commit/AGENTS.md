@@ -41,9 +41,12 @@ This aggregate intentionally runs **two different auth gates**, one per home:
 
 Consequences to keep in mind:
 
-- Each gate runs **inside `commit`** — the session arm's directly, the durable
-  arm's inside the `commitEntityWrite` it forwards to — not in the action body, so
-  the two-step protocol cannot be mis-ordered and each home owns its gate.
+- Each gate runs **inside `commit`** — the session arm's directly; the durable
+  arm authenticates (`requireActor`) and forwards to the executor-neutral
+  `commitEntityWrite`, whose contextual authorization runs inside the Store and
+  returns a **typed refusal** (UNN-674) that this arm translates to `forbidden()`.
+  Not in the action body, so the two-step protocol cannot be mis-ordered and each
+  home owns its gate.
 - The load (`loadEncounterForWrite`) necessarily precedes auth: the home — and
   therefore *which* gate — is only knowable from the locator map. The generic
   wire keeps its cheaper auth-first ordering; this router cannot.
@@ -51,12 +54,15 @@ Consequences to keep in mind:
   (v1's rule), not the encounter's campaign — one gate for the sheet buttons and
   the console, so the two surfaces can never disagree about who may write a PC row.
 
-**Durable-arm revalidation (UNN-567).** `commitEntityWrite` pings only the
-character channel, so the durable arm additionally calls `revalidateEncounter`
-on success — the RSC payload rides the write's transition response like the
-session arm's, and the console's optimistic frame no longer flash-reverts while
-waiting for the pc-ping refresh. (Only this encounter's route; any other
-surface showing the PC still catches up via the ping.)
+**Durable-arm finalization (UNN-567 / UNN-674).** The executor-neutral
+`commitEntityWrite` fires **no** ping or revalidation — post-acceptance
+finalization is the caller's job. So the durable arm itself calls
+`publishCharacterPing` (relocated out of the version guard) to invalidate every
+other watcher of the character channel, then `revalidateEncounter` on success —
+the RSC payload rides the write's transition response like the session arm's, so
+the console's optimistic frame no longer flash-reverts while waiting for the
+pc-ping refresh. (Only this encounter's route; any other surface showing the PC
+still catches up via the ping.)
 
 ## One semantic per storage home — resolved (UNN-551)
 

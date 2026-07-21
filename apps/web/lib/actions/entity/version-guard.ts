@@ -65,6 +65,17 @@ export const VERSION_COLUMNS = {
   progression: entity.progressionVersion,
 } as const satisfies Record<VersionClass, unknown>
 
+/** The {@link EntityRow} version-token *field* for each write class — the read
+ *  half of the server-authoritative guard (UNN-674): the handler reads the
+ *  current class version off the row it loaded and guards its UPDATE on it,
+ *  paired with {@link VERSION_COLUMNS} (the SET/WHERE column half). */
+export const VERSION_ROW_KEYS = {
+  identity: "identityVersion",
+  vitals: "vitalsVersion",
+  inventory: "inventoryVersion",
+  progression: "progressionVersion",
+} as const satisfies Record<VersionClass, keyof EntityRow>
+
 /** The atomic `<class>Version = <class>Version + 1` SET fragment for a write
  *  class — the increment half of any guarded entity write. Exported for the
  *  Headcanon handler (UNN-673). */
