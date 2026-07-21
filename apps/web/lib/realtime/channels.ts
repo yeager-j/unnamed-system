@@ -30,7 +30,7 @@ function slugify(ref: string): string {
  * sharing the namespace is correct). Read from `process.env` at call time so
  * tests can stub the environment per case.
  */
-function namespace(): string {
+export function realtimeNamespace(): string {
   if (process.env.VERCEL_ENV === "production") return "prod"
   if (process.env.VERCEL_ENV === "preview") {
     const slug = slugify(process.env.VERCEL_GIT_COMMIT_REF ?? "")
@@ -44,5 +44,5 @@ export function realtimeChannelName(
   domain: RealtimeDomain,
   shortId: string
 ): string {
-  return `${namespace()}:${domain}:${shortId}`
+  return `${realtimeNamespace()}:${domain}:${shortId}`
 }

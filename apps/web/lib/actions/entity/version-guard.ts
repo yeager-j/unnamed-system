@@ -55,14 +55,20 @@ export type EntityColumnPatch = Partial<
  */
 export type EntityRowPatch = EntityWritePatch & EntityColumnPatch
 
-const VERSION_COLUMNS = {
+/** The `entity` version-token column for each write class. Exported so the
+ *  Headcanon transactional handler can guard on the class column it just read
+ *  (UNN-673), reusing the one class→column choice. */
+export const VERSION_COLUMNS = {
   identity: entity.identityVersion,
   vitals: entity.vitalsVersion,
   inventory: entity.inventoryVersion,
   progression: entity.progressionVersion,
 } as const satisfies Record<VersionClass, unknown>
 
-function entityVersionIncrement(
+/** The atomic `<class>Version = <class>Version + 1` SET fragment for a write
+ *  class — the increment half of any guarded entity write. Exported for the
+ *  Headcanon handler (UNN-673). */
+export function entityVersionIncrement(
   versionClass: VersionClass
 ): PgUpdateSetSource<typeof entity> {
   switch (versionClass) {
