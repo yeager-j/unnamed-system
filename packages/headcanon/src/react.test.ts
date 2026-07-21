@@ -214,7 +214,12 @@ describe("createPredictedRoot", () => {
     await expect(second!.accepted).resolves.toEqual(ok(stamp(2)))
   })
 
-  it("canonizes A independently and replays B once without double-applying A", async () => {
+  it("canonizes A and B independently after their Actions settle at acceptance", async () => {
+    // UNN-682: Actions settle at the terminal acceptance, not canonization.
+    // The predictions stay rendered because React retains the optimistic
+    // updates and the reducer applies an accepted-but-uncovered update over
+    // the newer canon; coverage — not Action settlement — reduces each to
+    // identity and resolves its `canonized` independently.
     const { result, deliveries, rerender, send } = setup()
     let first: MutationReceipt<CounterError>
     let second: MutationReceipt<CounterError>
@@ -245,7 +250,11 @@ describe("createPredictedRoot", () => {
     expect(result.current.status.pending).toBe(0)
   })
 
-  it("reduces a covered update to identity before its Action settles", async () => {
+  it("reduces a covered accepted update to identity while a sibling keeps it replayed", async () => {
+    // The sibling B's open Action keeps A's settled optimistic update in
+    // React's replay queue; the acceptedById bookkeeping must reduce A to
+    // identity in the very first covering render, so A is never applied on
+    // top of a canon that already contains it.
     const predict = vi.fn(
       (state: number, args: CounterArgs): Result<number, CounterError> =>
         ok(state + args.amount)
@@ -259,14 +268,14 @@ describe("createPredictedRoot", () => {
       id: "test.coverage.v1",
       mutations: [coveredAdd],
     })
-    let resolveDelivery: (
-      outcome: Result<AcceptedStamp, CounterError>
-    ) => void = () => undefined
+    const deliveries: Array<
+      (outcome: Result<AcceptedStamp, CounterError>) => void
+    > = []
     const usePredictions = createPredictedRoot({
       protocol,
       send: () =>
         new Promise<Result<AcceptedStamp, CounterError>>((resolve) => {
-          resolveDelivery = resolve
+          deliveries.push(resolve)
         }),
       refresh: useNoRefresh,
     })
@@ -281,8 +290,10 @@ describe("createPredictedRoot", () => {
       const outcome = result.current.mutate(coveredAdd({ amount: 1 }))
       if (!outcome.ok) throw new Error("Coverage mutation was refused")
       receipt = outcome.value
+      const sibling = result.current.mutate(coveredAdd({ amount: 10 }))
+      if (!sibling.ok) throw new Error("Sibling mutation was refused")
     })
-    act(() => resolveDelivery(ok(stamp(1))))
+    act(() => deliveries[0]?.(ok(stamp(1))))
     await expect(receipt!.accepted).resolves.toEqual(ok(stamp(1)))
     predict.mockClear()
 
@@ -292,8 +303,10 @@ describe("createPredictedRoot", () => {
     })
     rerender({ currentCanon: canon(1, 1) })
 
-    expect(predict).not.toHaveBeenCalled()
-    expect(result.current.value).toBe(1)
+    // A reduces to identity — its predictor never re-runs — while B replays
+    // over the covering canon, applying A's effect exactly once in total.
+    expect(predict).not.toHaveBeenCalledWith(expect.anything(), { amount: 1 })
+    expect(result.current.value).toBe(11)
     expect(canonized).toBe(false)
     await expect(receipt!.canonized).resolves.toEqual(ok(undefined))
   })
@@ -455,7 +468,11 @@ describe("createPredictedRoot", () => {
     await expect(receipt!.canonized).resolves.toEqual(ok(undefined))
   })
 
-  it("keeps uncertain delivery mounted and pauses later intent", async () => {
+  it("pauses later intent on uncertain delivery and yields predictions to canon truth", async () => {
+    // UNN-682: an unbounded wait for a manual retry may not hold Actions open
+    // (a held Action freezes canon delivery and navigation), so the paused
+    // queue's predictions revert to canon while the envelopes and receipts
+    // stay pending for honest same-ID redelivery.
     const { result, deliveries, send } = setup()
     let first: MutationReceipt<CounterError>
 
@@ -468,7 +485,7 @@ describe("createPredictedRoot", () => {
     await waitFor(() =>
       expect(result.current.status.delivery).toBe("uncertain")
     )
-    expect(result.current.value).toBe(3)
+    await waitFor(() => expect(result.current.value).toBe(0))
     expect(result.current.status.pending).toBe(2)
     expect(send).toHaveBeenCalledTimes(1)
 
@@ -496,6 +513,10 @@ describe("createPredictedRoot", () => {
     await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
     expect(deliveries[1]?.envelope).toBe(originalEnvelope)
     expect(deliveries[1]?.envelope.mutationId).toBe(uncertain!.id)
+
+    // The resumed queue re-mounts every paused prediction for the duration
+    // of the attempt (same mutation IDs, same replay order).
+    await waitFor(() => expect(result.current.value).toBe(3))
 
     act(() => deliveries[1]?.resolve(ok(stamp(1))))
     await expect(uncertain!.accepted).resolves.toEqual(ok(stamp(1)))
@@ -716,8 +737,11 @@ describe("createPredictedRoot — retryable delivery", () => {
 
       expect(send).toHaveBeenCalledTimes(4)
       expect(result.current.status.delivery).toBe("uncertain")
-      // The prediction is preserved for the honest retry affordance.
-      expect(result.current.value).toBe(1)
+      // The envelope is preserved for the honest retry affordance; the
+      // prediction yields to canon truth while the queue is paused (UNN-682).
+      await act(async () => {})
+      expect(result.current.value).toBe(0)
+      expect(result.current.status.pending).toBe(1)
 
       act(() => result.current.retryDelivery())
       await act(async () => {})

@@ -225,7 +225,20 @@ interface LedgerEntry<Invocation, Error> {
     Result<AcceptedStamp, MutationLifecycleError<Error>>
   >
   readonly canonized: Deferred<Result<void, MutationLifecycleError<Error>>>
-  readonly releaseAction: Deferred<void>
+  /**
+   * The hold keeping this entry's optimistic Action open. Re-armed by
+   * {@link openDeliveryAction} when a paused queue resumes, so the field is
+   * mutable; every resolve/reject must read it at settlement time.
+   *
+   * UNN-682: an Action may be held only while delivery is actively
+   * progressing (queued behind a progressing head, sending, or inside the
+   * bounded redelivery backoff). React entangles ALL transition-lane work —
+   * Server Action RSC payloads, `router.refresh()`, navigations — with
+   * pending Actions and commits none of it until every Action settles, so an
+   * Action held for an unbounded wait (canonization, manual retry) deadlocks
+   * canon delivery and freezes navigation.
+   */
+  releaseAction: Deferred<void>
   delivery: DeliveryState
   /** Automatic redeliveries consumed after {@link RetryableDeliveryError}s. */
   retryAttempts: number
@@ -248,6 +261,12 @@ interface ReplayFrame<State, Error> {
   readonly revisions: RevisionVector
   readonly acceptedById: ReadonlyMap<string, AcceptedStamp>
   readonly refusedIds: ReadonlySet<string>
+  /**
+   * Mutations whose queue is paused on an unbounded-uncertain head. Their
+   * predictions reduce to identity — the paused root renders canon truth —
+   * while the ledger keeps their envelopes for resume (UNN-682).
+   */
+  readonly pausedIds: ReadonlySet<string>
   readonly replayedMutationIds: readonly string[]
   readonly refusals: readonly ReplayRefusal<Error>[]
 }
@@ -326,6 +345,9 @@ export function createPredictedRootWithDeliveryErrorClassifier<
     const [refusedIds, setRefusedIds] = useState<ReadonlySet<string>>(
       () => new Set()
     )
+    const [pausedIds, setPausedIds] = useState<ReadonlySet<string>>(
+      () => new Set()
+    )
     const [, renderCoordinator] = useReducer(
       (revision: number) => revision + 1,
       0
@@ -345,11 +367,42 @@ export function createPredictedRootWithDeliveryErrorClassifier<
       []
     )
 
+    /**
+     * A queue pausing on an unbounded-uncertain head stops progressing, so no
+     * entry may keep an Action open (see {@link LedgerEntry.releaseAction}):
+     * a held Action would freeze every router transition — canon delivery and
+     * navigation alike — for as long as the user leaves the retry toast up.
+     * The predictions yield to canon truth at the flush; the envelopes and
+     * mutation IDs stay in the ledger for honest same-ID redelivery.
+     */
+    const releaseActionsForPausedQueue = useCallback(() => {
+      const paused: string[] = []
+      for (const entry of ledgerRef.current.values()) {
+        if (entry.delivery === "queued" || entry.delivery === "uncertain") {
+          entry.releaseAction.resolve()
+          paused.push(entry.envelope.mutationId)
+        }
+      }
+      if (paused.length === 0) return
+      setPausedIds((current) => {
+        const next = new Set(current)
+        for (const mutationId of paused) next.add(mutationId)
+        return next
+      })
+    }, [])
+
     const reduceOptimistic = useCallback(
       (
         frame: ReplayFrame<State, Error>,
         update: OptimisticUpdate<Invocation>
       ): ReplayFrame<State, Error> => {
+        // Replay is idempotent per mutation ID: React may hold both an
+        // original update and its resume-time re-add (UNN-682) in the same
+        // optimistic queue, and how long a settled update stays replayed is
+        // React's timing, not a package contract. Deciding "one application
+        // per ID" here makes every downstream fact independent of that.
+        if (frame.replayedMutationIds.includes(update.mutationId)) return frame
+
         const replayedFrame = {
           ...frame,
           replayedMutationIds: [
@@ -358,6 +411,7 @@ export function createPredictedRootWithDeliveryErrorClassifier<
           ],
         }
         if (frame.refusedIds.has(update.mutationId)) return replayedFrame
+        if (frame.pausedIds.has(update.mutationId)) return replayedFrame
 
         const acceptedStamp = frame.acceptedById.get(update.mutationId)
         if (
@@ -400,10 +454,11 @@ export function createPredictedRootWithDeliveryErrorClassifier<
         revisions: canon.revisions,
         acceptedById,
         refusedIds,
+        pausedIds,
         replayedMutationIds: [],
         refusals: [],
       }),
-      [acceptedById, canon, refusedIds]
+      [acceptedById, canon, pausedIds, refusedIds]
     )
 
     const [frame, addOptimistic] = useOptimistic<
@@ -450,6 +505,14 @@ export function createPredictedRootWithDeliveryErrorClassifier<
                 return next
               })
             }
+            // Settle the Action at the terminal acceptance, not canonization.
+            // The RSC payload carrying the covering canon is parked behind
+            // this very Action; settling releases it, and React commits the
+            // parked canon and the optimistic revert atomically — the
+            // prediction hands off to the authoritative value with no gap.
+            // Holding on for coverage instead is a deadlock: coverage can
+            // only be observed after a commit this Action is blocking.
+            releaseAction(entry)
           }
         } catch (error) {
           try {
@@ -476,7 +539,10 @@ export function createPredictedRootWithDeliveryErrorClassifier<
             if (retryDelay === undefined) {
               // An ordinary throw (the commit may exist) or an exhausted
               // redelivery budget: hold the envelope as honestly uncertain.
+              // The wait for a manual retry is unbounded, so every held
+              // Action must settle now — this entry's and the queued tail's.
               entry.delivery = "uncertain"
+              releaseActionsForPausedQueue()
             } else {
               // A known-clean miss: redeliver the same envelope and mutation
               // ID after a bounded backoff. The entry stays at the queue head,
@@ -494,7 +560,12 @@ export function createPredictedRootWithDeliveryErrorClassifier<
 
         if (activeTokenRef.current) renderCoordinator()
       },
-      [recordAcceptance, settleDomainRejection]
+      [
+        recordAcceptance,
+        releaseAction,
+        releaseActionsForPausedQueue,
+        settleDomainRejection,
+      ]
     )
 
     const reconcileRefusals = useCallback(() => {
@@ -553,15 +624,16 @@ export function createPredictedRootWithDeliveryErrorClassifier<
           continue
         }
 
+        // The entry's Action already settled at acceptance (UNN-682);
+        // canonization is bookkeeping only.
         entry.canonized.resolve(ok(undefined))
-        releaseAction(entry)
         removeAcceptance(entry.envelope.mutationId)
         ledgerRef.current.delete(entry.envelope.mutationId)
         changed = true
       }
 
       return changed
-    }, [canon, releaseAction, removeAcceptance])
+    }, [canon, removeAcceptance])
 
     const pruneReducerMetadata = useCallback(() => {
       const replayedIds = new Set(frame.replayedMutationIds)
@@ -576,7 +648,12 @@ export function createPredictedRootWithDeliveryErrorClassifier<
           new Set([...refusedIds].filter((id) => replayedIds.has(id)))
         )
       }
-    }, [acceptedById, frame.replayedMutationIds, refusedIds])
+      if ([...pausedIds].some((id) => !replayedIds.has(id))) {
+        setPausedIds(
+          new Set([...pausedIds].filter((id) => replayedIds.has(id)))
+        )
+      }
+    }, [acceptedById, frame.replayedMutationIds, pausedIds, refusedIds])
 
     const deliverQueueHead = useCallback(() => {
       const headId = queueRef.current[0]
@@ -656,6 +733,29 @@ export function createPredictedRootWithDeliveryErrorClassifier<
       }
     }, [])
 
+    /**
+     * Opens (or re-opens) the optimistic Action that renders this entry's
+     * prediction. The Action's lifetime is the entry's *actively progressing*
+     * delivery: it settles at the terminal acceptance or rejection, at Next
+     * control flow, when the queue pauses on an unbounded-uncertain head, or
+     * on unmount — never held for canonization (see
+     * {@link LedgerEntry.releaseAction} for why holding longer deadlocks).
+     */
+    const openDeliveryAction = useCallback(
+      (entry: LedgerEntry<Invocation, Error>) => {
+        entry.releaseAction = createDeferred()
+        startTransition(async () => {
+          addOptimistic({
+            mutationId: entry.envelope.mutationId,
+            invocation: entry.envelope.invocation,
+          })
+          renderCoordinator()
+          await entry.releaseAction.promise
+        })
+      },
+      [addOptimistic]
+    )
+
     const mutate = useCallback(
       (invocation: Invocation): Result<MutationReceipt<Error>, Error> => {
         const predicted = mutationFor(invocation).predict(
@@ -675,15 +775,16 @@ export function createPredictedRootWithDeliveryErrorClassifier<
         }
         ledgerRef.current.set(mutationId, entry)
         queueRef.current.push(mutationId)
+        openDeliveryAction(entry)
 
-        startTransition(async () => {
-          addOptimistic({
-            mutationId,
-            invocation: entry.envelope.invocation,
-          })
-          renderCoordinator()
-          await entry.releaseAction.promise
-        })
+        // Intent recorded while the queue is paused on an uncertain head will
+        // not progress until a manual retry, so its Action must not stay open
+        // and its prediction joins the paused set with the rest of the queue.
+        const headEntry = ledgerRef.current.get(queueRef.current[0] ?? "")
+        if (headEntry?.delivery === "uncertain") {
+          entry.releaseAction.resolve()
+          setPausedIds((current) => new Set(current).add(mutationId))
+        }
 
         return ok({
           id: mutationId,
@@ -691,7 +792,7 @@ export function createPredictedRootWithDeliveryErrorClassifier<
           canonized: entry.canonized.promise,
         })
       },
-      [addOptimistic, frame.value]
+      [frame.value, openDeliveryAction]
     )
 
     const retryDelivery = useCallback(() => {
@@ -704,8 +805,24 @@ export function createPredictedRootWithDeliveryErrorClassifier<
       // A manual retry earns a fresh automatic-redelivery budget.
       entry.retryAttempts = 0
       entry.delivery = "queued"
+
+      // The queue is progressing again: leave the paused set and re-open an
+      // Action per queued entry so every prediction is replayed again even if
+      // React already dropped the settled originals. Re-adds share the
+      // original mutation IDs; the reducer's per-ID idempotence makes an
+      // original/re-add pair apply once.
+      setPausedIds((current) => {
+        if (current.size === 0) return current
+        const next = new Set(current)
+        for (const mutationId of queueRef.current) next.delete(mutationId)
+        return next
+      })
+      for (const mutationId of queueRef.current) {
+        const queued = ledgerRef.current.get(mutationId)
+        if (queued?.delivery === "queued") openDeliveryAction(queued)
+      }
       renderCoordinator()
-    }, [])
+    }, [openDeliveryAction])
 
     const queueHead = queueRef.current[0]
     const headDelivery = queueHead
