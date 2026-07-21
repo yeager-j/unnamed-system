@@ -30,8 +30,11 @@ import { bumpEntityVersionGuarded } from "./version-guard"
  * the two-statement finalize keeps the "sanctioned one-shot" spirit across the
  * substrate/subtype split.
  *
- * Success returns the `shortId` plus the bumped identity token; the client
- * queue absorbs the token before routing to My Characters (`/`).
+ * The guard's expected version is **read here, not sent by the client** (P2d —
+ * UNN-676): the caller has no identity token any more, and the row this action
+ * just loaded is the authoritative observation. Finalize stays the one version
+ * bump outside the mutation protocol; P2e's architecture gate (UNN-677) either
+ * routes or allowlists it.
  */
 export async function finalizeEntityAction(
   input: FinalizeEntityInput
@@ -54,7 +57,7 @@ export async function finalizeEntityAction(
   const committed = await bumpEntityVersionGuarded(
     row.id,
     "identity",
-    parsed.data.expectedVersion,
+    row.identityVersion,
     patch.value
   )
   if (!committed.ok) return committed

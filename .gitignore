@@ -20,6 +20,8 @@ coverage
 /apps/web/test-results/
 /apps/web/playwright-report/
 /apps/web/.playwright/
+/apps/headcanon-fixture/test-results/
+/apps/headcanon-fixture/playwright-report/
 /apps/web/blob-report/
 /apps/web/playwright/.cache/
 /test-results/
@@ -50,6 +52,7 @@ npm-debug.log*
 .superset
 .env*.local
 apps/web/next-env.d.ts
+apps/headcanon-fixture/next-env.d.ts
 
 # Obsidian vault local state
 .obsidian/

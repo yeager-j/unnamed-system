@@ -32,6 +32,10 @@ independent assessment:
 4. [Deep technical-design assessment](./deep-review-outcome.md) — the
    multi-agent stress test, contraction ledger, implementation risks, and
    amendments incorporated into revision 4.
+5. [Deletion ledger](./deletion-ledger.md) — what each Showtime cutover
+   *measurably* removed from `apps/web`, phase by phase. The design's
+   application contraction gate is decided here, against measurements rather
+   than the estimates in (4).
 
 The proposal is intentionally a spike design, not an adoption decision. Its
 contract fixture, Drizzle/Ably adapters, and character/combat/dungeon bindings

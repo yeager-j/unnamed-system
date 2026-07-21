@@ -53,8 +53,6 @@ export function ArchetypeGrid() {
       { component: "archetypes", op: "setOrigin", archetypeKey },
       {
         messages: {
-          stale:
-            "Someone else updated this character — refresh to see the latest.",
           error: "Couldn't save your Origin. Try again.",
         },
         onError: (error) => {

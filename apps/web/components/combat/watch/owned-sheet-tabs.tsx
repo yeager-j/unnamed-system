@@ -9,16 +9,17 @@ import {
 } from "@workspace/ui/components/tabs"
 
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
-import type { LoadedCharacter } from "@/domain/character/load"
+import type { CharacterMount } from "@/domain/character/load"
 import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 
 /**
  * One character the watch viewer owns, as the column mounts it: a stable tab
- * key, the loaded triple, and the context its `resolved` half was folded with.
+ * key, the provider mount (profile + versioned canon), and the context its
+ * derived values should be re-folded with.
  */
 export interface OwnedSheet {
   key: string
-  character: LoadedCharacter
+  character: CharacterMount
   /** Inert outside an encounter (the delve's exploration column). */
   resolveContext?: ResolveContext
 }
@@ -81,7 +82,8 @@ function MountedSheet({
 }) {
   return (
     <EntityWriteProvider
-      loaded={sheet.character}
+      profile={sheet.character.profile}
+      canon={sheet.character.canon}
       resolveContext={sheet.resolveContext}
     >
       <ViewerRoleProvider role="owner">{children}</ViewerRoleProvider>

@@ -88,6 +88,15 @@ jobs:
         working-directory: apps/web
         run: npx playwright test --grep-invert "@smoke"
 
+      # The headcanon real-router negative control (UNN-682): a mutation must
+      # canonize in place through the actual App Router — the package's jsdom
+      # contract suite cannot observe React's Action scheduling, so this is
+      # the only gate that can catch a held-open-Action deadlock. Needs no
+      # database; the fixture's authority is in-memory.
+      - name: Run headcanon fixture E2E
+        working-directory: apps/headcanon-fixture
+        run: npx playwright test
+
       - name: Delete ephemeral Neon branch
         if: always()
         env:
@@ -104,4 +113,12 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Upload headcanon fixture report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headcanon-fixture-report
+          path: apps/headcanon-fixture/playwright-report/
           retention-days: 7

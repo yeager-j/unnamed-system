@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 
-import type { LoadedCharacter } from "@/domain/character/load"
+import type { CharacterMount } from "@/domain/character/load"
 import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
 import { buildRailView } from "@/domain/character/view/rail-view"
 import {
@@ -21,15 +21,15 @@ import { SheetDock, type SheetTabKey } from "./tab-dock"
 
 /**
  * The character-sheet client root (S2a — UNN-557): mounts the
- * {@link EntityWriteProvider} over the route-loaded triple, then renders the
- * Showtime! frame — persistent left rail, tabbed content column, bottom tab
- * dock. Interactive by design (CH18): the provider's optimistic frame re-folds
- * `resolveEntity` client-side, so every derived value under this root moves
- * the instant a control dispatches.
+ * {@link EntityWriteProvider} over the route's `{ profile, canon }` mount, then
+ * renders the Showtime! frame — persistent left rail, tabbed content column,
+ * bottom tab dock. Interactive by design (CH18): the predicted frame re-folds
+ * `resolveEntity` through the registered mutation predictors, so every derived
+ * value under this root moves the instant a control dispatches.
  */
-export function CharacterSheet({ loaded }: { loaded: LoadedCharacter }) {
+export function CharacterSheet({ character }: { character: CharacterMount }) {
   return (
-    <EntityWriteProvider loaded={loaded}>
+    <EntityWriteProvider profile={character.profile} canon={character.canon}>
       <SheetShell />
     </EntityWriteProvider>
   )

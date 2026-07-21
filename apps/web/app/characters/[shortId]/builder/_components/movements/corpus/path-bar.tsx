@@ -41,8 +41,6 @@ export function PathBar() {
       { component: "path", op: "setChoice", choice: next },
       {
         messages: {
-          stale:
-            "Someone else updated this character — refresh to see the latest.",
           error: "Couldn't save your path. Try again.",
         },
         onError: (error) => {

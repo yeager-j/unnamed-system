@@ -1,7 +1,7 @@
 "use client"
 
 import type { NarrativeTextField } from "@workspace/game-v2/narrative"
-import { ok, type Result } from "@workspace/result"
+import { ok } from "@workspace/result"
 
 import {
   useDebouncedAutoSave,
@@ -11,7 +11,6 @@ import {
   saveNpcNameAction,
   saveNpcNarrativeAction,
 } from "@/lib/actions/campaign-world/npc-prose"
-import type { NpcProseError } from "@/lib/actions/campaign-world/npc-prose.schema"
 
 import { WORLD_PROSE_DEBOUNCE_MS } from "./world-prose"
 
@@ -42,15 +41,14 @@ export function useNpcNameAutoSave({
   return useDebouncedAutoSave({
     serverValue: serverName,
     saveQueueRef,
-    dispatchWrite: lwwDispatch,
-    save: async (value, _expectedVersion, options) => {
+    save: async (value, options) => {
       const result = await saveNpcNameAction({
         campaignId,
         entityId,
         name: value,
         revalidate: options.flush,
       })
-      return result.ok ? ok({ value, version: 0 }) : result
+      return result.ok ? ok({ value }) : result
     },
     debounceMs: WORLD_PROSE_DEBOUNCE_MS,
     revalidateOnFlush: true,
@@ -74,8 +72,7 @@ export function useNpcNarrativeAutoSave({
   return useDebouncedAutoSave({
     serverValue,
     saveQueueRef,
-    dispatchWrite: lwwDispatch,
-    save: async (value, _expectedVersion, options) => {
+    save: async (value, options) => {
       const result = await saveNpcNarrativeAction({
         campaignId,
         entityId,
@@ -83,16 +80,10 @@ export function useNpcNarrativeAutoSave({
         value,
         revalidate: options.flush,
       })
-      return result.ok ? ok({ value, version: 0 }) : result
+      return result.ok ? ok({ value }) : result
     },
     debounceMs: WORLD_PROSE_DEBOUNCE_MS,
     keepDraftOnError: true,
     revalidateOnFlush: true,
   })
 }
-
-const lwwDispatch = (
-  action: (
-    expectedVersion: number
-  ) => Promise<Result<{ value: string; version: number }, NpcProseError>>
-) => action(0)

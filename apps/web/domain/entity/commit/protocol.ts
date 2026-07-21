@@ -1,7 +1,11 @@
 import { z } from "zod/v4"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import { defineMutation, defineProtocol } from "@workspace/headcanon"
+import {
+  defineMutation,
+  defineProtocol,
+  rejections,
+} from "@workspace/headcanon"
 import { ok, type Result } from "@workspace/result"
 
 import { resolveEntity } from "@/domain/game-engine-v2"
@@ -65,6 +69,25 @@ export type EntityWriteArgs = z.infer<typeof entityWriteArgs>
  *  the authoritative Writer speaks. */
 export type EntityWritePredictionError = EntityWriteRefusal
 
+/**
+ * The authority rejections a caller can see beyond predictor refusals (P2d —
+ * UNN-676), declared on the protocol via `rejections<…>()` so predictors keep
+ * their honest local error types while the root's error union still covers a
+ * stricter authority.
+ *
+ * Deliberately absent: authorization rejections (the door translates them to
+ * `forbidden()`, which throws), `"stale"` (the authority reads the version it
+ * guards on — no client token exists to be wrong), contention (the send
+ * adapter classifies it retryable; the package redelivers and degrades to
+ * `delivery: "uncertain"`), and executor envelope errors (programmer bugs —
+ * the send adapter throws them loudly).
+ */
+export type EntityAuthorityRejection = "entity-not-found" | "entity-load-failed"
+
+/** The client-facing failure surface of a registered entity mutation: any
+ *  predictor refusal plus the declared authority rejections. */
+export type EntityMutationError = EntityWriteRefusal | EntityAuthorityRejection
+
 const entityWrite = defineMutation({
   name: "entity.write",
   args: entityWriteArgs,
@@ -101,11 +124,11 @@ export const entityIdentityArgs = z.object({
 export type EntityIdentityArgs = z.infer<typeof entityIdentityArgs>
 
 /**
- * The identity-column predictor. It cannot refuse: the descriptor's parser has
- * already admitted the only failures a column write has (bounds), and ownership —
- * the one remaining gate — is authority knowledge the client cannot evaluate. A
- * `Result` return keeps it uniform with `entity.write` and leaves room for a
- * future refusal without a signature change.
+ * The identity-column predictor. It cannot refuse locally: the descriptor's
+ * parser has already admitted the only failures a column write has (bounds), and
+ * ownership — the one remaining gate — is authority knowledge the client cannot
+ * evaluate. The protocol's declared rejections cover the authority-side
+ * outcomes the send path can still return, so `never` stays honest here.
  */
 const entityIdentity = defineMutation({
   name: "entity.identity",
@@ -120,6 +143,7 @@ const entityIdentity = defineMutation({
 export const entityProtocol = defineProtocol({
   id: "showtime.entity.v1",
   mutations: [entityWrite, entityIdentity],
+  rejections: rejections<EntityAuthorityRejection>(),
 })
 
 export { entityIdentity, entityWrite }

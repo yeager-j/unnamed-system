@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "headcanon-fixture",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/headcanon-fixture", "run", "dev"],
+      "port": 3900
+    },
+    {
       "name": "web",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "apps/web", "run", "dev"],

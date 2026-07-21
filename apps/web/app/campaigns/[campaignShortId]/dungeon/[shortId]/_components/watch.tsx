@@ -15,7 +15,7 @@ import {
 import { DungeonExploreSheetColumn } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore-sheet-column"
 import { useDungeonSnapshot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_hooks/use-dungeon-snapshot"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
-import type { LoadedCharacter } from "@/domain/character/load"
+import type { CharacterMount } from "@/domain/character/load"
 import { DUNGEON_STATUS_LABELS } from "@/domain/labels"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a
@@ -105,7 +105,7 @@ export function DungeonWatch({
    *  a character whose row fails the load seam still owns its token. */
   ownedCharacterIds: string[]
   /** The viewer's own characters here — empty for a spectator. */
-  ownedSheets: LoadedCharacter[]
+  ownedSheets: CharacterMount[]
   /** The live fight's watch data when the page loaded one, else `null`. */
   combat: DungeonWatchCombatData | null
 }) {

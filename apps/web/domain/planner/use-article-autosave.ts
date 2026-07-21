@@ -17,10 +17,9 @@ import { WORLD_PROSE_DEBOUNCE_MS } from "./world-prose"
  * The Article page's two autosaved fields (UNN-579, D10): name and body,
  * each a {@link useDebouncedAutoSave} lifecycle over
  * `saveArticleProseAction` — which never revalidates (the tree row keeps up
- * through the shell's name mirror). The `useBeatAutoSave` composition: LWW
- * (constant version — no token exists to thread), one shared save queue
- * serializing both fields' writes to the row, and the body keeps its draft
- * on failure.
+ * through the shell's name mirror). The `useBeatAutoSave` composition: LWW,
+ * one shared save queue serializing both fields' writes to the row, and the
+ * body keeps its draft on failure.
  */
 export function useArticleAutoSave({
   campaignId,
@@ -42,33 +41,21 @@ export function useArticleAutoSave({
     (field: "name" | "body") =>
     async (
       value: string,
-      _expectedVersion: number,
       options: { flush: boolean }
-    ): Promise<
-      Result<{ value: string; version: number }, SaveArticleProseError>
-    > => {
+    ): Promise<Result<{ value: string }, SaveArticleProseError>> => {
       const result = await saveArticleProseAction({
         campaignId,
         articleId,
         [field]: value,
         revalidate: options.flush,
       })
-      return result.ok ? ok({ value, version: 0 }) : result
+      return result.ok ? ok({ value }) : result
     }
-
-  const lwwDispatch = (
-    action: (
-      expectedVersion: number
-    ) => Promise<
-      Result<{ value: string; version: number }, SaveArticleProseError>
-    >
-  ) => action(0)
 
   return {
     name: useDebouncedAutoSave({
       serverValue: serverName,
       saveQueueRef,
-      dispatchWrite: lwwDispatch,
       save: saveField("name"),
       debounceMs: WORLD_PROSE_DEBOUNCE_MS,
       revalidateOnFlush: true,
@@ -76,7 +63,6 @@ export function useArticleAutoSave({
     body: useDebouncedAutoSave({
       serverValue: serverBody,
       saveQueueRef,
-      dispatchWrite: lwwDispatch,
       save: saveField("body"),
       debounceMs: WORLD_PROSE_DEBOUNCE_MS,
       keepDraftOnError: true,

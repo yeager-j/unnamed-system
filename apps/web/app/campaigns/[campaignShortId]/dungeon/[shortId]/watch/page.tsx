@@ -6,7 +6,7 @@ import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 
 import type { DungeonWatchCombatData } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/watch"
 import { DungeonWatch } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/watch"
-import { loadCharactersByIds } from "@/domain/character/load"
+import { loadCharactersByIds, toCharacterMount } from "@/domain/character/load"
 import { auth } from "@/lib/auth"
 import {
   getDungeonSnapshot,
@@ -107,7 +107,9 @@ export default async function DungeonWatchPage({ params }: PageProps) {
   if (!snapshot) notFound()
 
   const [ownedSheets, combat] = await Promise.all([
-    loadCharactersByIds(ownedCharacterIds),
+    loadCharactersByIds(ownedCharacterIds).then((characters) =>
+      characters.map(toCharacterMount)
+    ),
     snapshot.combat
       ? loadCombatWatchData(
           snapshot.combat.encounterShortId,

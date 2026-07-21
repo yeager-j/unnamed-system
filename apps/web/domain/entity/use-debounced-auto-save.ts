@@ -16,40 +16,17 @@ import { type Result } from "@workspace/result"
  * UNN-180 pattern free-text consumer (name, notes, ancestry, background,
  * per-knife/chain titles, …) needs the same plumbing: a local draft state,
  * a debounce timeout, a serialized save queue so the debounce-then-blur
- * pattern doesn't double-fire with the same `expectedVersion`, a
- * `lastSavedRef` to skip no-op edits, and a shared per-write-class
- * `versionRef` so sibling components coordinate on a single version token.
+ * pattern doesn't double-fire, and a `lastSavedRef` to skip no-op edits.
  * This hook is the one place those rules live.
  *
- * **Concurrency contract.** The `save` callback receives the current value
- * *and* the latest known per-write-class `version` (UNN-140) — the hook
- * does not let the consumer thread the token itself, because every place
- * I've seen consumers do that has eventually drifted from the prop. This is
- * the shared core; entity surfaces go through the provider-bound
- * `useEntityAutoSave` / `useEntityColumnSave` wrappers, which resolve the
- * *shared* per-write-class token + queue and supply the
- * {@link UseDebouncedAutoSaveArgs.dispatchWrite} pipeline that reads and bumps
- * it — the same way the click-write wrappers own their dispatch. Because every
- * same-class field flows through that one token, a sibling field's successful
- * bump is visible in the same frame — no waiting on the `revalidate →
- * prop-sync` round-trip. The provider keeps the token synced from the server
- * prop as the fallback for cross-tab / external bumps.
- *
- * Saves are serialized via a promise chain (`saveQueueRef`): when a save is
- * dispatched while another is in flight, it chains behind the in-flight one
- * and reads the *fresh* class token (just written by the prior save's success
- * branch) before its own request goes out. That closes the same-value
- * and different-value debounce+blur races for this field. When the wrappers
- * pass the provider's *shared* per-class queue (UNN-274), the chain spans
- * every same-class field too: blurring N sibling fields back-to-back (faster
- * than a round-trip) serializes them, so each reads the freshly-bumped token
- * instead of all dispatching at the stale pre-bump version and colliding.
- * Without a shared queue the hook still serializes its own writes via an
- * internal fallback queue.
- *
- * Stale handling is the wrapper's dispatch pipeline's business: the entity
- * door silently retries once on `"stale"` (UNN-568), so this hook's failure
- * branch means a real conflict, not a sibling-component race.
+ * **Concurrency is the save pipeline's business, not this hook's.** The P2d
+ * cutover (UNN-676) deleted the version-token threading that used to live
+ * here: entity fields flush one registered mutation per settled edit (the
+ * Headcanon authority owns ordering and conflict semantics), and the planner's
+ * prose is last-write-wins by design. What remains is UX serialization — the
+ * per-hook (or wrapper-shared, via {@link UseDebouncedAutoSaveArgs.saveQueueRef})
+ * promise chain that keeps a debounce tick and a blur flush of the same field
+ * from racing each other.
  *
  * **Trimming + idempotence are the consumer's job inside `save`.** The
  * hook only checks reference equality for last-saved skips, so a consumer
@@ -69,44 +46,30 @@ import { type Result } from "@workspace/result"
  * was typed.
  *
  * On failure: rolls the draft back to the last-saved value and surfaces a
- * Sonner toast — `"stale"` gets a refresh-prompt, anything else gets a
- * generic "couldn't save." Override copy via `onError`.
+ * Sonner toast. Override copy via `onError`.
  */
 
 export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   /** The current value from the server. Drives the initial draft and the
    *  rollback target on failure. */
   serverValue: TValue
-  /** The *shared* per-write-class save queue from the provider (UNN-274).
-   *  Supplied by the wrappers so same-class debounced fields serialize their
-   *  saves through one chain — back-to-back sibling edits each read the
-   *  freshly-bumped `versionRef` instead of colliding at the stale token.
-   *  Omitted, the hook falls back to an internal queue that serializes only
-   *  this field's own debounce+blur. */
+  /** A queue shared across sibling fields writing the same row, so their
+   *  saves serialize in edit order (the planner's three beat fields). Omitted,
+   *  the hook falls back to an internal queue that serializes only this
+   *  field's own debounce+blur. */
   saveQueueRef?: RefObject<Promise<void>>
   /**
-   * The write pipeline `save` dispatches through — owned by the provider-bound
-   * wrapper, so the hook itself is storage-blind (UNN-556). The entity
-   * provider's wrappers supply the shared one-shot stale-retry protocol.
-   * Contract: call `action` with the latest class token and update the shared
-   * `versionRef` from a success before resolving.
-   */
-  dispatchWrite: (
-    action: (
-      expectedVersion: number
-    ) => Promise<Result<{ value: TValue; version: number }, TError>>
-  ) => Promise<Result<{ value: TValue; version: number }, TError | "stale">>
-  /**
-   * Persists `value`, conditioned on `expectedVersion`. `options.flush` is
-   * true when this is a **terminal** save (blur / unmount) that a
+   * Persists `value`. `options.flush` is true when this is a **terminal**
+   * save (blur / unmount) that a
    * {@link UseDebouncedAutoSaveArgs.revalidateOnFlush} consumer wants to
-   * revalidate on — mid-edit debounce ticks pass `false`.
+   * revalidate on — mid-edit debounce ticks pass `false`. The success value
+   * carries the canonical persisted `value` (post-trim, post-normalization)
+   * so the no-op skip compares against what was actually stored.
    */
   save: (
     value: TValue,
-    expectedVersion: number,
     options: { flush: boolean }
-  ) => Promise<Result<{ value: TValue; version: number }, TError>>
+  ) => Promise<Result<{ value: TValue }, TError>>
   /** Defaults to 500ms — the Notion-feel sweet spot. */
   debounceMs?: number
   /** Skip the save when this returns true (and on flush, revert the draft
@@ -132,13 +95,13 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    * (the planner's LWW prose, D10): back-navigation would otherwise restore a
    * stale RSC payload. The debounce ticks never revalidate, so the route
    * re-renders once on leaving the field, not once per keystroke. Default
-   * `false` — the entity door already revalidates every save, so the sheet /
+   * `false` — the entity mutations already reconcile every save, so the sheet /
    * builder don't need it. Safe only because the CM6 editor seeds once and
    * ignores `serverValue` after mount, so a revalidation can't trample a draft.
    */
   revalidateOnFlush?: boolean
   /** Override the default Sonner toast. */
-  onError?: (error: TError | "stale") => void
+  onError?: (error: TError) => void
 }
 
 export interface UseDebouncedAutoSaveReturn<TValue> {
@@ -159,7 +122,6 @@ export interface UseDebouncedAutoSaveReturn<TValue> {
 export function useDebouncedAutoSave<TValue, TError extends string>({
   serverValue,
   saveQueueRef,
-  dispatchWrite,
   save,
   debounceMs = 500,
   isEmpty = () => false,
@@ -190,9 +152,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       if (isEqual(next, lastSavedRef.current) && !flush) return
 
       try {
-        const result = await dispatchWrite((expectedVersion) =>
-          save(next, expectedVersion, { flush })
-        )
+        const result = await save(next, { flush })
 
         if (result.ok) {
           lastSavedRef.current = result.value.value
@@ -204,22 +164,19 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
 
         if (onError) {
           onError(result.error)
-        } else if (result.error === "stale") {
-          toast.error("Couldn't sync — refresh to see the latest changes.")
         } else {
           toast.error("Couldn't save. Try again.")
         }
       } catch (error) {
         // A debounced save runs in this detached queue, NOT a React transition,
-        // so — unlike the click paths, which route through `guardWrite` to
-        // rethrow Next navigation signals (redirect/forbidden/…) for the
-        // transition/error-boundary to act on (UNN-379) — a rethrown signal
-        // here has nowhere to surface, and the queue-continuity net below must
-        // consume the rejection to keep saving. So the background save
-        // deliberately swallows every throw (network drop, server crash, auth
-        // interrupt) to a toast; a hard-navigate to a 403 mid-typing would also
-        // lose the draft. Throws aren't routed through `onError` because that's
-        // typed `TError` — expected failures return `Result.err`, not throw.
+        // so — unlike the click paths, whose transitions rethrow Next
+        // navigation signals (redirect/forbidden/…) for the error boundary to
+        // act on — a rethrown signal here has nowhere to surface, and the
+        // queue-continuity net below must consume the rejection to keep
+        // saving. So the background save deliberately swallows every throw
+        // (network drop, server crash, auth interrupt) to a toast. Throws
+        // aren't routed through `onError` because that's typed `TError` —
+        // expected failures return `Result.err`, not throw.
         console.error("[useDebouncedAutoSave] save threw", error)
         if (!keepDraftOnError) setLocalValue(lastSavedRef.current)
         toast.error("Couldn't save. Try again.")
@@ -274,9 +231,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   // useEffectEvent (React 19.2) sees the latest props/state without being
   // listed in deps — lets the prop-sync effect fire on serverValue change
   // only, and lets the unmount cleanup read fresh `value`, `isEmpty`,
-  // `isEqual`, and `performSave` without re-running every render. The version
-  // token is *not* synced here: the shared `versionRef` is owned by the
-  // provider's version-token store, so this hook only reads it (UNN-274).
+  // `isEqual`, and `performSave` without re-running every render.
   const syncFromServer = useEffectEvent(() => {
     if (!focusedRef.current) {
       setLocalValue(serverValue)
