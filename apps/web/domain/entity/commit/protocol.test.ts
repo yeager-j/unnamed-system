@@ -7,6 +7,7 @@ import {
 } from "@/lib/__fixtures__/seed-characters"
 
 import {
+  entityFinalize,
   entityIdentity,
   entityIdentityArgs,
   entityProtocol,
@@ -34,11 +35,14 @@ function seedState(slug: string): EntityCanonValue {
 }
 
 describe("entity protocol registration", () => {
-  it("registers both write species under one versioned protocol id", () => {
+  it("registers all three write species under one versioned protocol id", () => {
     expect(entityProtocol.id).toBe("showtime.entity.v1")
     expect(entityProtocol.mutationsByName["entity.write"]).toBe(entityWrite)
     expect(entityProtocol.mutationsByName["entity.identity"]).toBe(
       entityIdentity
+    )
+    expect(entityProtocol.mutationsByName["entity.finalize"]).toBe(
+      entityFinalize
     )
   })
 
@@ -53,6 +57,40 @@ describe("entity protocol registration", () => {
         entityId: "e1",
         write: { component: "vitals", op: "damage", amount: 2 },
       },
+    })
+  })
+})
+
+describe("entity.finalize predictor", () => {
+  it("keeps a valid draft unchanged while joining the ordered mutation queue", () => {
+    const seeded = seedState("warrior")
+    const state = {
+      ...seeded,
+      entity: {
+        ...seeded.entity,
+        components: {
+          ...seeded.entity.components,
+          virtues: {
+            ranks: { expression: 2, empathy: 1, wisdom: 1, focus: 0 },
+            sparkLog: [],
+          },
+        },
+      },
+    }
+    const result = entityFinalize.predict(state, { entityId: state.entity.id })
+
+    expect(result).toEqual({ ok: true, value: state })
+  })
+
+  it("refuses an incomplete visible draft before delivery", () => {
+    const state = seedState("warrior")
+    state.entity.components.archetypes = undefined
+
+    const result = entityFinalize.predict(state, { entityId: state.entity.id })
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "missing-finalize-requirement",
     })
   })
 })

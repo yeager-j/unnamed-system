@@ -12,6 +12,76 @@
 export const ISOLATION_ALLOWLIST = []
 
 /**
+ * The sole module allowed to spell a raw Headcanon-modeled entity-version
+ * increment. It is the deep commit primitive: the guarded UPDATE and
+ * `stamp.record(...)` are one function, so an increment cannot be separated from
+ * its accepted stamp.
+ *
+ * Removal condition: remove this entry when the four entity revision columns are
+ * retired or their increment moves into a different single stamped primitive.
+ */
+export const MODELED_VERSION_BUMP_ALLOWLIST = [
+  "lib/actions/entity/version-guard.ts",
+]
+
+/**
+ * Every application module allowed to cross the stamped entity-version write
+ * seam. `depcheck.mjs` rejects a new importer, a stale entry, and an approved
+ * external writer that stops calling its required finalizer.
+ *
+ * Each exception records why it exists and when it disappears. The two Stores
+ * preserve one reusable guarded commit for character mutations and combat's
+ * storage-address adapter; their registered-handler consumers are the closed
+ * Headcanon registry. Combat is the one temporary external writer and must pair
+ * its stamp with `finalizeExternalActionCommit` until P3a makes it a mutation.
+ */
+export const VERSION_WRITER_ALLOWLIST = [
+  {
+    file: "lib/actions/combat/commit/stores.ts",
+    role: "external-commit",
+    requiredFinalizer: "finalizeExternalActionCommit",
+    rationale:
+      "The durable combat address adapter advances the global entity axis outside the character mutation executor.",
+    removeWhen:
+      "P3a binds combat writes to the entity protocol and deletes this standalone arm.",
+  },
+  {
+    file: "lib/actions/entity/entity-row-store.ts",
+    role: "stamped-store",
+    rationale:
+      "The shared Writer store advances one server-derived entity axis and records it on the supplied attempt stamp.",
+    removeWhen:
+      "Entity component writes no longer share this storage commit primitive.",
+  },
+  {
+    file: "lib/actions/entity/identity-store.ts",
+    role: "stamped-store",
+    rationale:
+      "The identity-column store advances the identity axis and records it on the supplied attempt stamp.",
+    removeWhen:
+      "Identity columns stop using their focused store or move into the entity-row Store.",
+  },
+  {
+    file: "lib/actions/entity/mutations/execute-entity-write.ts",
+    role: "registered-handler",
+    rationale: "Registered authority handler for entity.write.",
+    removeWhen: "The entity.write mutation is removed from the protocol.",
+  },
+  {
+    file: "lib/actions/entity/mutations/execute-finalize.ts",
+    role: "registered-handler",
+    rationale: "Registered authority handler for entity.finalize.",
+    removeWhen: "The entity.finalize mutation is removed from the protocol.",
+  },
+  {
+    file: "lib/actions/entity/mutations/execute-identity-write.ts",
+    role: "registered-handler",
+    rationale: "Registered authority handler for entity.identity.",
+    removeWhen: "The entity.identity mutation is removed from the protocol.",
+  },
+]
+
+/**
  * Existing engine-import violations inside the gated app perimeter (`app/` +
  * `components/`). Paths reflect the UNN-610 colocation move.
  *

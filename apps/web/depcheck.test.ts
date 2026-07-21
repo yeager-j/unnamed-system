@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  callsRequiredFinalizer,
   classifyTier,
+  deriveModeledVersionFields,
   importClauseIsTypeOnly,
   privateIsolationViolation,
   reconcileAllowlist,
   resolveSpecifier,
   scanDomainPurity,
+  scanModeledVersionBumps,
   scanSource,
   scanTierViolations,
+  scanVersionWriterImports,
   shouldGateFile,
   tierDirectionViolation,
 } from "./depcheck.mjs"
@@ -16,6 +20,66 @@ import {
 const GAME = "@workspace/game-v2"
 
 describe("web dependency check", () => {
+  it("derives modeled columns from the VersionClass authority", () => {
+    expect(
+      deriveModeledVersionFields(`
+        export const VERSION_CLASSES = ["identity", "vitals"] as const
+      `)
+    ).toEqual(["identityVersion", "vitalsVersion"])
+  })
+
+  it("catches a deliberate raw modeled version bump (negative control)", () => {
+    const source =
+      "await db.update(entity).set({ identityVersion: sql`${entity.identityVersion} + 1` })"
+
+    expect(scanModeledVersionBumps("lib/actions/raw-bump.ts", source)).toEqual([
+      {
+        file: "lib/actions/raw-bump.ts",
+        line: 1,
+        field: "identityVersion",
+      },
+    ])
+  })
+
+  it("ignores modeled version names in comments", () => {
+    expect(
+      scanModeledVersionBumps(
+        "lib/actions/example.ts",
+        "// identityVersion: sql`${entity.identityVersion} + 1`"
+      )
+    ).toEqual([])
+  })
+
+  it("finds imports that cross the stamped entity-version write seam", () => {
+    expect(
+      scanVersionWriterImports(
+        "lib/actions/example.ts",
+        'import { advanceEntityAxisGuarded } from "./entity/version-guard"'
+      )
+    ).toEqual([
+      {
+        file: "lib/actions/example.ts",
+        line: 1,
+        specifier: "./entity/version-guard",
+      },
+    ])
+  })
+
+  it("requires an external writer's finalizer call, not a comment about it", () => {
+    expect(
+      callsRequiredFinalizer(
+        "// finalizeExternalActionCommit(stamp) is required",
+        "finalizeExternalActionCommit"
+      )
+    ).toBe(false)
+    expect(
+      callsRequiredFinalizer(
+        "await finalizeExternalActionCommit(stamp)",
+        "finalizeExternalActionCommit"
+      )
+    ).toBe(true)
+  })
+
   it("detects every supported engine import form", () => {
     const source = [
       `import type { Entity } from "${GAME}/kernel/entity"`,

@@ -2,7 +2,6 @@
 
 import { CheckCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
@@ -13,10 +12,8 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
-import { finalizeEntityAction } from "@/lib/actions/entity/finalize"
-import type { FinalizeEntityError } from "@/lib/actions/entity/finalize.schema"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import type { EntityMutationError } from "@/domain/entity/commit/protocol"
+import { useFinalizeEntity } from "@/domain/entity/use-entity-write"
 
 /**
  * Movement 4's commit button (ADR-002 §"Movement 4 — The Person"). Flips the
@@ -37,38 +34,28 @@ export function FinalizeButton({
   canFinalize: boolean
   disabledReason?: string
 }) {
-  const { profile } = useLoadedCharacter()
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const disabled = isPending || !canFinalize
+  const finalize = useFinalizeEntity()
+  const disabled = finalize.pending || !canFinalize
 
   function onClick() {
     if (!canFinalize) return
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const result = await finalizeEntityAction({
-            entityId: profile.id,
-          })
-          if (result.ok) {
-            toast.success("Character finalized.")
-            router.push("/")
-            return
-          }
-          surfaceError(result.error)
-          // Re-run the server render so a stale draft (e.g. another tab cleared
-          // a field between our render and click) picks up the latest gate
-          // failures.
-          router.refresh()
-        },
-        () => toast.error("Couldn't finalize your character — try again.")
-      )
-    )
+    finalize.dispatch({
+      onSuccess: () => {
+        toast.success("Character finalized.")
+        router.push("/")
+      },
+      onError: (error) => {
+        surfaceError(error)
+        router.refresh()
+        return true
+      },
+    })
   }
 
   const button = (
     <Button size="lg" onClick={onClick} disabled={disabled}>
-      {isPending ? <Spinner /> : <CheckCircleIcon weight="fill" />}
+      {finalize.pending ? <Spinner /> : <CheckCircleIcon weight="fill" />}
       Finalize character
     </Button>
   )
@@ -83,13 +70,11 @@ export function FinalizeButton({
   )
 }
 
-function surfaceError(error: FinalizeEntityError): void {
-  if (typeof error === "object" && error.kind === "missing-requirement") {
-    toast.error(error.reason)
-    return
-  }
-  if (error === "stale") {
-    toast.error("This draft is out of sync. Refresh and try again.")
+function surfaceError(error: EntityMutationError): void {
+  if (error === "missing-finalize-requirement") {
+    toast.error(
+      "This character isn't ready to finalize. Review the builder steps."
+    )
     return
   }
   if (error === "no-starting-weapon-for-lineage") {
@@ -104,6 +89,10 @@ function surfaceError(error: FinalizeEntityError): void {
   }
   if (error === "entity-not-found") {
     toast.error("This draft no longer exists. Refresh to see your characters.")
+    return
+  }
+  if (error === "entity-not-draft") {
+    toast.error("This character has already been finalized.")
     return
   }
   toast.error("Couldn't finalize your character — try again.")

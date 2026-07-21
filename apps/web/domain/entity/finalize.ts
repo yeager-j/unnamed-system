@@ -44,11 +44,23 @@ export interface FinalizeDeps {
   newId(): string
 }
 
-export function buildFinalizePatch(
+export type FinalizePatch = EntityRowPatch & { status: "finalized" }
+
+type FinalizeCatalogDeps = Pick<
+  FinalizeDeps,
+  "getArchetype" | "startingWeaponForLineage"
+>
+
+interface PreparedFinalize {
+  archetype: Archetype
+  weaponKey: string
+}
+
+function prepareFinalize(
   name: string,
   components: Partial<ComponentRegistry>,
-  deps: FinalizeDeps
-): Result<EntityRowPatch, FinalizeRefusal> {
+  deps: FinalizeCatalogDeps
+): Result<PreparedFinalize, FinalizeRefusal> {
   const failure = findStepGateFailures({ name, components })[0]
   if (failure) {
     return err({
@@ -64,6 +76,31 @@ export function buildFinalizePatch(
 
   const weaponKey = deps.startingWeaponForLineage(archetype.lineage)
   if (weaponKey === undefined) return err("no-starting-weapon-for-lineage")
+
+  return ok({ archetype, weaponKey })
+}
+
+/** The deterministic precondition half shared by the optimistic invocation and
+ *  authority handler. Finalize predicts no durable state—the accepted refresh
+ *  supplies the seeded ids—but it can still refuse an invalid visible draft
+ *  before sending anything. */
+export function validateFinalize(
+  name: string,
+  components: Partial<ComponentRegistry>,
+  deps: FinalizeCatalogDeps
+): Result<void, FinalizeRefusal> {
+  const prepared = prepareFinalize(name, components, deps)
+  return prepared.ok ? ok(undefined) : prepared
+}
+
+export function buildFinalizePatch(
+  name: string,
+  components: Partial<ComponentRegistry>,
+  deps: FinalizeDeps
+): Result<FinalizePatch, FinalizeRefusal> {
+  const prepared = prepareFinalize(name, components, deps)
+  if (!prepared.ok) return prepared
+  const { archetype, weaponKey } = prepared.value
 
   const originGranted = new Set(archetype.talents)
   const mechanicState = archetype.mechanic

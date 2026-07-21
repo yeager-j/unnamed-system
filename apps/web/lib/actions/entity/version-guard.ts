@@ -3,14 +3,12 @@ import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
 import { revision, type StampAccumulator } from "@workspace/headcanon"
 import { throwMutationContention } from "@workspace/headcanon/drizzle"
-import { err, ok, type Result } from "@workspace/result"
 
 import type { EntityWritePatch } from "@/domain/entity/commit/writers"
 import { entityAxisFor } from "@/lib/db/axes"
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { type WriteExecutor } from "@/lib/db/client"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 import type { VersionClass } from "@/lib/db/version-classes"
-import { publishCharacterPing } from "@/lib/realtime/publish"
 
 /**
  * The entity-row optimistic-concurrency primitive (UNN-551) — the durable-entity
@@ -30,34 +28,23 @@ import { publishCharacterPing } from "@/lib/realtime/publish"
  * the written components and cannot clobber a sibling class's column (where a
  * shared jsonb bag made that a matter of `jsonb_set` discipline).
  *
- * On success it fires the realtime ping keyed by the entity's `shortId` — the same
- * `character`-domain channel the DM console's per-PC subscription listens on
- * (`ParticipantMeta.characterShortId`), so a durable write in combat invalidates
- * every watcher. A guard-rejected write publishes nothing.
- *
- * **Legacy: `finalize` is its last caller.** The Stores that replaced it
- * (`commitEntityWrite`, `commitIdentityWrite`) read the class version off the row
- * they loaded and guard on that, so no client token is sent or trusted, a lost
- * race is contention for the authority to rerun, and the advance is recorded on a
- * stamp the executor turns into cache-tag expiry plus axis invalidation. Nothing
- * of that happens here. Do not add callers; P2e's gate (UNN-677) decides whether
- * finalize is routed through the executor or allowlisted with a rationale.
+ * All callers now supply the authority attempt's stamp. The architecture gate in
+ * `depcheck.mjs` rejects both a raw version increment elsewhere and an unapproved
+ * caller of this primitive or its stamped Stores.
  */
-
-export type EntityGuardError = "entity-not-found" | "stale"
 
 /**
  * The app-owned column half of a guarded write. Only the substrate content
  * columns are guarded here; the PC-lifecycle columns moved to the
  * `playerCharacter` subtype (R3 — UNN-573) and write unguarded through it —
- * `builderStep` as a plain subtype update, `status` as finalize's follow-on flip,
- * `campaignId` as placement (v1 parity).
+ * `builderStep` as a plain subtype update, `status` as finalize's transactional
+ * subtype flip, `campaignId` as placement (v1 parity).
  *
  * Since UNN-675 the *ordinary* writes to these columns come from
  * `identityWritePatch` through the `entity.identity` mutation, which composes
- * exactly this shape without going through `bumpEntityVersionGuarded`. This type
- * survives as the column half of {@link EntityRowPatch}, which finalize — the one
- * write spanning both halves — still needs.
+ * exactly this shape through {@link advanceEntityAxisGuarded}. This type survives
+ * as the column half of {@link EntityRowPatch}; finalize is the one registered
+ * mutation whose component patch spans several durable columns.
  */
 export type EntityColumnPatch = Partial<
   Pick<EntityRow, "name" | "portraitUrl" | "pronouns" | "notes">
@@ -94,7 +81,7 @@ export const VERSION_ROW_KEYS = {
 /** The atomic `<class>Version = <class>Version + 1` SET fragment for a write
  *  class — the increment half of any guarded entity write. Exported for the
  *  Headcanon handler (UNN-673). */
-export function entityVersionIncrement(
+function entityVersionIncrement(
   versionClass: VersionClass
 ): PgUpdateSetSource<typeof entity> {
   switch (versionClass) {
@@ -128,9 +115,6 @@ export function entityVersionIncrement(
  * the P2e gate (UNN-677) exists to forbid, so keeping the bump and the stamp in
  * one function makes the pair impossible to separate by accident.
  *
- * Compare {@link bumpEntityVersionGuarded}, the legacy form directly below: it
- * takes a client `expectedVersion`, reports a lost race as `"stale"` for the
- * caller to resolve, and pings instead of stamping. Only `finalize` still uses it.
  */
 export async function advanceEntityAxisGuarded(
   executor: WriteExecutor,
@@ -164,37 +148,4 @@ export async function advanceEntityAxisGuarded(
 
   stamp.record(entityAxisFor[versionClass](row.id), nextRevision.value)
   return committedVersion
-}
-
-async function staleOrMissing(
-  entityId: string
-): Promise<Result<never, EntityGuardError>> {
-  const [row] = await db
-    .select({ id: entity.id })
-    .from(entity)
-    .where(eq(entity.id, entityId))
-    .limit(1)
-  return row ? err("stale") : err("entity-not-found")
-}
-
-export async function bumpEntityVersionGuarded(
-  entityId: string,
-  versionClass: VersionClass,
-  expectedVersion: number,
-  patch: EntityRowPatch
-): Promise<Result<{ version: number }, EntityGuardError>> {
-  const column = VERSION_COLUMNS[versionClass]
-
-  const updated = await db
-    .update(entity)
-    .set({ ...patch, ...entityVersionIncrement(versionClass) })
-    .where(and(eq(entity.id, entityId), eq(column, expectedVersion)))
-    .returning({ version: column, shortId: entity.shortId })
-
-  if (updated.length === 0) return staleOrMissing(entityId)
-
-  const { version, shortId } = updated[0]!
-  publishCharacterPing(shortId, "entity", { [versionClass]: version })
-
-  return ok({ version })
 }

@@ -7,6 +7,7 @@ import { entityProtocol } from "@/domain/entity/commit/protocol"
 import { getDb } from "@/lib/db/client"
 
 import { executeEntityWrite } from "./execute-entity-write"
+import { executeFinalize } from "./execute-finalize"
 import { executeIdentityWrite } from "./execute-identity-write"
 import {
   entityInvalidationPublisher,
@@ -41,6 +42,7 @@ export const executeEntityMutation = createNextMutationExecutor({
   handlers: {
     "entity.write": executeEntityWrite,
     "entity.identity": executeIdentityWrite,
+    "entity.finalize": executeFinalize,
   },
   invalidations: entityInvalidationPublisher,
   reportInvalidationFailure,

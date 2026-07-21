@@ -268,20 +268,22 @@ intent such as “damage 2”: the server applies it to the row it just loaded.
 
 ### 6. Guarded update
 
-`bumpEntityVersionGuarded` performs one conditional update:
+`advanceEntityAxisGuarded` performs one conditional update inside a registered
+mutation attempt or an approved stamped Store:
 
 ```text
 UPDATE entity
 SET <writer patch>, <classVersion> = <classVersion> + 1
 WHERE id = <entityId> AND <classVersion> = <expectedVersion>
-RETURNING <new classVersion>, shortId
+RETURNING <new classVersion>
 ```
 
-If no row updates, a follow-up existence check distinguishes `stale` from
-`entity-not-found`. A guard rejection publishes no ping.
+If no row updates, the guard throws mutation contention so the authority can
+rerun the whole handler against current state.
 
-On success, the guard schedules an entity-kind character ping carrying only the
-class and new version. It does not publish entity data.
+On success, the guard records the class axis and new revision on the attempt
+stamp. The executor (or an approved external-commit finalizer) owns cache expiry
+and invalidation publication; the guard publishes no entity data.
 
 ### 7. Own-write reconciliation
 

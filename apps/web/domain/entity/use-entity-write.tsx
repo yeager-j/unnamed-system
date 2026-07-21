@@ -19,6 +19,7 @@ import { err, ok, type Result } from "@workspace/result"
 import type { CharacterProfile } from "@/domain/character/load"
 import type { IdentityWrite } from "@/domain/entity/commit/identity.schema"
 import {
+  entityFinalize,
   entityIdentity,
   entityWrite,
   type EntityCanonValue,
@@ -287,6 +288,24 @@ export function useIdentityWrite() {
     dispatchMutation(
       root.mutate(entityIdentity({ entityId, write })),
       "Couldn't save. Try again.",
+      opts
+    )
+  }
+
+  return { pending, dispatch }
+}
+
+/** The builder's terminal lifecycle command. It shares the root queue with
+ * identity autosaves, so finalize cannot race a pending rename, and its
+ * authority-side status flip is receipt-backed with the identity-axis bump. */
+export function useFinalizeEntity() {
+  const { entityId, root, pending, dispatchMutation } =
+    useProtocolDispatch("useFinalizeEntity")
+
+  function dispatch(opts?: EntityDispatchOptions) {
+    dispatchMutation(
+      root.mutate(entityFinalize({ entityId })),
+      "This character isn't ready to finalize.",
       opts
     )
   }

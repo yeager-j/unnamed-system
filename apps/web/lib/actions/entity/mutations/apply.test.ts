@@ -12,6 +12,7 @@ const requireEntityWriteAuthorized = vi.fn()
 const requireEntityOwner = vi.fn()
 const parseEntityWriteTarget = vi.fn()
 const parseIdentityWriteTarget = vi.fn()
+const parseFinalizeTarget = vi.fn()
 const executeEntityMutation = vi.fn()
 const revalidateCharacterList = vi.fn()
 const revalidateEntity = vi.fn()
@@ -47,6 +48,7 @@ vi.mock("./authorize", () => ({
     parseEntityWriteTarget(envelope),
   parseIdentityWriteTarget: (envelope: unknown) =>
     parseIdentityWriteTarget(envelope),
+  parseFinalizeTarget: (envelope: unknown) => parseFinalizeTarget(envelope),
 }))
 vi.mock("./executor", () => ({
   executeEntityMutation: (envelope: unknown, actor: unknown) =>
@@ -70,6 +72,10 @@ function identityTarget(field: string) {
   return { entityId: "e1", write: { field, value: "next" } }
 }
 
+function finalizeTarget() {
+  return { entityId: "e1" }
+}
+
 const accepted = ok({ kind: "accepted", stamp: { revisions: {} } })
 const acceptedStamping = (axis: string, revision: number) =>
   ok({ kind: "accepted", stamp: { revisions: { [axis]: revision } } })
@@ -81,6 +87,7 @@ beforeEach(() => {
   requireEntityOwner.mockResolvedValue(PC)
   parseEntityWriteTarget.mockReturnValue(null)
   parseIdentityWriteTarget.mockReturnValue(null)
+  parseFinalizeTarget.mockReturnValue(null)
   executeEntityMutation.mockResolvedValue(accepted)
 })
 
@@ -120,6 +127,21 @@ describe("applyEntityMutationAction", () => {
     expect(requireEntityOwner).toHaveBeenCalledWith("e1")
     expect(requireEntityWriteAuthorized).not.toHaveBeenCalled()
     expect(executeEntityMutation).toHaveBeenCalledOnce()
+  })
+
+  it("pre-authorizes finalize and bridges it on the identity axis", async () => {
+    parseFinalizeTarget.mockReturnValue(finalizeTarget())
+    executeEntityMutation.mockResolvedValue(
+      acceptedStamping(entityAxisFor.identity("e1"), 10)
+    )
+
+    await applyEntityMutationAction({})
+
+    expect(requireEntityOwner).toHaveBeenCalledWith("e1")
+    expect(publishCharacterPing).toHaveBeenCalledWith("abc123", "entity", {
+      identity: 10,
+    })
+    expect(revalidateCharacterList).toHaveBeenCalledOnce()
   })
 
   it("throws (never executes) when unauthenticated", async () => {

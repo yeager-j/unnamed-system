@@ -37,11 +37,11 @@ folder already says it (same rule as `lib/db/writes/`): `encounter/create.ts`,
 not `encounter/encounter-create.ts`. Each aggregate brings its own auth gate,
 concurrency token, and envelope:
 
-| Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
-| ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
-| `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates) for `entity.write`, strict owner for `entity.identity` — rerun inside the Store's transaction + pre-checked at the one door (UNN-674/675/676) | the Headcanon wire: `{ protocol, mutationId, invocation }` — **no expected revision, class, axis, or actor** | per-write-class on the `entity` row, **server-authoritative** (the Store reads the class version and guards on it; a lost race is authority contention, never a client-visible `stale`) |
-| `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
-| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
+| Aggregate    | Auth gate                                                                                                                                                                                                                                             | Envelope                                                                                                                                                                                                                                  | Concurrency                                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates) for `entity.write`, strict owner for `entity.identity` — rerun inside the Store's transaction + pre-checked at the one door (UNN-674/675/676) | the Headcanon wire: `{ protocol, mutationId, invocation }` — **no expected revision, class, axis, or actor**                                                                                                                              | per-write-class on the `entity` row, **server-authoritative** (the Store reads the class version and guards on it; a lost race is authority contention, never a client-visible `stale`) |
+| `encounter/` | `requireCampaignDM`                                                                                                                                                                                                                                   | `encounterMutationBase` (`{ encounterId, expectedVersion }`)                                                                                                                                                                              | single `version` per encounter                                                                                                                                                          |
+| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`)                                                                                                                                                             | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion`                                                                                    |
 
 > **The `entity/` aggregate (UNN-551; transactional refactor UNN-674)** is the
 > descriptor → Writer → Store pipeline for durable component writes. `commitEntityWrite`
@@ -65,10 +65,11 @@ concurrency token, and envelope:
 > untracked bump would strand a pending prediction under the mounted predicted
 > root (P2d). Portrait upload is deliberately two-stage (`portrait.ts` stores the
 > Blob and returns the URL; the mutation commits it), because a rerunnable handler
-> must not repeat a non-transactional effect. `bumpEntityVersionGuarded` now
-> survives only for `finalize` — the last version bump outside the protocol
-> (server-read guard since UNN-676), which P2e's gate (UNN-677) either routes or
-> allowlists.
+> must not repeat a non-transactional effect. Finalize joined the same registry in
+> UNN-677: its seeded component patch, identity-axis stamp, and
+> `playerCharacter.status` flip commit inside one receipt transaction. The
+> version-write tier in `depcheck.mjs` now rejects raw modeled bumps, unapproved
+> stamped-Store consumers, and external consumers missing their finalizer.
 
 > **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
 > writes now go exclusively through the `entity/` door (the descriptor → Writer →
@@ -150,7 +151,7 @@ Every door is built on **per-write-class optimistic concurrency**. The durable
 `inventoryVersion`, `progressionVersion` (`VersionClass`,
 [`lib/db/version-classes.ts`](../db/version-classes.ts)) — and a guarded write
 bumps exactly one while conditioning on `(id, <class>Version === expectedVersion)`:
-`bumpEntityVersionGuarded(entityId, class, expectedVersion, patch)`
+`advanceEntityAxisGuarded(executor, row, class, patch, stamp)`
 ([`lib/actions/entity/version-guard.ts`](./entity/version-guard.ts)). Each Writer
 declares which class it belongs to (`durableClass` on its `WriterMap` entry —
 CH4), so the class is a property of the write, decided once. The component-column
@@ -159,11 +160,12 @@ with `entity` component **columns**, so `SET`ing them touches only the written
 components and cannot clobber a sibling class's column. A multi-component patch
 (rest, levelUp) must keep its columns inside one class.
 
-`bumpEntityVersionGuarded` itself is down to one caller (`finalize`): the Stores
-that replaced it read the class version off the row they loaded and guard on
-**that**, so a client token is neither sent nor trusted, and a lost race is
-contention for the authority to rerun rather than a `stale` the client must
-resolve. Treat the client-token form as legacy; do not add callers.
+The Stores read the class version off the row they loaded and guard on **that**,
+so a client token is neither sent nor trusted, and a lost race is contention for
+the authority to rerun rather than a `stale` the client must resolve. Every call
+records the accepted revision on a stamp; registered handlers let the executor
+finalize it, while the one approved external combat arm calls
+`finalizeExternalActionCommit` explicitly.
 
 The other aggregates carry a single `version` per row (`encounter`,
 `map-instance`, …), bumped and guarded the same way. Every wrapper:
@@ -232,12 +234,12 @@ optimistic state when the transition resolves. (Encounters use the sibling
 
 ## Failure modes the UI must handle
 
-| Error code                                   | Surface                                                                                             |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                    |
-| `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                   |
+| Error code                                   | Surface                                                                                                                                                                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                                                                                                                                                                                               |
+| `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                                                                                                                                                                                              |
 | `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback. (Non-entity aggregates only — entity-protocol contention is classified retryable: the predicted root redelivers on a bounded backoff and only then degrades to `delivery: "uncertain"`.) |
-| Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered).   |
+| Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered).                                                                                                                                                                              |
 
 Auth-gate failures throw via Next's `forbidden()` and never return — the client
 sees a 403, not an error code. Do not try to handle this in the UI: the affordance
