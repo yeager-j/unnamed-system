@@ -8,7 +8,7 @@ const requireActor = vi.fn()
 const authorizeEntityWrite = vi.fn()
 const parseEntityWriteTarget = vi.fn()
 const executeEntityMutation = vi.fn()
-const revalidatePath = vi.fn()
+const revalidateCharacterList = vi.fn()
 
 vi.mock("@/lib/auth/actor", () => ({
   requireActor: () => requireActor(),
@@ -22,8 +22,8 @@ vi.mock("./executor", () => ({
   executeEntityMutation: (envelope: unknown, actor: unknown) =>
     executeEntityMutation(envelope, actor),
 }))
-vi.mock("next/cache", () => ({
-  revalidatePath: (path: string) => revalidatePath(path),
+vi.mock("../revalidate", () => ({
+  revalidateCharacterList: () => revalidateCharacterList(),
 }))
 
 const { applyEntityMutationAction } = await import("./apply")
@@ -83,7 +83,7 @@ describe("applyEntityMutationAction (AC #5)", () => {
   it("revalidates the character list only for level and archetype writes", async () => {
     parseEntityWriteTarget.mockReturnValue(target("level"))
     await applyEntityMutationAction({})
-    expect(revalidatePath).toHaveBeenCalledWith("/characters")
+    expect(revalidateCharacterList).toHaveBeenCalledOnce()
 
     vi.clearAllMocks()
     requireActor.mockResolvedValue(ACTOR)
@@ -92,6 +92,6 @@ describe("applyEntityMutationAction (AC #5)", () => {
     )
     parseEntityWriteTarget.mockReturnValue(target("vitals"))
     await applyEntityMutationAction({})
-    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(revalidateCharacterList).not.toHaveBeenCalled()
   })
 })

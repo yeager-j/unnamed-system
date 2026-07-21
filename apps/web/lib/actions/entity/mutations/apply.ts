@@ -1,9 +1,8 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-
 import { requireActor } from "@/lib/auth/actor"
 
+import { revalidateCharacterList } from "../revalidate"
 import { authorizeEntityWrite, parseEntityWriteTarget } from "./authorize"
 import { executeEntityMutation } from "./executor"
 
@@ -33,15 +32,16 @@ export async function applyEntityMutationAction(envelope: unknown) {
 
   const outcome = await executeEntityMutation(envelope, actor)
 
-  // A level or Archetype change alters the character-list summary, which does
-  // not observe the entity's own axes — so the executor's axis finalization does
-  // not cover it. Everything else is reconciled by the executor's own refresh.
+  // A level or Archetype change alters the My Characters summary, which does not
+  // observe the entity's own axes — so the executor's axis finalization does not
+  // cover it. Reuse the same helper the legacy door does (it revalidates `/`,
+  // where the list renders). Everything else is reconciled by the executor.
   if (
     outcome.ok &&
     (target?.write.component === "level" ||
       target?.write.component === "archetypes")
   ) {
-    revalidatePath("/characters")
+    revalidateCharacterList()
   }
 
   return outcome
