@@ -7,6 +7,7 @@ import { entityProtocol } from "@/domain/entity/commit/protocol"
 import { getDb } from "@/lib/db/client"
 
 import { executeEntityWrite } from "./execute-entity-write"
+import { executeIdentityWrite } from "./execute-identity-write"
 import {
   entityInvalidationPublisher,
   reportInvalidationFailure,
@@ -15,8 +16,12 @@ import { parseEntityMutationRejection } from "./rejection"
 import type { EntityMutationActor } from "./types"
 
 /**
- * The Headcanon entity mutation executor (UNN-673) — the authoritative half of
- * the `entity.write` binding. It admits and re-parses the envelope, dedupes by
+ * The Headcanon entity mutation executor (UNN-673/UNN-675) — the authoritative
+ * half of every registered entity mutation: `entity.write` (engine components)
+ * and `entity.identity` (the app-owned identity columns). Both land on the same
+ * receipt ledger and the same axis namespace, so an identity write cannot advance
+ * `entity/{id}/identity` without expiring its cache tag and publishing its
+ * invalidation. It admits and re-parses the envelope, dedupes by
  * `(actor scope, mutation id)` through the Drizzle receipt ledger, runs the
  * transactional handler with bounded contention retry, and on acceptance expires
  * each stamped axis's cache tag, refreshes the route, and publishes one axis
@@ -35,6 +40,7 @@ export const executeEntityMutation = createNextMutationExecutor({
   }),
   handlers: {
     "entity.write": executeEntityWrite,
+    "entity.identity": executeIdentityWrite,
   },
   invalidations: entityInvalidationPublisher,
   reportInvalidationFailure,
