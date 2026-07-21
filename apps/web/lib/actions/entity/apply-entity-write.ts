@@ -1,21 +1,13 @@
 "use server"
 
-import { forbidden } from "next/navigation"
-
-import { isNarrativelyLocked } from "@workspace/game-v2/archetypes/atlas"
 import { type Result } from "@workspace/result"
-
-import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
-import { getArchetype } from "@/domain/game-engine-v2"
-import { loadNarrativeGate } from "@/domain/planner/load-narrative-gate"
-import { auth } from "@/lib/auth"
-import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
 
 import {
   ApplyEntityWriteSchema,
   type ApplyEntityWriteError,
   type ApplyEntityWriteInput,
 } from "./apply-entity-write.schema"
+import { refuseGatedArchetypeSpend } from "./archetype-gate"
 import { commitEntityWrite, type EntityCommit } from "./entity-row-store"
 import { revalidateCharacterList, revalidateEntity } from "./revalidate"
 
@@ -40,23 +32,11 @@ export async function applyEntityWriteAction(
   if (!parsed.success) return { ok: false, error: "invalid-input" }
 
   // Spending a Rank on a restricted Archetype is the one write whose legality
-  // depends on the viewer's identity, not just the stored state: the pure
-  // Writer is catalog-only (it runs on the optimistic client too), so the
-  // per-user allowlist gate that keeps a gated Archetype out of a non-
-  // allowlisted viewer's Atlas is re-enforced here at the door.
+  // depends on the viewer's identity and the campaign story, not just the stored
+  // state — re-enforced here at the door (the pure Writer is catalog-only and
+  // runs on the optimistic client too). Shared with the Headcanon door.
   const { write } = parsed.data
-  if (write.component === "archetypes" && write.op === "spendArchetypeRank") {
-    const session = await auth()
-    if (
-      hiddenArchetypeKeysFor(session?.user?.email).includes(write.archetypeKey)
-    ) {
-      forbidden()
-    }
-    await refuseNarrativelyLockedUnlock(
-      parsed.data.entityId,
-      write.archetypeKey
-    )
-  }
+  await refuseGatedArchetypeSpend(parsed.data.entityId, write)
 
   const result = await commitEntityWrite(
     parsed.data.entityId,
@@ -72,40 +52,4 @@ export async function applyEntityWriteAction(
   }
 
   return result
-}
-
-/**
- * The narrative gate's write-side arm (UNN-581, D8 — the same two-consumer
- * pattern as the restricted-Archetype gate above): a placed character in a
- * gating-enabled campaign may not unlock an Archetype whose tier the story
- * hasn't opened. Resolves the gate through the same `loadNarrativeGate` +
- * `isNarrativelyLocked` the Atlas renders from, so what displays locked and
- * what refuses to unlock can't drift. Ranking up an **owned** Archetype stays
- * legal — acquisition is permanent; a bond regress never re-locks holdings.
- * The common paths (not placed / gating off) short-circuit after two reads.
- */
-async function refuseNarrativelyLockedUnlock(
-  entityId: string,
-  archetypeKey: string
-): Promise<void> {
-  const character = await loadPlayerCharacterById(entityId)
-  if (!character?.campaignId) return
-
-  const archetypes = character.entity.archetypes
-  const owned = archetypes?.roster.some((entry) => entry.key === archetypeKey)
-  if (owned) return
-
-  const gate = await loadNarrativeGate({
-    campaignId: character.campaignId,
-    originArchetypeKey: archetypes?.origin ?? null,
-  })
-  if (gate === undefined) return
-
-  const target = getArchetype(archetypeKey)
-  if (!target) return
-
-  const originLineage = archetypes?.origin
-    ? (getArchetype(archetypes.origin)?.lineage ?? null)
-    : null
-  if (isNarrativelyLocked(target, gate, originLineage)) forbidden()
 }
