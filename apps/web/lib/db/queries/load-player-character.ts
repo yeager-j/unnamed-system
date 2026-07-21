@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 import {
   playerCharacter,
@@ -76,11 +76,16 @@ export async function loadLivePlayerCharactersByIds(
  * **`deletedAt`-blind** — for the auth gates, which authorize by ownership over a
  * pinned id (the discovery filter already denies every surface a write path to a
  * tombstone) and hand the loaded PC back so the caller doesn't re-query.
+ *
+ * Accepts an optional `executor` so the transactional entity handler can read the
+ * authorization row inside its own attempt's snapshot (UNN-674); defaults to the
+ * standalone `db` client for every other caller.
  */
 export async function loadPlayerCharacterById(
-  entityId: string
+  entityId: string,
+  executor: WriteExecutor = db
 ): Promise<LoadedPlayerCharacter | null> {
-  const [row] = await db
+  const [row] = await executor
     .select({ entity, pc: playerCharacter })
     .from(entity)
     .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))

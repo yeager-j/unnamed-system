@@ -80,7 +80,12 @@ const loaded: LoadedCharacter = {
 }
 
 const commit = (version: number): Result<EntityCommit, never> =>
-  ok({ version, shortId: "abc123", status: "finalized" })
+  ok({
+    version,
+    shortId: "abc123",
+    versionClass: "vitals",
+    status: "finalized",
+  })
 
 const damage: EntityWrite = { component: "vitals", op: "damage", amount: 1 }
 const talents: EntityWrite = {

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   campaigns,
   campaignUsers,
@@ -24,11 +24,14 @@ import {
  * campaign's placed characters (`entity.campaignId`, UNN-556) onto each member.
  */
 
-/** The raw `campaigns` row by id, or `null` when no campaign matches. */
+/** The raw `campaigns` row by id, or `null` when no campaign matches. Accepts an
+ *  optional `executor` so the transactional entity handler's campaign-DM check
+ *  reads inside its own attempt's snapshot (UNN-674); defaults to `db`. */
 export async function loadCampaignRowById(
-  campaignId: string
+  campaignId: string,
+  executor: WriteExecutor = db
 ): Promise<CampaignRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(campaigns)
     .where(eq(campaigns.id, campaignId))

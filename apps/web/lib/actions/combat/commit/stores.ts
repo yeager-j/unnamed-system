@@ -1,3 +1,5 @@
+import { forbidden } from "next/navigation"
+
 import {
   createReduceSession,
   saveSession,
@@ -10,16 +12,24 @@ import {
   type SessionEvent,
 } from "@workspace/game-v2/encounter/session-event"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { createStampAccumulator } from "@workspace/headcanon"
+import { MutationContentionError } from "@workspace/headcanon/drizzle"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 import { applyEntityWrite } from "@/domain/entity/commit/writers"
+import { requireActor } from "@/lib/auth/actor"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
+import { db } from "@/lib/db/client"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
-import { publishEncounterPing } from "@/lib/realtime/publish"
+import {
+  publishCharacterPing,
+  publishEncounterPing,
+} from "@/lib/realtime/publish"
 
 import { revalidateEncounter } from "../../encounter/revalidate"
+import { isEntityWriteAuthRejection } from "../../entity/authorize-write"
 import { commitEntityWrite } from "../../entity/entity-row-store"
 import type { ApplyCombatantWriteError } from "./apply-combatant-write.schema"
 
@@ -143,38 +153,57 @@ export function sessionStore(context: {
 /**
  * The **durable** home is the encounter's **address adapter** (UNN-551): the
  * participant is a reference to an `entity` row, so this forwards to the shared
- * native `commitEntityWrite` — the *same* `Writer ∘ entityRowStore` composition
- * the character surfaces use. It owns nothing the character door doesn't: auth
- * (owner-or-campaign-DM, inside `commitEntityWrite`), the pure Writer, the guarded
- * component-column write, and the realtime ping (in the version guard). The only
- * combat-specific thing here is that the address was an `entityId` resolved from a
- * participant locator rather than passed directly.
+ * executor-neutral `commitEntityWrite` — the *same* `Writer ∘ entityRowStore`
+ * composition the character surfaces use. It runs the Store standalone (`db`
+ * executor) and owns the post-commit finalization the Store leaves to its caller:
+ * the character-channel ping (relocated out of the version guard, UNN-674) and
+ * this encounter's route revalidation. The only combat-specific thing is that the
+ * address was an `entityId` resolved from a participant locator rather than passed
+ * directly.
  *
- * Signed depletion is native now, so over-max HP works and `setMax` is a real
- * write — the v1 interim semantics (absolute columns, `unsupported-durable-write`)
- * are gone with the per-field wrappers this used to delegate to.
+ * Authorization (owner-or-campaign-DM for the `vitals` class these writes use)
+ * runs inside the Store against the authenticated actor and returns a typed
+ * refusal; this arm translates it to `forbidden()` to keep combat's 403 posture.
+ * The Store reads the entity version server-side, so the durable arm no longer
+ * consumes the wire's `expectedCharacterVersion` (kept required at the router for
+ * wire compatibility); a lost race surfaces as `"stale"` for the console's
+ * one-shot retry. Signed depletion is native, so over-max HP and `setMax` work.
  *
- * On success it also revalidates **this encounter's** route (UNN-567):
- * `commitEntityWrite` pings only the character channel, so without the
- * revalidation the console's optimistic frame dropped on settle and briefly
- * showed the stale base until the pc-ping's refresh landed. With it, the RSC
- * payload rides the transition response exactly like the session arm's.
+ * On success it revalidates **this encounter's** route (UNN-567) so the console's
+ * optimistic base catches up on the transition response like the session arm's;
+ * the ping still invalidates every other watcher of the character channel.
  */
 export function entityRowStore(context: {
   row: EncounterRow
   entityId: string
-  expectedVersion: number
 }): CombatantStore {
   return {
     auth: "owner-or-campaign-dm",
     async commit(write) {
-      const committed = await commitEntityWrite(
-        context.entityId,
-        write,
-        context.expectedVersion
-      )
-      if (!committed.ok) return committed
+      const actor = await requireActor()
+      const stamp = createStampAccumulator()
 
+      let committed: Awaited<ReturnType<typeof commitEntityWrite>>
+      try {
+        committed = await commitEntityWrite(
+          db,
+          actor,
+          { entityId: context.entityId, write },
+          stamp
+        )
+      } catch (error) {
+        if (error instanceof MutationContentionError) return err("stale")
+        throw error
+      }
+
+      if (!committed.ok) {
+        if (isEntityWriteAuthRejection(committed.error)) forbidden()
+        return { ok: false, error: committed.error }
+      }
+
+      publishCharacterPing(committed.value.shortId, "entity", {
+        [committed.value.versionClass]: committed.value.version,
+      })
       revalidateEncounter(context.row)
       return ok({
         version: committed.value.version,

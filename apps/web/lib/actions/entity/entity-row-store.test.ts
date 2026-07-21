@@ -1,175 +1,224 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { ok } from "@workspace/result"
+import { createStampAccumulator } from "@workspace/headcanon"
+import { MutationContentionError } from "@workspace/headcanon/drizzle"
+import { err, ok } from "@workspace/result"
 
-import { commitEntityWrite } from "./entity-row-store"
+import { entityVitalsAxis } from "@/lib/db/axes"
+
+// The handler pulls `server-only` transitively (version-guard → realtime/publish);
+// neutralize the build-time guard for the node runner.
+vi.mock("server-only", () => ({}))
 
 /**
- * The durable Store's native commit path (UNN-551). The auth gate and the guarded
- * column write are stubbed; the real assemble seam + the real Writers run — the
- * contract under test is that a component write flows auth → assemble → pure Writer
- * → guarded patch with **v2 semantics** (signed depletion, no v1 clamp), and that a
- * refusal short-circuits before the guard.
+ * The executor-neutral durable Store `commitEntityWrite` (UNN-674) — the one
+ * implementation the Headcanon handler and the standalone doors share. The two
+ * impure collaborators are stubbed (the authoritative load and the contextual
+ * authorization, each proven in its own home); the real assemble seam + the real
+ * Writers run. The contract under test: a component write flows load → authorize →
+ * pure Writer → server-authoritative guarded write → axis stamp, an authorization
+ * refusal and a Writer refusal short-circuit before the guard, and a lost race is
+ * contention (not a rejection). No client `expectedVersion` on the wire — the guard
+ * reads the version off the loaded row.
  */
-const requireOwnerOrCampaignDMForEntity = vi.fn()
-const requireEntityOwner = vi.fn()
-const bumpEntityVersionGuarded = vi.fn()
+const loadPlayerCharacterById = vi.fn()
+const authorizeEntityWrite = vi.fn()
 
-vi.mock("@/lib/auth/campaign-access", () => ({
-  requireOwnerOrCampaignDMForEntity: (id: string) =>
-    requireOwnerOrCampaignDMForEntity(id),
-  requireEntityOwner: (id: string) => requireEntityOwner(id),
+vi.mock("@/lib/db/queries/load-player-character", () => ({
+  loadPlayerCharacterById: (id: string, executor: unknown) =>
+    loadPlayerCharacterById(id, executor),
 }))
-vi.mock("./version-guard", () => ({
-  bumpEntityVersionGuarded: (
-    id: string,
-    cls: string,
-    v: number,
-    patch: unknown
-  ) => bumpEntityVersionGuarded(id, cls, v, patch),
+vi.mock("./authorize-write", () => ({
+  authorizeEntityWrite: (
+    executor: unknown,
+    actor: unknown,
+    pc: unknown,
+    write: unknown
+  ) => authorizeEntityWrite(executor, actor, pc, write),
 }))
+
+const { commitEntityWrite } = await import("./entity-row-store")
+
+const ENTITY_ID = "e1"
+const ACTOR = { userId: "u1", email: "u1@example.com" }
 
 /** A minimal `entity` row the assemble seam projects — only the columns a test
  *  reads need be present; absent component columns are simply absent components. */
 function row(overrides: Record<string, unknown>) {
   return {
-    id: "e1",
+    id: ENTITY_ID,
     shortId: "s1",
     name: "Momo",
     portraitUrl: null,
     pronouns: null,
+    vitalsVersion: 3,
     ...overrides,
   }
 }
 
-/** The loaded player character the auth gates now return (R3 — UNN-573): the
+/** The loaded player character the authoritative load returns (R3 — UNN-573): the
  *  subtype row (here just `status`) carrying its `entity` substrate. */
 function loaded(overrides: Record<string, unknown>) {
   return { status: "finalized" as const, entity: row(overrides) }
 }
 
+/** A chainable stand-in for the guarded UPDATE; `updated` is what `.returning()`
+ *  yields, so `[]` models a lost race and a row models acceptance. */
+function fakeExecutor(updated: { version: number; shortId: string }[]): {
+  executor: unknown
+  updateCalled: () => boolean
+} {
+  let called = false
+  const chain = {
+    set: () => chain,
+    where: () => chain,
+    returning: async () => {
+      called = true
+      return updated
+    },
+  }
+  return { executor: { update: () => chain }, updateCalled: () => called }
+}
+
 beforeEach(() => {
-  requireOwnerOrCampaignDMForEntity.mockReset()
-  requireEntityOwner.mockReset()
-  bumpEntityVersionGuarded.mockReset().mockResolvedValue(ok({ version: 8 }))
+  loadPlayerCharacterById.mockReset()
+  authorizeEntityWrite.mockReset().mockResolvedValue(ok(undefined))
 })
 
-describe("commitEntityWrite — native durable component writes", () => {
-  it("commits a vitals damage patch on the vitals class, keyed to the entity", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
+describe("commitEntityWrite — executor-neutral durable component writes", () => {
+  it("loads, authorizes, predicts, guards, and stamps the write's class axis", async () => {
+    loadPlayerCharacterById.mockResolvedValue(
       loaded({ vitals: { base: 20, damage: 0 } })
     )
+    const stamp = createStampAccumulator()
+    const { executor } = fakeExecutor([{ version: 8, shortId: "s1" }])
 
     const result = await commitEntityWrite(
-      "e1",
-      { component: "vitals", op: "damage", amount: 7 },
-      3
+      executor as never,
+      ACTOR,
+      {
+        entityId: ENTITY_ID,
+        write: { component: "vitals", op: "damage", amount: 7 },
+      },
+      stamp
     )
 
     expect(result).toEqual(
-      ok({ version: 8, shortId: "s1", status: "finalized" })
+      ok({
+        version: 8,
+        shortId: "s1",
+        versionClass: "vitals",
+        status: "finalized",
+      })
     )
-    expect(bumpEntityVersionGuarded).toHaveBeenCalledWith("e1", "vitals", 3, {
-      vitals: { base: 20, damage: 7 },
+    expect(stamp.accepted().revisions).toEqual({
+      [entityVitalsAxis(ENTITY_ID)]: 8,
     })
+    expect(loadPlayerCharacterById).toHaveBeenCalledWith(ENTITY_ID, executor)
   })
 
-  it("over-max HP works on a durable row (heal preserves negative depletion — no v1 clamp)", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: -3 } })
-    )
-
-    await commitEntityWrite(
-      "e1",
-      { component: "vitals", op: "heal", amount: 5 },
-      3
-    )
-
-    // v1 would have clamped currentHP to maxHP (damage floored at 0); v2 keeps the
-    // over-max balance as negative `damage`.
-    expect(bumpEntityVersionGuarded).toHaveBeenCalledWith("e1", "vitals", 3, {
-      vitals: { base: 20, damage: -3 },
-    })
-  })
-
-  it("setMax is a real write on a durable row now (no `unsupported-durable-write`)", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      loaded({ vitals: { base: 20, damage: 4 } })
-    )
+  it("rejects a missing entity without authorizing or writing", async () => {
+    loadPlayerCharacterById.mockResolvedValue(null)
+    const stamp = createStampAccumulator()
+    const { executor, updateCalled } = fakeExecutor([])
 
     const result = await commitEntityWrite(
-      "e1",
-      { component: "vitals", op: "setMax", amount: 40 },
-      3
+      executor as never,
+      ACTOR,
+      {
+        entityId: ENTITY_ID,
+        write: { component: "vitals", op: "damage", amount: 1 },
+      },
+      stamp
     )
 
-    expect(result.ok).toBe(true)
-    expect(bumpEntityVersionGuarded).toHaveBeenCalledWith("e1", "vitals", 3, {
-      vitals: { base: 40, damage: 4 },
-    })
+    expect(result).toEqual({ ok: false, error: "entity-not-found" })
+    expect(authorizeEntityWrite).not.toHaveBeenCalled()
+    expect(updateCalled()).toBe(false)
+  })
+
+  it("forwards a contextual authorization refusal before the guard", async () => {
+    loadPlayerCharacterById.mockResolvedValue(
+      loaded({ vitals: { base: 20, damage: 0 } })
+    )
+    authorizeEntityWrite.mockResolvedValue(err("unauthorized"))
+    const stamp = createStampAccumulator()
+    const { executor, updateCalled } = fakeExecutor([])
+
+    const result = await commitEntityWrite(
+      executor as never,
+      ACTOR,
+      {
+        entityId: ENTITY_ID,
+        write: { component: "vitals", op: "damage", amount: 1 },
+      },
+      stamp
+    )
+
+    expect(result).toEqual({ ok: false, error: "unauthorized" })
+    expect(updateCalled()).toBe(false)
+    expect(stamp.accepted().revisions).toEqual({})
   })
 
   it("refuses a write against an absent component before the guard", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
+    loadPlayerCharacterById.mockResolvedValue(
       loaded({ vitals: { base: 20, damage: 0 } })
     )
+    const stamp = createStampAccumulator()
+    const { executor, updateCalled } = fakeExecutor([])
 
     const result = await commitEntityWrite(
-      "e1",
-      { component: "skillPool", op: "damage", amount: 2 },
-      3
+      executor as never,
+      ACTOR,
+      {
+        entityId: ENTITY_ID,
+        write: { component: "skillPool", op: "damage", amount: 2 },
+      },
+      stamp
     )
 
     expect(result).toEqual({ ok: false, error: "capability-missing" })
-    expect(bumpEntityVersionGuarded).not.toHaveBeenCalled()
+    expect(updateCalled()).toBe(false)
   })
 
-  it("gates a vitals-class write owner-or-campaign-DM, never the strict-owner gate", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
+  it("throws contention (not a rejection) when the guarded write loses a race", async () => {
+    loadPlayerCharacterById.mockResolvedValue(
       loaded({ vitals: { base: 20, damage: 0 } })
     )
+    const stamp = createStampAccumulator()
+    const { executor } = fakeExecutor([])
 
-    await commitEntityWrite(
-      "e1",
-      { component: "vitals", op: "damage", amount: 1 },
-      3
-    )
-
-    expect(requireOwnerOrCampaignDMForEntity).toHaveBeenCalledWith("e1")
-    expect(requireEntityOwner).not.toHaveBeenCalled()
-  })
-
-  it("gates a non-vitals-class write strict-owner — a campaign DM cannot rewrite creation/identity state", async () => {
-    requireEntityOwner.mockResolvedValue(loaded({}))
-
-    const result = await commitEntityWrite(
-      "e1",
-      {
-        component: "narrative",
-        op: "setField",
-        field: "secrets",
-        value: "only mine",
-      },
-      3
-    )
-
-    expect(requireEntityOwner).toHaveBeenCalledWith("e1")
-    expect(requireOwnerOrCampaignDMForEntity).not.toHaveBeenCalled()
-    expect(result.ok).toBe(true)
+    await expect(
+      commitEntityWrite(
+        executor as never,
+        ACTOR,
+        {
+          entityId: ENTITY_ID,
+          write: { component: "vitals", op: "damage", amount: 1 },
+        },
+        stamp
+      )
+    ).rejects.toBeInstanceOf(MutationContentionError)
   })
 
   it("errs `entity-load-failed` when the stored components are malformed", async () => {
-    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
+    loadPlayerCharacterById.mockResolvedValue(
       loaded({ vitals: { base: "not-a-number" } })
     )
+    const stamp = createStampAccumulator()
+    const { executor, updateCalled } = fakeExecutor([])
 
     const result = await commitEntityWrite(
-      "e1",
-      { component: "vitals", op: "damage", amount: 1 },
-      3
+      executor as never,
+      ACTOR,
+      {
+        entityId: ENTITY_ID,
+        write: { component: "vitals", op: "damage", amount: 1 },
+      },
+      stamp
     )
 
     expect(result).toEqual({ ok: false, error: "entity-load-failed" })
-    expect(bumpEntityVersionGuarded).not.toHaveBeenCalled()
+    expect(updateCalled()).toBe(false)
   })
 })
