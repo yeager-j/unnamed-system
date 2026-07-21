@@ -12,15 +12,18 @@ import {
   axisId,
   defineMutation,
   defineProtocol,
+  rejections,
   revisionVector,
   type AcceptedStamp,
   type Canon,
 } from "./index"
 import {
   createPredictedRoot,
+  RetryableDeliveryError,
   useSnapshotRefresh,
   type MutationEnvelope,
   type MutationReceipt,
+  type PredictedRootOptions,
 } from "./react"
 
 type CounterError = { readonly code: "prediction-refused" }
@@ -533,5 +536,195 @@ describe("createPredictedRoot", () => {
     await expect(receipt!.canonized).resolves.toEqual(
       err({ kind: "root-unmounted", outcome: "accepted" })
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Heterogeneous protocols + declared rejections (UNN-676)
+// ---------------------------------------------------------------------------
+
+type SetArgs = { readonly to: number }
+
+const setArgsSchema: StandardSchemaV1<unknown, SetArgs> = {
+  "~standard": {
+    version: 1,
+    vendor: "headcanon-test",
+    validate(value) {
+      return { value: value as SetArgs }
+    },
+  },
+}
+
+const set = defineMutation({
+  name: "counter.set",
+  args: setArgsSchema,
+  predict(state: number, args): Result<number, CounterError> {
+    void state
+    return ok(args.to)
+  },
+})
+
+/** Two mutations with DIFFERENT argument schemas plus a declared authority
+ *  rejection — the shape that used to collapse `StateOf`/`ErrorOf` to `never`
+ *  (non-distributive inference over the mutation union). */
+const mixedProtocol = defineProtocol({
+  id: "test.counter.mixed.v1",
+  mutations: [add, set],
+  rejections: rejections<"counter-gone">(),
+})
+
+// Compile-time regression: a send returning the full client error union —
+// predictor refusals ∪ declared rejections — must satisfy the options type.
+// With the collapsed-to-`never` bug (or without the rejections declaration)
+// this assignment fails to typecheck.
+const _mixedSendProbe: PredictedRootOptions<
+  typeof mixedProtocol
+>["send"] = async () => err<CounterError | "counter-gone">("counter-gone")
+void _mixedSendProbe
+
+describe("createPredictedRoot — declared authority rejections", () => {
+  it("rolls back a prediction rejected with a protocol-declared rejection", async () => {
+    const deliveries: Array<{
+      envelope: MutationEnvelope<
+        ReturnType<typeof add> | ReturnType<typeof set>
+      >
+      resolve: (
+        outcome: Result<AcceptedStamp, CounterError | "counter-gone">
+      ) => void
+    }> = []
+    const useMixedPredictions = createPredictedRoot({
+      protocol: mixedProtocol,
+      send: (envelope) =>
+        new Promise((resolve) => {
+          deliveries.push({ envelope, resolve })
+        }),
+      refresh: useNoRefresh,
+    })
+    const initialCanon = canon(0, 0)
+    const { result } = renderHook(() =>
+      useMixedPredictions({ canon: initialCanon })
+    )
+
+    let receipt!: MutationReceipt<CounterError | "counter-gone">
+    act(() => {
+      const outcome = result.current.mutate(set({ to: 5 }))
+      if (!outcome.ok) throw new Error("unexpected local refusal")
+      receipt = outcome.value
+    })
+    expect(result.current.value).toBe(5)
+
+    await act(async () => deliveries[0]?.resolve(err("counter-gone")))
+
+    await expect(receipt.accepted).resolves.toEqual(
+      err({ kind: "domain", error: "counter-gone" })
+    )
+    expect(result.current.value).toBe(0)
+    expect(result.current.status.pending).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Retryable delivery (exhausted authority contention) — UNN-676
+// ---------------------------------------------------------------------------
+
+describe("createPredictedRoot — retryable delivery", () => {
+  it("redelivers the same envelope on a backoff after a retryable classification", async () => {
+    vi.useFakeTimers()
+    try {
+      const sent: MutationEnvelope<CounterInvocation>[] = []
+      let failures = 1
+      const send = vi.fn(
+        async (envelope: MutationEnvelope<CounterInvocation>) => {
+          sent.push(envelope)
+          if (failures > 0) {
+            failures -= 1
+            throw new RetryableDeliveryError("contention")
+          }
+          return ok(stamp(1))
+        }
+      )
+      const usePredictions = createPredictedRoot({
+        protocol: counterProtocol,
+        send,
+        refresh: useNoRefresh,
+      })
+      const initialCanon = canon(0, 0)
+      const { result } = renderHook(() =>
+        usePredictions({ canon: initialCanon })
+      )
+
+      let receipt!: MutationReceipt<CounterError>
+      act(() => {
+        const outcome = result.current.mutate(add({ amount: 1 }))
+        if (!outcome.ok) throw new Error("unexpected local refusal")
+        receipt = outcome.value
+      })
+      await act(async () => {})
+      expect(send).toHaveBeenCalledTimes(1)
+
+      // The prediction survives and the caller still reads an in-flight send,
+      // never a scary uncertain state, while the backoff runs.
+      expect(result.current.value).toBe(1)
+      expect(result.current.status.delivery).toBe("sending")
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300)
+      })
+
+      expect(send).toHaveBeenCalledTimes(2)
+      expect(sent[1]!.mutationId).toBe(sent[0]!.mutationId)
+      expect(sent[1]!.invocation).toEqual(sent[0]!.invocation)
+      await expect(receipt.accepted).resolves.toEqual(ok(stamp(1)))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("exhausts the redelivery budget into uncertain; manual retry earns a fresh budget", async () => {
+    vi.useFakeTimers()
+    try {
+      let failures = 4 // initial + the full 300/1000/3000 budget
+      const send = vi.fn(
+        async (_envelope: MutationEnvelope<CounterInvocation>) => {
+          if (failures > 0) {
+            failures -= 1
+            throw new RetryableDeliveryError("contention")
+          }
+          return ok(stamp(1))
+        }
+      )
+      const usePredictions = createPredictedRoot({
+        protocol: counterProtocol,
+        send,
+        refresh: useNoRefresh,
+      })
+      const initialCanon = canon(0, 0)
+      const { result } = renderHook(() =>
+        usePredictions({ canon: initialCanon })
+      )
+
+      act(() => {
+        const outcome = result.current.mutate(add({ amount: 1 }))
+        if (!outcome.ok) throw new Error("unexpected local refusal")
+      })
+      await act(async () => {})
+      for (const delay of [300, 1000, 3000]) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(delay)
+        })
+      }
+
+      expect(send).toHaveBeenCalledTimes(4)
+      expect(result.current.status.delivery).toBe("uncertain")
+      // The prediction is preserved for the honest retry affordance.
+      expect(result.current.value).toBe(1)
+
+      act(() => result.current.retryDelivery())
+      await act(async () => {})
+      expect(send).toHaveBeenCalledTimes(5)
+      expect(result.current.status.delivery).toBe("idle")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

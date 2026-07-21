@@ -294,17 +294,23 @@ export function useIdentityWrite() {
   return { pending, dispatch }
 }
 
+/** The autosave settle vocabulary: the protocol's typed failures plus the
+ *  app-local `"save-interrupted"` — a cancelled navigation or an unmount whose
+ *  delivery outcome is unproven. Transient; the next edit retries. */
+export type EntityAutoSaveError = EntityMutationError | "save-interrupted"
+
 /**
  * Settles one autosave-issued mutation into the debounced hook's Result
  * vocabulary. Acceptance (even one learned during unmount) confirms the value;
  * a domain rejection reports typed; a cancelled or unproven delivery reports
- * `"contention"` — transient, retried by the next edit — because no receipt
- * exists to say anything stronger.
+ * `"save-interrupted"` because no receipt exists to say anything stronger.
+ * (Authority contention never reaches here — the send adapter classifies it
+ * retryable and the package redelivers.)
  */
 async function settleAutoSave<TValue>(
   value: TValue,
   result: EntityMutationResult
-): Promise<Result<{ value: TValue }, EntityMutationError>> {
+): Promise<Result<{ value: TValue }, EntityAutoSaveError>> {
   if (!result.ok) return err(result.error)
 
   const accepted = await result.value.accepted
@@ -317,7 +323,7 @@ async function settleAutoSave<TValue>(
   if (failure.kind === "root-unmounted" && failure.outcome === "accepted") {
     return ok({ value })
   }
-  return err("contention")
+  return err("save-interrupted")
 }
 
 /**
@@ -327,7 +333,7 @@ async function settleAutoSave<TValue>(
  * route revalidation catches the base up.
  */
 export function useEntityAutoSave(
-  args: Omit<UseDebouncedAutoSaveArgs<string, EntityMutationError>, "save"> & {
+  args: Omit<UseDebouncedAutoSaveArgs<string, EntityAutoSaveError>, "save"> & {
     /** Builds the descriptor persisting `value` — e.g.
      *  `(value) => ({ component: "narrative", op: "setField", field, value })`. */
     makeWrite: (value: string) => EntityWrite
@@ -336,7 +342,7 @@ export function useEntityAutoSave(
   const { entityId, root } = useWriteApi("useEntityAutoSave")
   const { makeWrite, ...rest } = args
 
-  return useDebouncedAutoSave<string, EntityMutationError>({
+  return useDebouncedAutoSave<string, EntityAutoSaveError>({
     ...rest,
     save: (value) =>
       settleAutoSave(
@@ -353,7 +359,7 @@ export function useEntityAutoSave(
  * identity, and concurrency belong to the protocol.
  */
 export function useEntityColumnSave<TValue>(
-  args: Omit<UseDebouncedAutoSaveArgs<TValue, EntityMutationError>, "save"> & {
+  args: Omit<UseDebouncedAutoSaveArgs<TValue, EntityAutoSaveError>, "save"> & {
     /** Builds the per-field descriptor persisting `value` — e.g.
      *  `(value) => ({ field: "name", value })`. */
     makeWrite: (value: TValue) => IdentityWrite
@@ -362,7 +368,7 @@ export function useEntityColumnSave<TValue>(
   const { entityId, root } = useWriteApi("useEntityColumnSave")
   const { makeWrite, ...rest } = args
 
-  return useDebouncedAutoSave<TValue, EntityMutationError>({
+  return useDebouncedAutoSave<TValue, EntityAutoSaveError>({
     ...rest,
     save: (value) =>
       settleAutoSave(

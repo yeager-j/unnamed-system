@@ -75,7 +75,7 @@ export type MutationHandler<Transaction, Args, Actor, Rejection> = (
 ) => Result<void, Rejection> | Promise<Result<void, Rejection>>
 
 type MutationsOf<Protocol> =
-  Protocol extends ProtocolDefinition<string, infer Mutations>
+  Protocol extends ProtocolDefinition<string, infer Mutations, unknown>
     ? Mutations[number]
     : never
 
@@ -91,7 +91,11 @@ type MutationArgs<Mutation> = Mutation extends {
 
 /** Exhaustive handler registration for one protocol's closed mutation set. */
 export type MutationHandlers<
-  Protocol extends ProtocolDefinition<string, readonly AnyMutationDefinition[]>,
+  Protocol extends ProtocolDefinition<
+    string,
+    readonly AnyMutationDefinition[],
+    unknown
+  >,
   Transaction,
   Actor,
   Rejection,
@@ -264,7 +268,8 @@ function assertCompleteHandlers(
 export function createMutationExecutor<
   const Protocol extends ProtocolDefinition<
     string,
-    readonly AnyMutationDefinition[]
+    readonly AnyMutationDefinition[],
+    unknown
   >,
   Transaction,
   Actor,

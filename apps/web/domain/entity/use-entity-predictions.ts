@@ -7,6 +7,7 @@ import {
   createNextPredictedRoot,
   useRouterRefresh,
 } from "@workspace/headcanon/next/client"
+import { RetryableDeliveryError } from "@workspace/headcanon/react"
 import { err, ok, type Result } from "@workspace/result"
 
 import {
@@ -56,8 +57,9 @@ function isDoorTranslatedRejection(
  *
  * - an accepted terminal outcome returns its stamp (the axis revision vector);
  * - a terminal domain rejection returns typed — the prediction rolls back;
- * - exhausted contention returns `"contention"` — terminal client-side, and safe
- *   because the authority stored no receipt (the user simply retries the edit);
+ * - exhausted contention throws {@link RetryableDeliveryError} — the authority
+ *   verifiably stored no receipt, so the package keeps the prediction and
+ *   redelivers the same envelope on its bounded backoff;
  * - envelope/argument/id-reuse failures throw: they are programmer bugs, and a
  *   loud uncertain-delivery state beats silently eating a protocol defect.
  *
@@ -71,7 +73,9 @@ async function deliverEntityMutation(
   const outcome = await applyEntityMutationAction(envelope)
 
   if (!outcome.ok) {
-    if (outcome.error.code === "contention") return err("contention")
+    if (outcome.error.code === "contention") {
+      throw new RetryableDeliveryError("entity authority contention")
+    }
     throw new Error(
       `entity mutation executor refused the envelope: ${outcome.error.code}`
     )

@@ -1,7 +1,11 @@
 import { z } from "zod/v4"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import { defineMutation, defineProtocol } from "@workspace/headcanon"
+import {
+  defineMutation,
+  defineProtocol,
+  rejections,
+} from "@workspace/headcanon"
 import { ok, type Result } from "@workspace/result"
 
 import { resolveEntity } from "@/domain/game-engine-v2"
@@ -66,23 +70,23 @@ export type EntityWriteArgs = z.infer<typeof entityWriteArgs>
 export type EntityWritePredictionError = EntityWriteRefusal
 
 /**
- * The client-facing failure surface of a registered entity mutation (P2d —
- * UNN-676): the Writer refusals a predictor can also produce, plus the terminal
- * outcomes only the authority can discover. The predicted root's `Error` type
- * parameter derives from the predictors' annotations, so both predictors declare
- * this union even though they locally return only refusals — authority behavior
- * is allowed to be stricter than client prediction.
+ * The authority rejections a caller can see beyond predictor refusals (P2d —
+ * UNN-676), declared on the protocol via `rejections<…>()` so predictors keep
+ * their honest local error types while the root's error union still covers a
+ * stricter authority.
  *
  * Deliberately absent: authorization rejections (the door translates them to
  * `forbidden()`, which throws), `"stale"` (the authority reads the version it
- * guards on — no client token exists to be wrong), and executor envelope errors
- * (programmer bugs — the send adapter throws them loudly).
+ * guards on — no client token exists to be wrong), contention (the send
+ * adapter classifies it retryable; the package redelivers and degrades to
+ * `delivery: "uncertain"`), and executor envelope errors (programmer bugs —
+ * the send adapter throws them loudly).
  */
-export type EntityMutationError =
-  | EntityWriteRefusal
-  | "entity-not-found"
-  | "entity-load-failed"
-  | "contention"
+export type EntityAuthorityRejection = "entity-not-found" | "entity-load-failed"
+
+/** The client-facing failure surface of a registered entity mutation: any
+ *  predictor refusal plus the declared authority rejections. */
+export type EntityMutationError = EntityWriteRefusal | EntityAuthorityRejection
 
 const entityWrite = defineMutation({
   name: "entity.write",
@@ -90,7 +94,7 @@ const entityWrite = defineMutation({
   predict(
     state: EntityCanonValue,
     { write }
-  ): Result<EntityCanonValue, EntityMutationError> {
+  ): Result<EntityCanonValue, EntityWritePredictionError> {
     const patch = applyEntityWrite(state.entity.components, write)
     if (!patch.ok) return patch
 
@@ -123,16 +127,13 @@ export type EntityIdentityArgs = z.infer<typeof entityIdentityArgs>
  * The identity-column predictor. It cannot refuse locally: the descriptor's
  * parser has already admitted the only failures a column write has (bounds), and
  * ownership — the one remaining gate — is authority knowledge the client cannot
- * evaluate. The declared {@link EntityMutationError} covers the authority-side
- * outcomes the send path can still return.
+ * evaluate. The protocol's declared rejections cover the authority-side
+ * outcomes the send path can still return, so `never` stays honest here.
  */
 const entityIdentity = defineMutation({
   name: "entity.identity",
   args: entityIdentityArgs,
-  predict(
-    state: EntityCanonValue,
-    { write }
-  ): Result<EntityCanonValue, EntityMutationError> {
+  predict(state: EntityCanonValue, { write }): Result<EntityCanonValue, never> {
     return ok({ ...state, identity: applyIdentityWrite(state.identity, write) })
   },
 })
@@ -142,6 +143,7 @@ const entityIdentity = defineMutation({
 export const entityProtocol = defineProtocol({
   id: "showtime.entity.v1",
   mutations: [entityWrite, entityIdentity],
+  rejections: rejections<EntityAuthorityRejection>(),
 })
 
 export { entityIdentity, entityWrite }

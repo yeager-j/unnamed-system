@@ -16,11 +16,14 @@ export {
 export {
   defineMutation,
   defineProtocol,
+  rejections,
   type InvocationOf,
   type MutationDefinition,
   type MutationInvocation,
   type ProtocolDefinition,
   type ProtocolInvocation,
+  type ProtocolRejectionOf,
+  type ProtocolRejections,
 } from "./protocol"
 export {
   canonicalInvocation,

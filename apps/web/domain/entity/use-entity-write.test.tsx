@@ -229,14 +229,34 @@ describe("useEntityWrite — dispatch over the predicted root", () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it("surfaces exhausted authority contention as a typed, toastable failure", async () => {
-    door.mockResolvedValueOnce(contention)
+  it("redelivers the same envelope after exhausted authority contention", async () => {
+    vi.useFakeTimers()
+    try {
+      door
+        .mockResolvedValueOnce(contention)
+        .mockResolvedValueOnce(
+          accepted({ [entityAxisFor.vitals("char-1")]: 2 })
+        )
+      const onSuccess = vi.fn()
 
-    const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    await act(async () => result.current.dispatch(damage))
-    await flush()
+      const { result } = renderHook(() => useEntityWrite(), { wrapper })
+      await act(async () => result.current.dispatch(damage, { onSuccess }))
+      await flush()
+      expect(door).toHaveBeenCalledTimes(1)
 
-    expect(toast.error).toHaveBeenCalledWith("Couldn't save. Try again.")
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300)
+      })
+
+      expect(door).toHaveBeenCalledTimes(2)
+      const first = door.mock.calls[0]![0] as { mutationId: string }
+      const second = door.mock.calls[1]![0] as { mutationId: string }
+      expect(second.mutationId).toBe(first.mutationId)
+      expect(onSuccess).toHaveBeenCalledTimes(1)
+      expect(toast.error).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("settles a covered acceptance once a newer canon arrives", async () => {

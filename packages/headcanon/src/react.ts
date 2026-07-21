@@ -20,6 +20,7 @@ import type {
   MutationInvocation,
   ProtocolDefinition,
   ProtocolInvocation,
+  ProtocolRejectionOf,
 } from "./protocol"
 import {
   useIncorporation,
@@ -78,7 +79,7 @@ export interface ObservedRoot<State> {
 }
 
 type MutationOf<Protocol> =
-  Protocol extends ProtocolDefinition<string, infer Mutations>
+  Protocol extends ProtocolDefinition<string, infer Mutations, unknown>
     ? Mutations[number]
     : never
 
@@ -100,25 +101,57 @@ type StateOf<Protocol> =
       : never
     : never
 
+// A protocol's client error union: what any predictor can refuse locally plus
+// the authority rejections the protocol declares (`rejections<T>()`), so a
+// stricter authority never forces a predictor to annotate errors it cannot
+// return.
 type ErrorOf<Protocol> =
-  MutationOf<Protocol> extends infer Mutation
-    ? Mutation extends MutationDefinition<
-        string,
-        infer _Schema,
-        infer _State,
-        infer Error
-      >
-      ? Error
-      : never
-    : never
+  | (MutationOf<Protocol> extends infer Mutation
+      ? Mutation extends MutationDefinition<
+          string,
+          infer _Schema,
+          infer _State,
+          infer Error
+        >
+        ? Error
+        : never
+      : never)
+  | ProtocolRejectionOf<Protocol>
+
+/**
+ * The `send` adapter throws this when the authority reported **no terminal
+ * receipt** but redelivery of the same envelope is safe and expected —
+ * exhausted internal contention is the canonical case. Unlike an ordinary
+ * throw (uncertain delivery: the commit may exist), this is a known-clean
+ * miss: the package keeps the prediction and the envelope, redelivers the same
+ * mutation ID on a bounded backoff, and only after the redelivery budget is
+ * spent surfaces `delivery: "uncertain"` for the caller's manual retry.
+ */
+export class RetryableDeliveryError extends Error {
+  constructor(reason?: string) {
+    super(reason ?? "delivery should be retried")
+    this.name = "RetryableDeliveryError"
+  }
+}
+
+/** Redelivery backoff for {@link RetryableDeliveryError} — bounded so persistent
+ *  contention degrades to an honest uncertain state instead of hammering. */
+const DELIVERY_RETRY_DELAYS_MS = [300, 1000, 3000] as const
 
 export interface PredictedRootOptions<
-  Protocol extends ProtocolDefinition<string, readonly AnyMutationDefinition[]>,
+  Protocol extends ProtocolDefinition<
+    string,
+    readonly AnyMutationDefinition[],
+    unknown
+  >,
 > {
   readonly protocol: Protocol
   /**
    * Delivers one envelope after framework control-flow throws have been
-   * classified. An ordinary throw at this seam means delivery is uncertain.
+   * classified. An ordinary throw at this seam means delivery is uncertain
+   * (the commit may exist); throw {@link RetryableDeliveryError} instead when
+   * the authority verifiably stored no receipt and the same envelope should
+   * simply be redelivered (exhausted contention).
    */
   readonly send: (
     envelope: MutationEnvelope<ProtocolInvocation<Protocol>>
@@ -128,6 +161,13 @@ export interface PredictedRootOptions<
 }
 
 export interface PredictedRootInput<State> {
+  /**
+   * The current complete authoritative canon. Must be **referentially stable
+   * per authoritative observation** — RSC props and snapshot state naturally
+   * are. A canon object rebuilt on every render re-bases `useOptimistic`
+   * each pass, and while an optimistic action is open that rebase renders a
+   * fresh base again: an unbounded render loop.
+   */
   readonly canon: Canon<State>
 }
 
@@ -173,6 +213,7 @@ function createDeferred<Value>(): Deferred<Value> {
 type DeliveryState =
   | "queued"
   | "sending"
+  | "retry-scheduled"
   | "uncertain"
   | "accepted"
   | "rejected"
@@ -186,6 +227,8 @@ interface LedgerEntry<Invocation, Error> {
   readonly canonized: Deferred<Result<void, MutationLifecycleError<Error>>>
   readonly releaseAction: Deferred<void>
   delivery: DeliveryState
+  /** Automatic redeliveries consumed after {@link RetryableDeliveryError}s. */
+  retryAttempts: number
   acceptedStamp?: AcceptedStamp
   replayRefusal?: Error
 }
@@ -233,7 +276,8 @@ function removeFromQueue(queue: string[], mutationId: string): void {
 export function createPredictedRoot<
   const Protocol extends ProtocolDefinition<
     string,
-    readonly AnyMutationDefinition[]
+    readonly AnyMutationDefinition[],
+    unknown
   >,
 >(options: PredictedRootOptions<Protocol>) {
   return createPredictedRootWithDeliveryErrorClassifier(
@@ -246,7 +290,8 @@ export function createPredictedRoot<
 export function createPredictedRootWithDeliveryErrorClassifier<
   const Protocol extends ProtocolDefinition<
     string,
-    readonly AnyMutationDefinition[]
+    readonly AnyMutationDefinition[],
+    unknown
   >,
 >(
   options: PredictedRootOptions<Protocol>,
@@ -421,7 +466,28 @@ export function createPredictedRootWithDeliveryErrorClassifier<
             return
           }
 
-          if (entry.delivery === "sending") entry.delivery = "uncertain"
+          if (entry.delivery === "sending") {
+            const retryDelay =
+              error instanceof RetryableDeliveryError
+                ? DELIVERY_RETRY_DELAYS_MS[entry.retryAttempts]
+                : undefined
+            if (retryDelay === undefined) {
+              // An ordinary throw (the commit may exist) or an exhausted
+              // redelivery budget: hold the envelope as honestly uncertain.
+              entry.delivery = "uncertain"
+            } else {
+              // A known-clean miss: redeliver the same envelope and mutation
+              // ID after a bounded backoff. The entry stays at the queue head,
+              // so ordering holds and later mutations wait.
+              entry.retryAttempts += 1
+              entry.delivery = "retry-scheduled"
+              setTimeout(() => {
+                if (entry.delivery !== "retry-scheduled") return
+                entry.delivery = "queued"
+                if (activeTokenRef.current) renderCoordinator()
+              }, retryDelay)
+            }
+          }
         }
 
         if (activeTokenRef.current) renderCoordinator()
@@ -452,7 +518,11 @@ export function createPredictedRootWithDeliveryErrorClassifier<
           return next
         })
 
-        if (entry.delivery !== "queued") continue
+        // A retry-scheduled envelope is retractable like a queued one: no
+        // terminal receipt exists (the retryable classification proves the
+        // authority did not commit), and its redelivery is client-initiated.
+        if (entry.delivery !== "queued" && entry.delivery !== "retry-scheduled")
+          continue
 
         const lifecycleError = {
           kind: "replay-refused",
@@ -572,6 +642,7 @@ export function createPredictedRootWithDeliveryErrorClassifier<
           canonized: createDeferred(),
           releaseAction: createDeferred(),
           delivery: "queued",
+          retryAttempts: 0,
         }
         ledgerRef.current.set(mutationId, entry)
         queueRef.current.push(mutationId)
@@ -601,6 +672,8 @@ export function createPredictedRootWithDeliveryErrorClassifier<
       const entry = ledgerRef.current.get(headId)
       if (!entry || entry.delivery !== "uncertain") return
 
+      // A manual retry earns a fresh automatic-redelivery budget.
+      entry.retryAttempts = 0
       entry.delivery = "queued"
       renderCoordinator()
     }, [])
@@ -620,7 +693,9 @@ export function createPredictedRootWithDeliveryErrorClassifier<
         delivery:
           headDelivery === "uncertain"
             ? "uncertain"
-            : headDelivery === "sending" || headDelivery === "queued"
+            : headDelivery === "sending" ||
+                headDelivery === "queued" ||
+                headDelivery === "retry-scheduled"
               ? "sending"
               : "idle",
         ...incorporation.status,

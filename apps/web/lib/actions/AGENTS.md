@@ -236,7 +236,7 @@ optimistic state when the transition resolves. (Encounters use the sibling
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                    |
 | `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                   |
-| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback. (Non-entity aggregates only — the entity protocol surfaces authority contention as `contention` instead.) |
+| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback. (Non-entity aggregates only — entity-protocol contention is classified retryable: the predicted root redelivers on a bounded backoff and only then degrades to `delivery: "uncertain"`.) |
 | Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered).   |
 
 Auth-gate failures throw via Next's `forbidden()` and never return — the client
