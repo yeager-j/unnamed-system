@@ -25,6 +25,59 @@ import { z } from "zod/v4"
  * the authority run — so the predicted value and the stored column agree by
  * construction.
  */
+/**
+ * The exact shape `uploadPortrait` mints: a public Vercel Blob object at the
+ * randomized `portraits/{uuid}.{ext}` path it composes
+ * (`lib/storage/portrait-upload.ts`).
+ *
+ * **This is a trust boundary, not a formatting rule.** The portrait column is
+ * rendered as a plain avatar `src` on a publicly viewable sheet, so a bare
+ * `z.url()` here would let an owner skip the upload action and point every
+ * viewer of their sheet at an arbitrary third-party host — defeating the
+ * mime/size pipeline and turning the sheet into a request beacon. Only a URL the
+ * trusted upload path could have produced is admissible; a client cannot forge
+ * one, because it cannot write to the store.
+ *
+ * The grammar lives here rather than beside the minter because the predictor
+ * runs in the browser and must admit exactly what the authority admits — an
+ * authority that were stricter would josse a legitimate prediction. `domain`
+ * files that are neither `use-` nor `load-` may not runtime-import `lib`
+ * (depcheck's purity rule), so the two ends are pinned by the correspondence
+ * test in `identity.test.ts` instead of a shared import.
+ */
+const storedPortraitUrl = z
+  .url()
+  .refine(isStoredPortraitUrl, "Not a stored portrait URL")
+
+const PORTRAIT_BLOB_HOST = /^[a-z0-9]+\.public\.blob\.vercel-storage\.com$/
+const PORTRAIT_BLOB_PATH =
+  /^\/portraits\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif)$/
+
+/**
+ * Whether a URL addresses a portrait this app uploaded. Deliberately total over
+ * every part of the URL: anything but `https`, an unexpected host, a path outside
+ * the randomized portraits namespace, or any query/fragment (a cache-buster is
+ * also a tracking parameter) is refused.
+ */
+export function isStoredPortraitUrl(value: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+
+  return (
+    url.protocol === "https:" &&
+    PORTRAIT_BLOB_HOST.test(url.hostname) &&
+    PORTRAIT_BLOB_PATH.test(url.pathname) &&
+    url.search === "" &&
+    url.hash === "" &&
+    url.username === "" &&
+    url.password === ""
+  )
+}
+
 export const identityWriteSchema = z.discriminatedUnion("field", [
   /** Mirrors v1's name rules: trimmed, required, 64-char cap. */
   z.object({
@@ -45,11 +98,9 @@ export const identityWriteSchema = z.discriminatedUnion("field", [
     field: z.literal("notes"),
     value: z.string().max(8000).nullable(),
   }),
-  /** The Blob URL a completed upload produced — the Blob write itself happens
-   *  before the mutation, never inside the rerunnable handler. */
   z.object({
     field: z.literal("portraitUrl"),
-    value: z.url().nullable(),
+    value: storedPortraitUrl.nullable(),
   }),
 ])
 
