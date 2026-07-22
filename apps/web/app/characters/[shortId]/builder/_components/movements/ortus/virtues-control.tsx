@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "sonner"
 
 import { VIRTUE_KEYS, type VirtueKey } from "@workspace/game-v2/kernel/vocab"
 import {
@@ -73,13 +72,6 @@ export function VirtuesControl() {
       {
         messages: {
           error: "Couldn't save your Virtues. Try again.",
-        },
-        onError: (error) => {
-          if (error === "entity-not-found") {
-            toast.error("This character was deleted.")
-            return true
-          }
-          return false
         },
       }
     )

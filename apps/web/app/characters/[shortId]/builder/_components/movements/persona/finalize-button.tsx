@@ -71,10 +71,8 @@ export function FinalizeButton({
 }
 
 function surfaceError(error: EntityMutationError): void {
-  if (error === "missing-finalize-requirement") {
-    toast.error(
-      "This character isn't ready to finalize. Review the builder steps."
-    )
+  if (typeof error === "object") {
+    toast.error(error.reason)
     return
   }
   if (error === "no-starting-weapon-for-lineage") {
@@ -85,10 +83,6 @@ function surfaceError(error: EntityMutationError): void {
   }
   if (error === "no-origin-archetype") {
     toast.error("Pick an Origin Archetype before finalizing.")
-    return
-  }
-  if (error === "entity-not-found") {
-    toast.error("This draft no longer exists. Refresh to see your characters.")
     return
   }
   if (error === "entity-not-draft") {

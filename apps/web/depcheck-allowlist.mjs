@@ -62,22 +62,11 @@ export const VERSION_WRITER_ALLOWLIST = [
       "Identity columns stop using their focused store or move into the entity-row Store.",
   },
   {
-    file: "lib/actions/entity/mutations/execute-entity-write.ts",
+    file: "lib/actions/entity/mutations/commands.ts",
     role: "registered-handler",
-    rationale: "Registered authority handler for entity.write.",
-    removeWhen: "The entity.write mutation is removed from the protocol.",
-  },
-  {
-    file: "lib/actions/entity/mutations/execute-finalize.ts",
-    role: "registered-handler",
-    rationale: "Registered authority handler for entity.finalize.",
-    removeWhen: "The entity.finalize mutation is removed from the protocol.",
-  },
-  {
-    file: "lib/actions/entity/mutations/execute-identity-write.ts",
-    role: "registered-handler",
-    rationale: "Registered authority handler for entity.identity.",
-    removeWhen: "The entity.identity mutation is removed from the protocol.",
+    rationale:
+      "The exhaustive entity command manifest composes admitted evidence with the stamped Stores.",
+    removeWhen: "The entity mutation protocol is removed.",
   },
 ]
 

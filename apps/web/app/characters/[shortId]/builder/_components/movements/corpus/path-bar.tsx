@@ -1,7 +1,6 @@
 "use client"
 
 import { Radio as RadioPrimitive } from "@base-ui/react/radio"
-import { toast } from "sonner"
 
 import { PATH_CHOICES, type PathChoice } from "@workspace/game-v2/kernel/vocab"
 import { getPathDice, getPathStats } from "@workspace/game-v2/vitals"
@@ -42,13 +41,6 @@ export function PathBar() {
       {
         messages: {
           error: "Couldn't save your path. Try again.",
-        },
-        onError: (error) => {
-          if (error === "entity-not-found") {
-            toast.error("This character was deleted.")
-            return true
-          }
-          return false
         },
       }
     )

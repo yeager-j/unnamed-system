@@ -4,7 +4,7 @@ import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import {
   defineMutation,
   defineProtocol,
-  rejections,
+  type MutationRefusalOf,
 } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
@@ -77,44 +77,56 @@ export type EntityWriteArgs = z.infer<typeof entityWriteArgs>
  *  the authoritative Writer speaks. */
 export type EntityWritePredictionError = EntityWriteRefusal
 
-/**
- * The authority rejections a caller can see beyond predictor refusals (P2d —
- * UNN-676), declared on the protocol via `rejections<…>()` so predictors keep
- * their honest local error types while the root's error union still covers a
- * stricter authority.
- *
- * Deliberately absent: authorization rejections (the door translates them to
- * `forbidden()`, which throws), `"stale"` (the authority reads the version it
- * guards on — no client token exists to be wrong), contention (the send
- * adapter classifies it retryable; the package redelivers and degrades to
- * `delivery: "uncertain"`), and executor envelope errors (programmer bugs —
- * the send adapter throws them loudly).
- */
-export type EntityAuthorityRejection =
-  | "entity-not-found"
-  | "entity-load-failed"
-  | "entity-not-draft"
+/** Public receipt refusals for this mutation. Authorization, missing targets,
+ * contention, and malformed envelopes are deliberately absent: they become
+ * package denial, redelivery, or programmer failure rather than domain UX. */
+const entityWriteRefusal = z.enum([
+  "capability-missing",
+  "no-prisma-charges",
+  "no-transitions",
+  "allocation-cap-exceeded",
+  "entry-not-found",
+  "not-unlocked",
+  "insufficient-skill-dice",
+  "insufficient-hit-dice",
+  "invalid-input",
+  "insufficient-victories",
+  "max-level",
+  "log-full",
+  "log-not-full",
+  "virtue-not-eligible",
+  "rank-capped",
+  "no-saved-ranks",
+  "prerequisites-not-met",
+  "item-not-found",
+  "catalog-item-unknown",
+  "invalid-quantity",
+  "duplicate-item-id",
+  "entity-load-failed",
+]) satisfies z.ZodType<EntityWriteRefusal | "entity-load-failed">
 
-export type EntityFinalizeRefusal =
-  | Exclude<FinalizeRefusal, { kind: "missing-requirement" }>
-  | "missing-finalize-requirement"
+const identityWriteRefusal = z.never()
 
-export function toEntityFinalizeRefusal(
-  refusal: FinalizeRefusal
-): EntityFinalizeRefusal {
-  return typeof refusal === "object" ? "missing-finalize-requirement" : refusal
-}
-
-/** The client-facing failure surface of a registered entity mutation: any
- *  predictor refusal plus the declared authority rejections. */
-export type EntityMutationError =
-  | EntityWriteRefusal
-  | EntityFinalizeRefusal
-  | EntityAuthorityRejection
+const finalizeRefusal = z.union([
+  z.object({
+    kind: z.literal("missing-requirement"),
+    stepSlug: z.enum(["ortus", "corpus", "persona"]),
+    reason: z.string(),
+  }),
+  z.enum([
+    "no-origin-archetype",
+    "no-starting-weapon-for-lineage",
+    "entity-load-failed",
+    "entity-not-draft",
+  ]),
+]) satisfies z.ZodType<
+  FinalizeRefusal | "entity-load-failed" | "entity-not-draft"
+>
 
 const entityWrite = defineMutation({
   name: "entity.write",
   args: entityWriteArgs,
+  refusal: entityWriteRefusal,
   predict(
     state: EntityCanonValue,
     { write }
@@ -151,12 +163,12 @@ export type EntityIdentityArgs = z.infer<typeof entityIdentityArgs>
  * The identity-column predictor. It cannot refuse locally: the descriptor's
  * parser has already admitted the only failures a column write has (bounds), and
  * ownership — the one remaining gate — is authority knowledge the client cannot
- * evaluate. The protocol's declared rejections cover the authority-side
- * outcomes the send path can still return, so `never` stays honest here.
+ * evaluate. Its refusal codec is `never`; a failed admission becomes 403.
  */
 const entityIdentity = defineMutation({
   name: "entity.identity",
   args: entityIdentityArgs,
+  refusal: identityWriteRefusal,
   predict(state: EntityCanonValue, { write }): Result<EntityCanonValue, never> {
     return ok({ ...state, identity: applyIdentityWrite(state.identity, write) })
   },
@@ -171,9 +183,8 @@ export type EntityFinalizeArgs = z.infer<typeof entityFinalizeArgs>
 const entityFinalize = defineMutation({
   name: "entity.finalize",
   args: entityFinalizeArgs,
-  predict(
-    state: EntityCanonValue
-  ): Result<EntityCanonValue, EntityFinalizeRefusal> {
+  refusal: finalizeRefusal,
+  predict(state: EntityCanonValue): Result<EntityCanonValue, FinalizeRefusal> {
     const valid = validateFinalize(
       state.identity.name,
       state.entity.components,
@@ -182,7 +193,7 @@ const entityFinalize = defineMutation({
         startingWeaponForLineage,
       }
     )
-    return valid.ok ? ok(state) : err(toEntityFinalizeRefusal(valid.error))
+    return valid.ok ? ok(state) : err(valid.error)
   },
 })
 
@@ -191,7 +202,11 @@ const entityFinalize = defineMutation({
 export const entityProtocol = defineProtocol({
   id: "showtime.entity.v1",
   mutations: [entityWrite, entityIdentity, entityFinalize],
-  rejections: rejections<EntityAuthorityRejection>(),
 })
+
+/** The exact public refusal union derived from the registered mutation codecs. */
+export type EntityMutationError = MutationRefusalOf<
+  typeof entityWrite | typeof entityIdentity | typeof entityFinalize
+>
 
 export { entityFinalize, entityIdentity, entityWrite }

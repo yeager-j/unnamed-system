@@ -1,16 +1,11 @@
-import { forbidden } from "next/navigation"
-
 import { err, type Result } from "@workspace/result"
 
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { ENTITY_WRITERS } from "@/domain/entity/commit/writers"
 import type { Actor } from "@/lib/auth/actor"
 import { isOwnerOrCampaignDM } from "@/lib/auth/campaign-access"
-import { db, type WriteExecutor } from "@/lib/db/client"
-import {
-  loadPlayerCharacterById,
-  type LoadedPlayerCharacter,
-} from "@/lib/db/queries/load-player-character"
+import type { WriteExecutor } from "@/lib/db/client"
+import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 
 import {
   refuseGatedArchetypeSpend,
@@ -27,10 +22,10 @@ import {
  * narrative — plus the shared restricted-Archetype / narrative-lock gate. The
  * write class is derived from the registry, never taken from the wire.
  *
- * A **typed rejection**, not a `forbidden()` throw: it runs inside the handler's
+ * A **typed rejection**, not a `forbidden()` throw: it runs inside the command's
  * transaction (so it must not throw framework control flow, and contention rerun
- * re-evaluates it against current state). The door boundary translates a
- * rejection to `forbidden()`.
+ * re-evaluates it against current state). The package records it as a private
+ * denial and translates it to `forbidden()` outside the transaction.
  */
 export type EntityWriteAuthRejection = "unauthorized" | ArchetypeGateRejection
 
@@ -40,8 +35,7 @@ const AUTH_REJECTIONS: ReadonlySet<string> = new Set<EntityWriteAuthRejection>([
   "archetype-locked",
 ])
 
-/** Whether a rejection is an authorization refusal a door should turn into a
- *  `forbidden()` (HTTP 403) rather than a returned domain error. */
+/** Whether combat's standalone caller should turn a Store rejection into 403. */
 export function isEntityWriteAuthRejection(
   rejection: string
 ): rejection is EntityWriteAuthRejection {
@@ -63,24 +57,4 @@ export async function authorizeEntityWrite(
   if (!ownershipOk) return err("unauthorized")
 
   return refuseGatedArchetypeSpend(executor, actor.email, pc, write)
-}
-
-/**
- * The door's throwing pre-check: load the target and run {@link
- * authorizeEntityWrite} against the standalone `db`, tripping `forbidden()` on any
- * refusal. Fails closed *before* the executor claims a receipt or takes a lock, so
- * an unauthorized caller never writes a receipt — the in-handler check remains the
- * authority under contention. A missing PC is a 403, not an existence leak.
- */
-export async function requireEntityWriteAuthorized(
-  actor: Actor,
-  entityId: string,
-  write: EntityWrite
-): Promise<LoadedPlayerCharacter> {
-  const pc = await loadPlayerCharacterById(entityId)
-  if (!pc) forbidden()
-
-  const authorized = await authorizeEntityWrite(db, actor, pc, write)
-  if (!authorized.ok) forbidden()
-  return pc
 }
