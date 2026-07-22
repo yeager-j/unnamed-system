@@ -98,7 +98,7 @@ describe("entity mutation commands", () => {
     admitEntityWrite.mockResolvedValue(err("unauthorized"))
 
     const admitted = await entityWriteCommand.admit({
-      executor: TX,
+      tx: TX,
       actor: ACTOR,
       args: {
         entityId: ENTITY.id,
@@ -194,7 +194,7 @@ describe("entity mutation commands", () => {
         write: { field: "name", value: "Next" } as const,
       },
       stamp: accepted,
-      preflight: { pc: PC },
+      projection: { shortId: ENTITY.shortId },
     }
 
     await entityIdentityCommand.afterAccepted(context)

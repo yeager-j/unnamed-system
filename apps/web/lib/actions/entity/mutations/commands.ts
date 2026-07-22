@@ -7,6 +7,7 @@ import type { DrizzleMutationTx } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
   allowMutation,
+  allowMutationScreening,
   denyMutation,
   refuseMutation,
   type MutationCommand,
@@ -75,19 +76,28 @@ async function projectAcceptedEntityMutation(context: {
 }
 
 export const entityWriteCommand = {
-  async admit({ executor, actor, args }) {
-    const admitted = await admitEntityWrite(executor, actor, args)
+  async screen({ executor, actor, args }) {
+    const screened = await admitEntityWrite(executor, actor, args)
+    return screened.ok
+      ? allowMutationScreening({
+          shortId: screened.value.pc.entity.shortId,
+          versionClass: screened.value.versionClass,
+        })
+      : denyMutation()
+  },
+  async admit({ tx, actor, args }) {
+    const admitted = await admitEntityWrite(tx, actor, args)
     return admitted.ok ? allowMutation(admitted.value) : denyMutation()
   },
   async execute({ tx, args, evidence, stamp }) {
     const committed = await commitAdmittedEntityWrite(tx, args, evidence, stamp)
     return committed.ok ? acceptMutation() : refuseMutation(committed.error)
   },
-  afterAccepted({ args, stamp, preflight }) {
+  afterAccepted({ args, stamp, projection }) {
     return projectAcceptedEntityMutation({
       entityId: args.entityId,
-      shortId: preflight.pc.entity.shortId,
-      versionClass: preflight.versionClass,
+      shortId: projection.shortId,
+      versionClass: projection.versionClass,
       stamp,
       changesCharacterList:
         args.write.component === "level" ||
@@ -99,22 +109,29 @@ export const entityWriteCommand = {
   Actor,
   EntityMutationPreflight,
   EntityMutationTx,
+  { readonly shortId: string; readonly versionClass: VersionClass },
   AdmittedEntityWrite
 >
 
 export const entityIdentityCommand = {
-  async admit({ executor, actor, args }) {
-    const admitted = await admitIdentityWrite(executor, actor, args)
+  async screen({ executor, actor, args }) {
+    const screened = await admitIdentityWrite(executor, actor, args)
+    return screened.ok
+      ? allowMutationScreening({ shortId: screened.value.pc.entity.shortId })
+      : denyMutation()
+  },
+  async admit({ tx, actor, args }) {
+    const admitted = await admitIdentityWrite(tx, actor, args)
     return admitted.ok ? allowMutation(admitted.value) : denyMutation()
   },
   async execute({ tx, args, evidence, stamp }) {
     await commitAdmittedIdentityWrite(tx, args, evidence, stamp)
     return acceptMutation()
   },
-  afterAccepted({ args, stamp, preflight }) {
+  afterAccepted({ args, stamp, projection }) {
     return projectAcceptedEntityMutation({
       entityId: args.entityId,
-      shortId: preflight.pc.entity.shortId,
+      shortId: projection.shortId,
       versionClass: "identity",
       stamp,
       changesCharacterList:
@@ -126,6 +143,7 @@ export const entityIdentityCommand = {
   Actor,
   EntityMutationPreflight,
   EntityMutationTx,
+  { readonly shortId: string },
   AdmittedIdentityWrite
 >
 
@@ -144,8 +162,13 @@ async function admitFinalize(
 }
 
 export const entityFinalizeCommand = {
-  admit: ({ executor, actor, args }) =>
-    admitFinalize(executor, actor, args.entityId),
+  async screen({ executor, actor, args }) {
+    const screened = await admitFinalize(executor, actor, args.entityId)
+    return screened.kind === "allowed"
+      ? allowMutationScreening({ shortId: screened.evidence.pc.entity.shortId })
+      : screened
+  },
+  admit: ({ tx, actor, args }) => admitFinalize(tx, actor, args.entityId),
   async execute({ tx, evidence, stamp }) {
     if (evidence.pc.status !== "draft") {
       return refuseMutation("entity-not-draft" as const)
@@ -180,10 +203,10 @@ export const entityFinalizeCommand = {
 
     return acceptMutation()
   },
-  afterAccepted({ args, stamp, preflight }) {
+  afterAccepted({ args, stamp, projection }) {
     return projectAcceptedEntityMutation({
       entityId: args.entityId,
-      shortId: preflight.pc.entity.shortId,
+      shortId: projection.shortId,
       versionClass: "identity",
       stamp,
       changesCharacterList: true,
@@ -194,5 +217,6 @@ export const entityFinalizeCommand = {
   Actor,
   EntityMutationPreflight,
   EntityMutationTx,
+  { readonly shortId: string },
   AdmittedFinalize
 >

@@ -92,7 +92,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/watch.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/body.tsx",
-  "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/dispatch-event.ts",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/exit-row.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/party-sidebar.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/use-dungeon-console.ts",

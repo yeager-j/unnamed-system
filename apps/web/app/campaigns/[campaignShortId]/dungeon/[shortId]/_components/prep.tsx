@@ -1,22 +1,24 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
+import type { Canon } from "@workspace/headcanon"
 import { Button } from "@workspace/ui/components/button"
 import { DataSelect } from "@workspace/ui/components/data-select"
 import { Label } from "@workspace/ui/components/label"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
-import { startDelveAction } from "@/lib/actions/dungeon/delve-start"
+import {
+  dungeonCommand,
+  type DungeonCanonValue,
+} from "@/domain/dungeon/commit/protocol"
+import { useDungeonPredictions } from "@/domain/dungeon/use-dungeon-predictions"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
-import { startExpeditionAction } from "@/lib/actions/dungeon/expedition-start"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
-import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /** A starting Zone the prep view offers, from the source Map template. */
 export interface PrepZone {
@@ -30,60 +32,56 @@ export interface PrepZone {
 /**
  * The **draft** prep console (UNN-464): the DM stages where each placed character
  * starts, then **Start delve** snapshots the Map's geometry into the Instance,
- * commits the staged tokens, and flips `draft → active` ({@link startDelveAction},
- * one `guardMany`). Zones come from the source template (the Instance is still
+ * commits the staged tokens, and flips `draft → active` through one
+ * `dungeon.command` transaction. Zones come from the source template (the Instance is still
  * blank until start). An empty template surfaces an author-your-map dead-end
  * rather than a runnable-but-empty delve.
  */
 export function DungeonPrep({
   dungeon,
-  instance,
+  canon,
   placedCharacters,
   zones,
   campaignShortId,
 }: {
   dungeon: DungeonRow
-  instance: MapInstanceRow
+  canon: Canon<DungeonCanonValue>
   placedCharacters: CharacterSummary[]
   zones: PrepZone[]
   campaignShortId: string
 }) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const root = useDungeonPredictions({ canon })
+  const isPending = root.status.pending > 0
   const [placements, setPlacements] = useState<Record<string, string>>({})
   const runNoun = dungeon.regionId !== null ? "expedition" : "delve"
 
   function start() {
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const list = Object.entries(placements)
-            .filter(([, zoneId]) => zoneId !== "")
-            .map(([characterId, zoneId]) => ({ characterId, zoneId }))
-          // Same wire, different lifecycle action per variant (D11's sealing
-          // means the server refuses a cross-routed call; this fork is UX, not
-          // the invariant): an expedition start additionally snapshots the LIVE
-          // seed Map, stamps authored provenance, and re-applies the Region's
-          // charted reveal.
-          const input = {
-            dungeonId: dungeon.id,
-            expectedVersion: dungeon.version,
-            expectedInstanceVersion: instance.version,
-            placements: list,
-          }
-          const result =
-            dungeon.regionId !== null
-              ? await startExpeditionAction(input)
-              : await startDelveAction(input)
-          if (!result.ok) {
-            toast.error(dungeonErrorMessage(result.error))
-            return
-          }
-          router.refresh()
-        },
-        () => toast.error(`Couldn't start the ${runNoun}. Try again.`)
-      )
+    const list = Object.entries(placements)
+      .filter(([, zoneId]) => zoneId !== "")
+      .map(([characterId, zoneId]) => ({ characterId, zoneId }))
+    const result = root.mutate(
+      dungeonCommand({
+        dungeonId: dungeon.id,
+        command: { kind: "start", placements: list },
+      })
     )
+    if (!result.ok) {
+      toast.error(dungeonErrorMessage(result.error))
+      return
+    }
+    void result.value.accepted.then((accepted) => {
+      if (accepted.ok) {
+        router.refresh()
+        return
+      }
+      if (
+        accepted.error.kind === "domain" ||
+        accepted.error.kind === "replay-refused"
+      ) {
+        toast.error(dungeonErrorMessage(accepted.error.error))
+      }
+    })
   }
 
   return (

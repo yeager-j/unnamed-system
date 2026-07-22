@@ -58,9 +58,10 @@ export async function loadEntityRowById(
  * a deleted character must read as absent.
  */
 export async function loadLiveEntityRowById(
-  entityId: string
+  entityId: string,
+  executor: WriteExecutor = db
 ): Promise<EntityRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(entity)
     .where(and(eq(entity.id, entityId), isNull(entity.deletedAt)))

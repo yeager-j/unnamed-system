@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { Canon } from "@workspace/headcanon"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
@@ -11,6 +12,7 @@ import { DungeonExploreBody } from "@/app/campaigns/[campaignShortId]/dungeon/[s
 import { DungeonConsoleShell } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -44,10 +46,12 @@ export type DungeonRunMode =
 
 export function DungeonRunConsole({
   dungeon,
+  canon,
   campaignShortId,
   mode,
 }: {
   dungeon: DungeonRow
+  canon: Canon<DungeonCanonValue>
   campaignShortId: string
   mode: DungeonRunMode
 }) {
@@ -78,6 +82,7 @@ export function DungeonRunConsole({
         <DungeonExploreBody
           dungeon={dungeon}
           instance={mode.instance}
+          canon={canon}
           roster={mode.roster}
           placedCharacters={mode.placedCharacters}
           campaignShortId={campaignShortId}

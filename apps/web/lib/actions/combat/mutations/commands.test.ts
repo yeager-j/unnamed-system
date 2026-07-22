@@ -10,7 +10,13 @@ import { createStampAccumulator, revisionAt } from "@workspace/headcanon"
 import { MutationContentionError } from "@workspace/headcanon/drizzle"
 import { err, ok } from "@workspace/result"
 
-import { encounterAxis, entityVitalsAxis } from "@/lib/db/axes"
+import {
+  dungeonAxis,
+  encounterAxis,
+  entityVitalsAxis,
+  mapInstanceAxis,
+} from "@/lib/db/axes"
+import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 const loadEncounterForWrite = vi.fn()
@@ -19,7 +25,15 @@ const loadPlayerCharacterById = vi.fn()
 const authorizeEntityWrite = vi.fn()
 const commitEntityWrite = vi.fn()
 const saveEncounterSession = vi.fn()
+const setEncounterStatus = vi.fn()
+const loadDungeonRowByMapInstanceId = vi.fn()
+const lockDungeonRowForMutation = vi.fn()
+const loadMapInstanceById = vi.fn()
+const saveMapInstanceState = vi.fn()
+const saveDungeonState = vi.fn()
 const publishEncounterPing = vi.fn()
+const publishDungeonPing = vi.fn()
+const publishDungeonInstancePing = vi.fn()
 const revalidateEncounter = vi.fn()
 
 vi.mock("server-only", () => ({}))
@@ -28,6 +42,13 @@ vi.mock("@/lib/db/queries/load-encounter-session", () => ({
 }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
   loadCampaignRowById: (...args: unknown[]) => loadCampaignRowById(...args),
+}))
+vi.mock("@/lib/db/queries/load-dungeon", () => ({
+  loadDungeonRowByMapInstanceId: (...args: unknown[]) =>
+    loadDungeonRowByMapInstanceId(...args),
+}))
+vi.mock("@/lib/db/queries/map-instance", () => ({
+  loadMapInstanceById: (...args: unknown[]) => loadMapInstanceById(...args),
 }))
 vi.mock("@/lib/db/queries/load-player-character", () => ({
   loadPlayerCharacterById: (...args: unknown[]) =>
@@ -42,15 +63,27 @@ vi.mock("../../entity/entity-row-store", () => ({
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   saveEncounterSession: (...args: unknown[]) => saveEncounterSession(...args),
+  setEncounterStatus: (...args: unknown[]) => setEncounterStatus(...args),
+}))
+vi.mock("@/lib/db/writes/dungeon", () => ({
+  lockDungeonRowForMutation: (...args: unknown[]) =>
+    lockDungeonRowForMutation(...args),
+  saveDungeonState: (...args: unknown[]) => saveDungeonState(...args),
+}))
+vi.mock("@/lib/db/writes/map-instance", () => ({
+  saveMapInstanceState: (...args: unknown[]) => saveMapInstanceState(...args),
 }))
 vi.mock("@/lib/realtime/publish", () => ({
   publishEncounterPing: (...args: unknown[]) => publishEncounterPing(...args),
+  publishDungeonPing: (...args: unknown[]) => publishDungeonPing(...args),
+  publishDungeonInstancePing: (...args: unknown[]) =>
+    publishDungeonInstancePing(...args),
 }))
 vi.mock("../../encounter/revalidate", () => ({
   revalidateEncounter: (...args: unknown[]) => revalidateEncounter(...args),
 }))
 
-const { combatWriteCommand } = await import("./commands")
+const { combatEndCommand, combatWriteCommand } = await import("./commands")
 
 const participantId = asParticipantId("participant-1")
 const actor = { userId: "dm-1", email: "dm@example.com" }
@@ -85,6 +118,34 @@ const inlineLoaded: LoadedSession = {
   session,
   locators: new Map([[participantId, { storage: "inline" as const, entity }]]),
 }
+const dungeon = {
+  id: "dungeon-1",
+  shortId: "dng-1",
+  campaignId: row.campaignId,
+  mapInstanceId: row.mapInstanceId,
+  status: "active",
+  state: {
+    turnCounter: 2,
+    actedCharacterIds: [],
+    reminderSettings: {
+      randomEncounters: { enabled: false, intervalTurns: 6 },
+    },
+    generation: {
+      seed: "",
+      streamCursors: {},
+      declarations: [],
+      mintedUniqueKeys: [],
+      mints: {},
+    },
+  },
+  version: 9,
+} as unknown as DungeonRow
+const encounterEvidence = {
+  row,
+  loaded: inlineLoaded,
+  durableVersions: new Map(),
+  durableRevisions: new Map(),
+}
 const tx = {} as Parameters<typeof combatWriteCommand.execute>[0]["tx"]
 const args = {
   encounterId: row.id,
@@ -98,6 +159,103 @@ beforeEach(() => {
   loadPlayerCharacterById.mockResolvedValue({ entity, userId: actor.userId })
   authorizeEntityWrite.mockResolvedValue(ok(undefined))
   saveEncounterSession.mockResolvedValue(ok({ version: 4 }))
+  setEncounterStatus.mockResolvedValue(ok({ version: 5 }))
+  loadDungeonRowByMapInstanceId.mockResolvedValue(null)
+  lockDungeonRowForMutation.mockResolvedValue(ok(dungeon))
+  loadMapInstanceById.mockResolvedValue({
+    id: row.mapInstanceId,
+    state: {
+      geometry: { pages: {}, zones: {}, connections: {} },
+      occupancy: {},
+      enchantment: null,
+      reveal: {
+        revealedZoneIds: [],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+      generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
+      lastMovedTokenKey: null,
+    },
+    version: 7,
+  })
+  saveMapInstanceState.mockResolvedValue(ok({ version: 8 }))
+  saveDungeonState.mockResolvedValue(ok({ version: 10 }))
+})
+
+describe("combat.end command", () => {
+  const endArgs = { encounterId: row.id }
+
+  it("derives dungeon ownership and reacquires encounter evidence after the dungeon lock", async () => {
+    loadEncounterForWrite.mockResolvedValue(ok(encounterEvidence))
+    loadDungeonRowByMapInstanceId.mockResolvedValue(dungeon)
+
+    const admitted = await combatEndCommand.admit({ tx, actor, args: endArgs })
+
+    expect(admitted).toMatchObject({
+      kind: "allowed",
+      evidence: { dungeon: { id: dungeon.id } },
+    })
+    expect(lockDungeonRowForMutation).toHaveBeenCalledWith(tx, dungeon.id)
+    expect(loadEncounterForWrite).toHaveBeenCalledTimes(2)
+    expect(lockDungeonRowForMutation.mock.invocationCallOrder[0]).toBeLessThan(
+      loadEncounterForWrite.mock.invocationCallOrder[1]!
+    )
+  })
+
+  it("stamps exactly encounter and map-instance for standalone combat", async () => {
+    const stamp = createStampAccumulator()
+
+    const decision = await combatEndCommand.execute({
+      tx,
+      actor,
+      args: endArgs,
+      evidence: { encounter: encounterEvidence, dungeon: null },
+      stamp,
+    })
+
+    expect(decision).toEqual({ kind: "accepted" })
+    expect(stamp.accepted().revisions).toEqual({
+      [encounterAxis(row.id)]: 5,
+      [mapInstanceAxis(row.mapInstanceId)]: 8,
+    })
+  })
+
+  it("stamps the final encounter revision plus map-instance and dungeon", async () => {
+    const stamp = createStampAccumulator()
+
+    const decision = await combatEndCommand.execute({
+      tx,
+      actor,
+      args: endArgs,
+      evidence: { encounter: encounterEvidence, dungeon },
+      stamp,
+    })
+
+    expect(decision).toEqual({ kind: "accepted" })
+    expect(setEncounterStatus).toHaveBeenCalledWith(row.id, "ended", 4, tx)
+    expect(stamp.accepted().revisions).toEqual({
+      [encounterAxis(row.id)]: 5,
+      [mapInstanceAxis(row.mapInstanceId)]: 8,
+      [dungeonAxis(dungeon.id)]: 10,
+    })
+  })
+
+  it("turns a second-row race into contention before exposing a partial stamp", async () => {
+    setEncounterStatus.mockResolvedValue(err("stale"))
+    const stamp = createStampAccumulator()
+
+    await expect(
+      combatEndCommand.execute({
+        tx,
+        actor,
+        args: endArgs,
+        evidence: { encounter: encounterEvidence, dungeon },
+        stamp,
+      })
+    ).rejects.toBeInstanceOf(MutationContentionError)
+    expect(stamp.accepted().revisions).toEqual({})
+    expect(saveDungeonState).not.toHaveBeenCalled()
+  })
 })
 
 describe("combat registered command", () => {
@@ -112,7 +270,7 @@ describe("combat registered command", () => {
     )
 
     const admitted = await combatWriteCommand.admit({
-      executor: tx,
+      tx,
       actor,
       args,
     })
@@ -125,11 +283,11 @@ describe("combat registered command", () => {
     expect(commitEntityWrite).not.toHaveBeenCalled()
   })
 
-  it("denies a missing target before creating a receipt", async () => {
+  it("denies a missing target during pre-receipt screening", async () => {
     loadEncounterForWrite.mockResolvedValue(err("encounter-not-found"))
 
     await expect(
-      combatWriteCommand.admit({ executor: tx, actor, args })
+      combatWriteCommand.screen({ executor: tx, actor, args })
     ).resolves.toEqual({ kind: "denied" })
   })
 
@@ -147,7 +305,7 @@ describe("combat registered command", () => {
     )
 
     const admitted = await combatWriteCommand.admit({
-      executor: tx,
+      tx,
       actor,
       args,
     })
@@ -184,7 +342,7 @@ describe("combat registered command", () => {
     loadCampaignRowById.mockResolvedValue({ dmUserId: "another-user" })
 
     await expect(
-      combatWriteCommand.admit({ executor: tx, actor, args })
+      combatWriteCommand.admit({ tx, actor, args })
     ).resolves.toEqual({ kind: "denied" })
   })
 
@@ -307,12 +465,10 @@ describe("combat registered command", () => {
       actor,
       args,
       stamp: stamp.accepted(),
-      preflight: {
-        found: true,
-        storage: "inline",
-        row,
-        loaded: inlineLoaded,
-        participantId,
+      projection: {
+        id: row.id,
+        shortId: row.shortId,
+        status: row.status,
       },
     })
 
@@ -320,6 +476,10 @@ describe("combat registered command", () => {
       version: 4,
       status: row.status,
     })
-    expect(revalidateEncounter).toHaveBeenCalledWith(row)
+    expect(revalidateEncounter).toHaveBeenCalledWith({
+      id: row.id,
+      shortId: row.shortId,
+      status: row.status,
+    })
   })
 })

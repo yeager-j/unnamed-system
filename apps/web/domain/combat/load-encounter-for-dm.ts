@@ -7,10 +7,16 @@ import { defineCanon, type AxisId, type Canon } from "@workspace/headcanon"
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import { auth } from "@/lib/auth"
-import { encounterAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
+import {
+  dungeonAxis,
+  encounterAxis,
+  entityAxisFor,
+  mapInstanceAxis,
+} from "@/lib/db/axes"
 import { db } from "@/lib/db/client"
 import { loadCampaignByShortId } from "@/lib/db/queries/load-campaign"
 import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
+import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-session"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
@@ -38,7 +44,8 @@ export interface EncounterForDM {
 export const getEncounterForDM = cache(
   async (
     campaignShortId: string,
-    shortId: string
+    shortId: string,
+    dungeonId?: string
   ): Promise<EncounterForDM | null> => {
     const session = await auth()
     const viewerId = session?.user?.id
@@ -61,6 +68,12 @@ export const getEncounterForDM = cache(
 
         const instance = await loadMapInstanceById(row.mapInstanceId, tx)
         if (!instance) return null
+        const dungeon = dungeonId
+          ? await loadDungeonRowById(dungeonId, tx)
+          : null
+        if (dungeonId && (!dungeon || dungeon.mapInstanceId !== instance.id)) {
+          return null
+        }
 
         const participantMeta = buildParticipantMeta(loadedSession.locators)
         const combatantSheetSliceById = await loadCombatConsoleData(
@@ -72,6 +85,7 @@ export const getEncounterForDM = cache(
         const revisions = {
           [encounterAxis(row.id)]: row.version,
           [mapInstanceAxis(instance.id)]: instance.version,
+          ...(dungeon ? { [dungeonAxis(dungeon.id)]: dungeon.version } : {}),
         } as Record<AxisId, number>
 
         for (const [entityId, entityRevisions] of durableRevisions) {

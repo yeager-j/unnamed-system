@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { dungeonAxis, mapInstanceAxis } from "@/lib/db/axes"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -15,19 +16,36 @@ const auth = vi.fn()
 const loadDungeonRowByShortId = vi.fn()
 const loadCampaignByShortId = vi.fn()
 const loadMapInstanceById = vi.fn()
+const loadRegionRowById = vi.fn()
+const { tx, transaction } = vi.hoisted(() => {
+  const tx = { kind: "repeatable-read-tx" }
+  return {
+    tx,
+    transaction: vi.fn(
+      async (run: (executor: unknown) => unknown, _config: unknown) => run(tx)
+    ),
+  }
+})
 
 vi.mock("@/lib/auth", () => ({
   auth: () => auth(),
 }))
+vi.mock("@/lib/db/client", () => ({ db: { transaction } }))
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
-  loadDungeonRowByShortId: (shortId: string) =>
-    loadDungeonRowByShortId(shortId),
+  loadDungeonRowByShortId: (shortId: string, executor: unknown) =>
+    loadDungeonRowByShortId(shortId, executor),
 }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
-  loadCampaignByShortId: (shortId: string) => loadCampaignByShortId(shortId),
+  loadCampaignByShortId: (shortId: string, executor: unknown) =>
+    loadCampaignByShortId(shortId, executor),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
-  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
+  loadMapInstanceById: (id: string, executor: unknown) =>
+    loadMapInstanceById(id, executor),
+}))
+vi.mock("@/lib/db/queries/load-region", () => ({
+  loadRegionRowById: (id: string, executor: unknown) =>
+    loadRegionRowById(id, executor),
 }))
 
 const DM_ID = "dm-user"
@@ -109,6 +127,8 @@ beforeEach(() => {
   loadDungeonRowByShortId.mockReset()
   loadCampaignByShortId.mockReset().mockResolvedValue(campaignRow(DM_ID))
   loadMapInstanceById.mockReset().mockResolvedValue(instanceRow)
+  loadRegionRowById.mockReset().mockResolvedValue(null)
+  transaction.mockClear()
 })
 
 describe("getDungeonForDM", () => {
@@ -120,7 +140,22 @@ describe("getDungeonForDM", () => {
     expect(result).toEqual({
       dungeon: dungeonRow("ok-dm"),
       instance: instanceRow,
+      canon: {
+        value: {
+          dungeon: dungeonRow("ok-dm").state,
+          instance: instanceRow.state,
+        },
+        revisions: {
+          [dungeonAxis("dungeon-ok-dm")]: 0,
+          [mapInstanceAxis("mi-1")]: 0,
+        },
+      },
     })
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "repeatable read",
+      accessMode: "read only",
+    })
+    expect(loadDungeonRowByShortId).toHaveBeenCalledWith("ok-dm", tx)
   })
 
   it("returns null when signed out (no leak of existence)", async () => {

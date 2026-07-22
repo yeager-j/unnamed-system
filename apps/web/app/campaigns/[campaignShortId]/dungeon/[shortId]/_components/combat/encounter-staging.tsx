@@ -3,7 +3,7 @@
 import { ArrowLeftIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { getEnemy } from "@workspace/game-v2/catalog/enemies"
@@ -12,6 +12,7 @@ import type {
   CombatAdvantage,
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
+import type { Canon } from "@workspace/headcanon"
 import { DataSelect } from "@workspace/ui/components/data-select"
 import { Separator } from "@workspace/ui/components/separator"
 import {
@@ -24,15 +25,18 @@ import { SideToggle } from "@/components/combat/controls/side-toggle"
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
 import {
+  dungeonCommand,
+  type DungeonCanonValue,
+} from "@/domain/dungeon/commit/protocol"
+import { useDungeonPredictions } from "@/domain/dungeon/use-dungeon-predictions"
+import {
   COMBAT_ADVANTAGE_COMPACT_LABELS,
   COMBAT_ADVANTAGE_SETUP_HINTS,
   COMBAT_AMBUSH_HEADING,
   COMBAT_FIRST_SIDE_HEADING,
 } from "@/domain/labels"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
-import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
 import { dungeonConsolePath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 const ADVANTAGE_ORDER: readonly CombatAdvantage[] = [
   "players",
@@ -58,7 +62,7 @@ function enemyName(enemyKey: string): string {
  * The DM browses the full catalog through {@link EnemyCatalogPanel}, drops
  * creatures into a zone (nothing persists — the queue is localStorage, keyed by
  * dungeon id, since no encounter exists yet), declares the opening advantage +
- * first side, and Begins: one atomic {@link startDungeonEncounterAction} mints an
+ * first side, and Begins: one atomic `dungeon.command` mints an
  * already-live encounter, co-minting the staged enemies onto the delve's existing
  * geometry with the party's exploration tokens carried into the fight. Back on the
  * console, the route re-forks to combat.
@@ -68,8 +72,7 @@ export function DungeonEncounterStaging({
   shortId,
   campaignShortId,
   dungeonName,
-  expectedVersion,
-  expectedInstanceVersion,
+  canon,
   partyCharacterIds,
   zones,
 }: {
@@ -77,15 +80,13 @@ export function DungeonEncounterStaging({
   shortId: string
   campaignShortId: string
   dungeonName: string
-  /** Dungeon-row token: combat start is a lifecycle action (D11, UNN-589), so
-   *  the mint version-guards the dungeon row alongside the Instance. */
-  expectedVersion: number
-  expectedInstanceVersion: number
+  canon: Canon<DungeonCanonValue>
   partyCharacterIds: string[]
   zones: StagingZone[]
 }) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const root = useDungeonPredictions({ canon })
+  const isPending = root.status.pending > 0
   const queue = useDungeonEnemyQueue(dungeonId)
 
   const [dropZoneId, setDropZoneId] = useState(() => zones[0]?.id ?? "")
@@ -121,32 +122,37 @@ export function DungeonEncounterStaging({
   }
 
   function begin() {
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const result = await startDungeonEncounterAction({
-            dungeonId,
-            expectedVersion,
-            expectedInstanceVersion,
-            name: dungeonName.trim() || "Encounter",
-            advantage,
-            firstSide: resolveFirstSide(advantage, neutralFirstSide),
-            partyCharacterIds,
-            enemies: staged,
-          })
-
-          if (!result.ok) {
-            toast.error(dungeonErrorMessage(result.error))
-            return
-          }
-
-          queue.clear()
-          router.push(backHref)
-          router.refresh()
+    const result = root.mutate(
+      dungeonCommand({
+        dungeonId,
+        command: {
+          kind: "startEncounter",
+          name: dungeonName.trim() || "Encounter",
+          advantage,
+          firstSide: resolveFirstSide(advantage, neutralFirstSide),
+          partyCharacterIds,
+          enemies: staged,
         },
-        () => toast.error("Couldn't start the encounter. Try again.")
-      )
+      })
     )
+    if (!result.ok) {
+      toast.error(dungeonErrorMessage(result.error))
+      return
+    }
+    void result.value.accepted.then((accepted) => {
+      if (accepted.ok) {
+        queue.clear()
+        router.push(backHref)
+        router.refresh()
+        return
+      }
+      if (
+        accepted.error.kind === "domain" ||
+        accepted.error.kind === "replay-refused"
+      ) {
+        toast.error(dungeonErrorMessage(accepted.error.error))
+      }
+    })
   }
 
   return (
