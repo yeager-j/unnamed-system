@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+
+import { encounterAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
@@ -16,20 +19,35 @@ const auth = vi.fn()
 const loadEncounterForSnapshot = vi.fn()
 const loadCampaignByShortId = vi.fn()
 const loadMapInstanceById = vi.fn()
+const loadCombatConsoleData = vi.fn()
+const { tx, transaction } = vi.hoisted(() => {
+  const tx = { kind: "repeatable-read-tx" }
+  return {
+    tx,
+    transaction: vi.fn(
+      async (run: (executor: unknown) => unknown, _config: unknown) => run(tx)
+    ),
+  }
+})
 
 vi.mock("@/lib/auth", () => ({
   auth: () => auth(),
 }))
-vi.mock("@/lib/db/client", () => ({ db: {} }))
+vi.mock("@/lib/db/client", () => ({ db: { transaction } }))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
-  loadEncounterForSnapshot: (shortId: string) =>
-    loadEncounterForSnapshot(shortId),
+  loadEncounterForSnapshot: (shortId: string, executor: unknown) =>
+    loadEncounterForSnapshot(shortId, executor),
 }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
-  loadCampaignByShortId: (shortId: string) => loadCampaignByShortId(shortId),
+  loadCampaignByShortId: (shortId: string, executor: unknown) =>
+    loadCampaignByShortId(shortId, executor),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
-  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
+  loadMapInstanceById: (id: string, executor: unknown) =>
+    loadMapInstanceById(id, executor),
+}))
+vi.mock("@/lib/db/queries/load-combat-console-data", () => ({
+  loadCombatConsoleData: (...args: unknown[]) => loadCombatConsoleData(...args),
 }))
 
 const DM_ID = "dm-user"
@@ -52,6 +70,7 @@ const loadedOk = (shortId: string) => ({
     },
     loaded: { session: { participants: [] }, locators: new Map() },
     durableVersions: new Map(),
+    durableRevisions: new Map(),
     durableOwners: new Map(),
   },
 })
@@ -98,6 +117,8 @@ beforeEach(() => {
   loadEncounterForSnapshot.mockReset()
   loadCampaignByShortId.mockReset().mockResolvedValue(campaignRow(DM_ID))
   loadMapInstanceById.mockReset().mockResolvedValue(instanceRow)
+  loadCombatConsoleData.mockReset().mockResolvedValue({})
+  transaction.mockClear()
 })
 
 describe("getEncounterForDM", () => {
@@ -107,7 +128,51 @@ describe("getEncounterForDM", () => {
     const result = await getEncounterForDM("camp-1", "ok-dm")
 
     expect(result?.encounter.shortId).toBe("ok-dm")
-    expect(result?.instance).toEqual({ state: instanceRow.state, version: 0 })
+    expect(result?.canon.value.mapInstance).toEqual(instanceRow.state)
+    expect(result?.instanceVersion).toBe(0)
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "repeatable read",
+      accessMode: "read only",
+    })
+    expect(loadEncounterForSnapshot).toHaveBeenCalledWith("ok-dm", tx)
+    expect(loadCampaignByShortId).toHaveBeenCalledWith("camp-1", tx)
+    expect(loadMapInstanceById).toHaveBeenCalledWith("mi-1", tx)
+    expect(loadCombatConsoleData).toHaveBeenCalledWith(
+      expect.anything(),
+      instanceRow.state,
+      {},
+      tx
+    )
+  })
+
+  it("includes all durable entity axes and rebuilds them from the current roster", async () => {
+    const participantId = asParticipantId("participant-durable")
+    const loaded = loadedOk("durable-roster")
+    loaded.value.loaded.locators.set(participantId, {
+      storage: "durable",
+      entityId: "raw-entity-id",
+    })
+    loaded.value.durableRevisions.set("raw-entity-id", {
+      identity: 1,
+      vitals: 2,
+      inventory: 3,
+      progression: 4,
+    })
+    loadEncounterForSnapshot.mockResolvedValue(loaded)
+
+    const result = await getEncounterForDM("camp-1", "durable-roster")
+
+    expect(result?.canon.revisions).toEqual({
+      [encounterAxis("enc-durable-roster")]: 0,
+      [mapInstanceAxis("mi-1")]: 0,
+      [entityAxisFor.identity("raw-entity-id")]: 1,
+      [entityAxisFor.vitals("raw-entity-id")]: 2,
+      [entityAxisFor.inventory("raw-entity-id")]: 3,
+      [entityAxisFor.progression("raw-entity-id")]: 4,
+    })
+    expect(JSON.stringify(result?.canon.revisions)).not.toContain(
+      "raw-entity-id"
+    )
   })
 
   it("returns null when signed out (no leak of existence)", async () => {

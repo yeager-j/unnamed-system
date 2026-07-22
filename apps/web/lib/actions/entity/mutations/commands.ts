@@ -64,8 +64,8 @@ async function projectAcceptedEntityMutation(context: {
     entityAxisFor[context.versionClass](context.entityId)
   )
   if (stampedRevision !== undefined) {
-    // Transitional bridge for combat and dungeon watchers which still subscribe
-    // to the legacy character channel. P3a deletes it with those bindings.
+    // Transitional bridge for dungeon watchers which still subscribe to the
+    // legacy character channel. The combat root observes this axis directly.
     publishCharacterPing(context.shortId, "entity", {
       [context.versionClass]: stampedRevision,
     })

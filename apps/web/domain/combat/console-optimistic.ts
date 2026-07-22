@@ -9,8 +9,8 @@ import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
+import { predictCombatWrite } from "@/domain/combat/commit/protocol"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
-import { applyEntityWrite } from "@/domain/entity/commit/writers"
 
 /**
  * The **one optimistic container** the DM console + encounter setup reduce
@@ -91,27 +91,8 @@ function applyWriteToFrame(
   state: EncounterState,
   action: Extract<ConsoleOptimisticAction, { kind: "write" }>
 ): EncounterState {
-  const index = state.session.participants.findIndex(
-    (participant) => participant.id === action.participantId
-  )
-  const participant = state.session.participants[index]
-  if (participant === undefined) return state
-
-  const predicted = applyEntityWrite(
-    participant.entity.components,
-    action.write
-  )
-  if (!predicted.ok) return state
-
-  const participants = [...state.session.participants]
-  participants[index] = {
-    ...participant,
-    entity: {
-      ...participant.entity,
-      components: { ...participant.entity.components, ...predicted.value },
-    },
-  }
-  return { ...state, session: { ...state.session, participants } }
+  const predicted = predictCombatWrite(state, action)
+  return predicted.ok ? predicted.value : state
 }
 
 const clientNewId = () => crypto.randomUUID()

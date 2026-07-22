@@ -13,7 +13,7 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { entity } from "@/lib/db/schema/entity"
 
 /**
@@ -30,7 +30,8 @@ import { entity } from "@/lib/db/schema/entity"
 export async function loadCombatConsoleData(
   session: Session,
   instance: MapInstanceState,
-  participantMeta: Record<ParticipantId, ParticipantMeta>
+  participantMeta: Record<ParticipantId, ParticipantMeta>,
+  executor: WriteExecutor = db
 ): Promise<Record<ParticipantId, CombatantSheetSlice>> {
   const spatialReads = spatialReadsFor(instance)
   const partyCompositionBySide = derivePartyCompositionBySide(
@@ -59,7 +60,7 @@ export async function loadCombatConsoleData(
   })
   if (sheetParticipants.length === 0) return {}
 
-  const pronounsRows = await db
+  const pronounsRows = await executor
     .select({ id: entity.id, pronouns: entity.pronouns })
     .from(entity)
     .where(

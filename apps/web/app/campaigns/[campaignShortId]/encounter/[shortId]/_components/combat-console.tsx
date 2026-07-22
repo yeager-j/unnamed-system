@@ -31,7 +31,6 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/domain/labels"
 import { encounterWatchPath } from "@/lib/paths"
-import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
 
 import { ZoneLayout } from "./zone-layout"
 
@@ -65,14 +64,12 @@ export function CombatConsole({
     dispatchSequence,
     dispatchWrite,
     endEncounter,
-    onPcPing,
     view,
     currentActor,
     roster,
     zoneLayout,
     fallenPcNames,
     obligations,
-    pcChannelIds,
     onDraft,
     onAdvanceRound,
   } = useCombatConsole(data)
@@ -119,14 +116,6 @@ export function CombatConsole({
 
   return (
     <main className="flex w-full flex-1 flex-col gap-4 p-4 sm:p-6">
-      {pcChannelIds.map(({ characterId, shortId }) => (
-        <RealtimeChannelListener
-          key={shortId}
-          domain="character"
-          shortId={shortId}
-          onPing={(data) => onPcPing(characterId, data)}
-        />
-      ))}
       {campaignShortId ? (
         <CampaignBackLink campaignShortId={campaignShortId} />
       ) : null}

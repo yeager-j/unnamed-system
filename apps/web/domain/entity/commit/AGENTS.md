@@ -67,23 +67,13 @@ An **identity column** is smaller: one arm in `identityWriteSchema` + one case i
 built and the authority parses them again, and both sides run the patch so the
 prediction and the stored column agree by construction.
 
-## The two optimistic hooks (Open Q5 — container split stays, coordination split reopened by P2d)
+## The two optimistic hooks (Open Q5 — container split stays)
 
 `useEntityWrite` (character routes) and `useCombatantWrite` (encounters) both
-predict via the same Writers but reconcile differently: the character binding
-re-folds `resolveEntity` through the registered mutation predictors and catches
-up via canon refresh; the console pushes the patch into its session-frame
-reducer and reconciles via the pc-ping refetch. That **container** split stays
-deliberate (the reconcile channels genuinely differ); converge only if one
-channel wins.
-
-The **coordination** split is transitional since P2d (UNN-676): the character
-binding rides the Headcanon predicted root — no client tokens, no stale
-protocol; the authority reads the version it guards on and a lost race is
-contention it retries itself. The console still runs the
-`lib/sync/write-queue.ts` core — serialized per-token spine + one-shot
-stale-retry through `getEntityClassVersionAction` — until Phase 3a binds combat
-to the same protocol. Cross-writer safety on the one genuinely multi-writer row
-(player on sheet + DM on console) holds from both sides meanwhile: the sheet's
-writes are server-authoritative, and the console's stale self-heals through its
-retry.
+predict via the same Writers and both bind registered Headcanon mutations. The
+character root re-folds `resolveEntity`; the combat root predicts against the
+encounter container and then feeds that value into the legacy encounter-event
+reducer. Both catch up through opaque canon-axis invalidations. That
+**container** split stays deliberate because the two roots own different
+values, while character and combat writes to the same durable entity share the
+same four entity axes.

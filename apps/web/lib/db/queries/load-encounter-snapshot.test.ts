@@ -164,6 +164,7 @@ function makeLoaded(): LoadedEncounterForSnapshot {
     row,
     loaded,
     durableVersions: new Map(DURABLE_VERSIONS),
+    durableRevisions: new Map(),
     durableOwners: new Map([
       ["char-owned", OWNER_ID],
       ["char-ally", "user-teammate"],

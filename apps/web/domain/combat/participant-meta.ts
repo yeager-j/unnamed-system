@@ -1,10 +1,7 @@
 /**
- * One participant's storage home + the durable tokens the console's write
- * accounting needs (UNN-535): a durable participant carries its character row
- * id, the `vitalsVersion` the write-router's durable arm guards on, and the
- * character `shortId` keying its realtime channel — app-transport data the
- * engine view deliberately omits. The one place the storage distinction is
- * projected for the client; downstream code receives it resolved.
+ * One participant's storage home for display-only console decisions. Mutation
+ * admission resolves this locator again from authoritative encounter storage;
+ * no version, public id, or client storage claim participates in a write.
  *
  * Homed in `domain/combat` (not the encounter route loader that builds it) so
  * the combat view builders + write plumbing that consume it never reach up into
@@ -15,6 +12,4 @@ export type ParticipantMeta =
   | {
       storage: "durable"
       characterId: string
-      vitalsVersion: number
-      characterShortId: string
     }

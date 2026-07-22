@@ -42,10 +42,10 @@ vi.mock("@/lib/actions/entity/mutations/apply", () => ({
   applyEntityMutationAction: vi.fn(),
 }))
 vi.mock("@/lib/realtime/axis-invalidations", () => ({
-  createLazyAblyInvalidationAdapter: () => ({
+  axisInvalidations: {
     initialStatus: "disabled" as const,
     subscribe: () => () => {},
-  }),
+  },
 }))
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }))
 vi.mock("next/navigation", () => ({
