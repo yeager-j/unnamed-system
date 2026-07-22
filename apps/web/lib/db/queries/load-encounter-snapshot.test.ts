@@ -12,9 +12,10 @@ import {
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { revisionAt } from "@workspace/headcanon"
 import { err, ok } from "@workspace/result"
 
-import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
+import { encounterAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
 import type { LoadedEncounterForSnapshot } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 
@@ -27,6 +28,11 @@ import { getEncounterSnapshot } from "./load-encounter-snapshot"
 // that the composition redacts per relationship off the one policy table
 // (UNN-530 AC), which a stubbed projector could not prove.
 vi.mock("server-only", () => ({}))
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    transaction: (run: (tx: object) => unknown) => run({}),
+  },
+}))
 
 const auth = vi.fn()
 const isCampaignMember = vi.fn()
@@ -164,7 +170,10 @@ function makeLoaded(): LoadedEncounterForSnapshot {
     row,
     loaded,
     durableVersions: new Map(DURABLE_VERSIONS),
-    durableRevisions: new Map(),
+    durableRevisions: new Map([
+      ["char-owned", { identity: 1, vitals: 4, inventory: 2, progression: 3 }],
+      ["char-ally", { identity: 5, vitals: 9, inventory: 6, progression: 7 }],
+    ]),
     durableOwners: new Map([
       ["char-owned", OWNER_ID],
       ["char-ally", "user-teammate"],
@@ -179,7 +188,7 @@ async function snapshotFor(userId: string | null) {
   signedInAs(userId)
   const result = await getEncounterSnapshot(SHORT_ID)
   if (!result.ok) throw new Error(`unexpected error: ${result.error}`)
-  return result.value
+  return { snapshot: result.value.canon.value, canon: result.value.canon }
 }
 
 function combatant(
@@ -260,7 +269,7 @@ describe("getEncounterSnapshot — per-relationship redaction (UNN-530 AC)", () 
   })
 })
 
-describe("getEncounterSnapshot — envelope + composite version (UNN-530 AC)", () => {
+describe("getEncounterSnapshot — observed canon", () => {
   it("carries the whitelisted envelope fields and roster-id combatants", async () => {
     const { snapshot } = await snapshotFor(null)
 
@@ -283,16 +292,25 @@ describe("getEncounterSnapshot — envelope + composite version (UNN-530 AC)", (
     ])
   })
 
-  it("composite version folds encounter × instance × durable vitalsVersions", async () => {
-    const { compositeVersion } = await snapshotFor(null)
+  it("observes the encounter, instance, and every durable participant axis", async () => {
+    const { canon } = await snapshotFor(null)
 
-    expect(compositeVersion).toBe(
-      foldSnapshotVersion({
-        encounterVersion: 2,
-        instanceVersion: 5,
-        durableVersions: DURABLE_VERSIONS,
-      })
+    expect(revisionAt(canon.revisions, encounterAxis("enc-row-1"))).toBe(2)
+    expect(revisionAt(canon.revisions, mapInstanceAxis(MAP_INSTANCE_ID))).toBe(
+      5
     )
+    expect(
+      revisionAt(canon.revisions, entityAxisFor.identity("char-owned"))
+    ).toBe(1)
+    expect(
+      revisionAt(canon.revisions, entityAxisFor.vitals("char-owned"))
+    ).toBe(4)
+    expect(
+      revisionAt(canon.revisions, entityAxisFor.inventory("char-ally"))
+    ).toBe(6)
+    expect(
+      revisionAt(canon.revisions, entityAxisFor.progression("char-ally"))
+    ).toBe(7)
   })
 
   it("passes the loader's error through untouched", async () => {

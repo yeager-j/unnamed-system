@@ -1,6 +1,7 @@
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { hpPool, spPool, type Pool } from "@/domain/pool"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
 
 /** A party token's current + max pools, the shape the dungeon roster + fog
@@ -25,11 +26,12 @@ interface TokenVitals {
  * vitals bar rather than lingering on the delve roster.
  */
 export async function loadPartyVitalsByIds(
-  ids: readonly string[]
+  ids: readonly string[],
+  executor: WriteExecutor = db
 ): Promise<Map<string, TokenVitals>> {
   if (ids.length === 0) return new Map()
 
-  const rows = await loadLiveEntityRowsByIds(ids)
+  const rows = await loadLiveEntityRowsByIds(ids, executor)
   const vitalsById = new Map<string, TokenVitals>()
 
   for (const row of rows) {

@@ -20,7 +20,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { createCampaignAction } from "@/lib/actions/create-campaign"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /**
  * "Create campaign" CTA on My Campaigns (UNN-329). Opens a dialog for the name

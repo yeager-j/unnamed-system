@@ -231,6 +231,47 @@ event synchronization runtime stay deliberately assigned to P3c.
 
 ---
 
+## Phase 3c — observe-only watch roots (UNN-680)
+
+### Measured: **−1,150 net production code lines in `apps/web`**
+
+`cloc --diff` at the ticket branch point reports 644 added and 1,794 removed
+production TypeScript/JavaScript code lines. The cutover:
+
+- replaces the encounter/dungeon snapshot subscription runtime, revision-ping
+  parsers, realtime channel hook, composite-version helpers, and refresh
+  schedulers with two thin `createNextObservedRoot` bindings;
+- moves every generic combat event into `showtime.combat.v1`, deleting the
+  parallel Server Action schemas, version queues, and transitional
+  `useOptimistic` reducer;
+- deletes legacy short-id ping publication and authorization, leaving Ably with
+  one hashed-axis capability shape and the package-owned polling fallback;
+- removes `apps/web/lib/sync` entirely. The stage-only autosave queue now lives
+  with the stage feature, and the generic Server Action rejection guard lives
+  under `lib/actions`; neither is synchronization infrastructure for watched
+  state; and
+- makes watch canons snapshot-consistent and complete over encounter, dungeon,
+  map-instance, and projected entity axes. Encounter and map-instance rows are
+  the stable container axes for roster membership and live-fight absence.
+
+#### Tests: **−1,845 net app code lines**
+
+`cloc --diff` reports 622 added and 2,467 removed test code lines. Deleted tests
+asserted app-owned queues, pings, revision comparisons, abort controllers, and
+poll timers. App tests now cover combat intent prediction and stamp shapes,
+repeatable-read canon vectors including empty dynamic sets, axis-only token
+authorization, and one signed-out Playwright story for structural redaction,
+polling catch-up, and explore/combat phase changes.
+
+### The gate: passed
+
+`apps/web/lib/sync` is gone. No combat or watch component compares realtime
+revisions, schedules a synchronization refresh, or wraps a Headcanon root in a
+second optimistic container. Observe-only roots receive server-redacted canons;
+the package owns subscription, polling, refresh coalescing, and freshness.
+
+---
+
 ## P3b follow-up — mutation-command ergonomics (UNN-686)
 
 The package production surface adds **22 net lines** (32 added, 10 removed): the
@@ -271,13 +312,13 @@ the finalization context still excludes attempt-local evidence.
 | P3a — combat (UNN-678)                     |                                            −227 | passed       |
 | P3b — dungeon / multi-row (UNN-679)        |                                            −466 | passed       |
 | P3b ergonomics (UNN-686)                   |                                             −84 | passed       |
-| P3c — watch-only                           |                                               — | —            |
+| P3c — watch-only (UNN-680)                 |                                          −1,150 | passed       |
 
 End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
 remaining coordination actually lives.
 
-Running total through the P3b ergonomics follow-up: **−732 production code lines
-in `apps/web`** (+38 +64 −57 −227 −466 −84). The character adoption first paid
-for shared realtime capability; combat and dungeon now reuse it and convert that
+Running total through P3c: **−1,882 production code lines in `apps/web`** (+38
++64 −57 −227 −466 −84 −1,150). The character adoption first paid for shared
+realtime capability; combat, dungeon, and watch reuse it and convert that
 investment into net application contraction.

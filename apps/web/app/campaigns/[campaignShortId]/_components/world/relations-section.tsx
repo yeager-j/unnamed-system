@@ -32,8 +32,8 @@ import {
   addRelationAction,
   removeRelationAction,
 } from "@/lib/actions/campaign-world/relation"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { campaignArticlePath, campaignNpcPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 import { LinkerRowContent } from "./participant-linker"
 

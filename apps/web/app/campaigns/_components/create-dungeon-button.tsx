@@ -21,8 +21,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { createMapAction } from "@/lib/actions/create-map"
 import { createDungeonAction } from "@/lib/actions/dungeon/create"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { dungeonConsolePath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 type PickableMap = { shortId: string; name: string }
 

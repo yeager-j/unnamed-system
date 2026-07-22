@@ -17,7 +17,6 @@ const setStatus = vi.fn()
 const whereStatus = vi.fn()
 const revalidateCharacterList = vi.fn()
 const revalidateEntity = vi.fn()
-const publishCharacterPing = vi.fn()
 
 vi.mock("server-only", () => ({}))
 vi.mock("../entity-row-store", () => ({
@@ -51,9 +50,6 @@ vi.mock("../version-guard", () => ({
 vi.mock("../revalidate", () => ({
   revalidateCharacterList: () => revalidateCharacterList(),
   revalidateEntity: (...args: unknown[]) => revalidateEntity(...args),
-}))
-vi.mock("@/lib/realtime/publish", () => ({
-  publishCharacterPing: (...args: unknown[]) => publishCharacterPing(...args),
 }))
 
 const { entityFinalizeCommand, entityIdentityCommand, entityWriteCommand } =
@@ -200,11 +196,5 @@ describe("entity mutation commands", () => {
 
     expect(revalidateEntity).toHaveBeenCalledTimes(2)
     expect(revalidateCharacterList).toHaveBeenCalledTimes(2)
-    expect(publishCharacterPing).toHaveBeenCalledTimes(2)
-    expect(publishCharacterPing).toHaveBeenLastCalledWith(
-      ENTITY.shortId,
-      "entity",
-      { identity: 4 }
-    )
   })
 })

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { cache } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
+import type { Canon } from "@workspace/headcanon"
 
 import type { DungeonWatchCombatData } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/watch"
 import { DungeonWatch } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/watch"
@@ -28,7 +29,7 @@ const getSnapshot = cache(
   async (
     campaignShortId: string,
     shortId: string
-  ): Promise<DungeonSnapshot | null> =>
+  ): Promise<Canon<DungeonSnapshot> | null> =>
     getDungeonSnapshot(shortId, campaignShortId)
 )
 
@@ -36,11 +37,11 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { campaignShortId, shortId } = await params
-  const snapshot = await getSnapshot(campaignShortId, shortId)
+  const canon = await getSnapshot(campaignShortId, shortId)
 
   return {
-    title: snapshot
-      ? `${snapshot.name} — Watch — Showtime!`
+    title: canon
+      ? `${canon.value.name} — Watch — Showtime!`
       : "Dungeon not found — Showtime!",
   }
 }
@@ -64,8 +65,7 @@ async function loadCombatWatchData(
 
   return {
     encounterShortId,
-    initialSnapshot: snapshotResult.value.snapshot,
-    initialCompositeVersion: snapshotResult.value.compositeVersion,
+    initialCanon: snapshotResult.value.canon,
     ownedSheets: viewerId
       ? await loadOwnedEncounterSheets(encounterShortId, viewerId)
       : [],
@@ -77,7 +77,7 @@ async function loadCombatWatchData(
  * (UNN-466, ADR — *Player view: redaction & snapshot*). The server loads the
  * server-**redacted** {@link DungeonSnapshot} (DM notes / undiscovered Zones /
  * unrevealed connections stripped in {@link getDungeonSnapshot}) and hands it to
- * the client {@link DungeonWatch}, which polls for the DM's live changes. No auth
+ * the client {@link DungeonWatch}, whose observe-only root tracks the canon. No auth
  * guard — the fog view is intentionally public; a missing `shortId` 404s.
  *
  * **One surface, both phases** (UNN-604): there is no combat-vs-explore render
@@ -98,13 +98,14 @@ export default async function DungeonWatchPage({ params }: PageProps) {
   const session = await auth()
   const viewerId = session?.user?.id
 
-  const [snapshot, ownedCharacterIds] = await Promise.all([
+  const [canon, ownedCharacterIds] = await Promise.all([
     getSnapshot(campaignShortId, shortId),
     viewerId
       ? loadOwnedDungeonCharacterIds(shortId, viewerId)
       : Promise.resolve([]),
   ])
-  if (!snapshot) notFound()
+  if (!canon) notFound()
+  const snapshot = canon.value
 
   const [ownedSheets, combat] = await Promise.all([
     loadCharactersByIds(ownedCharacterIds).then((characters) =>
@@ -121,8 +122,7 @@ export default async function DungeonWatchPage({ params }: PageProps) {
 
   return (
     <DungeonWatch
-      shortId={shortId}
-      initialSnapshot={snapshot}
+      initialCanon={canon}
       ownedCharacterIds={ownedCharacterIds}
       ownedSheets={ownedSheets}
       combat={combat}

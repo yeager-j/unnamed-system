@@ -2,7 +2,6 @@ import "server-only"
 
 import { eq } from "drizzle-orm"
 
-import { revisionAt, type AcceptedStamp } from "@workspace/headcanon"
 import type { DrizzleMutationTx } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
@@ -22,7 +21,6 @@ import { buildFinalizePatch } from "@/domain/entity/finalize"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import type { Actor } from "@/lib/auth/actor"
-import { entityAxisFor } from "@/lib/db/axes"
 import { getDb, type WriteExecutor } from "@/lib/db/client"
 import {
   loadPlayerCharacterById,
@@ -30,7 +28,6 @@ import {
 } from "@/lib/db/queries/load-player-character"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
-import { publishCharacterPing } from "@/lib/realtime/publish"
 
 import {
   admitEntityWrite,
@@ -65,28 +62,13 @@ type EntityMutationCommand<
 >
 
 async function projectAcceptedEntityMutation(context: {
-  readonly entityId: string
   readonly shortId: string
-  readonly versionClass: VersionClass
-  readonly stamp: AcceptedStamp
   readonly changesCharacterList: boolean
 }): Promise<void> {
   // Character loads still use React `cache()`, so the package's axis-tag expiry
   // cannot refresh this subtree yet. Keep the explicit projection until the
   // loader adopts `tagVersionedBase`.
   revalidateEntity({ shortId: context.shortId })
-
-  const stampedRevision = revisionAt(
-    context.stamp.revisions,
-    entityAxisFor[context.versionClass](context.entityId)
-  )
-  if (stampedRevision !== undefined) {
-    // Transitional bridge for dungeon watchers which still subscribe to the
-    // legacy character channel. The combat root observes this axis directly.
-    publishCharacterPing(context.shortId, "entity", {
-      [context.versionClass]: stampedRevision,
-    })
-  }
 
   if (context.changesCharacterList) revalidateCharacterList()
 }
@@ -109,12 +91,9 @@ export const entityWriteCommand = {
     const committed = await commitAdmittedEntityWrite(tx, args, evidence, stamp)
     return committed.ok ? acceptMutation() : refuseMutation(committed.error)
   },
-  finalizeAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, projection }) {
     return projectAcceptedEntityMutation({
-      entityId: args.entityId,
       shortId: projection.shortId,
-      versionClass: projection.versionClass,
-      stamp,
       changesCharacterList:
         args.write.component === "level" ||
         args.write.component === "archetypes",
@@ -141,12 +120,9 @@ export const entityIdentityCommand = {
     await commitAdmittedIdentityWrite(tx, args, evidence, stamp)
     return acceptMutation()
   },
-  finalizeAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, projection }) {
     return projectAcceptedEntityMutation({
-      entityId: args.entityId,
       shortId: projection.shortId,
-      versionClass: "identity",
-      stamp,
       changesCharacterList:
         args.write.field === "name" || args.write.field === "portraitUrl",
     })
@@ -213,12 +189,9 @@ export const entityFinalizeCommand = {
 
     return acceptMutation()
   },
-  finalizeAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ projection }) {
     return projectAcceptedEntityMutation({
-      entityId: args.entityId,
       shortId: projection.shortId,
-      versionClass: "identity",
-      stamp,
       changesCharacterList: true,
     })
   },

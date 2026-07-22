@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
+import type { Canon } from "@workspace/headcanon"
 import { Badge } from "@workspace/ui/components/badge"
 import { Spinner } from "@workspace/ui/components/spinner"
 
@@ -77,8 +78,8 @@ function usePhaseFlipRefresh(
 /**
  * The signed-out-visible **dungeon player watch** at `/campaigns/{c}/dungeon/{d}/watch`
  * (UNN-466; one surface for both phases since UNN-604). Seeds from the
- * server-rendered redacted `initialSnapshot` and subscribes via
- * {@link useDungeonSnapshot} (realtime + ~1.5s poll fallback).
+ * server-rendered redacted canon and observes it via {@link useDungeonSnapshot}
+ * (axis invalidation plus the package-owned ~1.5s poll fallback).
  *
  * Status-branched: `draft` waits, `active` shows the live fog map, `done`
  * freezes the final reveal. **The phase is read from the snapshot**: while
@@ -93,14 +94,12 @@ function usePhaseFlipRefresh(
  * fight). A spectator has none, so the map takes the full width.
  */
 export function DungeonWatch({
-  shortId,
-  initialSnapshot,
+  initialCanon,
   ownedCharacterIds,
   ownedSheets,
   combat,
 }: {
-  shortId: string
-  initialSnapshot: DungeonSnapshot
+  initialCanon: Canon<DungeonSnapshot>
   /** The party tokens to self-highlight. Stays the authority for the canvas:
    *  a character whose row fails the load seam still owns its token. */
   ownedCharacterIds: string[]
@@ -109,10 +108,9 @@ export function DungeonWatch({
   /** The live fight's watch data when the page loaded one, else `null`. */
   combat: DungeonWatchCombatData | null
 }) {
-  const { snapshot, stale, refetch } = useDungeonSnapshot(
-    shortId,
-    initialSnapshot
-  )
+  const root = useDungeonSnapshot({ canon: initialCanon })
+  const snapshot = root.value
+  const stale = root.status.freshness === "stalled"
   usePhaseFlipRefresh(snapshot, combat)
 
   const inCombat =
@@ -157,7 +155,6 @@ export function DungeonWatch({
           board={snapshot}
           combat={combat}
           ownedCharacterIds={ownedCharacterIds}
-          refetchBoard={refetch}
         />
       ) : (
         <>

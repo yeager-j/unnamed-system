@@ -109,10 +109,11 @@ export async function loadEntityRowsByIds(
  * character.
  */
 export async function loadLiveEntityRowsByIds(
-  entityIds: readonly string[]
+  entityIds: readonly string[],
+  executor: WriteExecutor = db
 ): Promise<EntityRow[]> {
   if (entityIds.length === 0) return []
-  return db
+  return executor
     .select()
     .from(entity)
     .where(and(inArray(entity.id, [...entityIds]), isNull(entity.deletedAt)))

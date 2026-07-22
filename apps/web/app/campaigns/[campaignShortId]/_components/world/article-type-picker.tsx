@@ -20,7 +20,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { setArticleTypeAction } from "@/lib/actions/campaign-world/article-prose"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /**
  * The **custom Article-type picker** (§4): a curated list ∪ the campaign's

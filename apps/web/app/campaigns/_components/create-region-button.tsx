@@ -20,11 +20,11 @@ import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { WANDERING_INTERVAL_OPTIONS } from "@/domain/labels"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { createRegionAction } from "@/lib/actions/region/create"
 import { regionErrorMessage } from "@/lib/actions/region/error-message"
 import type { PickableSet } from "@/lib/db/queries/load-template-set"
 import { campaignRegionPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 type PickableMap = { shortId: string; name: string }
 

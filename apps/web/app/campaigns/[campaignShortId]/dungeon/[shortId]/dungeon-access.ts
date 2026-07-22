@@ -1,17 +1,28 @@
 import { cache } from "react"
 
-import { defineCanon, type Canon } from "@workspace/headcanon"
+import { defineCanon, type AxisId, type Canon } from "@workspace/headcanon"
 
 import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import { auth } from "@/lib/auth"
-import { dungeonAxis, mapInstanceAxis, regionAxis } from "@/lib/db/axes"
+import {
+  dungeonAxis,
+  entityAxisFor,
+  mapInstanceAxis,
+  regionAxis,
+} from "@/lib/db/axes"
 import { db } from "@/lib/db/client"
+import {
+  loadPlacedCharactersForCampaign,
+  type CharacterSummary,
+} from "@/lib/db/queries/character-list"
 import { loadCampaignByShortId } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
+import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadRegionRowById } from "@/lib/db/queries/load-region"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { VERSION_CLASSES } from "@/lib/db/version-classes"
 
 /** The DM console's spatially-complete view of a dungeon: the dungeon row plus
  *  the {@link MapInstanceRow} it references (the delve's geometry/occupancy/
@@ -19,6 +30,7 @@ import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 export interface DungeonForDM {
   dungeon: DungeonRow
   instance: MapInstanceRow
+  placedCharacters: CharacterSummary[]
   canon: Canon<DungeonCanonValue>
 }
 
@@ -72,16 +84,33 @@ export const getDungeonForDM = cache(
           : null
         if (dungeon.regionId && !region) return null
 
+        const placedCharacters = await loadPlacedCharactersForCampaign(
+          dungeon.campaignId,
+          tx
+        )
+        const entityRows = await loadLiveEntityRowsByIds(
+          placedCharacters.map((character) => character.id),
+          tx
+        )
+        const revisions = {
+          [dungeonAxis(dungeon.id)]: dungeon.version,
+          [mapInstanceAxis(instance.id)]: instance.version,
+          ...(region ? { [regionAxis(region.id)]: region.version } : {}),
+        } as Record<AxisId, number>
+        for (const row of entityRows) {
+          for (const versionClass of VERSION_CLASSES) {
+            revisions[entityAxisFor[versionClass](row.id)] =
+              row[`${versionClass}Version`]
+          }
+        }
+
         return {
           dungeon,
           instance,
+          placedCharacters,
           canon: defineCanon({
             value: { dungeon: dungeon.state, instance: instance.state },
-            revisions: {
-              [dungeonAxis(dungeon.id)]: dungeon.version,
-              [mapInstanceAxis(instance.id)]: instance.version,
-              ...(region ? { [regionAxis(region.id)]: region.version } : {}),
-            },
+            revisions,
           }),
         }
       },

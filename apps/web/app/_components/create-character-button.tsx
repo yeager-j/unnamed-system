@@ -10,8 +10,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { FIRST_STEP_SLUG } from "@/domain/character/builder-steps"
 import { startEntityDraftAction } from "@/lib/actions/entity/start-draft"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { characterBuilderPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The "Create new character" CTA. Each click spins up a brand-new draft

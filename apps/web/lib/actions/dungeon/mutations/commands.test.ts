@@ -73,10 +73,6 @@ vi.mock("@/lib/db/writes/region", () => ({
 vi.mock("@/lib/db/writes/encounter", () => ({
   createEncounter: (...args: unknown[]) => createEncounter(...args),
 }))
-vi.mock("@/lib/realtime/publish", () => ({
-  publishDungeonInstancePing: vi.fn(),
-  publishDungeonPing: vi.fn(),
-}))
 vi.mock("../revalidate", () => ({ revalidateDungeon: vi.fn() }))
 
 const { dungeonCommandHandler } = await import("./commands")

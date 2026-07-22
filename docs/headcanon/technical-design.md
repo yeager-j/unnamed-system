@@ -1698,9 +1698,7 @@ entity/{id}/inventory
 entity/{id}/progression
 encounter/{id}
 map-instance/{id}
-map-instance/{id}/encounter-membership
 dungeon/{id}
-dungeon/{id}/roster-membership
 region/{id}
 ```
 
@@ -1760,7 +1758,7 @@ The encounter canon observes:
 
 - its encounter axis;
 - its map-instance axis; and
-- every entity and membership axis whose changes can alter the projection,
+- every entity and container axis whose changes can alter the projection,
   including durable participants it cannot mutate.
 
 An intent still carries no trusted storage-home claim. The authority reloads

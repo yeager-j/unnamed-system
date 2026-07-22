@@ -29,8 +29,8 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { rotateJoinTokenAction } from "@/lib/actions/rotate-join-token"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The DM's shareable invite link on the campaign manage page (UNN-329): the

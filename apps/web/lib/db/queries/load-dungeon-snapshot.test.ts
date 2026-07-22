@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { revisionAt } from "@workspace/headcanon"
+
+import { dungeonAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
+
 import { getDungeonSnapshot } from "./load-dungeon-snapshot"
 
 // `getDungeonSnapshot` composes several impure seams around the pure
@@ -15,6 +19,13 @@ const loadMapInstanceById = vi.fn()
 const loadPlacedCharactersForCampaign = vi.fn()
 const loadLiveEncounterForMapInstance = vi.fn()
 const loadPartyVitalsByIds = vi.fn()
+const loadLiveEntityRowsByIds = vi.fn()
+
+vi.mock("@/lib/db/client", () => ({
+  db: {
+    transaction: (run: (tx: object) => unknown) => run({}),
+  },
+}))
 
 vi.mock("@workspace/game-v2/visibility", () => ({
   projectDungeonSnapshot: (...args: unknown[]) =>
@@ -39,7 +50,7 @@ vi.mock("@/lib/db/queries/load-encounter-session", () => ({
     loadLiveEncounterForMapInstance(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
-  loadLiveEntityRowById: vi.fn(),
+  loadLiveEntityRowsByIds: (ids: string[]) => loadLiveEntityRowsByIds(ids),
 }))
 vi.mock("@/lib/db/queries/load-party-vitals", () => ({
   loadPartyVitalsByIds: (ids: string[]) => loadPartyVitalsByIds(ids),
@@ -79,6 +90,7 @@ beforeEach(() => {
   loadPlacedCharactersForCampaign.mockResolvedValue([])
   loadLiveEncounterForMapInstance.mockResolvedValue(null)
   loadPartyVitalsByIds.mockResolvedValue(new Map())
+  loadLiveEntityRowsByIds.mockResolvedValue([])
   projectDungeonSnapshot.mockReturnValue(SENTINEL)
 })
 
@@ -89,11 +101,13 @@ describe("getDungeonSnapshot — campaign pairing (UNN-608)", () => {
   })
 
   it("projects when the watch URL's campaign matches", async () => {
-    expect(await getDungeonSnapshot("dungeon-a", "camp-1")).toBe(SENTINEL)
+    expect((await getDungeonSnapshot("dungeon-a", "camp-1"))?.value).toBe(
+      SENTINEL
+    )
   })
 
   it("skips the pairing check for the flat poll API (no campaign passed)", async () => {
-    expect(await getDungeonSnapshot("dungeon-a")).toBe(SENTINEL)
+    expect((await getDungeonSnapshot("dungeon-a"))?.value).toBe(SENTINEL)
   })
 
   it("404s when no dungeon matches the shortId", async () => {
@@ -144,13 +158,49 @@ describe("getDungeonSnapshot — stub anchors thread to the projector (UNN-590)"
       version: 0,
     })
 
-    const snapshot = await getDungeonSnapshot("dungeon-a")
-    expect(snapshot).toBe(SENTINEL)
+    const canon = await getDungeonSnapshot("dungeon-a")
+    expect(canon?.value).toBe(SENTINEL)
 
     const exitAnchors = projectDungeonSnapshot.mock.calls[0]!.at(-1) as Record<
       string,
       { side: string; offset: number }
     >
     expect(exitAnchors["stub-1"]).toEqual({ side: "w", offset: 0.3 })
+  })
+})
+
+describe("getDungeonSnapshot — observed dependencies", () => {
+  it("observes stable container axes even when no encounter or roster member exists", async () => {
+    const canon = await getDungeonSnapshot("dungeon-a")
+    expect(canon).not.toBeNull()
+    expect(revisionAt(canon!.revisions, dungeonAxis("dungeon-1"))).toBe(0)
+    expect(revisionAt(canon!.revisions, mapInstanceAxis("mi-1"))).toBe(0)
+  })
+
+  it("observes every axis for projected roster members", async () => {
+    loadPlacedCharactersForCampaign.mockResolvedValue([
+      { id: "char-1", name: "Iris", portraitUrl: null },
+    ])
+    loadLiveEntityRowsByIds.mockResolvedValue([
+      {
+        id: "char-1",
+        identityVersion: 1,
+        vitalsVersion: 2,
+        inventoryVersion: 3,
+        progressionVersion: 4,
+      },
+    ])
+
+    const canon = await getDungeonSnapshot("dungeon-a")
+    expect(revisionAt(canon!.revisions, entityAxisFor.identity("char-1"))).toBe(
+      1
+    )
+    expect(revisionAt(canon!.revisions, entityAxisFor.vitals("char-1"))).toBe(2)
+    expect(
+      revisionAt(canon!.revisions, entityAxisFor.inventory("char-1"))
+    ).toBe(3)
+    expect(
+      revisionAt(canon!.revisions, entityAxisFor.progression("char-1"))
+    ).toBe(4)
   })
 })

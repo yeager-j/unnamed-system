@@ -17,11 +17,11 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { archiveRegionAction } from "@/lib/actions/region/archive"
 import { deleteRegionAction } from "@/lib/actions/region/delete"
 import { regionErrorMessage } from "@/lib/actions/region/error-message"
 import { campaignManagePath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The Region detail page's destructive controls (UNN-589). Two verbs, both DM-only:

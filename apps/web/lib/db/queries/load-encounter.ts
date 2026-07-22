@@ -2,7 +2,6 @@ import { and, desc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
-import { mapInstances } from "@/lib/db/schema/map-instance"
 
 /**
  * **Blob-free** reads for the `encounters` table (UNN-535): every function here
@@ -11,45 +10,6 @@ import { mapInstances } from "@/lib/db/schema/map-instance"
  * blob-agnostic is what let the campaign surfaces and version plumbing survive
  * the v1→v2 cutover untouched.
  */
-
-/**
- * The encounter's current optimistic `version` only (by public `shortId`), or
- * `null` when no encounter matches. Backs the client stale-retry path
- * (`getEncounterVersionAction`, UNN-378): when a guarded write returns `"stale"`,
- * the queued-write hook refetches the fresh token here and retries once. Selects
- * one column, so the read is index-light.
- */
-export async function loadEncounterVersionByShortId(
-  shortId: string
-): Promise<number | null> {
-  const [row] = await db
-    .select({ version: encounters.version })
-    .from(encounters)
-    .where(eq(encounters.shortId, shortId))
-    .limit(1)
-
-  return row?.version ?? null
-}
-
-/**
- * The encounter's Map-Instance `version` only (by the encounter's public
- * `shortId`), or `null` when no encounter matches. The Instance-queue twin of
- * {@link loadEncounterVersionByShortId} (UNN-535): the console's spatial write
- * queue refetches this on a genuine cross-writer `"stale"` and retries once.
- * A column-only join — the Instance `state` blob is never read.
- */
-export async function loadInstanceVersionByEncounterShortId(
-  shortId: string
-): Promise<number | null> {
-  const [row] = await db
-    .select({ version: mapInstances.version })
-    .from(encounters)
-    .innerJoin(mapInstances, eq(mapInstances.id, encounters.mapInstanceId))
-    .where(eq(encounters.shortId, shortId))
-    .limit(1)
-
-  return row?.version ?? null
-}
 
 /**
  * The encounter's `campaignId` only, or `null` when no encounter matches. Lets
@@ -77,6 +37,7 @@ export interface EncounterSummary {
   shortId: string
   name: string
   status: EncounterStatus
+  version: number
   createdAt: Date
 }
 
@@ -95,6 +56,7 @@ export async function loadEncountersForCampaign(
       shortId: encounters.shortId,
       name: encounters.name,
       status: encounters.status,
+      version: encounters.version,
       createdAt: encounters.createdAt,
     })
     .from(encounters)
@@ -118,6 +80,7 @@ export async function loadLiveEncounterSummaryForCampaign(
       shortId: encounters.shortId,
       name: encounters.name,
       status: encounters.status,
+      version: encounters.version,
       createdAt: encounters.createdAt,
     })
     .from(encounters)

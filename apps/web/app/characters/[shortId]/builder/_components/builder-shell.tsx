@@ -21,8 +21,8 @@ import {
 } from "@/domain/character/builder-steps"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/builder-step"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { characterBuilderPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The shared chrome for every wizard movement (ADR-002 §5.2). A

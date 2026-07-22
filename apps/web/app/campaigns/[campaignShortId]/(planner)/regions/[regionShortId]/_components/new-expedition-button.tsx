@@ -20,8 +20,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { createExpeditionAction } from "@/lib/actions/dungeon/expedition-create"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { dungeonConsolePath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "New expedition" CTA on the Region detail page (UNN-589 D5/D8). Opens a dialog

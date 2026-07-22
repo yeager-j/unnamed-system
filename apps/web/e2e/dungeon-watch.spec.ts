@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
+import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
+
 import { STORAGE_STATE } from "./auth.setup"
 import { createDungeonCombatTarget } from "./fixtures/dungeon-combat-target"
 import { cleanup, createTracker } from "./fixtures/factory"
@@ -47,11 +49,14 @@ async function hasNoReloadMarker(page: Page): Promise<boolean> {
   )
 }
 
-test("the watch re-phases explore → combat → explore with no reload", async ({
+test("the signed-out watch catches up through degraded polling with redaction intact", async ({
   page,
-  context,
+  browser,
 }) => {
-  const watchPage = await context.newPage()
+  const watchContext = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+  })
+  const watchPage = await watchContext.newPage()
   await watchPage.goto(target.dungeon.watchUrl)
 
   // Exploration baseline: the fog board (a React Flow canvas) shows the
@@ -75,6 +80,24 @@ test("the watch re-phases explore → combat → explore with no reload", async 
     .click()
   await page.getByRole("button", { name: "Begin encounter" }).click()
   await expect.poll(async () => await target.getLiveEncounter()).not.toBeNull()
+  const live = await target.getLiveEncounter()
+  if (!live) throw new Error("expected a live encounter")
+
+  const snapshotResponse = await watchPage.request.get(
+    `/api/encounter/${live.shortId}/combat-snapshot`
+  )
+  expect(snapshotResponse.status()).toBe(200)
+  const snapshotBody = (await snapshotResponse.json()) as {
+    canon: { value: SpatialEncounterSnapshot }
+  }
+  const enemies = snapshotBody.canon.value.combatants.filter(
+    (combatant) => combatant.components.allegiance?.side === "enemies"
+  )
+  expect(enemies.length).toBeGreaterThan(0)
+  for (const enemy of enemies) {
+    expect("attributes" in enemy.components).toBe(false)
+    expect("affinities" in enemy.components).toBe(false)
+  }
 
   // The watch swaps to the combat battlefield without a reload: the round
   // tracker + Combat badge appear, and the board is still the map — the same
@@ -110,4 +133,5 @@ test("the watch re-phases explore → combat → explore with no reload", async 
   await expect(watchPage.getByText("Turn 1")).toBeVisible({ timeout: 20_000 })
   await expect(entryCard.getByText(target.pc.name)).toBeVisible()
   expect(await hasNoReloadMarker(watchPage)).toBe(true)
+  await watchContext.close()
 })

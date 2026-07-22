@@ -7,7 +7,8 @@ import type { MapGeometry } from "@workspace/game-v2/spatial"
 import { ok } from "@workspace/result"
 
 import { saveMapAction } from "@/lib/actions/save-map"
-import { useQueuedWrite } from "@/lib/sync/use-queued-write"
+
+import { useQueuedWrite } from "./use-queued-write"
 
 const NAME_DEBOUNCE_MS = 600
 const GEOMETRY_DEBOUNCE_MS = 600
@@ -28,7 +29,7 @@ export type MapSaveStatus = "saved" | "saving" | "error"
  *
  * That serialized version-token queue is not hand-rolled here (UNN-483): both
  * fields route their saves through one {@link useQueuedWrite} — the single-row
- * façade over the shared `createWriteQueue` core (`lib/sync/write-queue.ts`). It
+ * façade over the shared `createWriteQueue` core (`write-queue.ts`). It
  * owns the monotonic version ref (synced from `serverVersion`), the serialized
  * spine, and the forward-only token bump. `refetchVersion` is **omitted** on
  * purpose: the Map does *not* do the character autosave's silent

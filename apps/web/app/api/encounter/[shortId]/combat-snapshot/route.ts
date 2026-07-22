@@ -4,11 +4,11 @@ import { getDungeonCombatSnapshot } from "@/lib/db/queries/load-encounter-snapsh
 
 /**
  * Public **fogged** player-snapshot endpoint for a fight running on a delve
- * (UNN-536) — the poll source the dungeon combat watch subscribes to, the fog
- * twin of `/api/encounter/{shortId}/snapshot`. Same viewer-derived redaction, but
+ * (UNN-536) — the fog twin of `/api/encounter/{shortId}/snapshot`. Same
+ * viewer-derived redaction, but
  * {@link getDungeonCombatSnapshot} additionally clamps zones/combatants to what
  * the DM has revealed, so a player watching a delve fight never sees past the fog.
- * Keyed by the **encounter** `shortId` (the watch's realtime channel + poll key).
+ * Keyed by the encounter's public `shortId`.
  */
 export async function GET(
   _request: Request,

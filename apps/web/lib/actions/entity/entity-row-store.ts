@@ -62,7 +62,7 @@ export type EntityWriteError =
   | "entity-load-failed"
   | "stale"
 
-/** The bumped class token, the entity's `shortId` (the pinged channel key), the
+/** The bumped class token, the entity's `shortId`, the
  *  bumped class (the ping's payload key), and the PC lifecycle status (external
  *  projections may read it). */
 export interface EntityCommit {
