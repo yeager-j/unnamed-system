@@ -1,14 +1,29 @@
 import "server-only"
 
 import {
+  addParticipantPaired,
   createReduceSession,
+  isRosterFullyPlaced,
+  removeParticipantPaired,
   saveSession,
   sweepOverlay,
+  type CombatEvent,
+  type EncounterState,
   type LoadedSession,
 } from "@workspace/game-v2/encounter"
-import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { pruneCombat, reduceDungeon } from "@workspace/game-v2/spatial"
-import { revisionAt } from "@workspace/headcanon"
+import { loadEntity, type Entity } from "@workspace/game-v2/kernel"
+import {
+  asParticipantId,
+  type ParticipantId,
+} from "@workspace/game-v2/kernel/participant-id.schema"
+import {
+  reduceMapInstance as createReduceMapInstance,
+  mapInstanceEventSchema,
+  pruneCombat,
+  reduceDungeon,
+  type MapInstanceEvent,
+} from "@workspace/game-v2/spatial"
+import type { StampAccumulator } from "@workspace/headcanon"
 import {
   throwMutationContention,
   type DrizzleMutationTx,
@@ -20,16 +35,22 @@ import {
   denyMutation,
   refuseMutation,
   type MutationCommand,
+  type MutationCommandDecision,
 } from "@workspace/headcanon/next/server"
 
 import {
   combatEnd,
+  combatEvent,
   combatWrite,
+  createCombatEventIdFactory,
   type CombatEndArgs,
+  type CombatEventArgs,
+  type CombatEventRefusal,
   type CombatWriteArgs,
 } from "@/domain/combat/commit/protocol"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 import { applyEntityWrite } from "@/domain/entity/commit/writers"
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import type { Actor } from "@/lib/auth/actor"
 import { dungeonAxis, encounterAxis, mapInstanceAxis } from "@/lib/db/axes"
 import { getDb, type WriteExecutor } from "@/lib/db/client"
@@ -37,8 +58,10 @@ import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByMapInstanceId } from "@/lib/db/queries/load-dungeon"
 import {
   loadEncounterForWrite,
+  loadLiveEncounterIdForCampaign,
   type LoadedEncounterForWrite,
 } from "@/lib/db/queries/load-encounter-session"
+import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
@@ -52,11 +75,6 @@ import {
   setEncounterStatus,
 } from "@/lib/db/writes/encounter"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import {
-  publishDungeonInstancePing,
-  publishDungeonPing,
-  publishEncounterPing,
-} from "@/lib/realtime/publish"
 
 import { revalidateEncounter } from "../../encounter/revalidate"
 import {
@@ -69,7 +87,7 @@ import { mintSessionWriteEvent } from "../commit/mint-session-write-event"
 type CombatMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
 type CombatMutationPreflight = ReturnType<typeof getDb>
 type CombatProjection = Pick<EncounterRow, "id" | "shortId" | "status">
-type CombatMutation = typeof combatWrite | typeof combatEnd
+type CombatMutation = typeof combatEvent | typeof combatWrite | typeof combatEnd
 type CombatMutationCommand<
   Mutation extends CombatMutation,
   Projection,
@@ -102,7 +120,229 @@ type AdmittedCombatWrite =
       readonly entityId: string
     }
 
-const newId = () => crypto.randomUUID()
+async function admitCombatEvent(
+  executor: WriteExecutor,
+  actor: Actor,
+  args: CombatEventArgs
+) {
+  const encounter = await loadEncounterForWrite(args.encounterId, executor)
+  if (!encounter.ok) return denyMutation()
+  const campaign = await loadCampaignRowById(
+    encounter.value.row.campaignId,
+    executor
+  )
+  if (!campaign || campaign.dmUserId !== actor.userId) return denyMutation()
+  return allowMutation(encounter.value)
+}
+
+function isMapInstanceEvent(
+  event: CombatEventArgs["event"]
+): event is MapInstanceEvent {
+  return mapInstanceEventSchema.safeParse(event).success
+}
+
+async function saveEncounterState(
+  tx: WriteExecutor,
+  encounter: LoadedEncounterForWrite,
+  session: LoadedSession["session"],
+  stamp: StampAccumulator
+): Promise<MutationCommandDecision<CombatEventRefusal>> {
+  const stored = saveSession(session, encounter.loaded.locators)
+  if (!stored.ok) return refuseMutation("locator-missing")
+  const saved = await saveEncounterSession(
+    encounter.row.id,
+    stored.value,
+    encounter.row.version,
+    tx
+  )
+  if (!saved.ok) throwMutationContention()
+  stamp.record(encounterAxis(encounter.row.id), saved.value.version)
+  return acceptMutation()
+}
+
+async function saveEncounterAndInstance(
+  tx: WriteExecutor,
+  encounter: LoadedEncounterForWrite,
+  next: EncounterState,
+  stamp: StampAccumulator
+): Promise<MutationCommandDecision<CombatEventRefusal>> {
+  const stored = saveSession(next.session, encounter.loaded.locators)
+  if (!stored.ok) return refuseMutation("locator-missing")
+  const savedEncounter = await saveEncounterSession(
+    encounter.row.id,
+    stored.value,
+    encounter.row.version,
+    tx
+  )
+  if (!savedEncounter.ok) throwMutationContention()
+  const instance = await loadMapInstanceById(encounter.row.mapInstanceId, tx)
+  if (!instance) return refuseMutation("map-instance-not-found")
+  const savedInstance = await saveMapInstanceState(
+    tx,
+    instance.id,
+    next.mapInstance,
+    instance.version
+  )
+  if (!savedInstance.ok) throwMutationContention()
+  stamp.record(encounterAxis(encounter.row.id), savedEncounter.value.version)
+  stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
+  return acceptMutation()
+}
+
+async function executeCombatEvent(
+  tx: WriteExecutor,
+  args: CombatEventArgs,
+  encounter: LoadedEncounterForWrite,
+  stamp: StampAccumulator
+): Promise<MutationCommandDecision<CombatEventRefusal>> {
+  const event = args.event
+  const newId = createCombatEventIdFactory(args.predictionId)
+
+  if (isMapInstanceEvent(event)) {
+    const instance = await loadMapInstanceById(encounter.row.mapInstanceId, tx)
+    if (!instance) return refuseMutation("map-instance-not-found")
+    const saved = await saveMapInstanceState(
+      tx,
+      instance.id,
+      createReduceMapInstance(newId)(instance.state, event),
+      instance.version
+    )
+    if (!saved.ok) throwMutationContention()
+    stamp.record(mapInstanceAxis(instance.id), saved.value.version)
+    return acceptMutation()
+  }
+
+  if (event.kind === "addParticipant") {
+    const participantId = event.setup.id ?? asParticipantId(newId())
+    let entity: Entity
+    if ("entityId" in event.setup) {
+      const row = await loadLiveEntityRowById(event.setup.entityId, tx)
+      if (!row) return refuseMutation("character-not-found")
+      const loaded = loadEntityRow(row)
+      if (!loaded.ok) return refuseMutation("invalid-entity")
+      entity = loaded.value
+      encounter.loaded.locators.set(participantId, {
+        storage: "durable",
+        entityId: event.setup.entityId,
+      })
+    } else {
+      const loaded = loadEntity(
+        event.setup.entity.id,
+        event.setup.entity.components
+      )
+      if (!loaded.ok) return refuseMutation("invalid-entity")
+      entity = loaded.value
+      encounter.loaded.locators.set(participantId, {
+        storage: "inline",
+        entity: event.setup.entity,
+      })
+    }
+
+    const addEvent = {
+      kind: "addParticipant",
+      setup: { id: participantId, side: event.setup.side, entity },
+    } satisfies Extract<CombatEvent, { kind: "addParticipant" }>
+    if (event.setup.zoneId === undefined) {
+      return saveEncounterState(
+        tx,
+        encounter,
+        createReduceSession(newId)(encounter.loaded.session, addEvent),
+        stamp
+      )
+    }
+
+    const instance = await loadMapInstanceById(encounter.row.mapInstanceId, tx)
+    if (!instance) return refuseMutation("map-instance-not-found")
+    return saveEncounterAndInstance(
+      tx,
+      encounter,
+      addParticipantPaired(newId)(
+        { session: encounter.loaded.session, mapInstance: instance.state },
+        addEvent,
+        event.setup.zoneId
+      ),
+      stamp
+    )
+  }
+
+  if (event.kind === "removeParticipant") {
+    const instance = await loadMapInstanceById(encounter.row.mapInstanceId, tx)
+    if (!instance) return refuseMutation("map-instance-not-found")
+    return saveEncounterAndInstance(
+      tx,
+      encounter,
+      removeParticipantPaired(newId)(
+        { session: encounter.loaded.session, mapInstance: instance.state },
+        event
+      ),
+      stamp
+    )
+  }
+
+  if (event.kind === "startCombat") {
+    const live = await loadLiveEncounterIdForCampaign(
+      encounter.row.campaignId,
+      tx
+    )
+    if (live !== null && live !== encounter.row.id) {
+      return refuseMutation("campaign-already-has-live-encounter")
+    }
+    const instance = await loadMapInstanceById(encounter.row.mapInstanceId, tx)
+    if (!instance) return refuseMutation("map-instance-not-found")
+    if (!isRosterFullyPlaced(encounter.loaded.session, instance.state)) {
+      return refuseMutation("encounter-has-unplaced-combatants")
+    }
+    const session = createReduceSession(newId)(encounter.loaded.session, event)
+    const stored = saveSession(session, encounter.loaded.locators)
+    if (!stored.ok) return refuseMutation("locator-missing")
+    const saved = await saveEncounterSession(
+      encounter.row.id,
+      stored.value,
+      encounter.row.version,
+      tx
+    )
+    if (!saved.ok) throwMutationContention()
+    const liveEncounter = await setEncounterStatus(
+      encounter.row.id,
+      "live",
+      saved.value.version,
+      tx
+    )
+    if (!liveEncounter.ok) throwMutationContention()
+    stamp.record(encounterAxis(encounter.row.id), liveEncounter.value.version)
+    return acceptMutation()
+  }
+
+  return saveEncounterState(
+    tx,
+    encounter,
+    createReduceSession(newId)(encounter.loaded.session, event),
+    stamp
+  )
+}
+
+export const combatEventCommand = {
+  async screen({ executor, actor, args }) {
+    const admitted = await admitCombatEvent(executor, actor, args)
+    return admitted.kind === "allowed"
+      ? allowMutationScreening<CombatProjection>({
+          id: admitted.evidence.row.id,
+          shortId: admitted.evidence.row.shortId,
+          status: admitted.evidence.row.status,
+        })
+      : admitted
+  },
+  admit: ({ tx, actor, args }) => admitCombatEvent(tx, actor, args),
+  execute: ({ tx, args, evidence, stamp }) =>
+    executeCombatEvent(tx, args, evidence, stamp),
+  finalizeAccepted({ projection }) {
+    revalidateEncounter(projection)
+  },
+} satisfies CombatMutationCommand<
+  typeof combatEvent,
+  CombatProjection,
+  LoadedEncounterForWrite
+>
 
 async function admitCombatWrite(
   executor: WriteExecutor,
@@ -218,7 +458,7 @@ export const combatWriteCommand = {
     )
     if (!predicted.ok) return refuseMutation(predicted.error)
 
-    const next = createReduceSession(newId)(
+    const next = createReduceSession(() => crypto.randomUUID())(
       evidence.loaded.session,
       mintSessionWriteEvent(evidence.participantId, args.write)
     )
@@ -238,16 +478,8 @@ export const combatWriteCommand = {
     stamp.record(encounterAxis(evidence.row.id), saved.value.version)
     return acceptMutation()
   },
-  finalizeAccepted({ stamp, projection }) {
+  finalizeAccepted({ projection }) {
     revalidateEncounter(projection)
-
-    const version = revisionAt(stamp.revisions, encounterAxis(projection.id))
-    if (version !== undefined) {
-      publishEncounterPing(projection.shortId, {
-        version,
-        status: projection.status,
-      })
-    }
   },
 } satisfies CombatMutationCommand<
   typeof combatWrite,
@@ -383,36 +615,8 @@ export const combatEndCommand = {
     }
     return acceptMutation()
   },
-  finalizeAccepted({ stamp, projection }) {
+  finalizeAccepted({ projection }) {
     revalidateEncounter(projection.encounter)
-    const encounterVersion = revisionAt(
-      stamp.revisions,
-      encounterAxis(projection.encounter.id)
-    )
-    if (encounterVersion !== undefined) {
-      publishEncounterPing(projection.encounter.shortId, {
-        version: encounterVersion,
-        status: "ended",
-      })
-    }
-    if (!projection.dungeon) return
-    const instanceVersion = revisionAt(
-      stamp.revisions,
-      mapInstanceAxis(projection.dungeon.mapInstanceId)
-    )
-    if (instanceVersion !== undefined) {
-      publishDungeonInstancePing(projection.dungeon.shortId, instanceVersion)
-    }
-    const dungeonVersion = revisionAt(
-      stamp.revisions,
-      dungeonAxis(projection.dungeon.id)
-    )
-    if (dungeonVersion !== undefined) {
-      publishDungeonPing(projection.dungeon.shortId, {
-        version: dungeonVersion,
-        status: projection.dungeon.status,
-      })
-    }
   },
 } satisfies CombatMutationCommand<
   typeof combatEnd,

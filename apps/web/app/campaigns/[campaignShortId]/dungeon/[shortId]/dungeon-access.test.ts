@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { dungeonAxis, mapInstanceAxis } from "@/lib/db/axes"
+import { dungeonAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -17,6 +17,8 @@ const loadDungeonRowByShortId = vi.fn()
 const loadCampaignByShortId = vi.fn()
 const loadMapInstanceById = vi.fn()
 const loadRegionRowById = vi.fn()
+const loadPlacedCharactersForCampaign = vi.fn()
+const loadLiveEntityRowsByIds = vi.fn()
 const { tx, transaction } = vi.hoisted(() => {
   const tx = { kind: "repeatable-read-tx" }
   return {
@@ -46,6 +48,14 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
 vi.mock("@/lib/db/queries/load-region", () => ({
   loadRegionRowById: (id: string, executor: unknown) =>
     loadRegionRowById(id, executor),
+}))
+vi.mock("@/lib/db/queries/character-list", () => ({
+  loadPlacedCharactersForCampaign: (id: string, executor: unknown) =>
+    loadPlacedCharactersForCampaign(id, executor),
+}))
+vi.mock("@/lib/db/queries/load-entity", () => ({
+  loadLiveEntityRowsByIds: (ids: string[], executor: unknown) =>
+    loadLiveEntityRowsByIds(ids, executor),
 }))
 
 const DM_ID = "dm-user"
@@ -122,12 +132,35 @@ const instanceRow: MapInstanceRow = {
   updatedAt: FIXED_DATE,
 }
 
+const placedCharacter = {
+  id: "character-1",
+  shortId: "hero-1",
+  name: "Hero",
+  level: 1,
+  portraitUrl: null,
+  activeArchetypeKey: null,
+  status: "finalized" as const,
+  builderStep: 0,
+}
+
+const entityVersions = {
+  id: placedCharacter.id,
+  identityVersion: 1,
+  vitalsVersion: 2,
+  inventoryVersion: 3,
+  progressionVersion: 4,
+}
+
 beforeEach(() => {
   auth.mockReset().mockResolvedValue({ user: { id: DM_ID } })
   loadDungeonRowByShortId.mockReset()
   loadCampaignByShortId.mockReset().mockResolvedValue(campaignRow(DM_ID))
   loadMapInstanceById.mockReset().mockResolvedValue(instanceRow)
   loadRegionRowById.mockReset().mockResolvedValue(null)
+  loadPlacedCharactersForCampaign
+    .mockReset()
+    .mockResolvedValue([placedCharacter])
+  loadLiveEntityRowsByIds.mockReset().mockResolvedValue([entityVersions])
   transaction.mockClear()
 })
 
@@ -140,6 +173,7 @@ describe("getDungeonForDM", () => {
     expect(result).toEqual({
       dungeon: dungeonRow("ok-dm"),
       instance: instanceRow,
+      placedCharacters: [placedCharacter],
       canon: {
         value: {
           dungeon: dungeonRow("ok-dm").state,
@@ -148,6 +182,10 @@ describe("getDungeonForDM", () => {
         revisions: {
           [dungeonAxis("dungeon-ok-dm")]: 0,
           [mapInstanceAxis("mi-1")]: 0,
+          [entityAxisFor.identity(placedCharacter.id)]: 1,
+          [entityAxisFor.vitals(placedCharacter.id)]: 2,
+          [entityAxisFor.inventory(placedCharacter.id)]: 3,
+          [entityAxisFor.progression(placedCharacter.id)]: 4,
         },
       },
     })
@@ -156,6 +194,10 @@ describe("getDungeonForDM", () => {
       accessMode: "read only",
     })
     expect(loadDungeonRowByShortId).toHaveBeenCalledWith("ok-dm", tx)
+    expect(loadPlacedCharactersForCampaign).toHaveBeenCalledWith(
+      "campaign-1",
+      tx
+    )
   })
 
   it("returns null when signed out (no leak of existence)", async () => {

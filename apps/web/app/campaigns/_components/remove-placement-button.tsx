@@ -21,7 +21,7 @@ import {
   CHARACTER_UNPLACE_CONSENT,
 } from "@/domain/labels"
 import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /**
  * The per-card "remove from campaign" control on the placement section (UNN-328).

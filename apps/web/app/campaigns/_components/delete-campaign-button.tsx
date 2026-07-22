@@ -21,7 +21,7 @@ import { Label } from "@workspace/ui/components/label"
 
 import { CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR } from "@/domain/labels"
 import { deleteCampaignAction } from "@/lib/actions/delete-campaign"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /**
  * "Delete campaign" control on the DM manage page (UNN-330). Type-the-name

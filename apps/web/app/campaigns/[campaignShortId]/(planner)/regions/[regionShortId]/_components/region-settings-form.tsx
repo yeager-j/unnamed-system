@@ -11,9 +11,9 @@ import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { WANDERING_INTERVAL_OPTIONS } from "@/domain/labels"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { regionErrorMessage } from "@/lib/actions/region/error-message"
 import { updateRegionSettingsAction } from "@/lib/actions/region/update-settings"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /** The authored settings this form edits — the plain projection of the Region's
  *  `settings` blob (the app tier is gated against engine types). */

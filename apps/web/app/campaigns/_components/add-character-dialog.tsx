@@ -31,8 +31,8 @@ import {
   characterMoveConsent,
 } from "@/domain/labels"
 import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Add character to campaign" on the placement section (UNN-328). An inline

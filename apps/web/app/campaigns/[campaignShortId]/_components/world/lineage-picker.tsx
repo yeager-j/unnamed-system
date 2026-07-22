@@ -22,7 +22,7 @@ import {
 import { LINEAGE_DISPLAY } from "@/domain/labels"
 import { LINEAGES, type Lineage } from "@/domain/vocab"
 import { setNpcLineageAction } from "@/lib/actions/campaign-world/npc-traits"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /**
  * The **Lineage picker** (UNN-579, D8 — the hard-unique Atlas-gate lane):

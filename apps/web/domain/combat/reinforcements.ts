@@ -29,7 +29,7 @@ export interface ReinforcementSetup {
 
 /**
  * Materializes a staged catalog queue into `addParticipant` setups — the
- * client-side twin of `addCatalogEnemiesAction`'s server loop (UNN-493). Each
+ * client-side materializer for catalog reinforcement events (UNN-493). Each
  * copy mints a fresh participant id (seeding the entity id, so the optimistic
  * mirror and the server agree on the roster key) and deep-copies a full-HP
  * inline entity via the bound {@link instantiateEnemy}. An unknown key yields no

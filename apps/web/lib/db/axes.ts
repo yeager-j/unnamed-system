@@ -24,8 +24,8 @@ import type { VersionClass } from "./version-classes"
  *   Single Choice for axis addressing (the versioned string is a deployed
  *   protocol — a stale tab may compare against a newer server), even though only
  *   the four `entity` axes have a consumer in P2a. Encounter, map-instance,
- *   dungeon, region, and the membership/container axes gain consumers when
- *   combat and dungeon bindings land (Phase 3).
+ *   dungeon, and region axes gain consumers when combat and dungeon bindings
+ *   land (Phase 3).
  *
  * **Imported by loaders and handlers only** — a loader stamps the axes its canon
  * observes; a mutation handler records the axes its accepted transaction
@@ -79,24 +79,9 @@ export const encounterAxis = (encounterId: string): AxisId =>
 export const mapInstanceAxis = (instanceId: string): AxisId =>
   opaqueAxis(`showtime:storage:v1:map-instance:${instanceId}`)
 
-/** `map-instance/{id}/encounter-membership` — the stable container axis a
- *  view observes to learn that the instance's live encounter appeared,
- *  disappeared, or changed (an absence dependency, per the loader contract). */
-export const mapInstanceEncounterMembershipAxis = (
-  instanceId: string
-): AxisId =>
-  opaqueAxis(
-    `showtime:storage:v1:map-instance:${instanceId}:encounter-membership`
-  )
-
 /** `dungeon/{id}` — one dungeon's version line. */
 export const dungeonAxis = (dungeonId: string): AxisId =>
   opaqueAxis(`showtime:storage:v1:dungeon:${dungeonId}`)
-
-/** `dungeon/{id}/roster-membership` — the stable container axis for changes to
- *  which characters occupy the dungeon's roster slots. */
-export const dungeonRosterMembershipAxis = (dungeonId: string): AxisId =>
-  opaqueAxis(`showtime:storage:v1:dungeon:${dungeonId}:roster-membership`)
 
 /** `region/{id}` — one region's version line. */
 export const regionAxis = (regionId: string): AxisId =>

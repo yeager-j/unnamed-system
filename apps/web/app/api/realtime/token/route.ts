@@ -1,20 +1,11 @@
 import { z } from "zod/v4"
 
-import { realtimeChannelName, realtimeNamespace } from "@/lib/realtime/channels"
+import { realtimeNamespace } from "@/lib/realtime/channels"
 import { getAblyRest } from "@/lib/realtime/client"
 
 /**
- * Issues Ably token requests for realtime subscribers (realtime ADR, Decisions
- * 4 and 7). No auth gate — knowledge of the public `shortId` *is* the
- * subscribe capability, the same model the public sheet and the snapshot API
- * already use. The client sends `{domain, shortId}`; the server resolves the
- * environment-namespaced channel name itself (clients never assemble names, so
- * one preview can't attach to another's channels) and returns it alongside a
- * token request whose capability is **subscribe-only on exactly that channel**
- * — publish capability never leaves the server.
- *
- * The second admitted shape (P2d — UNN-676) is the Headcanon axis form:
- * `{capability}` carrying the exact hashed axis channels a mounted root
+ * Issues subscribe-only Ably token requests for Headcanon axis channels. The
+ * admitted body is `{capability}`, carrying the exact hashed channels a root
  * observes. The package derives those names client-side (SHA-256 over the axis
  * id under this deployment's namespace), so the route cannot resolve them
  * itself; instead it validates that every requested channel sits inside this
@@ -27,11 +18,6 @@ import { getAblyRest } from "@/lib/realtime/client"
  * With `ABLY_API_KEY` unset, responds 503 `{available: false}` so clients run
  * their degraded path (Decision 3).
  */
-
-const RealtimeTokenSchema = z.object({
-  domain: z.enum(["character", "encounter", "dungeon"]),
-  shortId: z.string().min(1),
-})
 
 const AXIS_CHANNEL_PATTERN = /^headcanon:axis:v1:[0-9a-f]{64}$/
 
@@ -89,19 +75,5 @@ export async function POST(request: Request) {
     }
   }
 
-  const parsed = RealtimeTokenSchema.safeParse(body)
-  if (!parsed.success) {
-    return Response.json({ error: "Invalid request" }, { status: 400 })
-  }
-
-  const channel = realtimeChannelName(parsed.data.domain, parsed.data.shortId)
-  try {
-    const tokenRequest = await client.auth.createTokenRequest({
-      capability: { [channel]: ["subscribe"] },
-    })
-    return Response.json({ channel, tokenRequest })
-  } catch (error) {
-    console.error(`Realtime token request failed for ${channel}`, error)
-    return Response.json({ available: false }, { status: 503 })
-  }
+  return Response.json({ error: "Invalid request" }, { status: 400 })
 }

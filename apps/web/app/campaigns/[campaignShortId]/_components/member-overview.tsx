@@ -10,6 +10,7 @@ import { EncounterStatusListener } from "@/app/campaigns/_components/encounter-s
 import { LeaveCampaignButton } from "@/app/campaigns/_components/leave-campaign-button"
 import { LiveDelveBanner } from "@/app/campaigns/_components/live-delve-banner"
 import { LiveEncounterBanner } from "@/app/campaigns/_components/live-encounter-banner"
+import { activeEncounters } from "@/lib/db/queries/active-encounter-canon"
 import { loadCampaignRoster } from "@/lib/db/queries/load-campaign"
 import { loadActiveDungeonForCampaign } from "@/lib/db/queries/load-dungeon"
 import {
@@ -17,8 +18,6 @@ import {
   loadLiveEncounterSummaryForCampaign,
 } from "@/lib/db/queries/load-encounter"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
-
-import { activeEncounters } from "./active-encounters"
 
 /**
  * The campaign page as a **member** sees it (UNN-329): a read-only overview —

@@ -11,24 +11,27 @@ import { useTransition } from "react"
 import { toast } from "sonner"
 
 import { getEnemy } from "@workspace/game-v2/catalog/enemies"
+import type { EncounterState } from "@workspace/game-v2/encounter"
+import type { Canon } from "@workspace/headcanon"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { useEncounterEnemyQueue } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_hooks/use-encounter-enemy-queue"
+import { dispatchCombatEvent } from "@/components/combat/console/dispatch-event"
+import { useCombatFeedback } from "@/components/combat/console/use-combat-feedback"
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
-import { addCatalogEnemiesAction } from "@/lib/actions/combat/add-participants"
-import { combatErrorMessage } from "@/lib/actions/combat/error-message"
+import { buildReinforcements } from "@/domain/combat/reinforcements"
+import { useCombatPredictions } from "@/domain/combat/use-combat-predictions"
 import { encounterConsolePath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The catalog browse-and-add surface (UNN-346), committing onto engine v2
  * (UNN-535): a three-column master-detail over the bestiary plus a local
  * staging queue. The DM queues creatures (count per kind) and commits them
- * through {@link addCatalogEnemiesAction}, which materializes each key into a
- * fresh **inline entity** server-side — adds land unplaced on the enemies side
- * (add-then-place), so the commit is a session-only write and carries no
- * Instance token. The queue is localStorage-backed (a reload never loses it).
+ * as `combat.event` mutations after materializing each key into a fresh inline
+ * entity. Adds land unplaced on the enemies side (add-then-place), so each
+ * accepted event advances only the encounter axis. The queue is
+ * localStorage-backed (a reload never loses it).
  */
 function enemyName(enemyKey: string): string {
   return getEnemy(enemyKey)?.components.identity?.name ?? enemyKey
@@ -39,7 +42,7 @@ export function EnemyCatalogBrowser({
   shortId,
   campaignShortId,
   encounterName,
-  expectedVersion,
+  canon,
   committedPlayers,
   committedEnemies,
 }: {
@@ -47,13 +50,15 @@ export function EnemyCatalogBrowser({
   shortId: string
   campaignShortId: string
   encounterName: string
-  expectedVersion: number
+  canon: Canon<EncounterState>
   committedPlayers: number
   committedEnemies: number
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const queue = useEncounterEnemyQueue(encounterId)
+  const root = useCombatPredictions({ canon })
+  useCombatFeedback(root)
 
   const backHref = encounterConsolePath(campaignShortId, shortId)
 
@@ -63,32 +68,25 @@ export function EnemyCatalogBrowser({
   }
 
   function commit() {
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const saved = await addCatalogEnemiesAction({
-            encounterId,
-            expectedVersion,
-            enemies: queue.queue.map((entry) => ({
-              enemyKey: entry.enemyKey,
-              count: entry.count,
-            })),
-          })
+    startTransition(async () => {
+      const setups = buildReinforcements(queue.queue, undefined)
+      for (const setup of setups) {
+        const receipt = dispatchCombatEvent({
+          encounterId,
+          event: { kind: "addParticipant", setup },
+          root,
+        })
+        if (!receipt) return
+        const accepted = await receipt.accepted
+        if (!accepted.ok) return
+      }
 
-          if (!saved.ok) {
-            toast.error(combatErrorMessage(saved.error))
-            return
-          }
-
-          queue.clear()
-          toast.success(
-            `Added ${queue.totalCount} ${queue.totalCount === 1 ? "enemy" : "enemies"} to the encounter.`
-          )
-          router.push(backHref)
-        },
-        () => toast.error("Couldn't add the enemies. Try again.")
+      queue.clear()
+      toast.success(
+        `Added ${queue.totalCount} ${queue.totalCount === 1 ? "enemy" : "enemies"} to the encounter.`
       )
-    )
+      router.push(backHref)
+    })
   }
 
   return (
@@ -144,7 +142,7 @@ export function EnemyCatalogBrowser({
               count: entry.count,
             }))}
             totalCount={queue.totalCount}
-            isPending={isPending}
+            isPending={isPending || root.status.pending > 0}
             onIncrement={(key) => queue.add(key)}
             onDecrement={(key) => {
               const entry = queue.queue.find((item) => item.enemyKey === key)

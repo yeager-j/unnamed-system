@@ -85,7 +85,6 @@ apps/web/
 ├── actions/                      Server Actions + schemas (write-side seam); entity/ is the durable-entity write door
 ├── auth/                         Auth.js v5 (Google OAuth, Drizzle adapter)
 ├── db/                           client/schema/migrations/queries/writes — see lib/db/CLAUDE.md
-├── realtime/                     Ably invalidation pings (lazy REST publish + subscribe hook)
+├── realtime/                     Headcanon axis invalidation transport + degraded polling binding
 ├── storage/                      Vercel Blob (portraits)
-└── sync/                         Transitional combat queues plus watch snapshot/version synchronization
 ```

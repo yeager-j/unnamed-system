@@ -17,9 +17,9 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { deleteTemplateSetAction } from "@/lib/actions/template-set/delete"
 import { stageSetsPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Delete set" control on the Set editor (UNN-588). A simple confirm — the

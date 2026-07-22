@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation"
 
 import { DungeonEncounterStaging } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/encounter-staging"
 import { groupZonesByPage } from "@/domain/map/view/page-groups"
-import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { dungeonConsolePath } from "@/lib/paths"
 
@@ -40,7 +39,7 @@ export default async function DungeonEncounterPage({ params }: PageProps) {
   const result = await getDungeonForDM(campaignShortId, shortId)
 
   if (!result) notFound()
-  const { dungeon, instance, canon } = result
+  const { dungeon, instance, placedCharacters, canon } = result
 
   if (dungeon.status !== "active") {
     redirect(dungeonConsolePath(campaignShortId, shortId))
@@ -49,9 +48,6 @@ export default async function DungeonEncounterPage({ params }: PageProps) {
     redirect(dungeonConsolePath(campaignShortId, shortId))
   }
 
-  const placedCharacters = await loadPlacedCharactersForCampaign(
-    dungeon.campaignId
-  )
   const placedIds = new Set(placedCharacters.map((character) => character.id))
   const partyCharacterIds = Object.keys(instance.state.occupancy).filter(
     (characterId) => placedIds.has(characterId)

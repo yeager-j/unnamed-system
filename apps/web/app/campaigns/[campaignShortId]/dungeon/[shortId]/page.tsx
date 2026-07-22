@@ -13,7 +13,6 @@ import {
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { groupZonesByPage } from "@/domain/map/view/page-groups"
-import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
@@ -51,11 +50,7 @@ export default async function DungeonPage({ params }: PageProps) {
   const result = await getDungeonForDM(campaignShortId, shortId)
 
   if (!result) notFound()
-  const { dungeon, instance, canon } = result
-
-  const placedCharacters = await loadPlacedCharactersForCampaign(
-    dungeon.campaignId
-  )
+  const { dungeon, instance, placedCharacters, canon } = result
 
   switch (dungeon.status) {
     case "draft": {
@@ -132,7 +127,7 @@ async function resolveRunMode(
   campaignShortId: string,
   dungeon: DungeonForDM["dungeon"],
   instance: DungeonForDM["instance"],
-  placedCharacters: Awaited<ReturnType<typeof loadPlacedCharactersForCampaign>>
+  placedCharacters: DungeonForDM["placedCharacters"]
 ): Promise<DungeonRunMode> {
   const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
   if (live) {

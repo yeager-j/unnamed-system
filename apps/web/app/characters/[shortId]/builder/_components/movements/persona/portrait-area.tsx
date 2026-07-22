@@ -17,12 +17,12 @@ import {
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
 import { uploadEntityPortraitAction } from "@/lib/actions/entity/portrait"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import {
   MAX_PORTRAIT_BYTES,
   messageForPortraitUploadError,
   PORTRAIT_ACCEPT,
 } from "@/lib/storage/portrait-upload"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * Movement 4's portrait area. Sits at the visual top of the page. When

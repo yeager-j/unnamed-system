@@ -18,8 +18,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { LEAVE_CAMPAIGN_LIVE_LOCK_ERROR } from "@/domain/labels"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { leaveCampaignAction } from "@/lib/actions/leave-campaign"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Leave campaign" control on the member overview (UNN-330). Removes the viewer's

@@ -26,7 +26,7 @@ describe("POST /api/realtime/token", () => {
     vi.stubEnv("ABLY_API_KEY", "")
 
     const response = await POST(
-      tokenRequest({ domain: "character", shortId: "abc123" })
+      tokenRequest({ capability: { [AXIS_CHANNEL]: ["subscribe"] } })
     )
 
     expect(response.status).toBe(503)
@@ -36,41 +36,9 @@ describe("POST /api/realtime/token", () => {
   it("rejects a malformed body", async () => {
     vi.stubEnv("ABLY_API_KEY", FAKE_ABLY_KEY)
 
-    const response = await POST(
-      tokenRequest({ domain: "everything", shortId: "" })
-    )
+    const response = await POST(tokenRequest({ capability: {} }))
 
     expect(response.status).toBe(400)
-  })
-
-  it("resolves the channel server-side and issues a subscribe-only capability for exactly that channel", async () => {
-    vi.stubEnv("ABLY_API_KEY", FAKE_ABLY_KEY)
-
-    const response = await POST(
-      tokenRequest({ domain: "character", shortId: "abc123" })
-    )
-
-    expect(response.status).toBe(200)
-    const { channel, tokenRequest: issued } = await response.json()
-    expect(channel).toBe("dev:character:abc123")
-    expect(JSON.parse(issued.capability)).toEqual({
-      "dev:character:abc123": ["subscribe"],
-    })
-  })
-
-  it("issues a token for the dungeon domain", async () => {
-    vi.stubEnv("ABLY_API_KEY", FAKE_ABLY_KEY)
-
-    const response = await POST(
-      tokenRequest({ domain: "dungeon", shortId: "delve9" })
-    )
-
-    expect(response.status).toBe(200)
-    const { channel, tokenRequest: issued } = await response.json()
-    expect(channel).toBe("dev:dungeon:delve9")
-    expect(JSON.parse(issued.capability)).toEqual({
-      "dev:dungeon:delve9": ["subscribe"],
-    })
   })
 })
 

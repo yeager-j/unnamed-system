@@ -36,7 +36,7 @@ export interface QueuedEnemyItem {
   detail?: ReactNode
 }
 
-/** No per-group ceiling: the mapless commit (`addCatalogEnemiesAction`) takes any
+/** No per-group ceiling: the mapless combat-event batch takes any
  *  positive count, so its stepper never disables. */
 const UNCAPPED = Number.POSITIVE_INFINITY
 
