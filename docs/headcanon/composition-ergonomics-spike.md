@@ -86,6 +86,17 @@ action generated for a different protocol is rejected at the option site —
 errors localize to the one line that is wrong, instead of surfacing inside the
 sender factory's return-type mismatch.
 
+That check needs one deliberate mechanism (added after external review caught
+the gap): because the generated action's parameter is `unknown` and an app's
+`"use server"` wrapper preserves only the return type, two protocols with
+compatible refusal unions would otherwise cross-assign and fail only at
+runtime (`invalid-protocol` → uncertain delivery). The generated action's
+outcome therefore carries a phantom `ProtocolIdentity<Protocol["id"]>` — an
+optional, never-materialized property whose literal id makes structural
+assignability compare protocol identities. A second negative control pins it:
+a refusal-compatible action with the real generated shape was proven to
+compile before the brand and is rejected after it.
+
 The three options remaining are precisely the module's documented purpose
 ("this module owns only the app's three seams: the protocol, the Server Action,
 and the invalidation transport") — the golden path makes that sentence the

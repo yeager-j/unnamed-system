@@ -12,6 +12,7 @@ import {
   type MutationAuthorityAdapter,
   type MutationExecutorError,
   type MutationTerminalOutcome,
+  type ProtocolIdentity,
   type StampAccumulator,
 } from "../authority"
 import type {
@@ -471,13 +472,18 @@ export function createNextMutationAction<
     ])
   )
 
+  // The phantom ProtocolIdentity pairs this generated action with its
+  // protocol at the type level: the envelope parameter is `unknown` (strict
+  // admission) and app wrappers preserve only the return type, so the tag is
+  // what stops a client binding a refusal-compatible foreign action.
   return async (
     envelope: unknown
   ): Promise<
     Result<
       Exclude<Terminal, { readonly kind: "denied" }>,
       MutationExecutorError
-    >
+    > &
+      ProtocolIdentity<Protocol["id"]>
   > => {
     const actor = await options.actor()
     const prepared = await prepareMutationRequest(options.protocol, envelope)

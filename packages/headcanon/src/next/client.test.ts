@@ -319,6 +319,38 @@ describe("Next action golden path", () => {
       action: foreign,
     })
   })
+
+  it("rejects a refusal-compatible action from a different protocol", () => {
+    // The real generated shape: an `unknown` envelope parameter (strict
+    // server-side admission) contributes no protocol evidence, and this
+    // protocol's refusal union is identical to actionProtocol's — so only
+    // the outcome's phantom protocol identity distinguishes the two.
+    const twinProtocol = defineProtocol({
+      id: "test.next-action-twin.v1",
+      mutations: [
+        defineMutation({
+          name: "next.twin-add",
+          args: addArgsSchema,
+          predict(state: number, args): Result<number, TestError> {
+            return ok(state + args.amount)
+          },
+          refusal: refusalSchema,
+        }),
+      ],
+    })
+    const generatedForTwin: (
+      envelope: unknown
+    ) => ReturnType<NextMutationAction<typeof twinProtocol>> = async () =>
+      ok({ kind: "accepted", stamp: accepted() })
+
+    // The control's premise: distinct protocols, identical refusal shape.
+    expect(twinProtocol.id).not.toBe(actionProtocol.id)
+    createNextPredictedRoot({
+      protocol: actionProtocol,
+      // @ts-expect-error — same refusal shape, wrong protocol identity.
+      action: generatedForTwin,
+    })
+  })
 })
 
 describe("createNextObservedRoot", () => {

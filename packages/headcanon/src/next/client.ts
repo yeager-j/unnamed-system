@@ -9,6 +9,7 @@ import type {
   MutationEnvelope,
   MutationExecutorError,
   MutationTerminalOutcome,
+  ProtocolIdentity,
 } from "../authority"
 import type {
   AnyMutationDefinition,
@@ -39,7 +40,13 @@ type ProtocolMutation<Protocol> =
     ? Mutations[number]
     : never
 
-/** The Server Action `createNextMutationAction` generates for one protocol. */
+/**
+ * The Server Action `createNextMutationAction` generates for one protocol.
+ * The outcome carries a phantom {@link ProtocolIdentity}: a generated action
+ * admits `unknown` envelopes and app wrappers preserve only the return type,
+ * so the identity tag is what makes binding the wrong protocol's action a
+ * local type error even when two protocols share a refusal shape.
+ */
 export type NextMutationAction<
   Protocol extends ProtocolDefinition<string, readonly AnyMutationDefinition[]>,
 > = (
@@ -51,7 +58,8 @@ export type NextMutationAction<
       { readonly kind: "denied" }
     >,
     MutationExecutorError
-  >
+  > &
+    ProtocolIdentity<Protocol["id"]>
 >
 
 /**
