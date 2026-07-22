@@ -568,8 +568,12 @@ function scanVersionArchitecture() {
     VERSION_WRITER_ALLOWLIST.map((entry) => [entry.file, entry])
   )
   const missingFinalizers = writerFiles.filter((file) => {
-    const required = writerEntryByFile.get(file)?.requiredFinalizer
-    if (!required) return false
+    const entry = writerEntryByFile.get(file)
+    const required =
+      entry && "requiredFinalizer" in entry
+        ? entry.requiredFinalizer
+        : undefined
+    if (typeof required !== "string") return false
     return !callsRequiredFinalizer(sources.get(file) ?? "", required)
   })
 

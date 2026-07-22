@@ -202,6 +202,7 @@ function makeLoaded(
       locators: overrides.locators ?? makeLocators(),
     },
     durableVersions: new Map([["char-1", 3]]),
+    durableRevisions: new Map(),
   }
 }
 

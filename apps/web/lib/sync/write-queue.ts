@@ -2,11 +2,9 @@ import { type Result } from "@workspace/result"
 
 /**
  * The React-free core of the queued versioned-write protocol (UNN-567) — the
- * queue-side twin of `version-token-store.ts`'s move: **one core, N façades
- * that differ by cardinality, not by invariant**. `useQueuedWrite` is the
- * single-row `RefObject` façade (one encounter/Instance row per hook); the DM
- * console's durable write lanes hold an open set of per-character cores over
- * a `MonotonicVersionMap`. Both run exactly this protocol:
+ * queue-side expression of **one core, N façades that differ by cardinality,
+ * not by invariant**. `useQueuedWrite` is the single-row `RefObject` façade
+ * (one encounter/Instance row per hook). Each façade runs this protocol:
  *
  * 1. **Serialized dispatch** — each {@link WriteQueue.enqueue} chains behind
  *    the in-flight write on the queue's spine and reads the **fresh** token its
@@ -22,9 +20,8 @@ import { type Result } from "@workspace/result"
 
 /**
  * Where a queue's version token lives — a `RefObject<number>` (the
- * `useQueuedWrite` façade), one key of a `MonotonicVersionMap` (a durable
- * write lane), or a per-class ref (the entity door). `bump` MUST be
- * forward-only: advance iff the given version is fresher.
+ * `useQueuedWrite` façade) or a per-class ref. `bump` MUST be forward-only:
+ * advance iff the given version is fresher.
  */
 export interface WriteQueueTokenPort {
   read(): number

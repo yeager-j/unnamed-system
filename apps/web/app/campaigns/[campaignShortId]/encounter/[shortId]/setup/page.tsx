@@ -36,12 +36,12 @@ export default async function CombatEnemiesPage({ params }: PageProps) {
   const result = await getEncounterForDM(campaignShortId, shortId)
 
   if (!result) notFound()
-  const { encounter, session } = result
+  const { encounter } = result
   if (encounter.status !== "draft") {
     redirect(encounterConsolePath(campaignShortId, shortId))
   }
 
-  const sides = session.participants.map(
+  const sides = result.canon.value.session.participants.map(
     (participant) => participant.overlay.allegiance.side
   )
 

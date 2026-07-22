@@ -16,29 +16,32 @@ import {
 import { VERSION_CLASSES } from "./version-classes"
 
 /**
- * The axis address scheme is a **deployed protocol** — a stale tab may compare an
- * axis it observes against a newer server, so a silent change to any string here
- * would strand invalidations. These assertions pin the wire strings; changing one
- * is a protocol-version decision, not a refactor.
+ * The canonical storage address is a deployed protocol even though the boundary
+ * value is opaque. These assertions pin its externally relevant properties.
  */
 describe("entity axis namespace", () => {
   const id = "entity-123"
 
-  it("addresses each storage axis by primary id", () => {
-    expect(entityIdentityAxis(id)).toBe("entity/entity-123/identity")
-    expect(entityVitalsAxis(id)).toBe("entity/entity-123/vitals")
-    expect(entityInventoryAxis(id)).toBe("entity/entity-123/inventory")
-    expect(entityProgressionAxis(id)).toBe("entity/entity-123/progression")
-    expect(encounterAxis(id)).toBe("encounter/entity-123")
-    expect(mapInstanceAxis(id)).toBe("map-instance/entity-123")
-    expect(mapInstanceEncounterMembershipAxis(id)).toBe(
-      "map-instance/entity-123/encounter-membership"
-    )
-    expect(dungeonAxis(id)).toBe("dungeon/entity-123")
-    expect(dungeonRosterMembershipAxis(id)).toBe(
-      "dungeon/entity-123/roster-membership"
-    )
-    expect(regionAxis(id)).toBe("region/entity-123")
+  it("is deterministic, opaque, and distinct by storage address", () => {
+    const axes = [
+      entityIdentityAxis(id),
+      entityVitalsAxis(id),
+      entityInventoryAxis(id),
+      entityProgressionAxis(id),
+      encounterAxis(id),
+      mapInstanceAxis(id),
+      mapInstanceEncounterMembershipAxis(id),
+      dungeonAxis(id),
+      dungeonRosterMembershipAxis(id),
+      regionAxis(id),
+    ]
+
+    expect(entityVitalsAxis(id)).toBe(entityVitalsAxis(id))
+    expect(new Set(axes)).toHaveLength(axes.length)
+    for (const axis of axes) {
+      expect(axis).toMatch(/^showtime:axis:v1:[a-f0-9]{64}$/)
+      expect(axis).not.toContain(id)
+    }
   })
 
   it("maps every write class to its entity axis", () => {

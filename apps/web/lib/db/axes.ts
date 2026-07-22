@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+
 import { axisId, type AxisId } from "@workspace/headcanon"
 
 import type { VersionClass } from "./version-classes"
@@ -15,9 +17,9 @@ import type { VersionClass } from "./version-classes"
  *
  * Two rules keep the scheme stable:
  *
- * - **Primary IDs, not route short-IDs.** An axis is keyed by the row's primary
- *   `id` (the `entity` PK, encounter/dungeon/instance/region PKs), so it follows
- *   the row's lifetime rather than a public handle that could be re-minted.
+ * - **Opaque primary-ID addresses.** The canonical address is keyed by the
+ *   row's primary `id`, then SHA-256 hashed before it crosses an RSC, cache, or
+ *   invalidation boundary. Public and storage IDs never become capabilities.
  * - **One factory per storage axis.** The full namespace is declared here as the
  *   Single Choice for axis addressing (the versioned string is a deployed
  *   protocol — a stale tab may compare against a newer server), even though only
@@ -30,26 +32,30 @@ import type { VersionClass } from "./version-classes"
  * advances. Nothing in the view tier addresses an axis directly.
  */
 
-// The axis address scheme is a deployed protocol (see module doc). Changing an
-// existing string is a protocol-version change, not a refactor.
+// The canonical addresses below are private hash inputs, but remain a deployed
+// protocol: changing one strands stale canons from their invalidations.
+function opaqueAxis(storageAddress: string): AxisId {
+  const digest = createHash("sha256").update(storageAddress).digest("hex")
+  return axisId(`showtime:axis:v1:${digest}`)
+}
 
 /** `entity/{id}/identity` — name, pronouns, portrait, notes, and identity-class
  *  component writes (Origin, talents, narrative). */
 export const entityIdentityAxis = (entityId: string): AxisId =>
-  axisId(`entity/${entityId}/identity`)
+  opaqueAxis(`showtime:storage:v1:entity:${entityId}:identity`)
 
 /** `entity/{id}/vitals` — in-play state: pools, resources, mechanics, rest,
  *  exhaustion (the DM-console-writable class). */
 export const entityVitalsAxis = (entityId: string): AxisId =>
-  axisId(`entity/${entityId}/vitals`)
+  opaqueAxis(`showtime:storage:v1:entity:${entityId}:vitals`)
 
 /** `entity/{id}/inventory` — equipment and currency. */
 export const entityInventoryAxis = (entityId: string): AxisId =>
-  axisId(`entity/${entityId}/inventory`)
+  opaqueAxis(`showtime:storage:v1:entity:${entityId}:inventory`)
 
 /** `entity/{id}/progression` — level, archetypes, virtues. */
 export const entityProgressionAxis = (entityId: string): AxisId =>
-  axisId(`entity/${entityId}/progression`)
+  opaqueAxis(`showtime:storage:v1:entity:${entityId}:progression`)
 
 /**
  * The four per-write-class entity axes, keyed by {@link VersionClass}. A Writer
@@ -67,28 +73,31 @@ export const entityAxisFor: Record<VersionClass, (entityId: string) => AxisId> =
 
 /** `encounter/{id}` — one encounter session's version line. */
 export const encounterAxis = (encounterId: string): AxisId =>
-  axisId(`encounter/${encounterId}`)
+  opaqueAxis(`showtime:storage:v1:encounter:${encounterId}`)
 
 /** `map-instance/{id}` — one live Map Instance's spatial version line. */
 export const mapInstanceAxis = (instanceId: string): AxisId =>
-  axisId(`map-instance/${instanceId}`)
+  opaqueAxis(`showtime:storage:v1:map-instance:${instanceId}`)
 
 /** `map-instance/{id}/encounter-membership` — the stable container axis a
  *  view observes to learn that the instance's live encounter appeared,
  *  disappeared, or changed (an absence dependency, per the loader contract). */
 export const mapInstanceEncounterMembershipAxis = (
   instanceId: string
-): AxisId => axisId(`map-instance/${instanceId}/encounter-membership`)
+): AxisId =>
+  opaqueAxis(
+    `showtime:storage:v1:map-instance:${instanceId}:encounter-membership`
+  )
 
 /** `dungeon/{id}` — one dungeon's version line. */
 export const dungeonAxis = (dungeonId: string): AxisId =>
-  axisId(`dungeon/${dungeonId}`)
+  opaqueAxis(`showtime:storage:v1:dungeon:${dungeonId}`)
 
 /** `dungeon/{id}/roster-membership` — the stable container axis for changes to
  *  which characters occupy the dungeon's roster slots. */
 export const dungeonRosterMembershipAxis = (dungeonId: string): AxisId =>
-  axisId(`dungeon/${dungeonId}/roster-membership`)
+  opaqueAxis(`showtime:storage:v1:dungeon:${dungeonId}:roster-membership`)
 
 /** `region/{id}` — one region's version line. */
 export const regionAxis = (regionId: string): AxisId =>
-  axisId(`region/${regionId}`)
+  opaqueAxis(`showtime:storage:v1:region:${regionId}`)

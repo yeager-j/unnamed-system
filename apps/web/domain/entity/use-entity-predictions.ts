@@ -6,7 +6,7 @@ import {
 
 import { entityProtocol } from "@/domain/entity/commit/protocol"
 import { applyEntityMutationAction } from "@/lib/actions/entity/mutations/apply"
-import { createLazyAblyInvalidationAdapter } from "@/lib/realtime/axis-invalidations"
+import { axisInvalidations } from "@/lib/realtime/axis-invalidations"
 
 /**
  * The character surfaces' Headcanon root family (P2d — UNN-676): the first
@@ -33,5 +33,5 @@ export const useEntityPredictions = createNextPredictedRoot({
     applyEntityMutationAction
   ),
   refresh: useRouterRefresh,
-  invalidations: createLazyAblyInvalidationAdapter(),
+  invalidations: axisInvalidations,
 })

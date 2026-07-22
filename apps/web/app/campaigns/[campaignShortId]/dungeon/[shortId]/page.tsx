@@ -14,7 +14,6 @@ import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { groupZonesByPage } from "@/domain/map/view/page-groups"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
@@ -138,12 +137,11 @@ async function resolveRunMode(
   if (live) {
     const data = await getEncounterForDM(campaignShortId, live.shortId)
     if (data) {
-      const combatantSheetSliceById = await loadCombatConsoleData(
-        data.session,
-        data.instance.state,
-        data.participantMeta
-      )
-      return { kind: "combat", data, combatantSheetSliceById }
+      return {
+        kind: "combat",
+        data,
+        combatantSheetSliceById: data.combatantSheetSliceById,
+      }
     }
     // A live row we can't resolve for the DM is a data-integrity failure; fall
     // through to exploration rather than 404 the whole delve.

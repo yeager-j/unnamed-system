@@ -37,7 +37,6 @@ import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
 import type { EndDungeonCombatError } from "@/lib/actions/dungeon/end-combat.schema"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { dungeonWatchPath } from "@/lib/paths"
-import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
 
 /**
  * The run console's **combat phase** on engine v2 (UNN-536) — a morph of the same
@@ -88,13 +87,11 @@ export function DungeonCombatBody({
     dispatch,
     dispatchWrite,
     endEncounter,
-    onPcPing,
     view,
     currentActor,
     roster,
     fallenPcNames,
     obligations,
-    pcChannelIds,
     onDraft,
     onAdvanceRound,
   } = useCombatConsole(data, { endCombat })
@@ -189,14 +186,6 @@ export function DungeonCombatBody({
 
   return (
     <>
-      {pcChannelIds.map(({ characterId, shortId }) => (
-        <RealtimeChannelListener
-          key={shortId}
-          domain="character"
-          shortId={shortId}
-          onPing={(data) => onPcPing(characterId, data)}
-        />
-      ))}
       <DungeonCombatCanvasProvider
         value={{
           round: session.round,

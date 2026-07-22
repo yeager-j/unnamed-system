@@ -77,9 +77,10 @@ export async function loadCampaignsForMember(
 /** The raw `campaigns` row by public `shortId` (the manage/overview URL), or
  *  `null` when none matches. Peer of {@link loadCampaignByJoinToken}. */
 export async function loadCampaignByShortId(
-  shortId: string
+  shortId: string,
+  executor: WriteExecutor = db
 ): Promise<CampaignRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(campaigns)
     .where(eq(campaigns.shortId, shortId))

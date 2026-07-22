@@ -18,6 +18,7 @@ import {
   type EncounterRow,
   type EncounterStatus,
 } from "@/lib/db/schema/encounter"
+import type { VersionClass } from "@/lib/db/version-classes"
 
 /**
  * The **encounter blob loader** (UNN-520 write path; UNN-530 snapshot path) —
@@ -42,6 +43,8 @@ export interface LoadedEncounterForWrite {
   loaded: LoadedSession
   /** Each durable participant's character `vitalsVersion`, keyed by entity id. */
   durableVersions: Map<string, number>
+  /** Every durable participant's four authoritative entity revision classes. */
+  durableRevisions: Map<string, Record<VersionClass, number>>
 }
 
 /** The snapshot read adds the ownership dimension `deriveViewer` consumes. */
@@ -63,15 +66,16 @@ export type LoadEncounterSessionError =
  * failures the action surfaces rather than papers over.
  */
 export async function loadEncounterForWrite(
-  encounterId: string
+  encounterId: string,
+  executor: WriteExecutor = db
 ): Promise<Result<LoadedEncounterForWrite, LoadEncounterSessionError>> {
-  const [rawRow] = await db
+  const [rawRow] = await executor
     .select()
     .from(encounters)
     .where(eq(encounters.id, encounterId))
     .limit(1)
 
-  return dissolveEncounterRow(rawRow)
+  return dissolveEncounterRow(rawRow, executor)
 }
 
 /**
@@ -81,20 +85,22 @@ export async function loadEncounterForWrite(
  * viewer derivation.
  */
 export async function loadEncounterForSnapshot(
-  shortId: string
+  shortId: string,
+  executor: WriteExecutor = db
 ): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {
-  const [rawRow] = await db
+  const [rawRow] = await executor
     .select()
     .from(encounters)
     .where(eq(encounters.shortId, shortId))
     .limit(1)
 
-  return dissolveEncounterRow(rawRow)
+  return dissolveEncounterRow(rawRow, executor)
 }
 
 /** The shared parse → hydrate → dissolve core both entry points run. */
 async function dissolveEncounterRow(
-  rawRow: EncounterRow | undefined
+  rawRow: EncounterRow | undefined,
+  executor: WriteExecutor
 ): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {
   if (!rawRow) return err("encounter-not-found")
 
@@ -102,7 +108,7 @@ async function dissolveEncounterRow(
   if (!parsed.success) return err("invalid-session")
   const row: EncounterRow = { ...rawRow, session: parsed.data }
 
-  const durable = await loadDurableEntities(parsed.data)
+  const durable = await loadDurableEntities(parsed.data, executor)
 
   const loaded = loadSession((entityId) => durable.entities.get(entityId))(
     parsed.data
@@ -113,6 +119,7 @@ async function dissolveEncounterRow(
     row,
     loaded: loaded.value,
     durableVersions: durable.versions,
+    durableRevisions: durable.revisions,
     durableOwners: durable.owners,
   })
 }
@@ -132,10 +139,14 @@ async function dissolveEncounterRow(
  * live fights; for a non-live encounter a tombstoned participant renders as
  * history (D4). See `schema/entity.ts`.
  */
-async function loadDurableEntities(stored: StoredSession): Promise<{
+async function loadDurableEntities(
+  stored: StoredSession,
+  executor: WriteExecutor
+): Promise<{
   entities: Map<string, StoredEntity>
   versions: Map<string, number>
   owners: Map<string, string>
+  revisions: Map<string, Record<VersionClass, number>>
 }> {
   const entityIds = [
     ...new Set(
@@ -149,7 +160,8 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 
   const entities = new Map<string, StoredEntity>()
   const versions = new Map<string, number>()
-  for (const row of await loadEntityRowsByIds(entityIds)) {
+  const revisions = new Map<string, Record<VersionClass, number>>()
+  for (const row of await loadEntityRowsByIds(entityIds, executor)) {
     const loaded = loadEntityRow(row)
     if (!loaded.ok) continue
     entities.set(row.id, {
@@ -157,16 +169,22 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
       components: loaded.value.components,
     })
     versions.set(row.id, row.vitalsVersion)
+    revisions.set(row.id, {
+      identity: row.identityVersion,
+      vitals: row.vitalsVersion,
+      inventory: row.inventoryVersion,
+      progression: row.progressionVersion,
+    })
   }
 
   // Ownership moved to the PC subtype (R3 — UNN-573); durable combatants are PCs,
   // so their `userId` is the owner the snapshot authorizes the own-sheet column on.
   const owners = new Map<string, string>()
-  for (const pc of await loadPlayerCharacterRowsByIds(entityIds)) {
+  for (const pc of await loadPlayerCharacterRowsByIds(entityIds, executor)) {
     owners.set(pc.entityId, pc.userId)
   }
 
-  return { entities, versions, owners }
+  return { entities, versions, owners, revisions }
 }
 
 /**

@@ -80,7 +80,7 @@ export type EntityWritePredictionError = EntityWriteRefusal
 /** Public receipt refusals for this mutation. Authorization, missing targets,
  * contention, and malformed envelopes are deliberately absent: they become
  * package denial, redelivery, or programmer failure rather than domain UX. */
-const entityWriteRefusal = z.enum([
+export const entityWriteRefusalSchema = z.enum([
   "capability-missing",
   "no-prisma-charges",
   "no-transitions",
@@ -126,7 +126,7 @@ const finalizeRefusal = z.union([
 const entityWrite = defineMutation({
   name: "entity.write",
   args: entityWriteArgs,
-  refusal: entityWriteRefusal,
+  refusal: entityWriteRefusalSchema,
   predict(
     state: EntityCanonValue,
     { write }
