@@ -103,21 +103,19 @@ write-side reason for `version-token-store`.
 ### 2. Revision identity belongs to storage, not views
 
 A revision axis is a globally addressed linear history tied to the storage fact
-whose lifetime it describes:
+whose lifetime it describes. Showtime's pre-release hard cut now exposes only
+opaque version-2 addresses:
 
 ```text
-entity/{entityId}/identity
-entity/{entityId}/vitals
-entity/{entityId}/inventory
-entity/{entityId}/progression
-encounter/{encounterId}
-map-instance/{instanceId}
-dungeon/{dungeonId}
+showtime:axis:v1:<sha256(canonical storage address)>
 ```
 
 A character sheet, encounter console, dungeon console, or future party rail can
-observe the same `entity/{id}/vitals` axis. No package translation is needed
-between view-specific lane names because the axis is not homed on the view.
+observe the same opaque entity-vitals axis. The canonical storage address stays
+inside the factory; raw entity, encounter, and instance identifiers do not ride
+axis cache tags, RSC revision vectors, channels, or invalidation payloads. No
+package translation is needed between view-specific lane names because the axis
+is not homed on the view.
 
 An accepted stamp is a revision vector. A mutation that atomically advances two
 rows returns both axes. Canonization requires the mounted canon to cover every
@@ -476,9 +474,13 @@ const canon = defineCanon({
 return <EntityProvider canon={canon}>{children}</EntityProvider>
 ```
 
-The combat console's canon includes its encounter and map-instance axes plus the
-global entity axes for every durable participant whose changes can alter the
-projection, whether or not that root can mutate the participant. The dungeon
+The combat console's implemented P3a canon includes its encounter and
+map-instance axes plus all four global entity axes for every durable participant,
+whether or not that root can mutate the participant. The directly addressed
+encounter axis is the roster's stable container dependency; the view does not
+also claim the map-instance encounter-membership axis. Encounter, instance,
+campaign authorization, participant hydration, and drawer-slice reads share one
+read-only `REPEATABLE READ` transaction. The dungeon
 console includes both its dungeon and map-instance axes plus every other axis
 on which its projection depends. These are loader contracts, not client routing
 decisions.
@@ -1306,7 +1308,13 @@ the caller. A project needing guaranteed notification must add a transactional
 outbox; the first version does not hide best-effort delivery behind an
 exactly-once name.
 
-The package also ships in-memory and no-realtime adapters.
+The package also ships in-memory and no-realtime adapters. Its lazy adapter
+bridges asynchronous transport initialization to the synchronous root seam:
+early subscriptions are buffered, pre-resolution cancellation is honored,
+initialization happens once, and missing or rejected initialization becomes
+`unavailable`. Showtime supplies one module-scoped asynchronous Ably adapter to
+that helper and keeps its connection for the tab lifetime, shared by character
+and combat roots rather than churning at zero subscribers.
 
 ### Polling fallback
 
@@ -1982,8 +1990,14 @@ contraction gate ends the spike before combat or dungeon migration.
 
 ### Phase 3 — Cross-view and multi-axis proof
 
-1. Bind durable combat writes to the same global entity axes.
-2. Prove a character-sheet mutation refreshes combat and vice versa.
+1. **P3a complete:** bind inline and durable combat component writes through the
+   registered `showtime.combat.v1` command. The durable arm composes
+   `commitEntityWrite`; the inline arm stamps the encounter axis. Receipt
+   execution, denial translation, accepted-stamp expiry/publication, and refresh
+   remain package-owned.
+2. **P3a complete:** prove a character-sheet mutation refreshes combat and a
+   durable combat mutation refreshes the character root through the identical
+   opaque vitals axis, with an axis-mismatch negative control.
 3. Bind one dungeon + map-instance dual transaction.
 4. Delete the corresponding client dual-token retry path.
 5. Move one public fog watcher to an observe-only root and delete its old

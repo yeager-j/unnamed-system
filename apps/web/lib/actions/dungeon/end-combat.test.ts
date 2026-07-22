@@ -188,6 +188,7 @@ function makeLoaded(status: EncounterRow["status"]): LoadedEncounterForWrite {
     } as EncounterRow,
     loaded: { session: makeDirtySession(), locators: makeLocators() },
     durableVersions: new Map([["char-1", 3]]),
+    durableRevisions: new Map(),
   }
 }
 

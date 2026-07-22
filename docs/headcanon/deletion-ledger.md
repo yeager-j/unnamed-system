@@ -50,10 +50,8 @@ or (b) the two bridges that _partial_ adoption forces, both of which Phase 3a
 deletes:
 
 - the entity door republishes accepted mutations as legacy `character:{shortId}`
-  pings, because combat and the dungeon watch still listen there;
-- combat's durable arm now calls `finalizeExternalActionCommit`, which is
-  invariant 15 (_every write that advances a protocol axis uses the executor or
-  the external-commit finalizer_) being **enforced**, not overhead.
+  pings for the dungeon watch. Combat's listener and standalone external
+  finalizer were deleted in P3a.
 
 #### Tests: −256 net lines, and the composition changed
 
@@ -84,12 +82,11 @@ canonization no longer exist in this binding.
   so a revert is the rollback and a flag would have meant keeping the machinery
   the ticket exists to delete. The AC's flag clause and its deletion clause were
   in direct tension; deletion won.
-- **`lib/sync/character-version-sync.ts` survives.** The AC expected it deleted,
-  but combat (`write-lanes.ts`, `pc-ping.ts`) and the dungeon explore body still
-  import it. Only the character provider's use is gone; the module falls in
-  Phase 3a. Same for `version-token-store.ts` (combat-only) and the character
-  call sites of `use-monotonic-version-ref.ts` / `write-queue.ts` /
-  `getEntityClassVersionAction` (all retained by combat/dungeon/stage/encounter).
+- **`lib/sync/character-version-sync.ts` survives.** Combat's use fell in P3a,
+  but the dungeon explore body still imports it. P3a did delete
+  `version-token-store.ts`, `getEntityClassVersionAction`, and combat's
+  `write-lanes.ts` / `pc-ping.ts`; the encounter and instance queues remain for
+  generic events until P3b/P3c.
 
 ### Carried forward to Phase 3a
 
@@ -150,6 +147,43 @@ invalidator, or realtime publisher.
 
 ---
 
+## Phase 3a — combat binding (UNN-678)
+
+### Measured: **−227 net production code lines in `apps/web`**
+
+`cloc --diff` at the ticket branch point reports 416 added and 643 removed
+production TypeScript/JavaScript code lines (modified lines are net-neutral).
+The important contraction is conceptual as well as numeric:
+
+- removed the per-character write lanes, monotonic version map, stale-version
+  refetch action, character ping comparison, listeners, and manual external
+  commit finalizer;
+- replaced the legacy combat action/schema/two-Store router with one registered
+  `showtime.combat.v1` command whose durable arm composes `commitEntityWrite`;
+- added one snapshot-consistent combat canon and one thin predicted-root binding;
+  and
+- shrank the app's lazy transport wrapper to configuration over the
+  package-owned lazy adapter shared by both root families.
+
+#### Tests: **−379 net app code lines**
+
+`cloc --diff` reports 490 added and 869 removed test code lines. Deleted tests
+asserted per-character queues, stale refetch, ping comparison, and manual action
+finalization. The replacements cover combat prediction, registered-command
+routing/authorization/stamps/contention, the consistent loader and dynamic axis
+set, opaque axes, lazy initialization, and the two-root shared-axis negative
+control. Generic duplicate delivery and receipt behavior remain package contract
+tests.
+
+### The gate: passed
+
+Combat component writes contain no client version protocol, storage-home claim,
+per-character realtime channel, or app-owned receipt finalization. Generic
+encounter/instance event queues and public snapshot watchers remain intentionally
+for P3b/P3c.
+
+---
+
 ## Running total
 
 | Phase                                      |              Net production lines in `apps/web` | Gate         |
@@ -157,7 +191,7 @@ invalidator, or realtime publisher.
 | P2 — character route (UNN-676)             |    +38 (coordination −297, new capability +261) | passed       |
 | P2f — finalize command (UNN-677)           |                                             +64 | prompted P2g |
 | P2g — mutation registration seam (UNN-685) | −57 (coordination −316, domain capability +259) | passed       |
-| P3a — combat                               |                                               — | —            |
+| P3a — combat (UNN-678)                     |                                            −227 | passed       |
 | P3b — dungeon / multi-row                  |                                               — | —            |
 | P3c — watch-only                           |                                               — | —            |
 
@@ -165,7 +199,7 @@ End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
 remaining coordination actually lives.
 
-Phase 2 running total after P2g: **+45 production code lines in `apps/web`**
-(+38 +64 −57). The first adoption deleted the legacy client coordination but
-added realtime capability; P2g now proves marginal registered mutations need
-not recreate app-level protocol machinery.
+Running total through P3a: **−182 production code lines in `apps/web`**
+(+38 +64 −57 −227). The character adoption first paid for shared realtime
+capability; the combat adoption reuses it and converts that investment into net
+application contraction.

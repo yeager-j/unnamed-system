@@ -27,23 +27,21 @@ export const MODELED_VERSION_BUMP_ALLOWLIST = [
 /**
  * Every application module allowed to cross the stamped entity-version write
  * seam. `depcheck.mjs` rejects a new importer, a stale entry, and an approved
- * external writer that stops calling its required finalizer.
+ * registered handler that stops composing the stamped Store.
  *
  * Each exception records why it exists and when it disappears. The two Stores
  * preserve one reusable guarded commit for character mutations and combat's
  * storage-address adapter; their registered-handler consumers are the closed
- * Headcanon registry. Combat is the one temporary external writer and must pair
- * its stamp with `finalizeExternalActionCommit` until P3a makes it a mutation.
+ * Headcanon registry. Combat now enters through its own registered command and
+ * lets the package finalize the accepted stamp.
  */
 export const VERSION_WRITER_ALLOWLIST = [
   {
-    file: "lib/actions/combat/commit/stores.ts",
-    role: "external-commit",
-    requiredFinalizer: "finalizeExternalActionCommit",
+    file: "lib/actions/combat/mutations/commands.ts",
+    role: "registered-handler",
     rationale:
-      "The durable combat address adapter advances the global entity axis outside the character mutation executor.",
-    removeWhen:
-      "P3a binds combat writes to the entity protocol and deletes this standalone arm.",
+      "The combat command resolves the trusted locator, then composes the shared stamped entity Store for durable participants.",
+    removeWhen: "The combat mutation protocol is removed.",
   },
   {
     file: "lib/actions/entity/entity-row-store.ts",
@@ -150,10 +148,7 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "components/combat/console/use-combat-console.ts",
   "components/combat/console/use-combat-selection.test.tsx",
   "components/combat/console/use-combat-selection.ts",
-  "components/combat/console/use-combatant-write.test.tsx",
   "components/combat/console/use-combatant-write.ts",
-  "components/combat/console/write-lanes.test.tsx",
-  "components/combat/console/write-lanes.ts",
   "components/combat/controls/engagement.tsx",
   "components/combat/controls/side-toggle.tsx",
   "components/combat/controls/zone-enchantment.tsx",

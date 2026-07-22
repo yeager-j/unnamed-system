@@ -1,8 +1,8 @@
 import type { TokenRequest } from "ably"
 
-import type {
-  InvalidationAdapter,
-  InvalidationSubscription,
+import {
+  createLazyInvalidationAdapter,
+  type InvalidationAdapter,
 } from "@workspace/headcanon"
 import type { AblyRealtimeClient } from "@workspace/headcanon/ably/client"
 
@@ -95,79 +95,28 @@ async function createRealtimeClient(): Promise<AblyRealtimeClient> {
  * subscription (present and future) is told `"unavailable"` — character routes
  * deliberately have no polling fallback (parity with the ping-channel era).
  */
-export function createLazyAblyInvalidationAdapter(): InvalidationAdapter {
-  type Pending = {
-    subscription: InvalidationSubscription
-    unsubscribe: (() => void) | null
-    cancelled: boolean
-  }
+async function initializeAblyInvalidationAdapter(): Promise<InvalidationAdapter | null> {
+  const namespace = await fetchAxisNamespace()
+  if (!namespace) return null
 
-  let state: "idle" | "initializing" | "ready" | "unavailable" = "idle"
-  let inner: InvalidationAdapter | null = null
-  const pending = new Set<Pending>()
-
-  const initialize = async (): Promise<void> => {
-    const namespace = await fetchAxisNamespace()
-    if (!namespace) {
-      state = "unavailable"
-      for (const entry of pending) {
-        if (!entry.cancelled) entry.subscription.onStatusChange("unavailable")
-      }
-      return
-    }
-
-    const [{ createAblyInvalidationAdapter }, realtime] = await Promise.all([
-      import("@workspace/headcanon/ably/client"),
-      createRealtimeClient(),
-    ])
-    inner = createAblyInvalidationAdapter({
-      realtime,
-      namespace,
-      onMalformedMessage: (error) =>
-        console.warn("[axis-invalidations] malformed message", error),
-      onLifecycleError: (error) =>
-        console.warn("[axis-invalidations] lifecycle error", error),
-    })
-    state = "ready"
-    for (const entry of pending) {
-      if (entry.cancelled) continue
-      entry.unsubscribe = inner.subscribe(entry.subscription)
-    }
-    pending.clear()
-  }
-
-  return {
-    initialStatus: "reauthorizing",
-    subscribe(subscription) {
-      if (state === "ready" && inner) return inner.subscribe(subscription)
-      if (state === "unavailable") {
-        subscription.onStatusChange("unavailable")
-        return () => {}
-      }
-
-      const entry: Pending = {
-        subscription,
-        unsubscribe: null,
-        cancelled: false,
-      }
-      pending.add(entry)
-      if (state === "idle") {
-        state = "initializing"
-        void initialize().catch((error: unknown) => {
-          console.warn("[axis-invalidations] initialization failed", error)
-          state = "unavailable"
-          for (const buffered of pending) {
-            if (!buffered.cancelled) {
-              buffered.subscription.onStatusChange("unavailable")
-            }
-          }
-        })
-      }
-      return () => {
-        entry.cancelled = true
-        entry.unsubscribe?.()
-        pending.delete(entry)
-      }
-    },
-  }
+  const [{ createAblyInvalidationAdapter }, realtime] = await Promise.all([
+    import("@workspace/headcanon/ably/client"),
+    createRealtimeClient(),
+  ])
+  return createAblyInvalidationAdapter({
+    realtime,
+    namespace,
+    onMalformedMessage: (error) =>
+      console.warn("[axis-invalidations] malformed message", error),
+    onLifecycleError: (error) =>
+      console.warn("[axis-invalidations] lifecycle error", error),
+  })
 }
+
+/** One lazy transport shared by every predicted-root family for the tab. */
+export const axisInvalidations: InvalidationAdapter =
+  createLazyInvalidationAdapter({
+    initialize: initializeAblyInvalidationAdapter,
+    onInitializationError: (error) =>
+      console.warn("[axis-invalidations] initialization failed", error),
+  })

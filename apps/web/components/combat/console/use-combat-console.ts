@@ -16,12 +16,12 @@ import {
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
-import { useCombatantLanes } from "@/components/combat/console/write-lanes"
 import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
 } from "@/domain/combat/console-optimistic"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
+import { useCombatPredictions } from "@/domain/combat/use-combat-predictions"
 import { buildConsoleView } from "@/domain/combat/view/console-view"
 import { buildRosterView } from "@/domain/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/domain/combat/view/zone-overview"
@@ -94,21 +94,19 @@ export function useCombatConsole(
   const { encounter, participantMeta } = data
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const combatRoot = useCombatPredictions({ canon: data.canon })
 
   const [state, applyOptimistic] = useOptimistic<
     EncounterState,
     ConsoleOptimisticAction
-  >(
-    { session: data.session, mapInstance: data.instance.state },
-    reduceConsoleOptimistic
-  )
+  >(combatRoot.value, reduceConsoleOptimistic)
 
   const encounterWrite = useQueuedWrite({
     serverVersion: encounter.version,
     refetchVersion: () => fetchEncounterVersion(encounter.shortId),
   })
   const instanceWrite = useQueuedWrite({
-    serverVersion: data.instance.version,
+    serverVersion: data.instanceVersion,
     refetchVersion: () => fetchInstanceVersion(encounter.shortId),
   })
   const { versionRef } = encounterWrite
@@ -183,23 +181,9 @@ export function useCombatConsole(
     dispatchSequence([event])
   }
 
-  // The client half of the CD19 router (UNN-567): participantMeta resolved
-  // once into per-participant write lanes; the channel list + ping handler
-  // ride along, so no `meta.storage` read survives in this hook.
-  const lanes = useCombatantLanes({
+  const { dispatchWrite, pending: combatWritePending } = useCombatantWrite({
     encounterId: encounter.id,
-    encounterWrite,
-    participantMeta,
-    rosterIds: state.session.participants.map((p) => p.id),
-    onFresher: scheduleRefresh,
-  })
-
-  const { dispatchWrite } = useCombatantWrite({
-    laneOf: lanes.laneOf,
-    componentsOf: (participantId) =>
-      state.session.participants.find((p) => p.id === participantId)?.entity
-        .components,
-    applyOptimistic,
+    root: combatRoot,
   })
 
   const endCombat: EndCombatPerformer =
@@ -268,12 +252,11 @@ export function useCombatConsole(
     session: state.session,
     instance: state.mapInstance,
     resolved,
-    isPending,
+    isPending: isPending || combatWritePending,
     dispatch,
     dispatchSequence,
     dispatchWrite,
     endEncounter,
-    onPcPing: lanes.onPcPing,
     // derived combat view
     view,
     currentActor,
@@ -281,7 +264,6 @@ export function useCombatConsole(
     zoneLayout,
     fallenPcNames,
     obligations,
-    pcChannelIds: lanes.pcChannels,
     onDraft: (participantId: ParticipantId) =>
       dispatch({ kind: "draftCombatant", participantId }),
     onAdvanceRound: () => dispatch({ kind: "advanceRound" }),

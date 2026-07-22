@@ -101,10 +101,11 @@ export async function loadPlayerCharacterById(
  * combatants' owner map, which need the subtype row without the substrate.
  */
 export async function loadPlayerCharacterRowsByIds(
-  entityIds: readonly string[]
+  entityIds: readonly string[],
+  executor: WriteExecutor = db
 ): Promise<PlayerCharacterRow[]> {
   if (entityIds.length === 0) return []
-  return db
+  return executor
     .select()
     .from(playerCharacter)
     .where(inArray(playerCharacter.entityId, [...entityIds]))

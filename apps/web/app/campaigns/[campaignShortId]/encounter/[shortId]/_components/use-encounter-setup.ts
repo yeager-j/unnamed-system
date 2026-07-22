@@ -44,17 +44,14 @@ export function useEncounterSetup(data: EncounterForDM) {
   const [state, applyOptimistic] = useOptimistic<
     EncounterState,
     ConsoleOptimisticAction
-  >(
-    { session: data.session, mapInstance: data.instance.state },
-    reduceConsoleOptimistic
-  )
+  >(data.canon.value, reduceConsoleOptimistic)
 
   const encounterWrite = useQueuedWrite({
     serverVersion: data.encounter.version,
     refetchVersion: () => fetchEncounterVersion(data.encounter.shortId),
   })
   const instanceWrite = useQueuedWrite({
-    serverVersion: data.instance.version,
+    serverVersion: data.instanceVersion,
     refetchVersion: () => fetchInstanceVersion(data.encounter.shortId),
   })
 

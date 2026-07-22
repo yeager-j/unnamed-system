@@ -1,6 +1,7 @@
+import type { CombatWriteRefusal } from "@/domain/combat/commit/protocol"
+
 import type { AddCatalogEnemiesError } from "./add-participants.schema"
 import type { ApplyCombatEventError } from "./apply-event.schema"
-import type { ApplyCombatantWriteError } from "./commit/apply-combatant-write.schema"
 import type { EndCombatError } from "./end-combat.schema"
 
 /**
@@ -15,7 +16,7 @@ import type { EndCombatError } from "./end-combat.schema"
 export function combatErrorMessage(
   error:
     | ApplyCombatEventError
-    | ApplyCombatantWriteError
+    | CombatWriteRefusal
     | EndCombatError
     | AddCatalogEnemiesError
 ): string {
@@ -47,11 +48,6 @@ export function combatErrorMessage(
     case "invalid-session":
     case "participant-load-failed":
     case "invalid-entity":
-    case "locator-missing":
-    case "missing-encounter-version":
-    case "missing-character-version":
-    case "entity-not-found":
-    case "entity-load-failed":
       return "Something went wrong with this encounter's data. Reload and try again."
     // The Writer refusals; the character-family ones (allocation cap, entry
     // index, rest/leveling, the Spark loop — UNN-556/UNN-557/UNN-558) are
@@ -78,5 +74,7 @@ export function combatErrorMessage(
     case "invalid-quantity":
     case "duplicate-item-id":
       return "That change can't apply to this combatant. Reload and try again."
+    default:
+      return "Couldn't save this combat change. Reload and try again."
   }
 }

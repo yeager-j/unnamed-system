@@ -100,6 +100,7 @@ function makeLoaded(): LoadedEncounterForWrite {
       locators: makeLocators(),
     },
     durableVersions: new Map([["char-1", 3]]),
+    durableRevisions: new Map(),
   }
 }
 
