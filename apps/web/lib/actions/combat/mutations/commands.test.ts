@@ -419,11 +419,7 @@ describe("combat registered command", () => {
 
   it("uses the composed durable Store and preserves its accepted stamp", async () => {
     commitEntityWrite.mockImplementation(async (_tx, _actor, input, stamp) => {
-      const parsed = await import("@workspace/headcanon").then(({ revision }) =>
-        revision(7)
-      )
-      if (!parsed.ok) throw new Error("invalid fixture revision")
-      stamp.record(entityVitalsAxis(input.entityId), parsed.value)
+      stamp.record(entityVitalsAxis(input.entityId), 7)
       return ok({ version: 7, versionClass: "vitals", shortId: "pc" })
     })
     const stamp = createStampAccumulator()
@@ -455,13 +451,9 @@ describe("combat registered command", () => {
 
   it("retains only the inline encounter ping after acceptance", async () => {
     const stamp = createStampAccumulator()
-    const parsed = await import("@workspace/headcanon").then(({ revision }) =>
-      revision(4)
-    )
-    if (!parsed.ok) throw new Error("invalid fixture revision")
-    stamp.record(encounterAxis(row.id), parsed.value)
+    stamp.record(encounterAxis(row.id), 4)
 
-    await combatWriteCommand.afterAccepted({
+    await combatWriteCommand.finalizeAccepted({
       actor,
       args,
       stamp: stamp.accepted(),

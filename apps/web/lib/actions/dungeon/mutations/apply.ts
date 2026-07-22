@@ -1,6 +1,9 @@
 "use server"
 
-import { createDrizzleMutationAuthority } from "@workspace/headcanon/drizzle"
+import {
+  createDrizzleMutationAuthority,
+  matchesPostgresError,
+} from "@workspace/headcanon/drizzle"
 import {
   bindMutation,
   createNextMutationAction,
@@ -17,7 +20,7 @@ import {
 import { requireActor, type Actor } from "@/lib/auth/actor"
 import { getDb } from "@/lib/db/client"
 
-import { dungeonCommandHandler, isDungeonActivationRace } from "./commands"
+import { dungeonCommandHandler } from "./commands"
 
 const executeDungeonMutation = createNextMutationAction({
   protocol: dungeonProtocol,
@@ -25,7 +28,11 @@ const executeDungeonMutation = createNextMutationAction({
   authority: createDrizzleMutationAuthority({
     db: getDb(),
     scope: (actor: Actor) => actor.userId,
-    isContentionError: isDungeonActivationRace,
+    isContentionError: (error) =>
+      matchesPostgresError(error, {
+        code: "23505",
+        constraint: "dungeon_one_active_per_campaign",
+      }),
   }),
   commands: [bindMutation(dungeonCommand, dungeonCommandHandler)],
   invalidations: entityInvalidationPublisher,

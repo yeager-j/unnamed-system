@@ -732,7 +732,7 @@ export async function applyEntityMutationAction(envelope: unknown) {
 
 The action expires stamped axis tags, publishes one singleton entry per stamped
 axis, and asks Next to refresh the current route. A command's repeat-safe
-`afterAccepted` hook owns genuinely additional projections such as a summary
+`finalizeAccepted` hook owns genuinely additional projections such as a summary
 list that does not observe the mutated axis directly.
 
 The package's Next client binding also owns thrown-request classification. It
@@ -766,25 +766,52 @@ vector from every recorded advance rather than trusting a hand-built return
 object:
 
 ```ts
+type EntityMutation =
+  | typeof entityWrite
+  | typeof entityIdentity
+  | typeof entityFinalize
+
+type EntityMutationCommand<
+  Mutation extends EntityMutation,
+  Projection,
+  Evidence,
+> = MutationCommand<
+  Mutation,
+  Actor,
+  EntityMutationPreflight,
+  EntityMutationTx,
+  Projection,
+  Evidence
+>
+
 const entityWriteCommand = {
-  async admit({ executor, actor, args }) {
+  async screen({ executor, actor, args }) {
     const admitted = await admitEntityWrite(executor, actor, args)
+    return admitted.ok
+      ? allowMutationScreening(projectEntityWrite(admitted.value))
+      : denyMutation()
+  },
+  async admit({ tx, actor, args }) {
+    const admitted = await admitEntityWrite(tx, actor, args)
     return admitted.ok ? allowMutation(admitted.value) : denyMutation()
   },
   async execute({ tx, args, evidence, stamp }) {
-    const committed = await commitAdmittedEntityWrite(
-      tx,
-      args,
-      evidence,
-      stamp
-    )
-    return committed.ok
-      ? acceptMutation()
-      : refuseMutation(committed.error)
+    const committed = await commitAdmittedEntityWrite(tx, args, evidence, stamp)
+    return committed.ok ? acceptMutation() : refuseMutation(committed.error)
   },
-  afterAccepted: projectAcceptedEntityWrite,
-} satisfies MutationCommand<...>
+  finalizeAccepted: projectAcceptedEntityWrite,
+} satisfies EntityMutationCommand<
+  typeof entityWrite,
+  EntityProjection,
+  AdmittedEntityWrite
+>
 ```
+
+An adopter-local type alias decides actor and executor types once while leaving
+mutation, projection, and attempt evidence explicit. A package command factory
+was evaluated and rejected: its curried identity calls reduced repeated generic
+arguments but made declarations less direct. The local alias changes typing
+ceremony without changing runtime shape or hiding any lifecycle distinction.
 
 The package never accepts a client-composed patch, expected revision,
 client-derived axis, actor identity, or storage-home claim as authority.
