@@ -25,7 +25,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { LinkerIconKey, LinkerOption } from "@/domain/planner/view/linker"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 import { mintParticipantRef } from "./mint-participant-ref"
 

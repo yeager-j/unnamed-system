@@ -5,13 +5,14 @@ import {
   type InvalidationAdapter,
 } from "@workspace/headcanon"
 import type { AblyRealtimeClient } from "@workspace/headcanon/ably/client"
+import { withPollingFallback } from "@workspace/headcanon/react"
 
 /**
  * The client half of Headcanon axis invalidation (P2d — UNN-676): a lazy
  * {@link InvalidationAdapter} the entity predicted root subscribes through.
  *
- * Laziness mirrors `use-realtime-channel`'s pattern — pages pay for the browser
- * SDK only once a subscription actually exists, and the token route's 503 (no
+ * Pages pay for the browser SDK only once a subscription actually exists, and
+ * the token route's 503 (no
  * `ABLY_API_KEY`) degrades to `"unavailable"` without loading Ably at all. The
  * package's `createAblyInvalidationAdapter` owns everything hard: exact-set
  * `authorize()` before attach, per-axis dedup, gap recovery, connection
@@ -24,7 +25,7 @@ import type { AblyRealtimeClient } from "@workspace/headcanon/ably/client"
  * that every requested channel sits inside this deployment's axis namespace.
  * Invalidation payloads carry only `{ eventId, axis, revision }` — no domain
  * data — so knowledge-free subscribe stays the same public-metadata bar as the
- * ping channels it replaces.
+ * legacy channels it replaces.
  *
  * The realtime connection is created once per tab and kept open: the adapter is
  * module-scope (root-family creation), character surfaces remount often, and
@@ -92,8 +93,9 @@ async function createRealtimeClient(): Promise<AblyRealtimeClient> {
  * A lazily-initialized adapter over the package's Ably subscription machinery.
  * Subscriptions arriving before initialization are buffered and flushed into the
  * real adapter once it exists; when the token route reports unavailable, every
- * subscription (present and future) is told `"unavailable"` — character routes
- * deliberately have no polling fallback (parity with the ping-channel era).
+ * subscription (present and future) is told `"unavailable"`. Predicted roots
+ * preserve push-only behavior; public observe-only roots wrap this adapter in
+ * the package polling fallback below.
  */
 async function initializeAblyInvalidationAdapter(): Promise<InvalidationAdapter | null> {
   const namespace = await fetchAxisNamespace()
@@ -120,3 +122,8 @@ export const axisInvalidations: InvalidationAdapter =
     onInitializationError: (error) =>
       console.warn("[axis-invalidations] initialization failed", error),
   })
+
+export const watchInvalidations = withPollingFallback(axisInvalidations, {
+  intervalMs: 1_500,
+  pauseWhenHidden: true,
+})

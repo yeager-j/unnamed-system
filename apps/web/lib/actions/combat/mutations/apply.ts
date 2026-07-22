@@ -8,6 +8,7 @@ import {
 
 import {
   combatEnd,
+  combatEvent,
   combatProtocol,
   combatWrite,
 } from "@/domain/combat/commit/protocol"
@@ -18,7 +19,11 @@ import {
 import { requireActor, type Actor } from "@/lib/auth/actor"
 import { getDb } from "@/lib/db/client"
 
-import { combatEndCommand, combatWriteCommand } from "./commands"
+import {
+  combatEndCommand,
+  combatEventCommand,
+  combatWriteCommand,
+} from "./commands"
 
 export const applyCombatMutationAction = createNextMutationAction({
   protocol: combatProtocol,
@@ -28,6 +33,7 @@ export const applyCombatMutationAction = createNextMutationAction({
     scope: (actor: Actor) => actor.userId,
   }),
   commands: [
+    bindMutation(combatEvent, combatEventCommand),
     bindMutation(combatWrite, combatWriteCommand),
     bindMutation(combatEnd, combatEndCommand),
   ],

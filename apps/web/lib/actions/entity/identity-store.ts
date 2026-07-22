@@ -47,8 +47,7 @@ export type IdentityWriteRejection =
   | "entity-not-found"
   | EntityWriteAuthRejection
 
-/** The bumped identity token and the entity's `shortId` (the pinged channel key
- *  the un-migrated provider still listens on). */
+/** The bumped identity token and the entity's `shortId` for accepted projection. */
 export interface IdentityCommit {
   version: number
   shortId: string

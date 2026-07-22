@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { campaigns } from "@/lib/db/schema/campaign"
 import { entity } from "@/lib/db/schema/entity"
 import {
@@ -69,9 +69,10 @@ export async function loadOwnedCharacterSummaries(
  * excluded — only a finished character can be a combatant.
  */
 export async function loadPlacedCharactersForCampaign(
-  campaignId: string
+  campaignId: string,
+  executor: WriteExecutor = db
 ): Promise<CharacterSummary[]> {
-  return db
+  return executor
     .select(characterSummaryProjection)
     .from(entity)
     .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))

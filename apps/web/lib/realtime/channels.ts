@@ -1,14 +1,7 @@
 /**
- * Server-owned realtime channel naming (realtime ADR, Decision 7). The full
- * channel name is `{namespace}:{domain}:{shortId}`, where the namespace is
- * derived from the deployment environment so identically-seeded PR previews —
- * which collide on shortIds by construction — can't cross-talk. This module is
- * the **only** place channel names are assembled: the publish helper composes
- * through it, and the token route resolves names server-side so clients never
- * see (or need) the namespace.
+ * Server-owned realtime namespace naming. Headcanon derives hashed axis channel
+ * names beneath this deployment-specific namespace.
  */
-
-export type RealtimeDomain = "character" | "encounter" | "dungeon"
 
 /**
  * Collapses a git ref to channel-safe characters: lowercase, every run outside
@@ -37,12 +30,4 @@ export function realtimeNamespace(): string {
     return `pr-${slug || "unknown"}`
   }
   return "dev"
-}
-
-/** The fully-qualified Ably channel name for an entity's invalidation pings. */
-export function realtimeChannelName(
-  domain: RealtimeDomain,
-  shortId: string
-): string {
-  return `${realtimeNamespace()}:${domain}:${shortId}`
 }

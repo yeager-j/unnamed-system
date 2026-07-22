@@ -7,7 +7,8 @@ import { ok } from "@workspace/result"
 
 import type { TemplateSetContent } from "@/domain/template-set/authoring"
 import { saveTemplateSetAction } from "@/lib/actions/template-set/save"
-import { useQueuedWrite } from "@/lib/sync/use-queued-write"
+
+import { useQueuedWrite } from "./use-queued-write"
 
 const NAME_DEBOUNCE_MS = 600
 const CONTENT_DEBOUNCE_MS = 600
@@ -28,7 +29,7 @@ export type TemplateSetSaveStatus = "saved" | "saving" | "error"
  *
  * That serialized version-token queue is not hand-rolled here: both fields route
  * their saves through one {@link useQueuedWrite} — the single-row façade over the
- * shared `createWriteQueue` core (`lib/sync/write-queue.ts`). It owns the
+ * shared `createWriteQueue` core (`write-queue.ts`). It owns the
  * monotonic version ref (synced from `serverVersion`), the serialized spine, and
  * the forward-only token bump. `refetchVersion` is **omitted** on purpose: the Set
  * does *not* do the character autosave's silent refetch-and-retry — a `"stale"`

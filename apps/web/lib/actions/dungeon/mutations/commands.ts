@@ -27,7 +27,7 @@ import {
   reduceDungeon,
   type GenerationLedger,
 } from "@workspace/game-v2/spatial"
-import { revisionAt, type StampAccumulator } from "@workspace/headcanon"
+import type { StampAccumulator } from "@workspace/headcanon"
 import {
   throwMutationContention,
   type DrizzleMutationTx,
@@ -88,10 +88,6 @@ import {
 } from "@/lib/db/writes/map-instance"
 import { foldRegionStaticReveal } from "@/lib/db/writes/region"
 import { campaignRegionPath } from "@/lib/paths"
-import {
-  publishDungeonInstancePing,
-  publishDungeonPing,
-} from "@/lib/realtime/publish"
 
 import { placeRoster } from "../place-roster"
 import { revalidateDungeon } from "../revalidate"
@@ -512,34 +508,7 @@ export const dungeonCommandHandler = {
         return executeStartEncounter(tx, args, evidence.dungeon, stamp)
     }
   },
-  finalizeAccepted({ args, stamp, projection }) {
-    const dungeonVersion = revisionAt(
-      stamp.revisions,
-      dungeonAxis(projection.dungeonId)
-    )
-    if (dungeonVersion !== undefined) {
-      publishDungeonPing(projection.dungeonShortId, {
-        version: dungeonVersion,
-        status:
-          args.command.kind === "start"
-            ? "active"
-            : args.command.kind === "finish"
-              ? "done"
-              : "active",
-      })
-    }
-    const instanceVersion = revisionAt(
-      stamp.revisions,
-      mapInstanceAxis(projection.mapInstanceId)
-    )
-    if (
-      instanceVersion !== undefined &&
-      ["event", "searchReveal", "start", "finish", "startEncounter"].includes(
-        args.command.kind
-      )
-    ) {
-      publishDungeonInstancePing(projection.dungeonShortId, instanceVersion)
-    }
+  finalizeAccepted({ args, projection }) {
     revalidateDungeon({ shortId: projection.dungeonShortId })
     if (args.command.kind === "start" || args.command.kind === "finish") {
       revalidatePath(`/campaigns/${projection.campaignShortId}`)

@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 
@@ -23,7 +22,6 @@ export function useDungeonConsole(
   dungeon: Pick<DungeonRow, "id" | "shortId" | "regionId">,
   canon: Canon<DungeonCanonValue>
 ) {
-  const router = useRouter()
   const root = useDungeonPredictions({ canon })
 
   useEffect(() => {
@@ -115,16 +113,6 @@ export function useDungeonConsole(
     dispatchMutation({ kind: "finish" })
   }
 
-  const refreshScheduled = useRef(false)
-  function scheduleRefresh() {
-    if (refreshScheduled.current) return
-    refreshScheduled.current = true
-    queueMicrotask(() => {
-      refreshScheduled.current = false
-      router.refresh()
-    })
-  }
-
   return {
     dungeonState: root.value.dungeon,
     instanceState: root.value.instance,
@@ -133,6 +121,5 @@ export function useDungeonConsole(
     placeToken,
     searchReveal,
     finishDelve,
-    scheduleRefresh,
   }
 }

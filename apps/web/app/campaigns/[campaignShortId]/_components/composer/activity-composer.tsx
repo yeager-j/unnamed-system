@@ -45,8 +45,8 @@ import {
   recordActivityAction,
 } from "@/lib/actions/campaign-updates/activity"
 import { authorWorldUpdateAction } from "@/lib/actions/campaign-updates/world-update"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import type { UpdateCategory } from "@/lib/db/schema/campaign-updates"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 import { ParticipantLinker } from "../world/participant-linker"
 

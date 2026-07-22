@@ -1,10 +1,8 @@
 import type {
   CombatEndRefusal,
+  CombatEventRefusal,
   CombatWriteRefusal,
 } from "@/domain/combat/commit/protocol"
-
-import type { AddCatalogEnemiesError } from "./add-participants.schema"
-import type { ApplyCombatEventError } from "./apply-event.schema"
 
 /**
  * Maps a v2 combat Server-Action error to its user-facing toast copy — the one
@@ -16,39 +14,23 @@ import type { ApplyCombatEventError } from "./apply-event.schema"
  * surfaced with honest generic copy rather than swallowed.
  */
 export function combatErrorMessage(
-  error:
-    | ApplyCombatEventError
-    | CombatWriteRefusal
-    | CombatEndRefusal
-    | AddCatalogEnemiesError
+  error: CombatEventRefusal | CombatWriteRefusal | CombatEndRefusal
 ): string {
   switch (error) {
     case "campaign-already-has-live-encounter":
       return "This campaign already has a live encounter."
     case "encounter-has-unplaced-combatants":
       return "Place every combatant in a zone before starting combat."
-    case "stale":
-      return "This encounter changed elsewhere. Reload and try again."
-    case "encounter-not-found":
-      return "This encounter no longer exists."
     case "encounter-not-live":
       return "This encounter is no longer live. Reload and try again."
     case "map-instance-not-found":
       return "This encounter's map is missing. Reload and try again."
-    case "missing-instance-version":
-      return "Something looks off with the map. Reload and try again."
     case "character-not-found":
       return "That character no longer exists."
-    case "unknown-enemy":
-      return "One of the queued enemies isn't in the catalog anymore."
     case "participant-not-found":
       return "That combatant is no longer in this encounter."
-    case "invalid-input":
-      return "Something looks off with the roster. Try again."
     // Data-integrity + programmer-bug tier: the write reached a state the UI
     // should have made impossible. Honest generic copy, never silent.
-    case "invalid-session":
-    case "participant-load-failed":
     case "invalid-entity":
       return "Something went wrong with this encounter's data. Reload and try again."
     // The Writer refusals; the character-family ones (allocation cap, entry

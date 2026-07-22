@@ -30,6 +30,7 @@ import {
   filterLinkerOptions,
   type LinkerOption,
 } from "@/domain/planner/view/linker"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import {
   campaignArticlePath,
   campaignNpcPath,
@@ -37,7 +38,6 @@ import {
   dungeonConsolePath,
   encounterConsolePath,
 } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 import { embedBlocks } from "./embed-blocks"
 import { participantLinkCompletionMenu } from "./participant-link-completion-menu"

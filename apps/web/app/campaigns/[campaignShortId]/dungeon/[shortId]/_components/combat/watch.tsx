@@ -1,27 +1,20 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect, useRef } from "react"
 
 import type {
   DungeonSnapshot,
   SpatialEncounterSnapshot,
 } from "@workspace/game-v2/visibility"
+import type { Canon } from "@workspace/headcanon"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
-import { useOwnedSheetRefresh } from "@/components/combat/watch/owned-sheet-refresh"
 import { PlayerTurnOrder } from "@/components/combat/watch/player-turn-order"
 import { WatchEnemiesRail } from "@/components/combat/watch/watch-enemies-rail"
-import {
-  useEncounterSnapshot,
-  type WatchSnapshot,
-} from "@/domain/combat/use-encounter-snapshot"
+import { useEncounterSnapshot } from "@/domain/combat/use-encounter-snapshot"
 import { buildWatchView } from "@/domain/combat/view/watch-layout"
-import type {
-  EncounterSnapshotResult,
-  OwnedEncounterSheet,
-} from "@/lib/db/queries/load-encounter-snapshot"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a
 // mounted container (the exploration watch + run console load theirs the same way).
@@ -40,28 +33,11 @@ const DungeonWatchCanvas = dynamic(
   }
 )
 
-/** Polls the **fogged** combat snapshot for a delve fight (UNN-536) — the fog
- *  twin of the mapless watch's default fetcher, hitting the delve-scoped route. */
-async function fetchFoggedSnapshot(
-  shortId: string,
-  signal?: AbortSignal
-): Promise<WatchSnapshot> {
-  const response = await fetch(`/api/encounter/${shortId}/combat-snapshot`, {
-    cache: "no-store",
-    signal,
-  })
-  if (!response.ok)
-    throw new Error(`snapshot request failed: ${response.status}`)
-  const result = (await response.json()) as EncounterSnapshotResult
-  return { ...result.snapshot, compositeVersion: result.compositeVersion }
-}
-
 /** The combat-phase props the watch page loads when the delve snapshot names a
  *  live fight — `null` until the phase-flip refresh pulls them (UNN-604). */
 export interface DungeonWatchCombatData {
   encounterShortId: string
-  initialSnapshot: SpatialEncounterSnapshot
-  initialCompositeVersion: string
+  initialCanon: Canon<SpatialEncounterSnapshot>
   /** The viewer's own combatants here — empty for a spectator. */
   ownedSheets: OwnedEncounterSheet[]
 }
@@ -89,41 +65,13 @@ export function DungeonCombatWatchBody({
   board,
   combat,
   ownedCharacterIds,
-  refetchBoard,
 }: {
   board: DungeonSnapshot
   combat: DungeonWatchCombatData
   ownedCharacterIds: string[]
-  /** The parent dungeon subscription's guarded refetch — driven from here
-   *  because combat writes ping the **encounter** channel, not the dungeon's,
-   *  so in realtime mode this subscription is the only thing that hears a
-   *  mid-combat move/reveal and the board must be pulled along. */
-  refetchBoard: () => void
 }) {
-  const { snapshot } = useEncounterSnapshot(
-    combat.encounterShortId,
-    {
-      ...combat.initialSnapshot,
-      compositeVersion: combat.initialCompositeVersion,
-    },
-    fetchFoggedSnapshot
-  )
-  useOwnedSheetRefresh(snapshot, combat.ownedSheets)
-
-  // The shared Instance advanced (a move, a reveal, an enchant) — the pieces
-  // just refetched over it, so pull the board through the same guarded apply.
-  // Baselined against `board.instanceVersion`, not the combat snapshot's own:
-  // a watch that mounts (or reconnects) mid-fight can load the fogged combat
-  // snapshot after a board reveal already landed, so the board arrives behind
-  // `snapshot.instanceVersion` on the very first render. Baselining off the
-  // combat snapshot would make this effect a no-op and leave the board stale
-  // until the next unrelated Instance write.
-  const lastInstanceVersion = useRef(board.instanceVersion)
-  useEffect(() => {
-    if (snapshot.instanceVersion === lastInstanceVersion.current) return
-    lastInstanceVersion.current = snapshot.instanceVersion
-    refetchBoard()
-  }, [snapshot.instanceVersion, refetchBoard])
+  const root = useEncounterSnapshot({ canon: combat.initialCanon })
+  const snapshot = root.value
 
   const view = buildWatchView(snapshot)
 

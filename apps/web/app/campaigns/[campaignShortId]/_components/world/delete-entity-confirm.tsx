@@ -21,7 +21,7 @@ import {
 import { deleteArticleAction } from "@/lib/actions/campaign-world/delete-article"
 import { deleteNpcAction } from "@/lib/actions/campaign-world/delete-npc"
 import { loadRefCountsAction } from "@/lib/actions/campaign-world/ref-counts"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /** What the confirm needs to know about its target. */
 export interface DeleteEntityTarget {

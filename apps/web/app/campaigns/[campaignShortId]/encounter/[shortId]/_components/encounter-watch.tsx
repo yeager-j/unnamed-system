@@ -1,16 +1,13 @@
 "use client"
 
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
+import type { Canon } from "@workspace/headcanon"
 
 import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
-import { useOwnedSheetRefresh } from "@/components/combat/watch/owned-sheet-refresh"
 import { PlayerTurnOrder } from "@/components/combat/watch/player-turn-order"
 import { WatchEnemiesRail } from "@/components/combat/watch/watch-enemies-rail"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
-import {
-  useEncounterSnapshot,
-  type WatchSnapshot,
-} from "@/domain/combat/use-encounter-snapshot"
+import { useEncounterSnapshot } from "@/domain/combat/use-encounter-snapshot"
 import { buildWatchView } from "@/domain/combat/view/watch-layout"
 import { ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
@@ -20,11 +17,9 @@ import { ZoneLayout } from "./zone-layout"
 
 /**
  * The **player watch view** at `/campaigns/{c}/encounter/{e}/watch` (UNN-322 → UNN-535 on
- * v2). Seeds from the server-rendered snapshot + composite version and
- * subscribes to the DM's live changes via {@link useEncounterSnapshot}
- * (realtime, polling fallback — UNN-371); the composite version is what the
- * apply guard equality-compares, so a durable PC's HP bump invalidates even
- * when both row tokens held still.
+ * v2). It mounts the server-rendered redacted canon through
+ * {@link useEncounterSnapshot}; Headcanon owns axis invalidation, RSC refresh,
+ * and the degraded polling fallback.
  *
  * Every combatant datum renders **structurally off the redacted components**
  * (a dropped key ⇒ no affordance) via {@link buildWatchView}. The status fork
@@ -37,22 +32,16 @@ import { ZoneLayout } from "./zone-layout"
  * render and the battlefield takes the full width.
  */
 export function EncounterWatch({
-  shortId,
-  initialSnapshot,
-  initialCompositeVersion,
+  initialCanon,
   ownedSheets,
 }: {
-  shortId: string
-  initialSnapshot: SpatialEncounterSnapshot
-  initialCompositeVersion: string
+  initialCanon: Canon<SpatialEncounterSnapshot>
   /** The viewer's own combatants here — empty for a spectator. */
   ownedSheets: OwnedEncounterSheet[]
 }) {
-  const { snapshot, stale } = useEncounterSnapshot(shortId, {
-    ...initialSnapshot,
-    compositeVersion: initialCompositeVersion,
-  })
-  useOwnedSheetRefresh(snapshot, ownedSheets)
+  const root = useEncounterSnapshot({ canon: initialCanon })
+  const snapshot = root.value
+  const stale = root.status.freshness === "stalled"
 
   const battlefield =
     snapshot.status === "draft" ? (
@@ -102,7 +91,7 @@ function Battlefield({
   snapshot,
   ended,
 }: {
-  snapshot: WatchSnapshot
+  snapshot: SpatialEncounterSnapshot
   ended: boolean
 }) {
   const view = buildWatchView(snapshot)

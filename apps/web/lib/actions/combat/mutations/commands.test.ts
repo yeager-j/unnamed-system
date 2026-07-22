@@ -31,9 +31,6 @@ const lockDungeonRowForMutation = vi.fn()
 const loadMapInstanceById = vi.fn()
 const saveMapInstanceState = vi.fn()
 const saveDungeonState = vi.fn()
-const publishEncounterPing = vi.fn()
-const publishDungeonPing = vi.fn()
-const publishDungeonInstancePing = vi.fn()
 const revalidateEncounter = vi.fn()
 
 vi.mock("server-only", () => ({}))
@@ -73,17 +70,12 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
 vi.mock("@/lib/db/writes/map-instance", () => ({
   saveMapInstanceState: (...args: unknown[]) => saveMapInstanceState(...args),
 }))
-vi.mock("@/lib/realtime/publish", () => ({
-  publishEncounterPing: (...args: unknown[]) => publishEncounterPing(...args),
-  publishDungeonPing: (...args: unknown[]) => publishDungeonPing(...args),
-  publishDungeonInstancePing: (...args: unknown[]) =>
-    publishDungeonInstancePing(...args),
-}))
 vi.mock("../../encounter/revalidate", () => ({
   revalidateEncounter: (...args: unknown[]) => revalidateEncounter(...args),
 }))
 
-const { combatEndCommand, combatWriteCommand } = await import("./commands")
+const { combatEndCommand, combatEventCommand, combatWriteCommand } =
+  await import("./commands")
 
 const participantId = asParticipantId("participant-1")
 const actor = { userId: "dm-1", email: "dm@example.com" }
@@ -180,6 +172,67 @@ beforeEach(() => {
   })
   saveMapInstanceState.mockResolvedValue(ok({ version: 8 }))
   saveDungeonState.mockResolvedValue(ok({ version: 10 }))
+})
+
+describe("combat.event command", () => {
+  it("stamps encounter and map-instance axes when a roster add also places the token", async () => {
+    const addedId = asParticipantId("participant-2")
+    const eventArgs = {
+      encounterId: row.id,
+      predictionId: "prediction-1",
+      event: {
+        kind: "addParticipant" as const,
+        setup: {
+          id: addedId,
+          side: "enemies" as const,
+          zoneId: "zone-1",
+          entity: { id: "enemy-2", components: { identity: { name: "Imp" } } },
+        },
+      },
+    }
+    const stamp = createStampAccumulator()
+
+    const decision = await combatEventCommand.execute({
+      tx,
+      actor,
+      args: eventArgs,
+      evidence: {
+        ...encounterEvidence,
+        loaded: {
+          ...inlineLoaded,
+          locators: new Map(inlineLoaded.locators),
+        },
+      },
+      stamp,
+    })
+
+    expect(decision).toEqual({ kind: "accepted" })
+    expect(stamp.accepted().revisions).toEqual({
+      [encounterAxis(row.id)]: 4,
+      [mapInstanceAxis(row.mapInstanceId)]: 8,
+    })
+  })
+
+  it("stamps the encounter axis for a session-only event", async () => {
+    const stamp = createStampAccumulator()
+
+    const decision = await combatEventCommand.execute({
+      tx,
+      actor,
+      args: {
+        encounterId: row.id,
+        predictionId: "prediction-2",
+        event: { kind: "endTurn" },
+      },
+      evidence: encounterEvidence,
+      stamp,
+    })
+
+    expect(decision).toEqual({ kind: "accepted" })
+    expect(stamp.accepted().revisions).toEqual({
+      [encounterAxis(row.id)]: 4,
+    })
+  })
 })
 
 describe("combat.end command", () => {
@@ -449,7 +502,7 @@ describe("combat registered command", () => {
     ).toBe(7)
   })
 
-  it("retains only the inline encounter ping after acceptance", async () => {
+  it("revalidates the accepted encounter projection", async () => {
     const stamp = createStampAccumulator()
     stamp.record(encounterAxis(row.id), 4)
 
@@ -464,10 +517,6 @@ describe("combat registered command", () => {
       },
     })
 
-    expect(publishEncounterPing).toHaveBeenCalledWith(row.shortId, {
-      version: 4,
-      status: row.status,
-    })
     expect(revalidateEncounter).toHaveBeenCalledWith({
       id: row.id,
       shortId: row.shortId,

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 
 import {
   dungeonAxis,
-  dungeonRosterMembershipAxis,
   encounterAxis,
   entityAxisFor,
   entityIdentityAxis,
@@ -10,7 +9,6 @@ import {
   entityProgressionAxis,
   entityVitalsAxis,
   mapInstanceAxis,
-  mapInstanceEncounterMembershipAxis,
   regionAxis,
 } from "./axes"
 import { VERSION_CLASSES } from "./version-classes"
@@ -30,9 +28,7 @@ describe("entity axis namespace", () => {
       entityProgressionAxis(id),
       encounterAxis(id),
       mapInstanceAxis(id),
-      mapInstanceEncounterMembershipAxis(id),
       dungeonAxis(id),
-      dungeonRosterMembershipAxis(id),
       regionAxis(id),
     ]
 

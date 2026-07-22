@@ -20,8 +20,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { Textarea } from "@workspace/ui/components/textarea"
 
 import { createEncounterAction } from "@/lib/actions/encounter/create"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { encounterConsolePath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "New encounter" CTA on the campaign manage page (UNN-329). Opens a dialog for

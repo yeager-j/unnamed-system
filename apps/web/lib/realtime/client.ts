@@ -3,10 +3,10 @@ import "server-only"
 import Ably from "ably"
 
 /**
- * The lazy, module-level Ably REST client shared by the publish helper and the
+ * The lazy, module-level Ably REST client shared by the Headcanon publisher and
  * token route. REST is the serverless-correct shape — stateless HTTP, no held
  * connection. Returns `null` when `ABLY_API_KEY` is unset, which is the switch
- * the whole realtime layer keys off: publish no-ops, the token route reports
+ * the whole realtime layer keys off: publishing no-ops, the token route reports
  * unavailable, and clients run the polling fallback (ADR Decision 3) — so
  * local dev and the test suites need zero Ably setup.
  *

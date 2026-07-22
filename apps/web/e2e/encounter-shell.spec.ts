@@ -617,6 +617,8 @@ async function fetchSnapshot(
 ): Promise<SpatialEncounterSnapshot> {
   const response = await request.get(`/api/encounter/${shortId}/snapshot`)
   expect(response.status()).toBe(200)
-  const body = (await response.json()) as { snapshot: SpatialEncounterSnapshot }
-  return body.snapshot
+  const body = (await response.json()) as {
+    canon: { value: SpatialEncounterSnapshot }
+  }
+  return body.canon.value
 }

@@ -17,8 +17,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { MEMBER_REMOVE_LIVE_LOCK_ERROR } from "@/domain/labels"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { removeCampaignMemberAction } from "@/lib/actions/remove-campaign-member"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * Removes a player from the roster on the campaign manage page (UNN-329). Behind

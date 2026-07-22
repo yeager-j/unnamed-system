@@ -13,17 +13,13 @@ import {
 
 /**
  * The single-row façade over the queued versioned-write core (UNN-378;
- * UNN-567) — the *receive half* of the optimistic-concurrency protocol the DM
- * console, encounter setup, and the dungeon console compose for their
- * encounter/Instance rows. The protocol itself (serialized dispatch, monotonic
- * token accounting, one-shot stale-retry) lives in {@link createWriteQueue};
- * this hook owns only the React wiring:
+ * UNN-567) used by stage autosave. The protocol itself (serialized dispatch,
+ * monotonic token accounting, one-shot stale-retry) lives in
+ * {@link createWriteQueue}; this hook owns only the React wiring:
  *
  * 1. **A monotonic version ref** ({@link useMonotonicVersionRef}) synced
  *    forward-only from `serverVersion`, exposed as `versionRef` so callers can
- *    read it for an optimistic frame's expected version, hand it to the
- *    realtime ping compare, or ride it as the *other* row's token in a paired
- *    write (`dispatch-event.ts` reads both).
+ *    read it for an optimistic frame's expected version.
  * 2. **The token port + spine** handed to the core — the port's `bump` is the
  *    forward-only set, also returned as {@link UseQueuedWriteReturn.bump} for
  *    folding a paired action's returned sibling version (never hand-advance by
@@ -52,19 +48,14 @@ export interface UseQueuedWriteArgs {
 
 export interface UseQueuedWriteReturn {
   versionRef: RefObject<number>
-  /** Forward-only fold of a server-returned version into the token — for
-   *  paired writes whose action bumped this row as a side effect. */
+  /** Forward-only fold of a server-returned version into the token. */
   bump: (version: number) => void
   enqueue: <TSuccess extends { version: number }, TError extends string>(
     action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   ) => Promise<Result<TSuccess, TError>>
-  /** Serialize a step on this lane without reading or bumping its token — the
-   *  cross-row combined spine (UNN-589 D11): a two-row gesture acquires the
-   *  dungeon lane and, inside it, the instance lane, then runs
-   *  a transaction-aware caller with both token ports. */
+  /** Serialize a step on this lane without reading or bumping its token. */
   enqueueStep: <T>(action: () => Promise<T>) => Promise<T>
-  /** The lane's token port — read/bump for a cross-row protocol pass that this
-   *  lane's own `enqueue` can't drive (it only knows one token). */
+  /** The lane's token port for callers that coordinate multiple autosaves. */
   token: WriteQueueTokenPort
 }
 

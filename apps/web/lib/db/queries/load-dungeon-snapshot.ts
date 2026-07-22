@@ -3,15 +3,20 @@ import {
   type DungeonRosterEntry,
   type DungeonSnapshot,
 } from "@workspace/game-v2/visibility"
+import { defineCanon, type AxisId, type Canon } from "@workspace/headcanon"
 
 import { dungeonExitAnchors } from "@/domain/map/view/exit-anchors"
+import { dungeonAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
+import { db } from "@/lib/db/client"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
+import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
 import { loadLivePlayerCharactersByIds } from "@/lib/db/queries/load-player-character"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
+import { VERSION_CLASSES } from "@/lib/db/version-classes"
 
 /** The placed party as the snapshot projector reads it: display identity plus the
  *  current vitals for each token's health bars (UNN-489). `vitalsById` carries the
@@ -65,45 +70,60 @@ function buildRoster(
 export async function getDungeonSnapshot(
   shortId: string,
   campaignShortId?: string
-): Promise<DungeonSnapshot | null> {
-  const dungeon = await loadDungeonRowByShortId(shortId)
-  if (!dungeon) return null
+): Promise<Canon<DungeonSnapshot> | null> {
+  return db.transaction(
+    async (tx) => {
+      const dungeon = await loadDungeonRowByShortId(shortId, tx)
+      if (!dungeon) return null
 
-  const [campaign, instance, placed, liveEncounter] = await Promise.all([
-    loadCampaignRowById(dungeon.campaignId),
-    loadMapInstanceById(dungeon.mapInstanceId),
-    loadPlacedCharactersForCampaign(dungeon.campaignId),
-    loadLiveEncounterForMapInstance(dungeon.mapInstanceId),
-  ])
-  if (!campaign) return null
-  if (campaignShortId && campaign.shortId !== campaignShortId) return null
-  if (!instance) return null
+      const [campaign, instance, placed, liveEncounter] = await Promise.all([
+        loadCampaignRowById(dungeon.campaignId, tx),
+        loadMapInstanceById(dungeon.mapInstanceId, tx),
+        loadPlacedCharactersForCampaign(dungeon.campaignId, tx),
+        loadLiveEncounterForMapInstance(dungeon.mapInstanceId, tx),
+      ])
+      if (!campaign) return null
+      if (campaignShortId && campaign.shortId !== campaignShortId) return null
+      if (!instance) return null
 
-  // The party tokens show each other's HP/SP (UNN-489), so hydrate the placed
-  // members **actually present** in the delve (occupancy ∩ placed) for their
-  // current pools — a non-present placed character has no token, so it's skipped.
-  const placedIds = new Set(placed.map((character) => character.id))
-  const partyIds = Object.keys(instance.state.occupancy).filter((id) =>
-    placedIds.has(id)
-  )
-  const vitalsById = await loadPartyVitalsByIds(partyIds)
-  const roster = buildRoster(placed, vitalsById)
+      const placedIds = new Set(placed.map((character) => character.id))
+      const partyIds = Object.keys(instance.state.occupancy).filter((id) =>
+        placedIds.has(id)
+      )
+      const [vitalsById, entityRows] = await Promise.all([
+        loadPartyVitalsByIds(partyIds, tx),
+        loadLiveEntityRowsByIds([...placedIds], tx),
+      ])
+      const snapshot = projectDungeonSnapshot(
+        {
+          name: dungeon.name,
+          status: dungeon.status,
+          campaignShortId: campaign.shortId,
+          version: dungeon.version,
+          instanceVersion: instance.version,
+          ...(liveEncounter
+            ? { combat: { encounterShortId: liveEncounter.shortId } }
+            : {}),
+        },
+        instance.state,
+        dungeon.state,
+        buildRoster(placed, vitalsById),
+        dungeonExitAnchors(instance.state)
+      )
+      const revisions = {
+        [dungeonAxis(dungeon.id)]: dungeon.version,
+        [mapInstanceAxis(instance.id)]: instance.version,
+      } as Record<AxisId, number>
+      for (const row of entityRows) {
+        for (const versionClass of VERSION_CLASSES) {
+          revisions[entityAxisFor[versionClass](row.id)] =
+            row[`${versionClass}Version`]
+        }
+      }
 
-  return projectDungeonSnapshot(
-    {
-      name: dungeon.name,
-      status: dungeon.status,
-      campaignShortId: campaign.shortId,
-      version: dungeon.version,
-      instanceVersion: instance.version,
-      ...(liveEncounter
-        ? { combat: { encounterShortId: liveEncounter.shortId } }
-        : {}),
+      return defineCanon({ value: snapshot, revisions })
     },
-    instance.state,
-    dungeon.state,
-    roster,
-    dungeonExitAnchors(instance.state)
+    { isolationLevel: "repeatable read", accessMode: "read only" }
   )
 }
 

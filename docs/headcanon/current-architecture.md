@@ -374,33 +374,28 @@ the participant's storage home is not knowable from the UI gesture alone.
 
 ### Client
 
-`useCombatantLanes` is the sole client consumer of participant storage metadata.
-It resolves each participant once into a `WriteLane`:
-
-- inline participant → encounter queue and encounter version;
-- durable participant → per-character queue and entity `vitalsVersion`.
-
-`useCombatantWrite` remains storage-blind. It predicts the descriptor into the
-combat console's single optimistic encounter frame, then calls the resolved
-lane.
+`useCombatConsole` binds the complete encounter canon to one predicted
+`showtime.combat.v1` root. Generic events, participant component writes, and end
+intent all enter through `root.mutate`; the root owns ordering, optimistic
+prediction, receipt settlement, and canon handoff. `useCombatantWrite` remains
+storage-blind and submits only the participant id plus the domain write.
 
 ### Server
 
-`applyCombatantWriteAction` reloads the encounter and reads the participant's
-authoritative locator. The wire carries no storage claim. The server chooses:
+`applyCombatMutationAction` binds the three combat definitions to their
+commands. The command reloads the encounter and reads the participant's
+authoritative locator; the wire carries no storage claim. The server chooses:
 
-- `sessionStore` for inline entities: Writer pre-validation, event minting,
-  session reducer, guarded encounter-blob save, encounter ping; or
-- `entityRowStore` for durable entities: forward to the same
-  `commitEntityWrite` used by character routes, then revalidate this encounter.
+- inline storage: Writer pre-validation, event minting, session reduction, and
+  guarded encounter-blob save; or
+- durable storage: the same composed `commitEntityWrite` Store used by
+  character routes.
 
-Each arm requires only its own token. A client's wrong belief about storage can
-fail closed with a missing-token error but cannot reroute the write or change its
-authorization gate.
-
-The durable combat lane has one queue per character because an encounter has an
-open number of durable PCs. It still uses the same queue protocol and the same
-authorized `vitals` token refetch as `EntityWriteProvider`.
+The authority owns receipt execution, contention retry, and accepted stamp
+publication. Every changed encounter, Map Instance, dungeon, or durable entity
+row records its storage axis in that attempt's stamp. A client's provisional
+belief about storage can affect prediction only; it cannot reroute the
+authoritative write or change its authorization gate.
 
 ## Error model
 
@@ -467,10 +462,8 @@ The module does **not** currently provide:
 - durable or long-offline writes;
 - a persistent optimistic mutation log;
 - a queue shared between tabs;
-- exactly-once application semantics or a durable client mutation-id dedupe
-  record for ambiguous network outcomes;
-- automatic fine-grained query updates—reconciliation refetches an RSC route or
-  JSON snapshot;
+- automatic fine-grained query updates—reconciliation refreshes the owning RSC
+  route;
 - push catch-up on ordinary character routes when Ably is unavailable;
 - a single universal queue—the four spines are deliberate independent
   concurrency classes;
@@ -480,9 +473,9 @@ The module does **not** currently provide:
 
 There is also a meaningful distinction between “commit acknowledged” and
 “authoritative projection visible” that the current public interface does not
-name directly. The Server Action response often carries both close together,
-but combat PC pings and other-view refreshes demonstrate that they are separate
-states.
+name as one state. The accepted receipt and a later covering canon are separate
+facts; the predicted root owns their handoff without extending the React Action
+until coverage.
 
 ## Key implementation references
 
@@ -499,22 +492,21 @@ states.
 - [`domain/entity/commit/merge-patch.ts`](../../apps/web/domain/entity/commit/merge-patch.ts)
   — optimistic patch algebra
 - [`domain/entity/use-entity-write.tsx`](../../apps/web/domain/entity/use-entity-write.tsx)
-  — provider, optimistic frame, queues, and route door
-- [`lib/sync/write-queue.ts`](../../apps/web/lib/sync/write-queue.ts) — shared
-  serialization/retry protocol
-- [`lib/actions/entity/apply-entity-write.ts`](../../apps/web/lib/actions/entity/apply-entity-write.ts)
-  — entity Server Action door
+  — provider and entity predicted-root mount
+- [`domain/entity/use-entity-predictions.ts`](../../apps/web/domain/entity/use-entity-predictions.ts)
+  — Headcanon entity root binding
+- [`lib/actions/entity/mutations/apply.ts`](../../apps/web/lib/actions/entity/mutations/apply.ts)
+  — generated entity mutation action
 - [`lib/actions/entity/entity-row-store.ts`](../../apps/web/lib/actions/entity/entity-row-store.ts)
   — authoritative durable Store
 - [`lib/actions/entity/version-guard.ts`](../../apps/web/lib/actions/entity/version-guard.ts)
-  — conditional commit and entity ping
-- [`lib/sync/character-version-sync.ts`](../../apps/web/lib/sync/character-version-sync.ts)
-  and [`lib/sync/use-realtime-channel.ts`](../../apps/web/lib/sync/use-realtime-channel.ts)
-  — realtime invalidation client
-- [`components/combat/console/write-lanes.ts`](../../apps/web/components/combat/console/write-lanes.ts)
-  — combat client address adapter
-- [`lib/actions/combat/commit/stores.ts`](../../apps/web/lib/actions/combat/commit/stores.ts)
-  — inline versus durable server Stores
+  — conditional stamped commit
+- [`lib/realtime/axis-invalidations.ts`](../../apps/web/lib/realtime/axis-invalidations.ts)
+  — shared lazy axis transport and watch polling binding
+- [`domain/combat/commit/protocol.ts`](../../apps/web/domain/combat/commit/protocol.ts)
+  — combat event/write/end protocol and predictors
+- [`lib/actions/combat/mutations/commands.ts`](../../apps/web/lib/actions/combat/mutations/commands.ts)
+  — combat authority, storage-home selection, and multi-axis stamps
 - [`lib/db/queries/load-dungeon-snapshot.ts`](../../apps/web/lib/db/queries/load-dungeon-snapshot.ts)
   — server-side fog projection shell
 - [`domain/entity/commit/__laws__/isomorphism.laws.test.ts`](../../apps/web/domain/entity/commit/__laws__/isomorphism.laws.test.ts)

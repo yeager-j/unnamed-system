@@ -31,8 +31,6 @@ import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { dungeonSetupPath } from "@/lib/paths"
-import { parseCharacterPing } from "@/lib/sync/character-version-sync"
-import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
 
 // React Flow measures the DOM, so the canvas renders client-only against a
 // mounted container (the template editor lazy-loads MapCanvas the same way).
@@ -89,7 +87,6 @@ export function DungeonExploreBody({
     placeToken,
     searchReveal,
     finishDelve,
-    scheduleRefresh,
   } = useDungeonConsole(dungeon, canon)
 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
@@ -206,17 +203,6 @@ export function DungeonExploreBody({
 
   return (
     <>
-      {placedCharacters.map((character) => (
-        <RealtimeChannelListener
-          key={character.shortId}
-          domain="character"
-          shortId={character.shortId}
-          onPing={(data) => {
-            if (parseCharacterPing(data, "any")) scheduleRefresh()
-          }}
-        />
-      ))}
-
       <DungeonSidebarSlot>
         <DungeonPartySidebar
           roster={roster}

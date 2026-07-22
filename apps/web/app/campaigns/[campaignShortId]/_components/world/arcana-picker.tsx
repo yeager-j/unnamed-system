@@ -30,7 +30,7 @@ import {
 
 import { ARCANA } from "@/domain/planner/arcana"
 import { setNpcArcanaAction } from "@/lib/actions/campaign-world/npc-traits"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 
 /**
  * The **Arcana picker** (UNN-579, D8 — advisory only): all 22 Major Arcana.

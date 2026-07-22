@@ -25,7 +25,7 @@ export type ZoneGraphEvent = Extract<
  * named zones and their adjacency. It owns no zone shape of its own — every edit
  * is emitted as a v2 {@link ZoneGraphEvent} (`addZone` / `renameZone` /
  * `removeZone` / `setZoneAdjacency`) through `onZoneEvent`, which the setup shell
- * routes to `applyCombatEventAction` (the same path the rest of combat uses).
+ * routes to the `combat.event` root mutation (the same path the rest of combat uses).
  * Zones are server-owned: the shell re-reads them after each event, so this
  * panel renders straight from the persisted `zones`/`adjacency` props.
  *

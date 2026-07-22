@@ -83,9 +83,12 @@ export async function createDungeonCombatTarget(tracker: CleanupTracker) {
 
   /** The single **live** encounter running on this delve's Instance, or null —
    *  the DB read behind the page's combat-vs-explore fork. */
-  async function getLiveEncounter(): Promise<{ id: string } | null> {
+  async function getLiveEncounter(): Promise<{
+    id: string
+    shortId: string
+  } | null> {
     const [row] = await getDb()
-      .select({ id: encounters.id })
+      .select({ id: encounters.id, shortId: encounters.shortId })
       .from(encounters)
       .where(
         and(

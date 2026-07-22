@@ -8,7 +8,13 @@ import {
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import { combatEnd, combatWrite, predictCombatWrite } from "./protocol"
+import {
+  combatEnd,
+  combatEvent,
+  combatWrite,
+  predictCombatEvent,
+  predictCombatWrite,
+} from "./protocol"
 
 const participantId = asParticipantId("participant-1")
 
@@ -53,6 +59,21 @@ function state(): EncounterState {
 }
 
 describe("showtime.combat.v1", () => {
+  it("predicts generated spatial ids deterministically from invocation intent", () => {
+    const args = {
+      predictionId: "prediction-1",
+      event: { kind: "addZone" as const, name: "Arena" },
+    }
+
+    const first = predictCombatEvent(state(), args)
+    const replay = predictCombatEvent(state(), args)
+
+    expect(first).toEqual(replay)
+    expect(first.ok && first.value.mapInstance.geometry.zones).toHaveProperty(
+      "prediction-1:0"
+    )
+  })
+
   it("predicts sequential writes against the latest frame", () => {
     const first = predictCombatWrite(state(), {
       participantId,
@@ -110,6 +131,24 @@ describe("showtime.combat.v1", () => {
     expect(JSON.stringify(invocation)).not.toMatch(
       /version|axis|actor|storage|characterId|kind/
     )
+  })
+
+  it("puts a generic combat event and its deterministic id seed on the wire", () => {
+    const invocation = combatEvent({
+      encounterId: "encounter-1",
+      predictionId: "prediction-1",
+      event: { kind: "endTurn" },
+    })
+
+    expect(invocation).toEqual({
+      name: "combat.event",
+      args: {
+        encounterId: "encounter-1",
+        predictionId: "prediction-1",
+        event: { kind: "endTurn" },
+      },
+    })
+    expect(JSON.stringify(invocation)).not.toMatch(/version|axis|actor|storage/)
   })
 
   it("ends combat with only the encounter intent on the wire", () => {

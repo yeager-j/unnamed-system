@@ -36,7 +36,7 @@ import { ZonesPanel, type ZoneGraphEvent } from "./zones-panel"
 /**
  * The encounter **setup shell** (UNN-335/347), on engine v2 (UNN-535). Every
  * edit is an event dispatched through the same optimistic
- * `applyCombatEventAction` path the live console uses ({@link
+ * `combat.event` path the live console uses ({@link
  * useEncounterSetup}) — no Save button, a resumed draft restores straight from
  * the persisted session.
  *

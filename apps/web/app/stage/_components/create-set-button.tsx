@@ -18,9 +18,9 @@ import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { createTemplateSetAction } from "@/lib/actions/template-set/create"
 import { stageSetPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Create set" CTA on the Sets list (UNN-588). Opens a dialog for the name,

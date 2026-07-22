@@ -19,8 +19,8 @@ import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { createMapAction } from "@/lib/actions/create-map"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { stageMapPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Create map" CTA on My Maps (UNN-460). Opens a dialog for the name, creates the

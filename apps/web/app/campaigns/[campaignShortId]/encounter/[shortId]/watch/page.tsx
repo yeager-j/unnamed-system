@@ -36,7 +36,7 @@ export async function generateMetadata({
 
   return {
     title: result
-      ? `${result.snapshot.name} — Watch — Showtime!`
+      ? `${result.canon.value.name} — Watch — Showtime!`
       : "Encounter not found — Showtime!",
   }
 }
@@ -47,12 +47,11 @@ export async function generateMetadata({
  * spatial snapshot through the v2 read boundary — `deriveViewer` decides each
  * component's visibility per relationship, so a spectator's enemies carry no
  * attributes/affinities keys at all — and hands it to the client
- * {@link EncounterWatch} together with the composite version its
- * invalidation equality-compares. No auth guard — the watch view is
+ * {@link EncounterWatch} as a complete observed canon. No auth guard — the watch view is
  * intentionally public; a missing `shortId` (or an unparseable row) 404s
  * rather than erroring.
  *
- * It *also* resolves the signed-in viewer to the combatants they own here
+ * The same RSC projection also resolves the signed-in viewer to the combatants they own here
  * ({@link loadOwnedEncounterSheets}, UNN-566) so the watch can render their
  * own-sheet column. A signed-out spectator owns none and sees the full-width
  * battlefield — the page stays public.
@@ -71,11 +70,6 @@ export default async function EncounterWatchPage({ params }: PageProps) {
   if (!result) notFound()
 
   return (
-    <EncounterWatch
-      shortId={shortId}
-      initialSnapshot={result.snapshot}
-      initialCompositeVersion={result.compositeVersion}
-      ownedSheets={ownedSheets}
-    />
+    <EncounterWatch initialCanon={result.canon} ownedSheets={ownedSheets} />
   )
 }

@@ -11,6 +11,7 @@ import {
   projectSpatialEncounterSnapshot,
   type SpatialEncounterSnapshot,
 } from "@workspace/game-v2/visibility"
+import { defineCanon, type AxisId, type Canon } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
 import {
@@ -19,10 +20,11 @@ import {
   toCharacterProfile,
   type CharacterMount,
 } from "@/domain/character/load"
-import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
 import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
 import { dungeonExitAnchors } from "@/domain/map/view/exit-anchors"
 import { deriveViewer } from "@/lib/auth/derive-viewer"
+import { encounterAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
+import { db } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
   loadEncounterForSnapshot,
@@ -33,6 +35,7 @@ import { loadPlayerCharacterRowsByIds } from "@/lib/db/queries/load-player-chara
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { VERSION_CLASSES } from "@/lib/db/version-classes"
 
 /**
  * The **v2 snapshot read boundary** (UNN-530; combat ADR §2.6/CD12) — the query
@@ -50,16 +53,14 @@ import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
  *    one visibility policy table (dropped components are structurally absent),
  *    then layers the fog-clamped spatial fields — zones, connections/exits,
  *    enchantment, `instanceVersion` — the watch's board renders (UNN-535).
- * 5. {@link foldSnapshotVersion} folds `encounter.version` ×
- *    `mapInstance.version` × every durable `vitalsVersion` into the composite
- *    version the client's stale-retry equality-compares.
+ * 5. The canon records the encounter, Map Instance, and all four axes for every
+ *    durable participant from the same repeatable-read observation.
  *
  * `campaign-not-found` / `map-instance-not-found` are data-integrity arms (both
  * FKs are NOT NULL): surfaced, never papered over.
  */
 export interface EncounterSnapshotResult {
-  snapshot: SpatialEncounterSnapshot
-  compositeVersion: string
+  canon: Canon<SpatialEncounterSnapshot>
 }
 
 type GetEncounterSnapshotError =
@@ -105,19 +106,23 @@ export async function getDungeonCombatSnapshot(
 const loadSnapshotInputs = cache(
   async (
     shortId: string
-  ): Promise<Result<SnapshotInputs, GetEncounterSnapshotError>> => {
-    const loaded = await loadEncounterForSnapshot(shortId)
-    if (!loaded.ok) return loaded
+  ): Promise<Result<SnapshotInputs, GetEncounterSnapshotError>> =>
+    db.transaction(
+      async (tx) => {
+        const loaded = await loadEncounterForSnapshot(shortId, tx)
+        if (!loaded.ok) return loaded
 
-    const [campaign, instance] = await Promise.all([
-      loadCampaignRowById(loaded.value.row.campaignId),
-      loadMapInstanceById(loaded.value.row.mapInstanceId),
-    ])
-    if (!campaign) return err("campaign-not-found")
-    if (!instance) return err("map-instance-not-found")
+        const [campaign, instance] = await Promise.all([
+          loadCampaignRowById(loaded.value.row.campaignId, tx),
+          loadMapInstanceById(loaded.value.row.mapInstanceId, tx),
+        ])
+        if (!campaign) return err("campaign-not-found")
+        if (!instance) return err("map-instance-not-found")
 
-    return ok({ ...loaded.value, campaign, instance })
-  }
+        return ok({ ...loaded.value, campaign, instance })
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" }
+    )
 )
 
 interface SnapshotInputs extends LoadedEncounterForSnapshot {
@@ -146,7 +151,7 @@ async function projectSnapshotCore(
   const {
     row,
     loaded: session,
-    durableVersions,
+    durableRevisions,
     durableOwners,
     campaign,
     instance,
@@ -171,14 +176,18 @@ async function projectSnapshotCore(
     fog ? dungeonExitAnchors(instance.state) : {}
   )
 
-  return ok({
-    snapshot,
-    compositeVersion: foldSnapshotVersion({
-      encounterVersion: row.version,
-      instanceVersion: instance.version,
-      durableVersions,
-    }),
-  })
+  const revisions = {
+    [encounterAxis(row.id)]: row.version,
+    [mapInstanceAxis(instance.id)]: instance.version,
+  } as Record<AxisId, number>
+  for (const [entityId, entityRevisions] of durableRevisions) {
+    for (const versionClass of VERSION_CLASSES) {
+      revisions[entityAxisFor[versionClass](entityId)] =
+        entityRevisions[versionClass]
+    }
+  }
+
+  return ok({ canon: defineCanon({ value: snapshot, revisions }) })
 }
 
 /**
@@ -210,12 +219,9 @@ export interface OwnedEncounterSheet {
  * DM drawer's loader calls — so a player's Skill card and the DM's cannot show
  * different numbers for the same combatant.
  *
- * **A stale party composition is accepted, not fixed.** The column re-pulls
- * when the snapshot implies a different sheet (`useOwnedSheetRefresh`), but a
- * DM adding a combatant mid-fight changes only the composition — which no
- * client key can see, and whose one available trigger (`encounter.version`)
- * also advances on every damage tick. A refresh there would refetch every sheet
- * on every hit to fix a scaler that moves once a fight.
+ * The watch's observe-only root refreshes the RSC carrier whenever any observed
+ * encounter, instance, or entity axis advances, so these props and the redacted
+ * battlefield arrive in the same route payload without a client comparison key.
  */
 export async function loadOwnedEncounterSheets(
   shortId: string,

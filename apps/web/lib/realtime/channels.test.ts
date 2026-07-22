@@ -1,86 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { realtimeChannelName } from "./channels"
+import { realtimeNamespace } from "./channels"
 
-describe("realtimeChannelName", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
+describe("realtimeNamespace", () => {
+  afterEach(() => vi.unstubAllEnvs())
 
-  it("namespaces with prod in production", () => {
+  it("uses prod in production", () => {
     vi.stubEnv("VERCEL_ENV", "production")
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main")
-
-    expect(realtimeChannelName("character", "abc123")).toBe(
-      "prod:character:abc123"
-    )
+    expect(realtimeNamespace()).toBe("prod")
   })
 
-  it("namespaces with the slugified branch ref in preview", () => {
+  it("isolates previews by slugified branch", () => {
     vi.stubEnv("VERCEL_ENV", "preview")
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "feature/unn-370-realtime")
-
-    expect(realtimeChannelName("encounter", "abc123")).toBe(
-      "pr-feature-unn-370-realtime:encounter:abc123"
-    )
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "Feature/UNN-680_Watch!")
+    expect(realtimeNamespace()).toBe("pr-feature-unn-680-watch")
   })
 
-  it("namespaces with dev when not on Vercel", () => {
+  it("uses dev outside Vercel", () => {
     vi.stubEnv("VERCEL_ENV", "")
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "")
-
-    expect(realtimeChannelName("character", "abc123")).toBe(
-      "dev:character:abc123"
-    )
+    expect(realtimeNamespace()).toBe("dev")
   })
 
-  it("names the dungeon domain channel", () => {
-    vi.stubEnv("VERCEL_ENV", "")
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "")
-
-    expect(realtimeChannelName("dungeon", "delve9")).toBe("dev:dungeon:delve9")
-  })
-
-  it("gives the same shortId different names on different preview branches", () => {
-    vi.stubEnv("VERCEL_ENV", "preview")
-
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "claude/unn-371-watch-view")
-    const onBranchA = realtimeChannelName("encounter", "abc123")
-
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "claude/unn-372-character-sheet")
-    const onBranchB = realtimeChannelName("encounter", "abc123")
-
-    expect(onBranchA).toBe("pr-claude-unn-371-watch-view:encounter:abc123")
-    expect(onBranchB).toBe("pr-claude-unn-372-character-sheet:encounter:abc123")
-    expect(onBranchA).not.toBe(onBranchB)
-  })
-
-  it("gives the same shortId different names on preview vs prod", () => {
-    vi.stubEnv("VERCEL_ENV", "preview")
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main")
-    const onPreview = realtimeChannelName("character", "abc123")
-
-    vi.stubEnv("VERCEL_ENV", "production")
-    const onProd = realtimeChannelName("character", "abc123")
-
-    expect(onPreview).not.toBe(onProd)
-  })
-
-  it("slugifies refs with uppercase and special characters", () => {
-    vi.stubEnv("VERCEL_ENV", "preview")
-    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "Feature/UNN-370_Realtime!")
-
-    expect(realtimeChannelName("character", "abc123")).toBe(
-      "pr-feature-unn-370-realtime:character:abc123"
-    )
-  })
-
-  it("falls back to a stable namespace when the preview ref is missing", () => {
+  it("uses a stable fallback when a preview ref is missing", () => {
     vi.stubEnv("VERCEL_ENV", "preview")
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", "")
-
-    expect(realtimeChannelName("character", "abc123")).toBe(
-      "pr-unknown:character:abc123"
-    )
+    expect(realtimeNamespace()).toBe("pr-unknown")
   })
 })

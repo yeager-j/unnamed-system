@@ -2,7 +2,6 @@ import "server-only"
 
 import { eq } from "drizzle-orm"
 
-import { revisionAt, type AcceptedStamp } from "@workspace/headcanon"
 import type { DrizzleMutationTx } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
@@ -22,15 +21,12 @@ import { buildFinalizePatch } from "@/domain/entity/finalize"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import type { Actor } from "@/lib/auth/actor"
-import { entityAxisFor } from "@/lib/db/axes"
 import { getDb, type WriteExecutor } from "@/lib/db/client"
 import {
   loadPlayerCharacterById,
   type LoadedPlayerCharacter,
 } from "@/lib/db/queries/load-player-character"
 import { playerCharacter } from "@/lib/db/schema/player-character"
-import type { VersionClass } from "@/lib/db/version-classes"
-import { publishCharacterPing } from "@/lib/realtime/publish"
 
 import {
   admitEntityWrite,
@@ -58,23 +54,10 @@ const defineEntityMutationCommand = createMutationCommandDefiner<
 >()
 
 async function projectAcceptedEntityMutation(context: {
-  readonly entityId: string
   readonly shortId: string
-  readonly versionClass: VersionClass
-  readonly stamp: AcceptedStamp
   readonly changesCharacterList: boolean
 }): Promise<void> {
   revalidateEntity({ shortId: context.shortId })
-
-  const stampedRevision = revisionAt(
-    context.stamp.revisions,
-    entityAxisFor[context.versionClass](context.entityId)
-  )
-  if (stampedRevision !== undefined) {
-    publishCharacterPing(context.shortId, "entity", {
-      [context.versionClass]: stampedRevision,
-    })
-  }
 
   if (context.changesCharacterList) revalidateCharacterList()
 }
@@ -97,12 +80,9 @@ export const entityWriteCommand = defineEntityMutationCommand(entityWrite, {
     const committed = await commitAdmittedEntityWrite(tx, args, evidence, stamp)
     return committed.ok ? acceptMutation() : refuseMutation(committed.error)
   },
-  finalizeAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, projection }) {
     return projectAcceptedEntityMutation({
-      entityId: args.entityId,
       shortId: projection.shortId,
-      versionClass: projection.versionClass,
-      stamp,
       changesCharacterList:
         args.write.component === "level" ||
         args.write.component === "archetypes",
@@ -127,12 +107,9 @@ export const entityIdentityCommand = defineEntityMutationCommand(
       await commitAdmittedIdentityWrite(tx, args, evidence, stamp)
       return acceptMutation()
     },
-    finalizeAccepted({ args, stamp, projection }) {
+    finalizeAccepted({ args, projection }) {
       return projectAcceptedEntityMutation({
-        entityId: args.entityId,
         shortId: projection.shortId,
-        versionClass: "identity",
-        stamp,
         changesCharacterList:
           args.write.field === "name" || args.write.field === "portraitUrl",
       })
@@ -200,12 +177,9 @@ export const entityFinalizeCommand = defineEntityMutationCommand(
 
       return acceptMutation()
     },
-    finalizeAccepted({ args, stamp, projection }) {
+    finalizeAccepted({ projection }) {
       return projectAcceptedEntityMutation({
-        entityId: args.entityId,
         shortId: projection.shortId,
-        versionClass: "identity",
-        stamp,
         changesCharacterList: true,
       })
     },

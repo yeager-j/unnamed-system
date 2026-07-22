@@ -18,8 +18,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { deleteMapAction } from "@/lib/actions/delete-map"
+import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { stageMapsPath } from "@/lib/paths"
-import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Delete map" control on the editor (UNN-460). A simple confirm — Map deletion
