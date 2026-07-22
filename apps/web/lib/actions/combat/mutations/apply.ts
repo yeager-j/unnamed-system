@@ -20,7 +20,7 @@ import { getDb } from "@/lib/db/client"
 
 import { combatEndCommand, combatWriteCommand } from "./commands"
 
-const executeCombatMutation = createNextMutationAction({
+export const applyCombatMutationAction = createNextMutationAction({
   protocol: combatProtocol,
   actor: requireActor,
   authority: createDrizzleMutationAuthority({
@@ -34,7 +34,3 @@ const executeCombatMutation = createNextMutationAction({
   invalidations: entityInvalidationPublisher,
   reportInvalidationFailure,
 })
-
-export async function applyCombatMutationAction(envelope: unknown) {
-  return executeCombatMutation(envelope)
-}

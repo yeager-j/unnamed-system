@@ -22,7 +22,7 @@ import { getDb } from "@/lib/db/client"
 
 import { dungeonCommandHandler } from "./commands"
 
-const executeDungeonMutation = createNextMutationAction({
+export const applyDungeonMutationAction = createNextMutationAction({
   protocol: dungeonProtocol,
   actor: requireActor,
   authority: createDrizzleMutationAuthority({
@@ -38,7 +38,3 @@ const executeDungeonMutation = createNextMutationAction({
   invalidations: entityInvalidationPublisher,
   reportInvalidationFailure,
 })
-
-export async function applyDungeonMutationAction(envelope: unknown) {
-  return executeDungeonMutation(envelope)
-}

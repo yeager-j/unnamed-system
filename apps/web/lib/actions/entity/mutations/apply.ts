@@ -28,7 +28,7 @@ import {
 /** The app's complete server binding: definitions are registered once and the
  * package derives parsing, admission order, receipt execution, denial handling,
  * finalization, and same-ID projection recovery from this list. */
-const executeEntityMutation = createNextMutationAction({
+export const applyEntityMutationAction = createNextMutationAction({
   protocol: entityProtocol,
   actor: requireActor,
   authority: createDrizzleMutationAuthority({
@@ -43,7 +43,3 @@ const executeEntityMutation = createNextMutationAction({
   invalidations: entityInvalidationPublisher,
   reportInvalidationFailure,
 })
-
-export async function applyEntityMutationAction(envelope: unknown) {
-  return executeEntityMutation(envelope)
-}
