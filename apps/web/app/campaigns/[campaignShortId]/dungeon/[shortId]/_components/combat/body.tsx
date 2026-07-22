@@ -9,7 +9,6 @@ import {
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 import { adjacentZones } from "@workspace/game-v2/spatial/selectors"
-import { err } from "@workspace/result"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { rowsByZone } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
@@ -20,10 +19,7 @@ import { CombatTurnBar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortI
 import { RosterInspector } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/roster-inspector"
 import { DungeonCombatSidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
-import {
-  useCombatConsole,
-  type EndCombatPerformer,
-} from "@/components/combat/console/use-combat-console"
+import { useCombatConsole } from "@/components/combat/console/use-combat-console"
 import { useCombatSelection } from "@/components/combat/console/use-combat-selection"
 import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
@@ -32,9 +28,6 @@ import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import { combatZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { COMBAT_DRAFT_HEADINGS } from "@/domain/labels"
-import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
-import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
-import type { EndDungeonCombatError } from "@/lib/actions/dungeon/end-combat.schema"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { dungeonWatchPath } from "@/lib/paths"
 
@@ -49,10 +42,9 @@ import { dungeonWatchPath } from "@/lib/paths"
  * It reuses the mapless console engine wholesale — {@link useCombatConsole} owns
  * the optimistic write path **and** the shared view derivation (turn order /
  * roster / phase / selection / obligations), and the {@link CombatantDrawer} /
- * {@link EndOfTurnModal} render unchanged. The **one** route-varying seam is the
- * combat-end: it injects the three-row {@link endDungeonCombatAction} (which also
- * advances the delve turn) through `options.endCombat`, collapsing its two
- * delve-only error codes to the shared {@link EndCombatError} at this boundary.
+ * {@link EndOfTurnModal} render unchanged. Combat end uses the shared
+ * `combat.end` mutation; the authority derives this dungeon relationship and
+ * advances the delve turn in the same transaction.
  */
 export function DungeonCombatBody({
   dungeon,
@@ -65,20 +57,6 @@ export function DungeonCombatBody({
   combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
   campaignShortId: string
 }) {
-  const endCombat: EndCombatPerformer = async ({
-    encounterVersion,
-    instanceVersion,
-  }) => {
-    const result = await endDungeonCombatAction({
-      encounterId: data.encounter.id,
-      dungeonId: dungeon.id,
-      expectedEncounterVersion: encounterVersion,
-      expectedInstanceVersion: instanceVersion,
-      expectedDungeonVersion: dungeon.version,
-    })
-    return result.ok ? result : err(toEndCombatError(result.error))
-  }
-
   const {
     session,
     instance: instanceState,
@@ -94,7 +72,7 @@ export function DungeonCombatBody({
     obligations,
     onDraft,
     onAdvanceRound,
-  } = useCombatConsole(data, { endCombat })
+  } = useCombatConsole(data)
 
   const {
     phase,
@@ -291,15 +269,6 @@ export function DungeonCombatBody({
       ) : null}
     </>
   )
-}
-
-/** The two delve-only end-combat codes have no mapless toast; collapse them to the
- *  nearest shared code so `combatErrorMessage` stays the single toast home. */
-function toEndCombatError(error: EndDungeonCombatError): EndCombatError {
-  if (error === "dungeon-not-found" || error === "encounter-not-on-dungeon") {
-    return "encounter-not-found"
-  }
-  return error
 }
 
 /** The zones the acting combatant may move into — its adjacent zones, or every

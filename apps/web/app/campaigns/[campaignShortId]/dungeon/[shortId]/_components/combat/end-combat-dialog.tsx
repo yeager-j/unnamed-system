@@ -25,7 +25,7 @@ import { FallenRecoverReminder } from "@/components/combat/dialogs/fallen-recove
  * and adds the **mark-the-turn** line: the fight consumed a dungeon turn, so
  * confirming both ends combat (pruning the Instance) **and** advances the delve
  * clock — one tap, committed atomically by
- * {@link import("@/lib/actions/dungeon/end-combat").endDungeonCombatAction}.
+ * the `combat.end` authority command.
  */
 export function DungeonEndCombatDialog({
   turnCounter,

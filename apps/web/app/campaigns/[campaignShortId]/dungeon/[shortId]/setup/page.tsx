@@ -32,7 +32,7 @@ export async function generateMetadata({
  * DM-only via {@link getDungeonForDM} (same 404 for missing / not-your-campaign as
  * the console). Only an `active` delve with no fight already running can stage — a
  * draft/done delve, or one whose Instance already carries a live encounter, redirects
- * back to the console, the same gates `startDungeonEncounterAction` enforces on the
+ * back to the console, the same gates the dungeon authority enforces on the
  * write. Staging itself is client-only; the mint is one atomic action.
  */
 export default async function DungeonEncounterPage({ params }: PageProps) {
@@ -40,7 +40,7 @@ export default async function DungeonEncounterPage({ params }: PageProps) {
   const result = await getDungeonForDM(campaignShortId, shortId)
 
   if (!result) notFound()
-  const { dungeon, instance } = result
+  const { dungeon, instance, canon } = result
 
   if (dungeon.status !== "active") {
     redirect(dungeonConsolePath(campaignShortId, shortId))
@@ -72,8 +72,7 @@ export default async function DungeonEncounterPage({ params }: PageProps) {
       shortId={shortId}
       campaignShortId={campaignShortId}
       dungeonName={dungeon.name}
-      expectedVersion={dungeon.version}
-      expectedInstanceVersion={instance.version}
+      canon={canon}
       partyCharacterIds={partyCharacterIds}
       zones={zones}
     />

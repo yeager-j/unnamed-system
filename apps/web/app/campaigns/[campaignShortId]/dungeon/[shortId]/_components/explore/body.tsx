@@ -10,6 +10,7 @@ import {
   firstPageId,
   orderedPages,
 } from "@workspace/game-v2/spatial"
+import type { Canon } from "@workspace/headcanon"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
@@ -22,6 +23,7 @@ import { DungeonPartySidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[
 import { useDungeonConsole } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/use-dungeon-console"
 import { DungeonZoneSheet } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/zone-sheet"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
+import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { DUNGEON_REMINDER_COPY } from "@/domain/labels"
@@ -66,12 +68,14 @@ const DungeonCanvas = dynamic(
 export function DungeonExploreBody({
   dungeon,
   instance,
+  canon,
   roster,
   placedCharacters,
   campaignShortId,
 }: {
   dungeon: DungeonRow
   instance: MapInstanceRow
+  canon: Canon<DungeonCanonValue>
   roster: Record<string, DungeonRosterEntry>
   placedCharacters: CharacterSummary[]
   campaignShortId: string
@@ -86,7 +90,7 @@ export function DungeonExploreBody({
     searchReveal,
     finishDelve,
     scheduleRefresh,
-  } = useDungeonConsole(dungeon, instance)
+  } = useDungeonConsole(dungeon, canon)
 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
   const selectedZone = selectedZoneId

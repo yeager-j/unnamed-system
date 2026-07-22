@@ -1,8 +1,10 @@
-import type { CombatWriteRefusal } from "@/domain/combat/commit/protocol"
+import type {
+  CombatEndRefusal,
+  CombatWriteRefusal,
+} from "@/domain/combat/commit/protocol"
 
 import type { AddCatalogEnemiesError } from "./add-participants.schema"
 import type { ApplyCombatEventError } from "./apply-event.schema"
-import type { EndCombatError } from "./end-combat.schema"
 
 /**
  * Maps a v2 combat Server-Action error to its user-facing toast copy — the one
@@ -17,7 +19,7 @@ export function combatErrorMessage(
   error:
     | ApplyCombatEventError
     | CombatWriteRefusal
-    | EndCombatError
+    | CombatEndRefusal
     | AddCatalogEnemiesError
 ): string {
   switch (error) {

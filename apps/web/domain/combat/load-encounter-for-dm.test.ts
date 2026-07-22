@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
-import { encounterAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
+import {
+  dungeonAxis,
+  encounterAxis,
+  entityAxisFor,
+  mapInstanceAxis,
+} from "@/lib/db/axes"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
@@ -20,6 +25,7 @@ const loadEncounterForSnapshot = vi.fn()
 const loadCampaignByShortId = vi.fn()
 const loadMapInstanceById = vi.fn()
 const loadCombatConsoleData = vi.fn()
+const loadDungeonRowById = vi.fn()
 const { tx, transaction } = vi.hoisted(() => {
   const tx = { kind: "repeatable-read-tx" }
   return {
@@ -37,6 +43,10 @@ vi.mock("@/lib/db/client", () => ({ db: { transaction } }))
 vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadEncounterForSnapshot: (shortId: string, executor: unknown) =>
     loadEncounterForSnapshot(shortId, executor),
+}))
+vi.mock("@/lib/db/queries/load-dungeon", () => ({
+  loadDungeonRowById: (id: string, executor: unknown) =>
+    loadDungeonRowById(id, executor),
 }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
   loadCampaignByShortId: (shortId: string, executor: unknown) =>
@@ -118,6 +128,7 @@ beforeEach(() => {
   loadCampaignByShortId.mockReset().mockResolvedValue(campaignRow(DM_ID))
   loadMapInstanceById.mockReset().mockResolvedValue(instanceRow)
   loadCombatConsoleData.mockReset().mockResolvedValue({})
+  loadDungeonRowById.mockReset()
   transaction.mockClear()
 })
 
@@ -173,6 +184,28 @@ describe("getEncounterForDM", () => {
     expect(JSON.stringify(result?.canon.revisions)).not.toContain(
       "raw-entity-id"
     )
+  })
+
+  it("includes the owning dungeon axis in the same combat snapshot", async () => {
+    loadEncounterForSnapshot.mockResolvedValue(loadedOk("dungeon-combat"))
+    loadDungeonRowById.mockResolvedValue({
+      id: "dungeon-1",
+      mapInstanceId: "mi-1",
+      version: 6,
+    })
+
+    const result = await getEncounterForDM(
+      "camp-1",
+      "dungeon-combat",
+      "dungeon-1"
+    )
+
+    expect(result?.canon.revisions).toMatchObject({
+      [encounterAxis("enc-dungeon-combat")]: 0,
+      [mapInstanceAxis("mi-1")]: 0,
+      [dungeonAxis("dungeon-1")]: 6,
+    })
+    expect(loadDungeonRowById).toHaveBeenCalledWith("dungeon-1", tx)
   })
 
   it("returns null when signed out (no leak of existence)", async () => {

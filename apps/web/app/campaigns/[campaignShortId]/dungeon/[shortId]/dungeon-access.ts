@@ -1,8 +1,14 @@
 import { cache } from "react"
 
+import { defineCanon, type Canon } from "@workspace/headcanon"
+
+import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import { auth } from "@/lib/auth"
+import { dungeonAxis, mapInstanceAxis, regionAxis } from "@/lib/db/axes"
+import { db } from "@/lib/db/client"
 import { loadCampaignByShortId } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
+import { loadRegionRowById } from "@/lib/db/queries/load-region"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -13,6 +19,7 @@ import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 export interface DungeonForDM {
   dungeon: DungeonRow
   instance: MapInstanceRow
+  canon: Canon<DungeonCanonValue>
 }
 
 /**
@@ -43,20 +50,42 @@ export const getDungeonForDM = cache(
     const viewerId = session?.user?.id
     if (!viewerId) return null
 
-    const dungeon = await loadDungeonRowByShortId(shortId)
-    if (!dungeon) return null
+    return db.transaction(
+      async (tx) => {
+        const dungeon = await loadDungeonRowByShortId(shortId, tx)
+        if (!dungeon) return null
 
-    const campaign = await loadCampaignByShortId(campaignShortId)
-    if (
-      !campaign ||
-      campaign.id !== dungeon.campaignId ||
-      campaign.dmUserId !== viewerId
+        const campaign = await loadCampaignByShortId(campaignShortId, tx)
+        if (
+          !campaign ||
+          campaign.id !== dungeon.campaignId ||
+          campaign.dmUserId !== viewerId
+        ) {
+          return null
+        }
+
+        const instance = await loadMapInstanceById(dungeon.mapInstanceId, tx)
+        if (!instance) return null
+
+        const region = dungeon.regionId
+          ? await loadRegionRowById(dungeon.regionId, tx)
+          : null
+        if (dungeon.regionId && !region) return null
+
+        return {
+          dungeon,
+          instance,
+          canon: defineCanon({
+            value: { dungeon: dungeon.state, instance: instance.state },
+            revisions: {
+              [dungeonAxis(dungeon.id)]: dungeon.version,
+              [mapInstanceAxis(instance.id)]: instance.version,
+              ...(region ? { [regionAxis(region.id)]: region.version } : {}),
+            },
+          }),
+        }
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" }
     )
-      return null
-
-    const instance = await loadMapInstanceById(dungeon.mapInstanceId)
-    if (!instance) return null
-
-    return { dungeon, instance }
   }
 )

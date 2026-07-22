@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm"
 
 import { mapGeometrySchema } from "@workspace/game-v2/spatial"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { maps, type MapRow } from "@/lib/db/schema/map"
 
 /**
@@ -19,8 +19,15 @@ function withParsedGeometry(row: MapRow): MapRow {
 
 /** The `map` row by id (geometry parsed), or `null` when none matches. Backs
  *  {@link import("@/lib/auth/map-access").requireMapOwner}. */
-export async function loadMapRowById(mapId: string): Promise<MapRow | null> {
-  const [row] = await db.select().from(maps).where(eq(maps.id, mapId)).limit(1)
+export async function loadMapRowById(
+  mapId: string,
+  executor: WriteExecutor = db
+): Promise<MapRow | null> {
+  const [row] = await executor
+    .select()
+    .from(maps)
+    .where(eq(maps.id, mapId))
+    .limit(1)
 
   return row ? withParsedGeometry(row) : null
 }

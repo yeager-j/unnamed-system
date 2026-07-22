@@ -11,12 +11,12 @@ import {
   isStagedEnemyEntry,
   useStagedEnemyQueue,
 } from "@/domain/combat/use-staged-enemy-queue"
-import { MAX_STAGED_ENEMY_COUNT } from "@/lib/actions/dungeon/start-encounter.schema"
+import { MAX_STAGED_ENEMY_COUNT } from "@/domain/dungeon/commit/protocol"
 
 /**
  * One staged group in the delve's pre-combat queue (UNN-541): a catalog creature,
  * the zone it will stand in, and how many of it. Staging happens **before** the
- * atomic mint, so a zone rides along on every group — `startDungeonEncounterAction`
+ * atomic mint, so a zone rides along on every group — `dungeon.command`
  * takes this shape verbatim.
  */
 export interface DungeonStagedEnemy extends StagedEnemyEntry {
@@ -92,7 +92,7 @@ export interface DungeonEnemyQueue {
  * The delve's staging queue, keyed by **dungeon id** (UNN-541) over the shared
  * {@link useStagedEnemyQueue} store — no encounter exists until the DM hits
  * Begin, so there is no encounter id to key by. Nothing persists server-side
- * until `startDungeonEncounterAction` mints the fight in one atomic write.
+ * until the dungeon command mints the fight in one atomic write.
  */
 export function useDungeonEnemyQueue(dungeonId: string): DungeonEnemyQueue {
   const { entries, update, clear } = useStagedEnemyQueue<DungeonStagedEnemy>({

@@ -51,7 +51,7 @@ export default async function DungeonPage({ params }: PageProps) {
   const result = await getDungeonForDM(campaignShortId, shortId)
 
   if (!result) notFound()
-  const { dungeon, instance } = result
+  const { dungeon, instance, canon } = result
 
   const placedCharacters = await loadPlacedCharactersForCampaign(
     dungeon.campaignId
@@ -74,7 +74,7 @@ export default async function DungeonPage({ params }: PageProps) {
       return (
         <DungeonPrep
           dungeon={dungeon}
-          instance={instance}
+          canon={canon}
           placedCharacters={placedCharacters}
           zones={zones}
           campaignShortId={campaignShortId}
@@ -94,6 +94,7 @@ export default async function DungeonPage({ params }: PageProps) {
       return (
         <DungeonRunConsole
           dungeon={dungeon}
+          canon={canon}
           campaignShortId={campaignShortId}
           mode={mode}
         />
@@ -135,7 +136,11 @@ async function resolveRunMode(
 ): Promise<DungeonRunMode> {
   const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
   if (live) {
-    const data = await getEncounterForDM(campaignShortId, live.shortId)
+    const data = await getEncounterForDM(
+      campaignShortId,
+      live.shortId,
+      dungeon.id
+    )
     if (data) {
       return {
         kind: "combat",
