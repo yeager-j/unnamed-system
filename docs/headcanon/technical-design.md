@@ -701,7 +701,7 @@ invalidation comparison, refresh coalescing, transition tracking, and stall
 detection. This keeps watch-only views on the same reconciliation architecture
 without making an unusable mutation operation part of their interface.
 
-### Server Action door
+### Server Action binding
 
 The actual Server Action remains an application-owned async function in a
 module-level `"use server"` file. Authentication has a clear home there, and
@@ -710,24 +710,28 @@ Next.js can statically identify the exported server function.
 ```ts
 "use server"
 
-const execute = createEntityMutationExecutor()
+const execute = createNextMutationAction({
+  protocol: entityProtocol,
+  actor: requireActor,
+  authority: createDrizzleMutationAuthority({ db, scope: actorScope }),
+  commands: [
+    bindMutation(entityWrite, entityWriteCommand),
+    bindMutation(entityIdentity, entityIdentityCommand),
+    bindMutation(entityFinalize, entityFinalizeCommand),
+  ],
+  invalidations,
+  reportInvalidationFailure,
+})
 
 export async function applyEntityMutationAction(envelope: unknown) {
-  const actor = await requireActor()
-  const outcome = await execute(envelope, actor)
-
-  if (outcome.ok && affectsCharacterList(outcome)) {
-    revalidatePath("/characters")
-  }
-
-  return outcome
+  return execute(envelope)
 }
 ```
 
-The executor already expires stamped axis tags, publishes one singleton entry
-per stamped axis, and asks Next to refresh the current route. The wrapper adds
-path or tag invalidation only for a genuinely additional projection such as a
-summary list that does not observe the mutated axis directly.
+The action expires stamped axis tags, publishes one singleton entry per stamped
+axis, and asks Next to refresh the current route. A command's repeat-safe
+`afterAccepted` hook owns genuinely additional projections such as a summary
+list that does not observe the mutated axis directly.
 
 The package's Next client binding also owns thrown-request classification. It
 uses Next's `unstable_rethrow` before converting an ordinary Server Action or
@@ -738,37 +742,46 @@ receipts with `delivery-cancelled` and removes the ledger entry before the
 signal propagates. `guard-write-transition.ts` does not remain as an application
 synchronization helper.
 
-### Authority executor
+### Mutation command action
 
 ```ts
-const executeEntityMutation = createNextMutationExecutor({
+const executeEntityMutation = createNextMutationAction({
   protocol: entityProtocol,
-  authority: createDrizzleAuthority({
-    db,
-    receipts: predictedMutationReceipt,
-  }),
-  handlers: {
-    "entity.write": executeEntityWrite,
-  },
+  actor: requireActor,
+  authority: createDrizzleMutationAuthority({ db, scope: actorScope }),
+  commands: [bindMutation(entityWrite, entityWriteCommand)],
   invalidations: createAblyInvalidationPublisher({ ably }),
   reportInvalidationFailure: recordInvalidationFailure,
 })
 ```
 
-Handlers are exhaustive over registered mutation names. They receive the
-adapter's transaction, parsed arguments, trusted context, and an attempt-local
-stamp accumulator. They return a typed domain outcome; the executor constructs
-the accepted vector from every recorded advance rather than trusting a
-hand-built return object:
+Bindings are exhaustive over the protocol's mutation definitions. Each command
+owns fail-closed admission, transaction execution, and optional repeat-safe
+accepted projections. Transaction admission receives the adapter's current
+transaction, parsed arguments, trusted actor, and an attempt-local stamp
+accumulator. It returns a typed decision; the package constructs the accepted
+vector from every recorded advance rather than trusting a hand-built return
+object:
 
 ```ts
-async function executeEntityWrite({ tx, args, actor, stamp }) {
-  const entity = await loadAuthorizedEntity(tx, actor, args.entityId)
-  const next = applyAuthoritativeWriter(entity, args.write)
-  const revision = await commitGuardedWrite(tx, entity, next)
-  stamp.record(entityVitalsAxis(entity.id), revision)
-  return ok()
-}
+const entityWriteCommand = {
+  async admit({ executor, actor, args }) {
+    const admitted = await admitEntityWrite(executor, actor, args)
+    return admitted.ok ? allowMutation(admitted.value) : denyMutation()
+  },
+  async execute({ tx, args, evidence, stamp }) {
+    const committed = await commitAdmittedEntityWrite(
+      tx,
+      args,
+      evidence,
+      stamp
+    )
+    return committed.ok
+      ? acceptMutation()
+      : refuseMutation(committed.error)
+  },
+  afterAccepted: projectAcceptedEntityWrite,
+} satisfies MutationCommand<...>
 ```
 
 The package never accepts a client-composed patch, expected revision,
@@ -785,7 +798,7 @@ are deliberately defined against the state at execution time.
 
 Conversely, a lifecycle command can become invalid even if unrelated state
 changed without touching its old client token. Meaning preservation belongs in
-the command's explicit preconditions and domain handler, not in a generic
+the command's explicit preconditions and domain operation, not in a generic
 render-time equality check.
 
 Therefore version tokens have one client role in the new design: they are read
@@ -794,45 +807,45 @@ credentials.
 
 ### Authority algorithm
 
-For a new mutation ID, the executor performs at most two immediate transaction
-attempts by default: the initial attempt plus one contention retry.
+For a new mutation ID, the authority adapter performs at most two immediate
+transaction attempts by default: the initial attempt plus one contention retry.
 
 Each attempt:
 
 1. begins an outer transaction and claims or locks the mutation receipt
    identity;
-2. starts a handler savepoint and an empty attempt-local stamp accumulator;
+2. starts an attempt savepoint and an empty attempt-local stamp accumulator;
 3. loads the current authoritative rows inside that savepoint;
 4. authorizes contextual policy using current trusted facts;
-5. runs the registered domain handler against that state;
+5. runs the registered command against that state;
 6. applies application-owned lock order for multi-row commands;
 7. performs guarded writes using only revisions read inside this attempt and
    records every successful version advance in the accumulator;
 8. on acceptance, retains the savepoint work, records its accumulated vector,
    and commits domain effects plus receipt atomically; or
-9. on terminal typed rejection, rolls back the handler savepoint, records the
+9. on terminal typed rejection, rolls back the attempt savepoint, records the
    rejection in the still-active outer receipt transaction, and commits only
    that receipt.
 
 If a guarded write loses a race, the attempt rolls back without a receipt and
-the executor reruns the handler against newer state. If the second attempt also
-loses, the executor returns a retryable contention classification without a
+the authority adapter reruns the command against newer state. If the second
+attempt also loses, it returns a retryable contention classification without a
 terminal receipt. The client later redelivers the same envelope and mutation ID;
 it does not fetch or send a version.
 
-Handlers must therefore be rerunnable. Before terminal acceptance they may
+Commands must therefore be rerunnable. Before terminal acceptance they may
 produce effects only through the supplied database transaction; Ably publishes,
 Blob writes, email, and other external work belong in post-acceptance
 finalization or a transactional outbox. A lost compare-and-swap can invoke a
-handler twice even though redelivery later remains effectively-once.
+command twice even though redelivery later remains effectively-once.
 
-Handlers also never throw framework control flow. A mutation's outcomes are
-typed values; `redirect` and its siblings belong to the door before the
-executor runs, and navigation after acceptance is a caller UI decision.
+Commands also never throw framework control flow. A mutation's outcomes are
+typed values; the package action translates denial to `forbidden()` outside the
+transaction, and navigation after acceptance is a caller UI decision.
 
 Existing multi-row helpers must expose transaction-neutral bodies that accept
-the supplied executor. `guardMany` cannot continue to own another outer
-transaction inside a protocol handler, and the migration must not create
+the supplied transaction. `guardMany` cannot continue to own another outer
+transaction inside a protocol command, and the migration must not create
 parallel `commitX` and `commitXInPredictedTransaction` variants. Drizzle's
 nested-transaction support supplies the savepoint; domain lock order remains
 application-owned inside it.
@@ -900,15 +913,15 @@ send-inside-Action scope.
 
 ### 3. Execute and record
 
-The executor:
+The action and authority adapter:
 
 1. validates the protocol, mutation ID, mutation name, and arguments;
 2. computes an environment-independent canonical invocation;
-3. enters the Drizzle authority transaction;
+3. performs preflight admission, then enters the Drizzle authority transaction;
 4. looks up the receipt by trusted actor scope and mutation ID;
 5. rejects reuse of an ID with different canonical bytes;
 6. returns the recorded outcome for an exact duplicate;
-7. otherwise runs the application handler against current authority; and
+7. otherwise reruns command admission and execution against current authority;
 8. records the accepted vector or typed rejection atomically with domain work.
 
 Unexpected exceptions and exhausted internal contention abort without a
@@ -916,7 +929,7 @@ terminal receipt.
 
 ### 4. Finalize accepted axes
 
-After a new or duplicate acceptance commits, the Next executor performs one
+After a new or duplicate acceptance commits, the Next action performs one
 package-owned finalization sequence:
 
 1. call `updateTag(axisCacheTag(axis))` for every stamped axis;
@@ -929,15 +942,15 @@ package-owned finalization sequence:
 intentional: a mutation needs read-your-own-writes, so the next request must wait
 for fresh cached data instead of being served the old canon.
 
-This makes `createNextMutationExecutor` a Server Action-only module. Next.js
+This makes `createNextMutationAction` a Server Action-only module. Next.js
 permits `updateTag` only in that context. A Route Handler or background job must
-use the separately named external-commit path; the executor must not silently
+use the separately named external-commit path; the action must not silently
 pretend both contexts have an invoking route to refresh.
 
 An Ably failure is advisory and does not turn an accepted database transaction
 into a rejection. Publication is timeout-bounded and recorded. Duplicate
 redelivery repeats finalization from the recorded stamp, which can heal a
-publication missed around an ambiguous response without rerunning the handler.
+publication missed around an ambiguous response without rerunning the command.
 
 ### 5. Accept
 
@@ -1542,14 +1555,13 @@ It proves:
 - an old client canon does not cause a generic stale rejection;
 - a replayable command executes against current authority;
 - a preconditioned command can reject against current authority;
-- one internal CAS loss reruns load and handler;
-- the first attempt's transactional effects roll back before the handler reruns;
-- a terminal rejection after partial handler work rolls back to its savepoint
+- one internal CAS loss reruns load and command execution;
+- the first attempt's transactional effects roll back before the command reruns;
+- a terminal rejection after partial command work rolls back to its savepoint
   and commits only the rejection receipt;
 - attempt-local stamp entries disappear on rollback, while every committed
   version increment appears in the accepted vector;
 - exhausted contention stores no receipt and preserves the mutation ID;
-- complete handler registration;
 - atomic single- and multi-axis receipts;
 - duplicate recovery and collision rejection;
 - canonical equality across object key order; and
@@ -1869,18 +1881,18 @@ existing server read authority answer those questions.
 | Protocol receipts grow without bound                           | Measured retention cost is material before a safe cleanup window can be stated                          |
 | Showtime bindings do not contract                              | Old queues, refs, realtime comparison, or refresh scheduling survive underneath package calls           |
 
-Two rows have already fired and been resolved (UNN-682). *"Refresh completion
-cannot be observed reliably"* fired as its worst case: an Action held open for
+Two rows have already fired and been resolved (UNN-682). _"Refresh completion
+cannot be observed reliably"_ fired as its worst case: an Action held open for
 canonization entangles every transition commit, so no carrier could deliver
 canon to a mounted RSC root at all — and a held Action also blocks navigation,
 which made holding untenable on every carrier. The resolution settles Actions
 at terminal acceptance and leans on React's atomic settlement flush for the
-visible handoff. *"Independent optimistic Actions cannot settle separately"*
+visible handoff. _"Independent optimistic Actions cannot settle separately"_
 was dissolved rather than solved: below the "any Action pending?" bit, Action
 granularity is unobservable (commits only happen when all pending Actions
 settle), so independence lives in the reducer's per-mutation lifecycle facts,
 not in settlement timing. Traded away, deliberately: prediction visibility
-between acceptance and a *late* canonization (stale cached loader, snapshot
+between acceptance and a _late_ canonization (stale cached loader, snapshot
 refetch window) now rests on React's best-effort retention of settled
 optimistic updates, and a queue paused on an unbounded-uncertain head renders
 canon truth instead of the prediction until retried.

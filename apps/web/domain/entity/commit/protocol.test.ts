@@ -90,8 +90,22 @@ describe("entity.finalize predictor", () => {
 
     expect(result).toMatchObject({
       ok: false,
-      error: "missing-finalize-requirement",
+      error: {
+        kind: "missing-requirement",
+        stepSlug: "corpus",
+        reason: "Pick an Origin Archetype to continue.",
+      },
     })
+  })
+
+  it("admits the structured refusal through its receipt codec", () => {
+    const refusal = {
+      kind: "missing-requirement" as const,
+      stepSlug: "persona" as const,
+      reason: "Name your character.",
+    }
+
+    expect(entityFinalize.refusal.parse(refusal)).toEqual(refusal)
   })
 })
 

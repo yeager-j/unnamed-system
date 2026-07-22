@@ -2,7 +2,6 @@
 
 import { motion, MotionConfig } from "motion/react"
 import { useState } from "react"
-import { toast } from "sonner"
 
 import { sortArchetypesByPath } from "@workspace/game-v2/archetypes/display"
 
@@ -54,13 +53,6 @@ export function ArchetypeGrid() {
       {
         messages: {
           error: "Couldn't save your Origin. Try again.",
-        },
-        onError: (error) => {
-          if (error === "entity-not-found") {
-            toast.error("This character was deleted.")
-            return true
-          }
-          return false
         },
       }
     )

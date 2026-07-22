@@ -7,12 +7,6 @@ vi.mock("server-only", () => ({}))
 
 const isOwnerOrCampaignDM = vi.fn()
 const refuseGatedArchetypeSpend = vi.fn()
-const loadPlayerCharacterById = vi.fn()
-const forbidden = vi.fn(() => {
-  throw new Error("forbidden")
-})
-
-vi.mock("next/navigation", () => ({ forbidden: () => forbidden() }))
 vi.mock("@/lib/auth/campaign-access", () => ({
   isOwnerOrCampaignDM: (viewerId: string, pc: unknown, executor: unknown) =>
     isOwnerOrCampaignDM(viewerId, pc, executor),
@@ -25,15 +19,8 @@ vi.mock("./archetype-gate", () => ({
     write: unknown
   ) => refuseGatedArchetypeSpend(executor, email, pc, write),
 }))
-vi.mock("@/lib/db/queries/load-player-character", () => ({
-  loadPlayerCharacterById: (id: string) => loadPlayerCharacterById(id),
-}))
-
-const {
-  authorizeEntityWrite,
-  requireEntityWriteAuthorized,
-  isEntityWriteAuthRejection,
-} = await import("./authorize-write")
+const { authorizeEntityWrite, isEntityWriteAuthRejection } =
+  await import("./authorize-write")
 
 const ACTOR = { userId: "owner-1", email: "owner-1@example.com" }
 const EXECUTOR = { marker: "executor" }
@@ -114,40 +101,8 @@ describe("authorizeEntityWrite — one contextual authorization rule", () => {
   })
 })
 
-describe("requireEntityWriteAuthorized — the door's throwing pre-check", () => {
-  it("forbids a missing target without authorizing", async () => {
-    loadPlayerCharacterById.mockResolvedValue(null)
-
-    await expect(
-      requireEntityWriteAuthorized(ACTOR, "e1", VITALS)
-    ).rejects.toThrow("forbidden")
-    expect(isOwnerOrCampaignDM).not.toHaveBeenCalled()
-  })
-
-  it("forbids an unauthorized write", async () => {
-    loadPlayerCharacterById.mockResolvedValue(pc())
-    isOwnerOrCampaignDM.mockResolvedValue(false)
-
-    await expect(
-      requireEntityWriteAuthorized(ACTOR, "e1", VITALS)
-    ).rejects.toThrow("forbidden")
-  })
-
-  it("passes an authorized write through and returns the loaded target", async () => {
-    const loaded = pc()
-    loadPlayerCharacterById.mockResolvedValue(loaded)
-
-    // The door reuses the pre-check's row read (shortId for the transitional
-    // ping bridge, UNN-676) instead of loading the target twice.
-    await expect(
-      requireEntityWriteAuthorized(ACTOR, "e1", VITALS)
-    ).resolves.toBe(loaded)
-    expect(forbidden).not.toHaveBeenCalled()
-  })
-})
-
 describe("isEntityWriteAuthRejection", () => {
-  it("recognizes the authorization refusals a door turns into a 403", () => {
+  it("recognizes the authorization refusals an external caller turns into a 403", () => {
     expect(isEntityWriteAuthRejection("unauthorized")).toBe(true)
     expect(isEntityWriteAuthRejection("archetype-hidden")).toBe(true)
     expect(isEntityWriteAuthRejection("archetype-locked")).toBe(true)

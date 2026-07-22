@@ -12,7 +12,7 @@ import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
-import type { Canon } from "@workspace/headcanon"
+import type { Canon, MutationErrorOf } from "@workspace/headcanon"
 import type { MutationReceipt } from "@workspace/headcanon/react"
 import { err, ok, type Result } from "@workspace/result"
 
@@ -209,9 +209,9 @@ export interface EntityDispatchOptions {
   messages?: { error?: string }
 }
 
-type EntityMutationResult = Result<
-  MutationReceipt<EntityMutationError>,
-  EntityMutationError
+type EntityMutationResult<Error extends EntityMutationError> = Result<
+  MutationReceipt<Error>,
+  Error
 >
 
 /**
@@ -224,8 +224,8 @@ function useProtocolDispatch(caller: string) {
   const { entityId, root } = useWriteApi(caller)
   const [inflight, setInflight] = useState(0)
 
-  function dispatchMutation(
-    result: EntityMutationResult,
+  function dispatchMutation<Error extends EntityMutationError>(
+    result: EntityMutationResult<Error>,
     refusalMessage: string,
     opts?: EntityDispatchOptions
   ): void {
@@ -316,7 +316,11 @@ export function useFinalizeEntity() {
 /** The autosave settle vocabulary: the protocol's typed failures plus the
  *  app-local `"save-interrupted"` — a cancelled navigation or an unmount whose
  *  delivery outcome is unproven. Transient; the next edit retries. */
-export type EntityAutoSaveError = EntityMutationError | "save-interrupted"
+type EntityAutoSaveDomainError =
+  | MutationErrorOf<typeof entityWrite>
+  | MutationErrorOf<typeof entityIdentity>
+
+export type EntityAutoSaveError = EntityAutoSaveDomainError | "save-interrupted"
 
 /**
  * Settles one autosave-issued mutation into the debounced hook's Result
@@ -326,9 +330,9 @@ export type EntityAutoSaveError = EntityMutationError | "save-interrupted"
  * (Authority contention never reaches here — the send adapter classifies it
  * retryable and the package redelivers.)
  */
-async function settleAutoSave<TValue>(
+async function settleAutoSave<TValue, Error extends EntityAutoSaveDomainError>(
   value: TValue,
-  result: EntityMutationResult
+  result: EntityMutationResult<Error>
 ): Promise<Result<{ value: TValue }, EntityAutoSaveError>> {
   if (!result.ok) return err(result.error)
 
@@ -374,7 +378,7 @@ export function useEntityAutoSave(
 /**
  * Debounced **identity-column** auto-save (name, pronouns, notes): the same
  * draft lifecycle over the `entity.identity` mutation. Since P2d the leaf
- * supplies only the per-field descriptor — the Server Action door, mutation
+ * supplies only the per-field descriptor — the Server Action, mutation
  * identity, and concurrency belong to the protocol.
  */
 export function useEntityColumnSave<TValue>(
