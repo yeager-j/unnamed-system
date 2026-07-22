@@ -161,7 +161,7 @@ describe("commitIdentityWrite — executor-neutral identity column writes", () =
     ).rejects.toBeInstanceOf(MutationContentionError)
   })
 
-  it("throws on a stored version column that is not a valid revision", async () => {
+  it("delegates invalid stored revisions to the stamp accumulator", async () => {
     loadPlayerCharacterById.mockResolvedValue(loaded())
     const stamp = createStampAccumulator()
     const { executor } = fakeExecutor([{ version: -1, shortId: "s1" }])
@@ -173,6 +173,8 @@ describe("commitIdentityWrite — executor-neutral identity column writes", () =
         { entityId: ENTITY_ID, write: { field: "name", value: "Vela" } },
         stamp
       )
-    ).rejects.toThrow("identityVersion is not a valid revision")
+    ).rejects.toThrow(
+      `Invalid stamped revision for axis: ${entityIdentityAxis(ENTITY_ID)}`
+    )
   })
 })

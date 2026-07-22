@@ -193,10 +193,11 @@ async function executeCombatEvent(
   tx: WriteExecutor,
   args: CombatEventArgs,
   encounter: LoadedEncounterForWrite,
-  stamp: StampAccumulator
+  stamp: StampAccumulator,
+  mutationId: string
 ): Promise<MutationCommandDecision<CombatEventRefusal>> {
   const event = args.event
-  const newId = createCombatEventIdFactory(args.predictionId)
+  const newId = createCombatEventIdFactory(mutationId)
 
   if (isMapInstanceEvent(event)) {
     const instance = await loadMapInstanceById(encounter.row.mapInstanceId, tx)
@@ -333,8 +334,8 @@ export const combatEventCommand = {
       : admitted
   },
   admit: ({ tx, actor, args }) => admitCombatEvent(tx, actor, args),
-  execute: ({ tx, args, evidence, stamp }) =>
-    executeCombatEvent(tx, args, evidence, stamp),
+  execute: ({ tx, args, evidence, stamp, mutationId }) =>
+    executeCombatEvent(tx, args, evidence, stamp, mutationId),
   finalizeAccepted({ projection }) {
     revalidateEncounter(projection)
   },

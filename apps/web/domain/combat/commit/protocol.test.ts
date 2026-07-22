@@ -17,6 +17,7 @@ import {
 } from "./protocol"
 
 const participantId = asParticipantId("participant-1")
+const mutationContext = { mutationId: "mutation-1" }
 
 const mapInstance: MapInstanceState = {
   geometry: {
@@ -61,16 +62,15 @@ function state(): EncounterState {
 describe("showtime.combat.v1", () => {
   it("predicts generated spatial ids deterministically from invocation intent", () => {
     const args = {
-      predictionId: "prediction-1",
       event: { kind: "addZone" as const, name: "Arena" },
     }
 
-    const first = predictCombatEvent(state(), args)
-    const replay = predictCombatEvent(state(), args)
+    const first = predictCombatEvent(state(), args, mutationContext)
+    const replay = predictCombatEvent(state(), args, mutationContext)
 
     expect(first).toEqual(replay)
     expect(first.ok && first.value.mapInstance.geometry.zones).toHaveProperty(
-      "prediction-1:0"
+      "mutation-1:0"
     )
   })
 
@@ -133,10 +133,9 @@ describe("showtime.combat.v1", () => {
     )
   })
 
-  it("puts a generic combat event and its deterministic id seed on the wire", () => {
+  it("keeps package-owned mutation identity out of combat event arguments", () => {
     const invocation = combatEvent({
       encounterId: "encounter-1",
-      predictionId: "prediction-1",
       event: { kind: "endTurn" },
     })
 
@@ -144,11 +143,12 @@ describe("showtime.combat.v1", () => {
       name: "combat.event",
       args: {
         encounterId: "encounter-1",
-        predictionId: "prediction-1",
         event: { kind: "endTurn" },
       },
     })
-    expect(JSON.stringify(invocation)).not.toMatch(/version|axis|actor|storage/)
+    expect(JSON.stringify(invocation)).not.toMatch(
+      /version|axis|actor|storage|predictionId|mutationId/
+    )
   })
 
   it("ends combat with only the encounter intent on the wire", () => {
