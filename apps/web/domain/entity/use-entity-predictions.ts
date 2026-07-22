@@ -1,8 +1,4 @@
-import {
-  createNextMutationSender,
-  createNextPredictedRoot,
-  useRouterRefresh,
-} from "@workspace/headcanon/next/client"
+import { createNextPredictedRoot } from "@workspace/headcanon/next/client"
 
 import { entityProtocol } from "@/domain/entity/commit/protocol"
 import { applyEntityMutationAction } from "@/lib/actions/entity/mutations/apply"
@@ -17,21 +13,18 @@ import { axisInvalidations } from "@/lib/realtime/axis-invalidations"
  * preservation (`unstable_rethrow` before an ordinary throw becomes
  * `delivery: "uncertain"`).
  *
- * This module owns only the app's three seams: the protocol, the Server Action
- * action, and the invalidation transport.
+ * This module owns only the app's three seams: the protocol, the Server Action,
+ * and the invalidation transport.
  */
 
 /**
- * The mounted-root hook `EntityWriteProvider` binds: RSC canon carrier
- * (`useRouterRefresh`, 250 ms acceptance grace) and lazy Ably axis
- * invalidations. Character routes deliberately take no polling fallback —
+ * The mounted-root hook `EntityWriteProvider` binds the generated action to
+ * the default App Router canon carrier (250 ms acceptance grace) and lazy Ably
+ * axis invalidations. Character routes deliberately take no polling fallback —
  * parity with the ping-channel era they replace.
  */
 export const useEntityPredictions = createNextPredictedRoot({
   protocol: entityProtocol,
-  send: createNextMutationSender<typeof entityProtocol>(
-    applyEntityMutationAction
-  ),
-  refresh: useRouterRefresh,
+  action: applyEntityMutationAction,
   invalidations: axisInvalidations,
 })
