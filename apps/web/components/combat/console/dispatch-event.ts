@@ -21,7 +21,6 @@ export function dispatchCombatEvent({
   const result = root.mutate(
     combatEvent({
       encounterId,
-      predictionId: crypto.randomUUID(),
       event,
     })
   )

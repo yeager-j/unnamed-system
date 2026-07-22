@@ -161,7 +161,8 @@ export const dungeonCommand = defineMutation({
   name: "dungeon.command",
   args: dungeonCommandArgs,
   refusal: dungeonCommandRefusalSchema,
-  predict: predictDungeonCommand,
+  predict: (state: DungeonCanonValue, args: DungeonCommandArgs) =>
+    predictDungeonCommand(state, args),
 })
 
 export const dungeonProtocol = defineProtocol({

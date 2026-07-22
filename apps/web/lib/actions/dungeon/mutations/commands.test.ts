@@ -78,6 +78,7 @@ vi.mock("../revalidate", () => ({ revalidateDungeon: vi.fn() }))
 const { dungeonCommandHandler } = await import("./commands")
 
 const actor = { userId: "dm-1", email: "dm@example.com" }
+const mutationId = "00000000-0000-4000-8000-000000000001"
 const tx = {} as Parameters<typeof dungeonCommandHandler.execute>[0]["tx"]
 const baseDungeon = {
   id: "dungeon-1",
@@ -163,6 +164,7 @@ describe("dungeon.command authority", () => {
       args,
       evidence: { dungeon: baseDungeon, campaign: campaign as never },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -203,6 +205,7 @@ describe("dungeon.command authority", () => {
         args,
         evidence: { dungeon: baseDungeon, campaign: campaign as never },
         stamp,
+        mutationId,
       })
     ).rejects.toBeInstanceOf(MutationContentionError)
     expect(stamp.accepted().revisions).toEqual({})
@@ -226,6 +229,7 @@ describe("dungeon.command authority", () => {
       },
       evidence: { dungeon: baseDungeon, campaign: campaign as never },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({
@@ -255,6 +259,7 @@ describe("dungeon.command authority", () => {
       },
       evidence: { dungeon: baseDungeon, campaign: campaign as never },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -276,6 +281,7 @@ describe("dungeon.command authority", () => {
       args: { dungeonId: baseDungeon.id, command: { kind: "finish" } },
       evidence: { dungeon: baseDungeon, campaign: campaign as never },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({
@@ -308,6 +314,7 @@ describe("dungeon.command authority", () => {
       args: { dungeonId: expedition.id, command: { kind: "finish" } },
       evidence: { dungeon: expedition, campaign: campaign as never },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })

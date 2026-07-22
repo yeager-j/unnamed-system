@@ -79,6 +79,7 @@ const { combatEndCommand, combatEventCommand, combatWriteCommand } =
 
 const participantId = asParticipantId("participant-1")
 const actor = { userId: "dm-1", email: "dm@example.com" }
+const mutationId = "00000000-0000-4000-8000-000000000001"
 const row = {
   id: "encounter-1",
   shortId: "short-1",
@@ -179,7 +180,6 @@ describe("combat.event command", () => {
     const addedId = asParticipantId("participant-2")
     const eventArgs = {
       encounterId: row.id,
-      predictionId: "prediction-1",
       event: {
         kind: "addParticipant" as const,
         setup: {
@@ -204,6 +204,7 @@ describe("combat.event command", () => {
         },
       },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -221,16 +222,41 @@ describe("combat.event command", () => {
       actor,
       args: {
         encounterId: row.id,
-        predictionId: "prediction-2",
         event: { kind: "endTurn" },
       },
       evidence: encounterEvidence,
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
     expect(stamp.accepted().revisions).toEqual({
       [encounterAxis(row.id)]: 4,
+    })
+  })
+
+  it("derives authoritative reducer ids from the package mutation identity", async () => {
+    const stamp = createStampAccumulator()
+
+    const decision = await combatEventCommand.execute({
+      tx,
+      actor,
+      args: {
+        encounterId: row.id,
+        event: { kind: "addZone", name: "Arena" },
+      },
+      evidence: encounterEvidence,
+      stamp,
+      mutationId,
+    })
+
+    expect(decision).toEqual({ kind: "accepted" })
+    expect(saveMapInstanceState.mock.calls[0]?.[2]).toMatchObject({
+      geometry: {
+        zones: {
+          [`${mutationId}:0`]: expect.objectContaining({ name: "Arena" }),
+        },
+      },
     })
   })
 })
@@ -264,6 +290,7 @@ describe("combat.end command", () => {
       args: endArgs,
       evidence: { encounter: encounterEvidence, dungeon: null },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -282,6 +309,7 @@ describe("combat.end command", () => {
       args: endArgs,
       evidence: { encounter: encounterEvidence, dungeon },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -304,6 +332,7 @@ describe("combat.end command", () => {
         args: endArgs,
         evidence: { encounter: encounterEvidence, dungeon },
         stamp,
+        mutationId,
       })
     ).rejects.toBeInstanceOf(MutationContentionError)
     expect(stamp.accepted().revisions).toEqual({})
@@ -371,6 +400,7 @@ describe("combat registered command", () => {
         args,
         evidence: admitted.evidence,
         stamp: createStampAccumulator(),
+        mutationId,
       })
     ).resolves.toEqual({
       kind: "refused",
@@ -414,6 +444,7 @@ describe("combat registered command", () => {
         participantId,
       },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -442,6 +473,7 @@ describe("combat registered command", () => {
           participantId,
         },
         stamp: createStampAccumulator(),
+        mutationId,
       })
     ).rejects.toBeInstanceOf(MutationContentionError)
   })
@@ -464,6 +496,7 @@ describe("combat registered command", () => {
         participantId,
       },
       stamp: createStampAccumulator(),
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "refused", error: "capability-missing" })
@@ -488,6 +521,7 @@ describe("combat registered command", () => {
         entityId: "entity-1",
       },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })

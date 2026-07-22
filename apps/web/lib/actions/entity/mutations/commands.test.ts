@@ -56,6 +56,7 @@ const { entityFinalizeCommand, entityIdentityCommand, entityWriteCommand } =
   await import("./commands")
 
 const ACTOR = { userId: "user-1", email: "user-1@example.com" }
+const mutationId = "00000000-0000-4000-8000-000000000001"
 const ENTITY = {
   id: "e1",
   shortId: "short-1",
@@ -122,6 +123,7 @@ describe("entity mutation commands", () => {
       args,
       evidence,
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })
@@ -147,6 +149,7 @@ describe("entity mutation commands", () => {
       args: { entityId: ENTITY.id },
       evidence: { pc: PC },
       stamp: createStampAccumulator(),
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "refused", error: refusal })
@@ -163,6 +166,7 @@ describe("entity mutation commands", () => {
       args: { entityId: ENTITY.id },
       evidence: { pc: PC },
       stamp,
+      mutationId,
     })
 
     expect(decision).toEqual({ kind: "accepted" })

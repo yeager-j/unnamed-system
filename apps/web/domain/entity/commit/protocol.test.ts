@@ -22,6 +22,7 @@ const SEED_IDENTITY = {
   portraitUrl: null,
   notes: null,
 }
+const mutationContext = { mutationId: "mutation-1" }
 
 function seedState(slug: string): EntityCanonValue {
   const entity = seedCharacterToEntity(
@@ -77,7 +78,11 @@ describe("entity.finalize predictor", () => {
         },
       },
     }
-    const result = entityFinalize.predict(state, { entityId: state.entity.id })
+    const result = entityFinalize.predict(
+      state,
+      { entityId: state.entity.id },
+      mutationContext
+    )
 
     expect(result).toEqual({ ok: true, value: state })
   })
@@ -86,7 +91,11 @@ describe("entity.finalize predictor", () => {
     const state = seedState("warrior")
     state.entity.components.archetypes = undefined
 
-    const result = entityFinalize.predict(state, { entityId: state.entity.id })
+    const result = entityFinalize.predict(
+      state,
+      { entityId: state.entity.id },
+      mutationContext
+    )
 
     expect(result).toMatchObject({
       ok: false,
@@ -132,10 +141,14 @@ describe("entity.write predictor", () => {
     const state = seedState("warrior")
     const before = state.resolved.components.vitals?.currentHP
 
-    const result = entityWrite.predict(state, {
-      entityId: state.entity.id,
-      write: { component: "vitals", op: "damage", amount: 2 },
-    })
+    const result = entityWrite.predict(
+      state,
+      {
+        entityId: state.entity.id,
+        write: { component: "vitals", op: "damage", amount: 2 },
+      },
+      mutationContext
+    )
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -151,17 +164,21 @@ describe("entity.write predictor", () => {
       entityId: state.entity.id,
       write: { component: "vitals", op: "damage", amount: 3 },
     } as const
-    const a = entityWrite.predict(state, args)
-    const b = entityWrite.predict(state, args)
+    const a = entityWrite.predict(state, args, mutationContext)
+    const b = entityWrite.predict(state, args, mutationContext)
     expect(a).toEqual(b)
   })
 
   it("carries the identity columns through untouched", () => {
     const state = seedState("warrior")
-    const result = entityWrite.predict(state, {
-      entityId: state.entity.id,
-      write: { component: "vitals", op: "damage", amount: 1 },
-    })
+    const result = entityWrite.predict(
+      state,
+      {
+        entityId: state.entity.id,
+        write: { component: "vitals", op: "damage", amount: 1 },
+      },
+      mutationContext
+    )
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -198,10 +215,14 @@ describe("entity.identity predictor", () => {
   it("replaces only the submitted column", () => {
     const state = seedState("warrior")
 
-    const result = entityIdentity.predict(state, {
-      entityId: state.entity.id,
-      write: { field: "pronouns", value: "she/her" },
-    })
+    const result = entityIdentity.predict(
+      state,
+      {
+        entityId: state.entity.id,
+        write: { field: "pronouns", value: "she/her" },
+      },
+      mutationContext
+    )
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -219,10 +240,14 @@ describe("entity.identity predictor", () => {
   it("canonicalizes a cleared optional column to null, as the authority does", () => {
     const state = seedState("warrior")
 
-    const cleared = entityIdentity.predict(state, {
-      entityId: state.entity.id,
-      write: { field: "pronouns", value: "   " },
-    })
+    const cleared = entityIdentity.predict(
+      state,
+      {
+        entityId: state.entity.id,
+        write: { field: "pronouns", value: "   " },
+      },
+      mutationContext
+    )
 
     expect(cleared.ok).toBe(true)
     if (!cleared.ok) return
