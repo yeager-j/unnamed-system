@@ -8,7 +8,7 @@ import {
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { pruneCombat, reduceDungeon } from "@workspace/game-v2/spatial"
-import { revision, revisionAt } from "@workspace/headcanon"
+import { revisionAt } from "@workspace/headcanon"
 import {
   throwMutationContention,
   type DrizzleMutationTx,
@@ -69,6 +69,19 @@ import { mintSessionWriteEvent } from "../commit/mint-session-write-event"
 type CombatMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
 type CombatMutationPreflight = ReturnType<typeof getDb>
 type CombatProjection = Pick<EncounterRow, "id" | "shortId" | "status">
+type CombatMutation = typeof combatWrite | typeof combatEnd
+type CombatMutationCommand<
+  Mutation extends CombatMutation,
+  Projection,
+  Evidence,
+> = MutationCommand<
+  Mutation,
+  Actor,
+  CombatMutationPreflight,
+  CombatMutationTx,
+  Projection,
+  Evidence
+>
 
 type AdmittedCombatWrite =
   | {
@@ -222,14 +235,10 @@ export const combatWriteCommand = {
     )
     if (!saved.ok) throwMutationContention()
 
-    const nextRevision = revision(saved.value.version)
-    if (!nextRevision.ok) {
-      throw new Error(`Encounter ${evidence.row.id} has an invalid revision`)
-    }
-    stamp.record(encounterAxis(evidence.row.id), nextRevision.value)
+    stamp.record(encounterAxis(evidence.row.id), saved.value.version)
     return acceptMutation()
   },
-  afterAccepted({ stamp, projection }) {
+  finalizeAccepted({ stamp, projection }) {
     revalidateEncounter(projection)
 
     const version = revisionAt(stamp.revisions, encounterAxis(projection.id))
@@ -240,11 +249,8 @@ export const combatWriteCommand = {
       })
     }
   },
-} satisfies MutationCommand<
+} satisfies CombatMutationCommand<
   typeof combatWrite,
-  Actor,
-  CombatMutationPreflight,
-  CombatMutationTx,
   CombatProjection,
   AdmittedCombatWrite
 >
@@ -362,13 +368,8 @@ export const combatEndCommand = {
     )
     if (!ended.ok) throwMutationContention()
 
-    const encounterRevision = revision(ended.value.version)
-    const instanceRevision = revision(savedInstance.value.version)
-    if (!encounterRevision.ok || !instanceRevision.ok) {
-      throw new Error("Combat end produced an invalid revision")
-    }
-    stamp.record(encounterAxis(row.id), encounterRevision.value)
-    stamp.record(mapInstanceAxis(instance.id), instanceRevision.value)
+    stamp.record(encounterAxis(row.id), ended.value.version)
+    stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
 
     if (evidence.dungeon) {
       const savedDungeon = await saveDungeonState(
@@ -378,15 +379,11 @@ export const combatEndCommand = {
         tx
       )
       if (!savedDungeon.ok) throwMutationContention()
-      const dungeonRevision = revision(savedDungeon.value.version)
-      if (!dungeonRevision.ok) {
-        throw new Error("Dungeon combat end produced an invalid revision")
-      }
-      stamp.record(dungeonAxis(evidence.dungeon.id), dungeonRevision.value)
+      stamp.record(dungeonAxis(evidence.dungeon.id), savedDungeon.value.version)
     }
     return acceptMutation()
   },
-  afterAccepted({ stamp, projection }) {
+  finalizeAccepted({ stamp, projection }) {
     revalidateEncounter(projection.encounter)
     const encounterVersion = revisionAt(
       stamp.revisions,
@@ -417,11 +414,8 @@ export const combatEndCommand = {
       })
     }
   },
-} satisfies MutationCommand<
+} satisfies CombatMutationCommand<
   typeof combatEnd,
-  Actor,
-  CombatMutationPreflight,
-  CombatMutationTx,
   CombatEndProjection,
   AdmittedCombatEnd
 >

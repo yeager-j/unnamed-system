@@ -27,11 +27,7 @@ import {
   reduceDungeon,
   type GenerationLedger,
 } from "@workspace/game-v2/spatial"
-import {
-  revision,
-  revisionAt,
-  type StampAccumulator,
-} from "@workspace/headcanon"
+import { revisionAt, type StampAccumulator } from "@workspace/headcanon"
 import {
   throwMutationContention,
   type DrizzleMutationTx,
@@ -102,6 +98,14 @@ import { revalidateDungeon } from "../revalidate"
 
 type DungeonMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
 type DungeonMutationPreflight = ReturnType<typeof getDb>
+type DungeonMutationCommand<Projection, Evidence> = MutationCommand<
+  typeof dungeonCommand,
+  Actor,
+  DungeonMutationPreflight,
+  DungeonMutationTx,
+  Projection,
+  Evidence
+>
 
 interface DungeonProjection {
   readonly dungeonId: string
@@ -154,17 +158,6 @@ async function admitDungeonCommand(
   })
 }
 
-function recordRevision(
-  stamp: StampAccumulator,
-  axis: ReturnType<typeof dungeonAxis>,
-  value: number,
-  label: string
-) {
-  const parsed = revision(value)
-  if (!parsed.ok) throw new Error(`${label} has an invalid revision`)
-  stamp.record(axis, parsed.value)
-}
-
 function requireStored(result: { readonly ok: boolean }): void {
   if (!result.ok) throwMutationContention()
 }
@@ -193,12 +186,7 @@ async function executeEvent(
     )
     requireStored(saved)
     if (!saved.ok) throwMutationContention()
-    recordRevision(
-      stamp,
-      dungeonAxis(dungeon.id),
-      saved.value.version,
-      "Dungeon"
-    )
+    stamp.record(dungeonAxis(dungeon.id), saved.value.version)
     return acceptMutation()
   }
 
@@ -224,12 +212,7 @@ async function executeEvent(
   )
   requireStored(saved)
   if (!saved.ok) throwMutationContention()
-  recordRevision(
-    stamp,
-    mapInstanceAxis(instance.id),
-    saved.value.version,
-    "Map instance"
-  )
+  stamp.record(mapInstanceAxis(instance.id), saved.value.version)
   return acceptMutation()
 }
 
@@ -265,18 +248,8 @@ async function executeSearchReveal(
   requireStored(savedInstance)
   if (!savedDungeon.ok || !savedInstance.ok) throwMutationContention()
 
-  recordRevision(
-    stamp,
-    dungeonAxis(dungeon.id),
-    savedDungeon.value.version,
-    "Dungeon"
-  )
-  recordRevision(
-    stamp,
-    mapInstanceAxis(instance.id),
-    savedInstance.value.version,
-    "Map instance"
-  )
+  stamp.record(dungeonAxis(dungeon.id), savedDungeon.value.version)
+  stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
   return acceptMutation()
 }
 
@@ -364,18 +337,8 @@ async function executeStart(
         )
   requireStored(activated)
   if (!savedInstance.ok || !activated.ok) throwMutationContention()
-  recordRevision(
-    stamp,
-    mapInstanceAxis(instance.id),
-    savedInstance.value.version,
-    "Map instance"
-  )
-  recordRevision(
-    stamp,
-    dungeonAxis(dungeon.id),
-    activated.value.version,
-    "Dungeon"
-  )
+  stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
+  stamp.record(dungeonAxis(dungeon.id), activated.value.version)
   return acceptMutation()
 }
 
@@ -399,12 +362,7 @@ async function executeFinish(
     )
     requireStored(saved)
     if (!saved.ok) throwMutationContention()
-    recordRevision(
-      stamp,
-      dungeonAxis(dungeon.id),
-      saved.value.version,
-      "Dungeon"
-    )
+    stamp.record(dungeonAxis(dungeon.id), saved.value.version)
     return acceptMutation()
   }
 
@@ -438,24 +396,9 @@ async function executeFinish(
   if (!frozen.ok || !savedRegion.ok || !savedDungeon.ok) {
     throwMutationContention()
   }
-  recordRevision(
-    stamp,
-    mapInstanceAxis(instance.id),
-    frozen.value.version,
-    "Map instance"
-  )
-  recordRevision(
-    stamp,
-    regionAxis(region.id),
-    savedRegion.value.version,
-    "Region"
-  )
-  recordRevision(
-    stamp,
-    dungeonAxis(dungeon.id),
-    savedDungeon.value.version,
-    "Dungeon"
-  )
+  stamp.record(mapInstanceAxis(instance.id), frozen.value.version)
+  stamp.record(regionAxis(region.id), savedRegion.value.version)
+  stamp.record(dungeonAxis(dungeon.id), savedDungeon.value.version)
   return acceptMutation()
 }
 
@@ -546,13 +489,8 @@ async function executeStartEncounter(
     tx
   )
   if (!savedInstance.ok) throwMutationContention()
-  recordRevision(
-    stamp,
-    mapInstanceAxis(instance.id),
-    savedInstance.value.version,
-    "Map instance"
-  )
-  recordRevision(stamp, encounterAxis(created.id), 0, "Encounter")
+  stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
+  stamp.record(encounterAxis(created.id), 0)
   return acceptMutation()
 }
 
@@ -574,7 +512,7 @@ export const dungeonCommandHandler = {
         return executeStartEncounter(tx, args, evidence.dungeon, stamp)
     }
   },
-  afterAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, stamp, projection }) {
     const dungeonVersion = revisionAt(
       stamp.revisions,
       dungeonAxis(projection.dungeonId)
@@ -612,25 +550,4 @@ export const dungeonCommandHandler = {
       )
     }
   },
-} satisfies MutationCommand<
-  typeof dungeonCommand,
-  Actor,
-  DungeonMutationPreflight,
-  DungeonMutationTx,
-  DungeonProjection,
-  AdmittedDungeonCommand
->
-
-export function isDungeonActivationRace(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false
-  const candidate = error as {
-    readonly code?: unknown
-    readonly constraint?: unknown
-    readonly cause?: unknown
-  }
-  return (
-    (candidate.code === "23505" &&
-      candidate.constraint === "dungeon_one_active_per_campaign") ||
-    isDungeonActivationRace(candidate.cause)
-  )
-}
+} satisfies DungeonMutationCommand<DungeonProjection, AdmittedDungeonCommand>
