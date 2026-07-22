@@ -208,7 +208,7 @@ describe("useEntityWrite — dispatch over the predicted root", () => {
       damage: 1,
     })
 
-    await act(async () => release(rejected("entity-not-found")))
+    await act(async () => release(rejected("entity-load-failed")))
     await flush()
 
     expect(result.current.frame.entity.components.vitals).toMatchObject({
@@ -218,14 +218,14 @@ describe("useEntityWrite — dispatch over the predicted root", () => {
   })
 
   it("maps an authority rejection through onError before the default toast", async () => {
-    door.mockResolvedValueOnce(rejected("entity-not-found"))
+    door.mockResolvedValueOnce(rejected("entity-load-failed"))
     const onError = vi.fn(() => true)
 
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
     await act(async () => result.current.dispatch(damage, { onError }))
     await flush()
 
-    expect(onError).toHaveBeenCalledWith("entity-not-found")
+    expect(onError).toHaveBeenCalledWith("entity-load-failed")
     expect(toast.error).not.toHaveBeenCalled()
   })
 
@@ -347,7 +347,7 @@ describe("useEntityColumnSave — autosave settle semantics", () => {
   })
 
   it("rolls the draft back and toasts when the authority rejects the save", async () => {
-    door.mockResolvedValueOnce(rejected("entity-not-found"))
+    door.mockResolvedValueOnce(rejected("entity-load-failed"))
 
     const { result } = renderNameSave()
     await act(async () => result.current.save.setValue("Doomed Name"))

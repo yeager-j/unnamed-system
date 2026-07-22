@@ -16,8 +16,8 @@ write feel instant?” It already does. The useful question is:
 > Which protocol and interface decisions did Zero make around that idea, why,
 > and which of them should Showtime adopt without adopting Zero?
 
-This folder contains two factual baselines, one finalized proposal, and its
-independent assessment:
+This folder contains the factual baselines, finalized proposal, independent
+assessments, and rollout evidence:
 
 1. [Zero's current interface and stealable decisions](./zero-interface.md) — a
    primary-source survey of Zero 1.x, including corrections to assumptions based
@@ -33,9 +33,13 @@ independent assessment:
    multi-agent stress test, contraction ledger, implementation risks, and
    amendments incorporated into revision 4.
 5. [Deletion ledger](./deletion-ledger.md) — what each Showtime cutover
-   *measurably* removed from `apps/web`, phase by phase. The design's
+   _measurably_ removed from `apps/web`, phase by phase. The design's
    application contraction gate is decided here, against measurements rather
    than the estimates in (4).
+6. [P2g mutation-seam investigation](./mutation-seam-investigation.md) — the
+   Phase 2 marginal-integration evidence, three authority-registration options,
+   implemented command-manifest prototype, falsification results, and `go`
+   decision for Phase 3.
 
 The proposal is intentionally a spike design, not an adoption decision. Its
 contract fixture, Drizzle/Ably adapters, and character/combat/dungeon bindings

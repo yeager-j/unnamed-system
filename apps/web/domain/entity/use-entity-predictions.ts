@@ -1,20 +1,10 @@
-import type {
-  AcceptedStamp,
-  MutationEnvelope,
-  ProtocolInvocation,
-} from "@workspace/headcanon"
 import {
+  createNextMutationSender,
   createNextPredictedRoot,
   useRouterRefresh,
 } from "@workspace/headcanon/next/client"
-import { RetryableDeliveryError } from "@workspace/headcanon/react"
-import { err, ok, type Result } from "@workspace/result"
 
-import {
-  entityProtocol,
-  type EntityMutationError,
-} from "@/domain/entity/commit/protocol"
-import type { EntityWriteAuthRejection } from "@/lib/actions/entity/authorize-write"
+import { entityProtocol } from "@/domain/entity/commit/protocol"
 import { applyEntityMutationAction } from "@/lib/actions/entity/mutations/apply"
 import { createLazyAblyInvalidationAdapter } from "@/lib/realtime/axis-invalidations"
 
@@ -28,71 +18,8 @@ import { createLazyAblyInvalidationAdapter } from "@/lib/realtime/axis-invalidat
  * `delivery: "uncertain"`).
  *
  * This module owns only the app's three seams: the protocol, the Server Action
- * door, and the invalidation transport.
+ * action, and the invalidation transport.
  */
-
-type EntityInvocation = ProtocolInvocation<typeof entityProtocol>
-
-/**
- * The door translates authorization rejections to `forbidden()` (a throw), so
- * they can never come back as a returned outcome. The record is exhaustive over
- * {@link EntityWriteAuthRejection} — a new auth rejection member fails this
- * module's typecheck rather than silently leaking into the client error union.
- */
-const DOOR_TRANSLATED_REJECTIONS: Record<EntityWriteAuthRejection, true> = {
-  unauthorized: true,
-  "archetype-hidden": true,
-  "archetype-locked": true,
-}
-
-function isDoorTranslatedRejection(
-  rejection: string
-): rejection is EntityWriteAuthRejection {
-  return rejection in DOOR_TRANSLATED_REJECTIONS
-}
-
-/**
- * Delivers one envelope through the entity door and maps the executor outcome
- * onto the client failure surface:
- *
- * - an accepted terminal outcome returns its stamp (the axis revision vector);
- * - a terminal domain rejection returns typed — the prediction rolls back;
- * - exhausted contention throws {@link RetryableDeliveryError} — the authority
- *   verifiably stored no receipt, so the package keeps the prediction and
- *   redelivers the same envelope on its bounded backoff;
- * - envelope/argument/id-reuse failures throw: they are programmer bugs, and a
- *   loud uncertain-delivery state beats silently eating a protocol defect.
- *
- * A transport throw (network drop, lost response) propagates to the package,
- * which classifies Next control flow first and then holds the envelope as
- * uncertain for honest same-id redelivery.
- */
-async function deliverEntityMutation(
-  envelope: MutationEnvelope<EntityInvocation>
-): Promise<Result<AcceptedStamp, EntityMutationError>> {
-  const outcome = await applyEntityMutationAction(envelope)
-
-  if (!outcome.ok) {
-    if (outcome.error.code === "contention") {
-      throw new RetryableDeliveryError("entity authority contention")
-    }
-    throw new Error(
-      `entity mutation executor refused the envelope: ${outcome.error.code}`
-    )
-  }
-
-  if (outcome.value.kind === "rejected") {
-    const rejection = outcome.value.error
-    if (isDoorTranslatedRejection(rejection)) {
-      throw new Error(
-        `an authorization rejection escaped the door untranslated: ${rejection}`
-      )
-    }
-    return err(rejection)
-  }
-
-  return ok(outcome.value.stamp)
-}
 
 /**
  * The mounted-root hook `EntityWriteProvider` binds: RSC canon carrier
@@ -102,7 +29,9 @@ async function deliverEntityMutation(
  */
 export const useEntityPredictions = createNextPredictedRoot({
   protocol: entityProtocol,
-  send: deliverEntityMutation,
+  send: createNextMutationSender<typeof entityProtocol>(
+    applyEntityMutationAction
+  ),
   refresh: useRouterRefresh,
   invalidations: createLazyAblyInvalidationAdapter(),
 })

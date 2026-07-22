@@ -5,7 +5,10 @@ import { identityWritePatch } from "@/domain/entity/commit/identity"
 import type { EntityIdentityArgs } from "@/domain/entity/commit/protocol"
 import type { Actor } from "@/lib/auth/actor"
 import type { WriteExecutor } from "@/lib/db/client"
-import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
+import {
+  loadPlayerCharacterById,
+  type LoadedPlayerCharacter,
+} from "@/lib/db/queries/load-player-character"
 
 import type { EntityWriteAuthRejection } from "./authorize-write"
 import { advanceEntityAxisGuarded } from "./version-guard"
@@ -29,9 +32,10 @@ import { advanceEntityAxisGuarded } from "./version-guard"
  * An identity column has no Writer and no class to derive: name, pronouns,
  * portrait, and notes are always strict-owner, and no Archetype spend can hide
  * behind them. Sharing `authorize-write`'s rule would mean deriving a class the
- * descriptor does not carry, so the two rules stay separate — but they speak the
- * same `"unauthorized"` rejection, so the doors' 403 translation
- * ({@link import("./authorize-write").isEntityWriteAuthRejection}) is one decision.
+ * descriptor does not carry, so the two rules stay separate. The mutation
+ * command translates a failed admission to package denial; combat's standalone
+ * component Store still uses
+ * {@link import("./authorize-write").isEntityWriteAuthRejection}.
  *
  * It records the advanced axis on the stamp accumulator and fires **no realtime
  * ping and no revalidation** — post-acceptance finalization is the caller's.
@@ -50,27 +54,48 @@ export interface IdentityCommit {
   shortId: string
 }
 
+export interface AdmittedIdentityWrite {
+  readonly pc: LoadedPlayerCharacter
+}
+
+/** @internal The mutation manifest's attempt-local admission half. */
+export async function admitIdentityWrite(
+  executor: WriteExecutor,
+  actor: Actor,
+  { entityId }: EntityIdentityArgs
+): Promise<Result<AdmittedIdentityWrite, IdentityWriteRejection>> {
+  const pc = await loadPlayerCharacterById(entityId, executor)
+  if (!pc) return err("entity-not-found")
+  if (pc.userId !== actor.userId) return err("unauthorized")
+  return ok({ pc })
+}
+
+/** @internal Commits only evidence minted by {@link admitIdentityWrite}. */
+export async function commitAdmittedIdentityWrite(
+  executor: WriteExecutor,
+  { write }: EntityIdentityArgs,
+  admitted: AdmittedIdentityWrite,
+  stamp: StampAccumulator
+): Promise<Result<IdentityCommit, never>> {
+  const version = await advanceEntityAxisGuarded(
+    executor,
+    admitted.pc.entity,
+    "identity",
+    identityWritePatch(write),
+    stamp
+  )
+
+  return ok({ version, shortId: admitted.pc.entity.shortId })
+}
+
 export async function commitIdentityWrite(
   executor: WriteExecutor,
   actor: Actor,
   { entityId, write }: EntityIdentityArgs,
   stamp: StampAccumulator
 ): Promise<Result<IdentityCommit, IdentityWriteRejection>> {
-  // One authoritative observation of the target inside the attempt — ownership and
-  // the guard's expected version both read it.
-  const pc = await loadPlayerCharacterById(entityId, executor)
-  if (!pc) return err("entity-not-found")
-  if (pc.userId !== actor.userId) return err("unauthorized")
-
-  // The patch is composed server-side from the descriptor (descriptor-in,
-  // UNN-226) and touches exactly the one written column.
-  const version = await advanceEntityAxisGuarded(
-    executor,
-    pc.entity,
-    "identity",
-    identityWritePatch(write),
-    stamp
-  )
-
-  return ok({ version, shortId: pc.entity.shortId })
+  const args = { entityId, write }
+  const admitted = await admitIdentityWrite(executor, actor, args)
+  if (!admitted.ok) return admitted
+  return commitAdmittedIdentityWrite(executor, args, admitted.value, stamp)
 }
