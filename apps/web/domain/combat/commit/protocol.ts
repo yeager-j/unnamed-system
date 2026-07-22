@@ -16,7 +16,11 @@ import {
   mapInstanceEventSchema,
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
-import { defineMutation, defineProtocol } from "@workspace/headcanon"
+import {
+  defineMutation,
+  defineProtocol,
+  type MutationContext,
+} from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
 import { mergeComponentPatch } from "@/domain/entity/commit/merge-patch"
@@ -62,7 +66,6 @@ export type ConsoleCombatEvent = z.infer<typeof consoleCombatEventSchema>
 
 export const combatEventArgs = z.object({
   encounterId: z.string().min(1),
-  predictionId: z.string().min(1),
   event: consoleCombatEventSchema,
 })
 
@@ -75,10 +78,10 @@ export type CombatEventRefusal =
   | "locator-missing"
   | "map-instance-not-found"
 
-/** Stable reducer ids shared by prediction and authority for one invocation. */
-export function createCombatEventIdFactory(predictionId: string): () => string {
+/** Stable reducer ids derived from Headcanon's identity for one invocation. */
+export function createCombatEventIdFactory(mutationId: string): () => string {
   let index = 0
-  return () => `${predictionId}:${index++}`
+  return () => `${mutationId}:${index++}`
 }
 
 function isMapInstanceEvent(
@@ -89,9 +92,10 @@ function isMapInstanceEvent(
 
 export function predictCombatEvent(
   state: EncounterState,
-  { event, predictionId }: Pick<CombatEventArgs, "event" | "predictionId">
+  { event }: Pick<CombatEventArgs, "event">,
+  { mutationId }: MutationContext
 ): Result<EncounterState, CombatEventRefusal> {
-  const newId = createCombatEventIdFactory(predictionId)
+  const newId = createCombatEventIdFactory(mutationId)
 
   if (isMapInstanceEvent(event)) {
     return ok(createReduceEncounter(newId)(state, event))
