@@ -47,6 +47,22 @@ import { advanceEntityAxisGuarded } from "../version-guard"
 
 type EntityMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
 type EntityMutationPreflight = ReturnType<typeof getDb>
+type EntityMutation =
+  | typeof entityWrite
+  | typeof entityIdentity
+  | typeof entityFinalize
+type EntityMutationCommand<
+  Mutation extends EntityMutation,
+  Projection,
+  Evidence,
+> = MutationCommand<
+  Mutation,
+  Actor,
+  EntityMutationPreflight,
+  EntityMutationTx,
+  Projection,
+  Evidence
+>
 
 async function projectAcceptedEntityMutation(context: {
   readonly entityId: string
@@ -93,7 +109,7 @@ export const entityWriteCommand = {
     const committed = await commitAdmittedEntityWrite(tx, args, evidence, stamp)
     return committed.ok ? acceptMutation() : refuseMutation(committed.error)
   },
-  afterAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, stamp, projection }) {
     return projectAcceptedEntityMutation({
       entityId: args.entityId,
       shortId: projection.shortId,
@@ -104,11 +120,8 @@ export const entityWriteCommand = {
         args.write.component === "archetypes",
     })
   },
-} satisfies MutationCommand<
+} satisfies EntityMutationCommand<
   typeof entityWrite,
-  Actor,
-  EntityMutationPreflight,
-  EntityMutationTx,
   { readonly shortId: string; readonly versionClass: VersionClass },
   AdmittedEntityWrite
 >
@@ -128,7 +141,7 @@ export const entityIdentityCommand = {
     await commitAdmittedIdentityWrite(tx, args, evidence, stamp)
     return acceptMutation()
   },
-  afterAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, stamp, projection }) {
     return projectAcceptedEntityMutation({
       entityId: args.entityId,
       shortId: projection.shortId,
@@ -138,11 +151,8 @@ export const entityIdentityCommand = {
         args.write.field === "name" || args.write.field === "portraitUrl",
     })
   },
-} satisfies MutationCommand<
+} satisfies EntityMutationCommand<
   typeof entityIdentity,
-  Actor,
-  EntityMutationPreflight,
-  EntityMutationTx,
   { readonly shortId: string },
   AdmittedIdentityWrite
 >
@@ -203,7 +213,7 @@ export const entityFinalizeCommand = {
 
     return acceptMutation()
   },
-  afterAccepted({ args, stamp, projection }) {
+  finalizeAccepted({ args, stamp, projection }) {
     return projectAcceptedEntityMutation({
       entityId: args.entityId,
       shortId: projection.shortId,
@@ -212,11 +222,8 @@ export const entityFinalizeCommand = {
       changesCharacterList: true,
     })
   },
-} satisfies MutationCommand<
+} satisfies EntityMutationCommand<
   typeof entityFinalize,
-  Actor,
-  EntityMutationPreflight,
-  EntityMutationTx,
   { readonly shortId: string },
   AdmittedFinalize
 >

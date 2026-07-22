@@ -30,7 +30,7 @@ The prototype introduces `createNextMutationAction` and a definition-keyed
 `bindMutation` command list. The package derives strict preparation, command
 selection, preflight admission, retry-time admission, receipt execution,
 mutation-specific refusal decoding, terminal denial, stamp finalization, and
-same-ID `afterAccepted` recovery from that list. Its Next client adapter now
+same-ID `finalizeAccepted` recovery from that list. Its Next client adapter now
 owns the generic accepted/refused/contention mapping.
 
 A follow-up deletion pass removed the superseded
@@ -317,9 +317,23 @@ refusal codec.
 A command has a small application-owned shape:
 
 ```ts
-interface MutationCommand<Args, Actor, Tx, Evidence, Refusal> {
+interface MutationCommand<
+  Args,
+  Actor,
+  Preflight,
+  Tx,
+  Projection,
+  Evidence,
+  Refusal,
+> {
+  screen(context: {
+    executor: Preflight
+    actor: Actor
+    args: Args
+  }): Promise<Screening<Projection>>
+
   admit(context: {
-    executor: Tx
+    tx: Tx
     actor: Actor
     args: Args
   }): Promise<Admission<Evidence>>
@@ -332,11 +346,11 @@ interface MutationCommand<Args, Actor, Tx, Evidence, Refusal> {
     stamp: StampAccumulator
   }): Promise<AttemptDecision<Refusal>>
 
-  afterAccepted?(context: {
+  finalizeAccepted?(context: {
     actor: Actor
     args: Args
     stamp: AcceptedStamp
-    preflight: Evidence
+    projection: Projection
   }): void | Promise<void>
 }
 ```
@@ -347,10 +361,10 @@ preflight denial becomes framework control flow and writes no receipt. An
 in-transaction denial after an authorization race is recorded as a package-owned
 terminal denial and translated to framework control flow after the transaction.
 
-The package calls `admit` once before receipt execution and again inside every
-transaction attempt. Only the fresh transactional evidence reaches `execute`.
-The preflight evidence exists only for idempotent post-accept projections such as
-path invalidation or a transitional ping.
+The package calls `screen` once before receipt execution and `admit` inside every
+transaction attempt. Only fresh transactional evidence reaches `execute`.
+`finalizeAccepted` receives only the immutable screening projection for
+repeat-safe work such as path invalidation or a transitional ping.
 
 ### Ordinary `entity.write`
 
@@ -404,9 +418,9 @@ conditions land, the route and legacy ping bridge.
   shapes: manifest callers that sequence internal halves and combat's durable
   arm calling the one-shot Store. The internal split must instead preserve one
   composed implementation and keep combat on its one-call external interface.
-- `afterAccepted` is necessarily safe for idempotent projection work only. A
+- `finalizeAccepted` is necessarily safe for idempotent projection work only. A
   non-idempotent effect needs a transactional outbox, not this callback.
-- `afterAccepted` has at-least-once semantics: same-ID recovery of an accepted
+- `finalizeAccepted` has at-least-once semantics: same-ID recovery of an accepted
   receipt reruns it. This preserves the current behavior in
   [`mutations/apply.ts`](../../apps/web/lib/actions/entity/mutations/apply.ts),
   where every recovered `kind: "accepted"` outcome reruns route/list
@@ -422,7 +436,7 @@ conditions land, the route and legacy ping bridge.
 
 Give every registered mutation separate `preauthorize`, transactional
 `authorize`, `execute`, refusal-codec, rejection-translation, and
-`afterAccepted` capabilities. The transactional authorization step mints a typed
+`finalizeAccepted` capabilities. The transactional authorization step mints a typed
 capability such as `AuthorizedEntityWrite`, `OwnedDraftCharacter`,
 `InlineCombatant`, or `DurableCombatant`; execution cannot run without it.
 
@@ -564,7 +578,7 @@ Headcanon modules.
 - **Transaction-time authorization race:** store a package-owned terminal denial
   and translate it to framework control flow. It never joins the public domain
   refusal union.
-- **Post-accept semantics:** `afterAccepted` reruns on same-ID recovery of an
+- **Post-accept semantics:** `finalizeAccepted` reruns on same-ID recovery of an
   accepted receipt. This is existing behavior, not an optional reliability
   policy, and every registered projection must be repeat-safe.
 - **Compatibility:** the epic and its database have no backwards-compatibility

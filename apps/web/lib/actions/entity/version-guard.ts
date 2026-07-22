@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
-import { revision, type StampAccumulator } from "@workspace/headcanon"
+import { type StampAccumulator } from "@workspace/headcanon"
 import { throwMutationContention } from "@workspace/headcanon/drizzle"
 
 import type { EntityWritePatch } from "@/domain/entity/commit/writers"
@@ -107,7 +107,7 @@ function entityVersionIncrement(
  * `SET` the patch plus the class increment, conditioned on `(id, <class>Version)`;
  * a zero-row result is a lost race, so it throws contention for the authority to
  * rerun the whole handler rather than returning a rejection; and the committed
- * version is parsed into a {@link revision} and recorded on the attempt's stamp.
+ * version is recorded on the attempt's stamp, which owns revision validation.
  *
  * That last step is the load-bearing one: an advance recorded on the stamp is an
  * advance the executor will expire the cache tag for and publish an invalidation
@@ -137,15 +137,6 @@ export async function advanceEntityAxisGuarded(
   if (updated.length === 0) throwMutationContention()
 
   const committedVersion = updated[0]!.version
-  const nextRevision = revision(committedVersion)
-  if (!nextRevision.ok) {
-    // A persisted version column that is not a non-negative safe integer is a
-    // storage-integrity fault, not an expected outcome.
-    throw new Error(
-      `entity ${row.id} ${versionClass}Version is not a valid revision`
-    )
-  }
-
-  stamp.record(entityAxisFor[versionClass](row.id), nextRevision.value)
+  stamp.record(entityAxisFor[versionClass](row.id), committedVersion)
   return committedVersion
 }

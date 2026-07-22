@@ -209,7 +209,7 @@ boundary, while the route binding contracted around it:
 The UNN-678 watchpoint changed the shared command lifecycle as part of this
 cutover: pre-receipt `screen` retains only immutable projection context,
 transactional `admit` reloads authorization and evidence on every attempt, and
-`afterAccepted` cannot receive attempt evidence.
+`finalizeAccepted` cannot receive attempt evidence and must be repeat-safe.
 
 #### Tests: **−1,877 net app code lines**
 
@@ -231,6 +231,36 @@ event synchronization runtime stay deliberately assigned to P3c.
 
 ---
 
+## P3b follow-up — mutation-command ergonomics (UNN-686)
+
+The package production surface adds **22 net lines** (32 added, 10 removed): the
+causal-chain-aware PostgreSQL matcher, raw-number stamp interface, and the
+explicit repeat-safe finalization contract. Package tests add **43 net lines**
+(91 added, 48 removed), principally the accumulator and error-matcher contracts.
+
+Application production contracts by **84 net lines** (80 added, 164 removed):
+commands pass persisted numeric revisions directly to the accumulator, the
+dungeon-specific error recursion is deleted, and entity, combat, and dungeon
+apply their shared actor and executor types through adopter-local command
+aliases. Application tests contract by **10 net lines** (7 added, 17 removed).
+Documentation lines are excluded from these counts.
+
+The proposed package factory was evaluated and rejected. Its curried identity
+calls preserved exact object types but made command declarations less direct.
+Local aliases achieve the useful half of the idea: repeated actor, preflight
+executor, and transaction arguments fall from 18 type arguments at six
+definitions to 9 at three adopter-local aliases. Mutation, projection, and
+attempt evidence remain explicit per command, while `screen`, `admit`, `execute`,
+and `finalizeAccepted` remain one ordinary object checked with `satisfies`.
+
+### The gate: passed
+
+The application shrinks while the package takes ownership of reusable parsing
+and type decisions. Duplicate accepted delivery still reruns finalization, and
+the finalization context still excludes attempt-local evidence.
+
+---
+
 ## Running total
 
 | Phase                                      |              Net production lines in `apps/web` | Gate         |
@@ -240,13 +270,14 @@ event synchronization runtime stay deliberately assigned to P3c.
 | P2g — mutation registration seam (UNN-685) | −57 (coordination −316, domain capability +259) | passed       |
 | P3a — combat (UNN-678)                     |                                            −227 | passed       |
 | P3b — dungeon / multi-row (UNN-679)        |                                            −466 | passed       |
+| P3b ergonomics (UNN-686)                   |                                             −84 | passed       |
 | P3c — watch-only                           |                                               — | —            |
 
 End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
 remaining coordination actually lives.
 
-Running total through P3b: **−648 production code lines in `apps/web`**
-(+38 +64 −57 −227 −466). The character adoption first paid for shared realtime
-capability; combat and dungeon now reuse it and convert that investment into net
-application contraction.
+Running total through the P3b ergonomics follow-up: **−732 production code lines
+in `apps/web`** (+38 +64 −57 −227 −466 −84). The character adoption first paid
+for shared realtime capability; combat and dungeon now reuse it and convert that
+investment into net application contraction.

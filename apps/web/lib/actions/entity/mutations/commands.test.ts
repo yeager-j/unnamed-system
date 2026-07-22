@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { createStampAccumulator, revision } from "@workspace/headcanon"
+import { createStampAccumulator } from "@workspace/headcanon"
 import { err, ok } from "@workspace/result"
 
 import { entityAxisFor } from "@/lib/db/axes"
@@ -183,9 +183,7 @@ describe("entity mutation commands", () => {
 
   it("keeps accepted projections repeat-safe and selected beside the command", async () => {
     const stamp = createStampAccumulator()
-    const stampedRevision = revision(4)
-    if (!stampedRevision.ok) throw new Error("Invalid test revision")
-    stamp.record(entityAxisFor.identity(ENTITY.id), stampedRevision.value)
+    stamp.record(entityAxisFor.identity(ENTITY.id), 4)
     const accepted = stamp.accepted()
     const context = {
       actor: ACTOR,
@@ -197,8 +195,8 @@ describe("entity mutation commands", () => {
       projection: { shortId: ENTITY.shortId },
     }
 
-    await entityIdentityCommand.afterAccepted(context)
-    await entityIdentityCommand.afterAccepted(context)
+    await entityIdentityCommand.finalizeAccepted(context)
+    await entityIdentityCommand.finalizeAccepted(context)
 
     expect(revalidateEntity).toHaveBeenCalledTimes(2)
     expect(revalidateCharacterList).toHaveBeenCalledTimes(2)
