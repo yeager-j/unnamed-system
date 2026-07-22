@@ -53,7 +53,29 @@ export const combatWrite = defineMutation({
   predict: predictCombatWrite,
 })
 
+export const combatEndArgs = z.object({
+  encounterId: z.string().min(1),
+})
+
+export type CombatEndArgs = z.infer<typeof combatEndArgs>
+export type CombatEndRefusal =
+  | "encounter-not-live"
+  | "map-instance-not-found"
+  | "locator-missing"
+
+export const combatEnd = defineMutation({
+  name: "combat.end",
+  args: combatEndArgs,
+  refusal: z.enum([
+    "encounter-not-live",
+    "map-instance-not-found",
+    "locator-missing",
+  ]),
+  predict: (state: EncounterState): Result<EncounterState, CombatEndRefusal> =>
+    ok(state),
+})
+
 export const combatProtocol = defineProtocol({
   id: "showtime.combat.v1",
-  mutations: [combatWrite],
+  mutations: [combatWrite, combatEnd],
 })

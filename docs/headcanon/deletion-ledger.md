@@ -184,6 +184,53 @@ for P3b/P3c.
 
 ---
 
+## Phase 3b — dungeon multi-axis binding (UNN-679)
+
+### Measured: **−466 net production code lines in `apps/web`**
+
+`cloc --diff` at the ticket branch point reports 1,145 added and 1,611 removed
+production TypeScript code lines. The capability grew a server-authoritative
+dungeon command because six separate Server Actions became one transaction
+boundary, while the route binding contracted around it:
+
+- removed the dungeon and map-instance version queues, token refs, stale
+  refetch actions, nested two-lane acquisition, `run-dual-versioned-write`, and
+  the exploration dispatch router;
+- removed the version-bearing event, search-and-reveal, delve start,
+  expedition start/finish, status, encounter-start, and route-specific
+  combat-end actions and schemas;
+- replaced them with one intent-only `showtime.dungeon.v1` command, one
+  snapshot-consistent dungeon canon, and one predicted-root binding mounted in
+  prep, exploration, and encounter staging; and
+- moved `combat.end` into `showtime.combat.v1`, with the authority deriving
+  standalone versus dungeon-backed ownership and producing the same two- or
+  three-axis stamp shape.
+
+The UNN-678 watchpoint changed the shared command lifecycle as part of this
+cutover: pre-receipt `screen` retains only immutable projection context,
+transactional `admit` reloads authorization and evidence on every attempt, and
+`afterAccepted` cannot receive attempt evidence.
+
+#### Tests: **−1,877 net app code lines**
+
+The TypeScript diff outside production is 511 added and 2,388 removed. Deleted
+tests asserted client tokens, stale retries, nested queues, and each legacy
+action door. Replacements cover intent-only payloads, sequential prediction,
+two- and three-axis stamps, final chained encounter revisions, attempt-local
+authorization, dungeon-first locking, second-row contention without partial
+stamps, and repeatable-read canon vectors. The generic screening/admission/
+duplicate-projection lifecycle remains in package contracts.
+
+### The gate: passed
+
+The dungeon route has no expected revision on the wire and no second optimistic
+store around the predicted root. Every actual row increment is stamped; the
+dungeon row is only locked when encounter start uses it as a lifecycle guard,
+so no synthetic bump survives. Watch-only roots and the remaining generic combat
+event synchronization runtime stay deliberately assigned to P3c.
+
+---
+
 ## Running total
 
 | Phase                                      |              Net production lines in `apps/web` | Gate         |
@@ -192,14 +239,14 @@ for P3b/P3c.
 | P2f — finalize command (UNN-677)           |                                             +64 | prompted P2g |
 | P2g — mutation registration seam (UNN-685) | −57 (coordination −316, domain capability +259) | passed       |
 | P3a — combat (UNN-678)                     |                                            −227 | passed       |
-| P3b — dungeon / multi-row                  |                                               — | —            |
+| P3b — dungeon / multi-row (UNN-679)        |                                            −466 | passed       |
 | P3c — watch-only                           |                                               — | —            |
 
 End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
 remaining coordination actually lives.
 
-Running total through P3a: **−182 production code lines in `apps/web`**
-(+38 +64 −57 −227). The character adoption first paid for shared realtime
-capability; the combat adoption reuses it and converts that investment into net
+Running total through P3b: **−648 production code lines in `apps/web`**
+(+38 +64 −57 −227 −466). The character adoption first paid for shared realtime
+capability; combat and dungeon now reuse it and convert that investment into net
 application contraction.

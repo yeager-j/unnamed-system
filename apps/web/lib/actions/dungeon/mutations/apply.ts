@@ -7,10 +7,9 @@ import {
 } from "@workspace/headcanon/next/server"
 
 import {
-  combatEnd,
-  combatProtocol,
-  combatWrite,
-} from "@/domain/combat/commit/protocol"
+  dungeonCommand,
+  dungeonProtocol,
+} from "@/domain/dungeon/commit/protocol"
 import {
   entityInvalidationPublisher,
   reportInvalidationFailure,
@@ -18,23 +17,21 @@ import {
 import { requireActor, type Actor } from "@/lib/auth/actor"
 import { getDb } from "@/lib/db/client"
 
-import { combatEndCommand, combatWriteCommand } from "./commands"
+import { dungeonCommandHandler, isDungeonActivationRace } from "./commands"
 
-const executeCombatMutation = createNextMutationAction({
-  protocol: combatProtocol,
+const executeDungeonMutation = createNextMutationAction({
+  protocol: dungeonProtocol,
   actor: requireActor,
   authority: createDrizzleMutationAuthority({
     db: getDb(),
     scope: (actor: Actor) => actor.userId,
+    isContentionError: isDungeonActivationRace,
   }),
-  commands: [
-    bindMutation(combatWrite, combatWriteCommand),
-    bindMutation(combatEnd, combatEndCommand),
-  ],
+  commands: [bindMutation(dungeonCommand, dungeonCommandHandler)],
   invalidations: entityInvalidationPublisher,
   reportInvalidationFailure,
 })
 
-export async function applyCombatMutationAction(envelope: unknown) {
-  return executeCombatMutation(envelope)
+export async function applyDungeonMutationAction(envelope: unknown) {
+  return executeDungeonMutation(envelope)
 }

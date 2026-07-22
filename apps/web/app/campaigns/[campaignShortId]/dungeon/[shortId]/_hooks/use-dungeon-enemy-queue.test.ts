@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { addEntry } from "@/domain/combat/staged-enemy-queue"
-import { MAX_STAGED_ENEMY_COUNT } from "@/lib/actions/dungeon/start-encounter.schema"
+import { MAX_STAGED_ENEMY_COUNT } from "@/domain/dungeon/commit/protocol"
 
 import {
   capEntryCounts,

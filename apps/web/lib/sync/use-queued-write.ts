@@ -61,7 +61,7 @@ export interface UseQueuedWriteReturn {
   /** Serialize a step on this lane without reading or bumping its token — the
    *  cross-row combined spine (UNN-589 D11): a two-row gesture acquires the
    *  dungeon lane and, inside it, the instance lane, then runs
-   *  `runDualVersionedWrite` with both token ports. */
+   *  a transaction-aware caller with both token ports. */
   enqueueStep: <T>(action: () => Promise<T>) => Promise<T>
   /** The lane's token port — read/bump for a cross-row protocol pass that this
    *  lane's own `enqueue` can't drive (it only knows one token). */

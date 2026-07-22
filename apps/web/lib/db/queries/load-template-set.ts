@@ -2,7 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm"
 
 import { templateSetContentSchema } from "@workspace/game-v2/generation"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { templateSets, type TemplateSetRow } from "@/lib/db/schema/template-set"
 
 /**
@@ -25,9 +25,10 @@ function withParsedContent(row: TemplateSetRow): TemplateSetRow {
  *  or it is soft-deleted. Backs
  *  {@link import("@/lib/auth/template-set-access").requireTemplateSetOwner}. */
 export async function loadTemplateSetRowById(
-  templateSetId: string
+  templateSetId: string,
+  executor: WriteExecutor = db
 ): Promise<TemplateSetRow | null> {
-  const [row] = await db
+  const [row] = await executor
     .select()
     .from(templateSets)
     .where(

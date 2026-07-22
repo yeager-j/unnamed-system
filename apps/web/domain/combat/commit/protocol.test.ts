@@ -8,7 +8,7 @@ import {
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import { combatWrite, predictCombatWrite } from "./protocol"
+import { combatEnd, combatWrite, predictCombatWrite } from "./protocol"
 
 const participantId = asParticipantId("participant-1")
 
@@ -109,6 +109,18 @@ describe("showtime.combat.v1", () => {
     })
     expect(JSON.stringify(invocation)).not.toMatch(
       /version|axis|actor|storage|characterId|kind/
+    )
+  })
+
+  it("ends combat with only the encounter intent on the wire", () => {
+    const invocation = combatEnd({ encounterId: "encounter-1" })
+
+    expect(invocation).toEqual({
+      name: "combat.end",
+      args: { encounterId: "encounter-1" },
+    })
+    expect(JSON.stringify(invocation)).not.toMatch(
+      /version|axis|actor|dungeon|storage/
     )
   })
 })

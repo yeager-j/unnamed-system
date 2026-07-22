@@ -70,8 +70,8 @@ apps/web/
 ├── domain/                           The app's model of the game — data tier, peer of lib
 │   ├── archetypes/                   Per-user visibility gating (env allowlist)
 │   ├── character/                    Read side: load.ts (one load boundary) + view/ + animus/documents.ts
-│   ├── combat/                       Neutral vocab: console-optimistic, view/, snapshot-version, load-encounter-for-dm
-│   ├── dungeon/                      Explore console shaping: console-optimistic + view/set-piece-view
+│   ├── combat/                       Predicted commit protocol + neutral console/view/snapshot/load vocabulary
+│   ├── dungeon/                      Predicted commit protocol/root + explore view shaping
 │   ├── entity/                       Durable-entity write vocab: commit/ (schema + predictors) + use-entity-write
 │   ├── game-v2/                      entity-row-to-bag: entity row → runtime Entity
 │   ├── map/                          Pure renderer vocab: footprints, set-piece-view, zone size/motif/mood aliases
@@ -87,5 +87,5 @@ apps/web/
 ├── db/                           client/schema/migrations/queries/writes — see lib/db/CLAUDE.md
 ├── realtime/                     Ably invalidation pings (lazy REST publish + subscribe hook)
 ├── storage/                      Vercel Blob (portraits)
-└── sync/                         write-queue, version-token-store, snapshot-subscription, version-sync hooks
+└── sync/                         Transitional combat queues plus watch snapshot/version synchronization
 ```

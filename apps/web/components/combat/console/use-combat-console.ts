@@ -9,13 +9,13 @@ import {
   type EncounterState,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { type Result } from "@workspace/result"
 
 import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
+import { combatEnd } from "@/domain/combat/commit/protocol"
 import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
@@ -26,8 +26,6 @@ import { buildConsoleView } from "@/domain/combat/view/console-view"
 import { buildRosterView } from "@/domain/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/domain/combat/view/zone-overview"
 import { resolveSession } from "@/domain/game-engine-v2"
-import { endCombatAction } from "@/lib/actions/combat/end-combat"
-import { type EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { fetchEncounterVersion } from "@/lib/sync/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/lib/sync/fetch-instance-version"
@@ -55,14 +53,8 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * it writes, both with one-shot stale-retry (`fetchEncounterVersion` /
  * `fetchInstanceVersion`).
  *
- * **Component writes** (HP/SP damage & heal — on inline enemies *and* durable
- * PCs, deliberately superseding UNN-482's read-only PC vitals per UNN-535's
- * AC) go through {@link useCombatantWrite}: prediction into the same
- * container, then dispatch on the participant's write lane. The lanes —
- * `useCombatantLanes` (UNN-567), the client half of the CD19 router — resolve
- * `participantMeta` once, so this hook never reads a storage tag: inline lanes
- * ride the encounter queue, durable lanes a per-character queue over the same
- * write-queue core that never touches the encounter ref.
+ * **Component writes** (HP/SP damage & heal on inline enemies and durable PCs)
+ * go through {@link useCombatantWrite} and the combat predicted root.
  *
  * **Realtime (UNN-373)** is unchanged in shape: the encounter channel's
  * kind-routed ping compare (encounter vs mapInstance version streams), the
@@ -70,27 +62,12 @@ import { parseVersionPing } from "@/lib/sync/version-ping"
  * both the channel list and the per-PC ping handler come resolved off the
  * lanes module.
  *
- * **The combat-end write is the one route-varying seam (UNN-536).** The mapless
- * encounter ends via the two-row {@link endCombatAction}; a delve ends via the
- * three-row `endDungeonCombatAction` (+ the dungeon turn advance, a third version
- * token). Rather than re-derive the route from `data`, the route body injects an
- * {@link EndCombatPerformer} through `options.endCombat` — everything else (the
- * two write queues, realtime, the optimistic container, every view builder) stays
- * shared. The performer receives the enqueue-guarded encounter version + the
- * current Instance version and returns an {@link EndCombatError}-typed result, so
- * the dungeon collapses its two extra codes at its own boundary.
+ * **Combat end** is `combat.end` in the same root. The authority derives whether
+ * the encounter is standalone or dungeon-backed from storage and commits the
+ * corresponding two- or three-axis transaction. The generic event queues and
+ * transitional optimistic wrapper remain for P3c.
  */
-export type EndCombatPerformer = (expected: {
-  encounterVersion: number
-  instanceVersion: number
-}) => Promise<
-  Result<{ version: number; instanceVersion: number }, EndCombatError>
->
-
-export function useCombatConsole(
-  data: EncounterForDM,
-  options: { endCombat?: EndCombatPerformer } = {}
-) {
+export function useCombatConsole(data: EncounterForDM) {
   const { encounter, participantMeta } = data
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -186,44 +163,29 @@ export function useCombatConsole(
     root: combatRoot,
   })
 
-  const endCombat: EndCombatPerformer =
-    options.endCombat ??
-    (({ encounterVersion, instanceVersion }) =>
-      endCombatAction({
-        encounterId: encounter.id,
-        expectedVersion: encounterVersion,
-        expectedInstanceVersion: instanceVersion,
-      }))
-
   /**
-   * Ends the encounter: the composed v2 combat-end (overlay sweep + occupancy
-   * prune + `ended` status flip, one transaction over the version tokens — plus
-   * the dungeon turn advance when {@link options.endCombat} is the delve
-   * performer). Dispatched through the encounter queue so it serializes behind
-   * any in-flight session write; the Instance token reads its own ref (no
-   * in-flight move at end-time in practice). The action returns the bumped
-   * Instance version, folded forward-only into its queue's token (UNN-567).
+   * Ends the encounter through the intent-only combat protocol. The authority
+   * serializes and stamps every changed row; acceptance refreshes the route into
+   * its next lifecycle surface.
    */
   function endEncounter() {
-    startTransition(() =>
-      guardWriteTransition(
-        async () => {
-          const result = await encounterWrite.enqueue((expectedVersion) =>
-            endCombat({
-              encounterVersion: expectedVersion,
-              instanceVersion: instanceWrite.versionRef.current,
-            })
-          )
-          if (!result.ok) {
-            toast.error(combatErrorMessage(result.error))
-            return
-          }
-          instanceWrite.bump(result.value.instanceVersion)
-          router.refresh()
-        },
-        () => toast.error("Couldn't save. Try again.")
-      )
-    )
+    const result = combatRoot.mutate(combatEnd({ encounterId: encounter.id }))
+    if (!result.ok) {
+      toast.error(combatErrorMessage(result.error))
+      return
+    }
+    void result.value.accepted.then((accepted) => {
+      if (accepted.ok) {
+        router.refresh()
+        return
+      }
+      if (
+        accepted.error.kind === "domain" ||
+        accepted.error.kind === "replay-refused"
+      ) {
+        toast.error(combatErrorMessage(accepted.error.error))
+      }
+    })
   }
 
   // ── The derived combat view (UNN-467, rebuilt on v2 view builders) ────────
