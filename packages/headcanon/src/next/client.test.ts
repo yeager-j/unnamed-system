@@ -15,10 +15,13 @@ import {
   type Canon,
 } from "../index"
 import type { MutationEnvelope } from "../react"
+import { createInMemoryInvalidationAdapter } from "../testing"
 import {
+  createNextObservedRoot,
   createNextPredictedRoot,
   rethrowNextControlFlow,
   useRouterRefresh,
+  type NextMutationAction,
 } from "./client"
 
 const routerRefresh = vi.hoisted(() => vi.fn())
@@ -181,5 +184,172 @@ describe("Next client binding", () => {
     if (!receipt?.ok) throw new Error("Next client prediction refused")
 
     await expect(receipt.value.accepted).resolves.toEqual(ok(stamp))
+  })
+})
+
+// UNN-688 spike: the `action`-based golden path.
+
+const refusalSchema: StandardSchemaV1<unknown, TestError> = {
+  "~standard": {
+    version: 1,
+    vendor: "headcanon-next-client-test",
+    validate(value) {
+      return { value: value as TestError }
+    },
+  },
+}
+
+const guardedAdd = defineMutation({
+  name: "next.guarded-add",
+  args: addArgsSchema,
+  predict(state: number, args): Result<number, TestError> {
+    return ok(state + args.amount)
+  },
+  refusal: refusalSchema,
+})
+
+const actionProtocol = defineProtocol({
+  id: "test.next-action.v1",
+  mutations: [guardedAdd],
+})
+
+type GuardedAction = NextMutationAction<typeof actionProtocol>
+
+describe("Next action golden path", () => {
+  it("delivers through the generated action and accepts", async () => {
+    const stamp = accepted()
+    const action: GuardedAction = async () => ok({ kind: "accepted", stamp })
+    const useRoot = createNextPredictedRoot({
+      protocol: actionProtocol,
+      action,
+      refresh: useRefresh,
+    })
+    const currentCanon = canon()
+    const { result } = renderHook(() => useRoot({ canon: currentCanon }))
+
+    let receipt: ReturnType<typeof result.current.mutate> | undefined
+    act(() => {
+      receipt = result.current.mutate(guardedAdd({ amount: 1 }))
+    })
+    if (!receipt?.ok) throw new Error("Next action prediction refused")
+
+    await expect(receipt.value.accepted).resolves.toEqual(ok(stamp))
+  })
+
+  it("maps a rejected terminal outcome onto the domain refusal", async () => {
+    const refusal: TestError = { code: "refused" }
+    const action: GuardedAction = async () =>
+      ok({ kind: "rejected", error: refusal })
+    const useRoot = createNextPredictedRoot({
+      protocol: actionProtocol,
+      action,
+      refresh: useRefresh,
+    })
+    const currentCanon = canon()
+    const { result } = renderHook(() => useRoot({ canon: currentCanon }))
+
+    let receipt: ReturnType<typeof result.current.mutate> | undefined
+    act(() => {
+      receipt = result.current.mutate(guardedAdd({ amount: 1 }))
+    })
+    if (!receipt?.ok) throw new Error("Next action prediction refused")
+
+    await expect(receipt.value.accepted).resolves.toEqual(
+      err({ kind: "domain", error: refusal })
+    )
+  })
+
+  it("redelivers the same envelope after exhausted authority contention", async () => {
+    const stamp = accepted()
+    const seen: string[] = []
+    const action: GuardedAction = async (envelope) => {
+      seen.push(envelope.mutationId)
+      return seen.length === 1
+        ? err({ code: "contention", mutationId: envelope.mutationId })
+        : ok({ kind: "accepted", stamp })
+    }
+    const useRoot = createNextPredictedRoot({
+      protocol: actionProtocol,
+      action,
+      refresh: useRefresh,
+    })
+    const currentCanon = canon()
+    const { result } = renderHook(() => useRoot({ canon: currentCanon }))
+
+    let receipt: ReturnType<typeof result.current.mutate> | undefined
+    act(() => {
+      receipt = result.current.mutate(guardedAdd({ amount: 1 }))
+    })
+    if (!receipt?.ok) throw new Error("Next action prediction refused")
+
+    await expect(receipt.value.accepted).resolves.toEqual(ok(stamp))
+    expect(seen).toHaveLength(2)
+    expect(seen[0]).toBe(seen[1])
+  })
+
+  it("defaults the App Router refresh carrier when no carrier is given", async () => {
+    const stamp = accepted()
+    const action: GuardedAction = async () => ok({ kind: "accepted", stamp })
+    const useRoot = createNextPredictedRoot({
+      protocol: actionProtocol,
+      action,
+    })
+    const currentCanon = canon()
+    const { result } = renderHook(() => useRoot({ canon: currentCanon }))
+
+    act(() => {
+      const mutation = result.current.mutate(guardedAdd({ amount: 1 }))
+      if (!mutation.ok) throw new Error("Next action prediction refused")
+    })
+
+    // Accepted but uncovered: after the 250 ms RSC grace the root asks the
+    // App Router for a fresh canon.
+    await waitFor(() => expect(routerRefresh).toHaveBeenCalled(), {
+      timeout: 2000,
+    })
+  })
+
+  it("rejects an action generated for a different protocol", () => {
+    const foreign: NextMutationAction<typeof protocol> = async () =>
+      err({ code: "invalid-envelope", reason: "invalid-protocol" })
+
+    createNextPredictedRoot({
+      protocol: actionProtocol,
+      // @ts-expect-error — the action's envelope belongs to another protocol.
+      action: foreign,
+    })
+  })
+})
+
+describe("createNextObservedRoot", () => {
+  it("defaults the App Router refresh carrier", async () => {
+    const invalidations = createInMemoryInvalidationAdapter()
+    const useRoot = createNextObservedRoot({ invalidations })
+    const currentCanon = canon()
+    const { result } = renderHook(() => useRoot({ canon: currentCanon }))
+
+    expect(result.current.value).toBe(0)
+    // A genuinely fresher invalidation leaves the covered state and requests
+    // a canon through the defaulted App Router carrier.
+    act(() => invalidations.publish("observed-1", accepted()))
+
+    await waitFor(() => expect(routerRefresh).toHaveBeenCalled())
+  })
+
+  it("honors an explicit carrier override", async () => {
+    const request = vi.fn()
+    const invalidations = createInMemoryInvalidationAdapter()
+    const useRoot = createNextObservedRoot({
+      refresh: () => ({ acceptanceGraceMs: 0, request }),
+      invalidations,
+    })
+    const currentCanon = canon()
+    const { result } = renderHook(() => useRoot({ canon: currentCanon }))
+
+    expect(result.current.status.freshness).toBe("current")
+    act(() => invalidations.publish("observed-2", accepted()))
+
+    await waitFor(() => expect(request).toHaveBeenCalled())
+    expect(routerRefresh).not.toHaveBeenCalled()
   })
 })
