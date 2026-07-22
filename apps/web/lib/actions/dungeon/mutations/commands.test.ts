@@ -270,6 +270,30 @@ describe("dungeon.command authority", () => {
     })
   })
 
+  it("refuses to finish an ordinary delve while combat is live", async () => {
+    loadLiveEncounterForMapInstance.mockResolvedValue({ id: "encounter-1" })
+    const stamp = createStampAccumulator()
+
+    const decision = await dungeonCommandHandler.execute({
+      tx,
+      actor,
+      args: { dungeonId: baseDungeon.id, command: { kind: "finish" } },
+      evidence: { dungeon: baseDungeon, campaign: campaign as never },
+      stamp,
+    })
+
+    expect(decision).toEqual({
+      kind: "refused",
+      error: "delve-has-live-encounter",
+    })
+    expect(loadLiveEncounterForMapInstance).toHaveBeenCalledWith(
+      baseDungeon.mapInstanceId,
+      tx
+    )
+    expect(setDungeonStatus).not.toHaveBeenCalled()
+    expect(stamp.accepted().revisions).toEqual({})
+  })
+
   it("finishes an expedition with exact dungeon, map-instance, and region stamps", async () => {
     const expedition = { ...baseDungeon, regionId: "region-1" }
     const region = {

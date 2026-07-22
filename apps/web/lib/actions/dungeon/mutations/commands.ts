@@ -386,6 +386,11 @@ async function executeFinish(
 ): Promise<MutationCommandDecision<DungeonCommandRefusal>> {
   if (dungeon.status !== "active") return refuseMutation("delve-not-active")
   if (dungeon.regionId === null) {
+    const live = await loadLiveEncounterForMapInstance(
+      dungeon.mapInstanceId,
+      tx
+    )
+    if (live) return refuseMutation("delve-has-live-encounter")
     const saved = await setDungeonStatus(
       dungeon.id,
       "done",
