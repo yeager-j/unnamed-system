@@ -119,7 +119,7 @@ describe("combat registered command", () => {
 
     expect(admitted).toMatchObject({
       kind: "allowed",
-      evidence: { storage: "inline" },
+      evidence: { found: true, storage: "inline" },
     })
     expect(loadCampaignRowById).toHaveBeenCalledWith(row.campaignId, tx)
     expect(commitEntityWrite).not.toHaveBeenCalled()
@@ -127,6 +127,61 @@ describe("combat registered command", () => {
 
   it("denies a missing target before creating a receipt", async () => {
     loadEncounterForWrite.mockResolvedValue(err("encounter-not-found"))
+
+    await expect(
+      combatWriteCommand.admit({ executor: tx, actor, args })
+    ).resolves.toEqual({ kind: "denied" })
+  })
+
+  it("records participant-not-found when an authorized DM writes a removed participant", async () => {
+    loadEncounterForWrite.mockResolvedValue(
+      ok({
+        row,
+        loaded: {
+          session: { ...session, participants: [] },
+          locators: new Map(),
+        },
+        durableVersions: new Map(),
+        durableRevisions: new Map(),
+      })
+    )
+
+    const admitted = await combatWriteCommand.admit({
+      executor: tx,
+      actor,
+      args,
+    })
+    if (admitted.kind !== "allowed") throw new Error("expected admission")
+
+    await expect(
+      combatWriteCommand.execute({
+        tx,
+        actor,
+        args,
+        evidence: admitted.evidence,
+        stamp: createStampAccumulator(),
+      })
+    ).resolves.toEqual({
+      kind: "refused",
+      error: "participant-not-found",
+    })
+    expect(saveEncounterSession).not.toHaveBeenCalled()
+    expect(commitEntityWrite).not.toHaveBeenCalled()
+  })
+
+  it("denies an unauthorized caller when the participant is missing", async () => {
+    loadEncounterForWrite.mockResolvedValue(
+      ok({
+        row,
+        loaded: {
+          session: { ...session, participants: [] },
+          locators: new Map(),
+        },
+        durableVersions: new Map(),
+        durableRevisions: new Map(),
+      })
+    )
+    loadCampaignRowById.mockResolvedValue({ dmUserId: "another-user" })
 
     await expect(
       combatWriteCommand.admit({ executor: tx, actor, args })
@@ -141,6 +196,7 @@ describe("combat registered command", () => {
       actor,
       args,
       evidence: {
+        found: true,
         storage: "inline",
         row,
         loaded: inlineLoaded,
@@ -168,6 +224,7 @@ describe("combat registered command", () => {
         actor,
         args,
         evidence: {
+          found: true,
           storage: "inline",
           row,
           loaded: inlineLoaded,
@@ -189,6 +246,7 @@ describe("combat registered command", () => {
       actor,
       args: refusalArgs,
       evidence: {
+        found: true,
         storage: "inline",
         row,
         loaded: inlineLoaded,
@@ -216,7 +274,12 @@ describe("combat registered command", () => {
       tx,
       actor,
       args,
-      evidence: { storage: "durable", row, entityId: "entity-1" },
+      evidence: {
+        found: true,
+        storage: "durable",
+        row,
+        entityId: "entity-1",
+      },
       stamp,
     })
 
@@ -245,6 +308,7 @@ describe("combat registered command", () => {
       args,
       stamp: stamp.accepted(),
       preflight: {
+        found: true,
         storage: "inline",
         row,
         loaded: inlineLoaded,

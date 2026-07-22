@@ -48,12 +48,18 @@ type CombatMutationPreflight = ReturnType<typeof getDb>
 
 type AdmittedCombatWrite =
   | {
+      readonly found: false
+      readonly row: EncounterRow
+    }
+  | {
+      readonly found: true
       readonly storage: "inline"
       readonly row: EncounterRow
       readonly loaded: LoadedSession
       readonly participantId: ParticipantId
     }
   | {
+      readonly found: true
       readonly storage: "durable"
       readonly row: EncounterRow
       readonly entityId: string
@@ -73,7 +79,17 @@ async function admitCombatWrite(
   }
 
   const locator = encounter.value.loaded.locators.get(args.participantId)
-  if (!locator) return denyMutation()
+  if (!locator) {
+    const campaign = await loadCampaignRowById(
+      encounter.value.row.campaignId,
+      executor
+    )
+    if (!campaign || campaign.dmUserId !== actor.userId) return denyMutation()
+    return allowMutation<AdmittedCombatWrite>({
+      found: false,
+      row: encounter.value.row,
+    })
+  }
 
   if (locator.storage === "inline") {
     const campaign = await loadCampaignRowById(
@@ -82,6 +98,7 @@ async function admitCombatWrite(
     )
     if (!campaign || campaign.dmUserId !== actor.userId) return denyMutation()
     return allowMutation<AdmittedCombatWrite>({
+      found: true,
       storage: "inline",
       row: encounter.value.row,
       loaded: encounter.value.loaded,
@@ -100,6 +117,7 @@ async function admitCombatWrite(
   if (!preview) return denyMutation()
 
   return allowMutation<AdmittedCombatWrite>({
+    found: true,
     storage: "durable",
     row: encounter.value.row,
     entityId: locator.entityId,
@@ -120,6 +138,8 @@ async function commitEntityWritePreview(
 export const combatWriteCommand = {
   admit: ({ executor, actor, args }) => admitCombatWrite(executor, actor, args),
   async execute({ tx, actor, args, evidence, stamp }) {
+    if (!evidence.found) return refuseMutation("participant-not-found")
+
     if (evidence.storage === "durable") {
       const committed = await commitEntityWrite(
         tx,
@@ -177,7 +197,6 @@ export const combatWriteCommand = {
   },
   afterAccepted({ stamp, preflight }) {
     revalidateEncounter(preflight.row)
-    if (preflight.storage !== "inline") return
 
     const version = revisionAt(stamp.revisions, encounterAxis(preflight.row.id))
     if (version !== undefined) {
