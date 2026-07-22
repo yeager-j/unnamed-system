@@ -277,6 +277,45 @@ export function bindMutation<
   return Object.freeze({ mutation, command })
 }
 
+/**
+ * UNN-688 spike: an application-scoped command definer. The application
+ * decides its actor, preflight, and transaction types once — where its
+ * authority context is created — and every command literal is then fully
+ * contextually typed with only mutation, projection, and evidence left to
+ * infer. `defineMutationCommand(mutation, command)` produces the same frozen
+ * binding as `bindMutation` and preserves its wrong-definition negative
+ * typecheck; if adopted, it replaces `bindMutation` rather than joining it.
+ */
+export function createMutationCommandDefiner<Actor, Preflight, Transaction>() {
+  return function defineMutationCommand<
+    const Mutation extends MutationWithRefusal,
+    Projection,
+    Evidence,
+  >(
+    mutation: Mutation,
+    command: MutationCommand<
+      NoInfer<Mutation>,
+      Actor,
+      Preflight,
+      Transaction,
+      Projection,
+      Evidence
+    >
+  ): MutationBinding<
+    Mutation,
+    MutationCommand<
+      Mutation,
+      Actor,
+      Preflight,
+      Transaction,
+      Projection,
+      Evidence
+    >
+  > {
+    return Object.freeze({ mutation, command })
+  }
+}
+
 type AnyMutationBinding = MutationBinding<MutationWithRefusal>
 
 type BoundMutation<Commands extends readonly AnyMutationBinding[]> =
