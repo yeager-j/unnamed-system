@@ -28,17 +28,13 @@ import {
   type GenerationLedger,
 } from "@workspace/game-v2/spatial"
 import type { StampAccumulator } from "@workspace/headcanon"
-import {
-  throwMutationContention,
-  type DrizzleMutationTx,
-} from "@workspace/headcanon/drizzle"
+import { throwMutationContention } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
   allowMutation,
   allowMutationScreening,
   denyMutation,
   refuseMutation,
-  type MutationCommand,
   type MutationCommandDecision,
 } from "@workspace/headcanon/next/server"
 
@@ -51,6 +47,7 @@ import {
 } from "@/domain/dungeon/commit/protocol"
 import { createSession, instantiateEnemy } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
+import type { ShowtimeMutationCommand } from "@/lib/actions/mutations/environment"
 import type { Actor } from "@/lib/auth/actor"
 import {
   dungeonAxis,
@@ -58,7 +55,7 @@ import {
   mapInstanceAxis,
   regionAxis,
 } from "@/lib/db/axes"
-import { getDb, type WriteExecutor } from "@/lib/db/client"
+import type { WriteExecutor } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
   loadActiveDungeonForCampaign,
@@ -92,13 +89,8 @@ import { campaignRegionPath } from "@/lib/paths"
 import { placeRoster } from "../place-roster"
 import { revalidateDungeon } from "../revalidate"
 
-type DungeonMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
-type DungeonMutationPreflight = ReturnType<typeof getDb>
-type DungeonMutationCommand<Projection, Evidence> = MutationCommand<
+type DungeonMutationCommand<Projection, Evidence> = ShowtimeMutationCommand<
   typeof dungeonCommand,
-  Actor,
-  DungeonMutationPreflight,
-  DungeonMutationTx,
   Projection,
   Evidence
 >

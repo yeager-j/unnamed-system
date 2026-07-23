@@ -3,17 +3,13 @@ import "server-only"
 import { revalidatePath } from "next/cache"
 
 import type { StampAccumulator } from "@workspace/headcanon"
-import {
-  throwMutationContention,
-  type DrizzleMutationTx,
-} from "@workspace/headcanon/drizzle"
+import { throwMutationContention } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
   allowMutation,
   allowMutationScreening,
   denyMutation,
   refuseMutation,
-  type MutationCommand,
 } from "@workspace/headcanon/next/server"
 
 import {
@@ -21,22 +17,18 @@ import {
   mapRename,
   reduceMapGeometryEvents,
 } from "@/domain/map/commit/protocol"
+import type { ShowtimeMutationCommand } from "@/lib/actions/mutations/environment"
 import type { Actor } from "@/lib/auth/actor"
 import { mapAxis } from "@/lib/db/axes"
-import { getDb, type WriteExecutor } from "@/lib/db/client"
+import type { WriteExecutor } from "@/lib/db/client"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 import type { MapRow } from "@/lib/db/schema/map"
 import { renameMap, saveMapGeometry } from "@/lib/db/writes/map"
 import { stageMapPath, stageMapsPath } from "@/lib/paths"
 
-type MapMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
-type MapMutationPreflight = ReturnType<typeof getDb>
 type MapMutation = typeof mapRename | typeof mapGeometryEvents
-type MapMutationCommand<Mutation extends MapMutation> = MutationCommand<
+type MapMutationCommand<Mutation extends MapMutation> = ShowtimeMutationCommand<
   Mutation,
-  Actor,
-  MapMutationPreflight,
-  MapMutationTx,
   { readonly shortId: string },
   MapRow
 >

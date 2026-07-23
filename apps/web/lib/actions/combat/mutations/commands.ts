@@ -24,17 +24,13 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
 import type { StampAccumulator } from "@workspace/headcanon"
-import {
-  throwMutationContention,
-  type DrizzleMutationTx,
-} from "@workspace/headcanon/drizzle"
+import { throwMutationContention } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
   allowMutation,
   allowMutationScreening,
   denyMutation,
   refuseMutation,
-  type MutationCommand,
   type MutationCommandDecision,
 } from "@workspace/headcanon/next/server"
 
@@ -51,9 +47,10 @@ import {
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 import { applyEntityWrite } from "@/domain/entity/commit/writers"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
+import type { ShowtimeMutationCommand } from "@/lib/actions/mutations/environment"
 import type { Actor } from "@/lib/auth/actor"
 import { dungeonAxis, encounterAxis, mapInstanceAxis } from "@/lib/db/axes"
-import { getDb, type WriteExecutor } from "@/lib/db/client"
+import type { WriteExecutor } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByMapInstanceId } from "@/lib/db/queries/load-dungeon"
 import {
@@ -84,22 +81,13 @@ import {
 import { commitEntityWrite } from "../../entity/entity-row-store"
 import { mintSessionWriteEvent } from "../commit/mint-session-write-event"
 
-type CombatMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
-type CombatMutationPreflight = ReturnType<typeof getDb>
 type CombatProjection = Pick<EncounterRow, "id" | "shortId" | "status">
 type CombatMutation = typeof combatEvent | typeof combatWrite | typeof combatEnd
 type CombatMutationCommand<
   Mutation extends CombatMutation,
   Projection,
   Evidence,
-> = MutationCommand<
-  Mutation,
-  Actor,
-  CombatMutationPreflight,
-  CombatMutationTx,
-  Projection,
-  Evidence
->
+> = ShowtimeMutationCommand<Mutation, Projection, Evidence>
 
 type AdmittedCombatWrite =
   | {
