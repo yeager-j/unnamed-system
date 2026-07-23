@@ -116,7 +116,7 @@ export function useMapAutoSave({
     geometryTimerRef.current = setTimeout(flushGeometryEvents, DEBOUNCE_MS)
   }
 
-  const syncFromCanon = useEffectEvent(() => {
+  const syncFromRoot = useEffectEvent(() => {
     try {
       setGeometry(
         reduceMapGeometryEvents(
@@ -129,7 +129,7 @@ export function useMapAutoSave({
       // authority's explicit refusal; the failure path then restores canon.
     }
   })
-  useEffect(() => syncFromCanon(), [canon])
+  useEffect(() => syncFromRoot(), [canon, root.status.pending])
 
   useEffect(() => {
     if (root.status.delivery === "uncertain") {
@@ -164,6 +164,7 @@ export function useMapAutoSave({
       onChange: name.setValue,
       flush: name.flush,
       revert: name.revert,
+      onFocusChange: name.onFocusChange,
     },
     geometry,
     saveGeometryEvent,

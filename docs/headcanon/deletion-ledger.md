@@ -304,9 +304,9 @@ the finalization context still excludes attempt-local evidence.
 
 ## Phase 4 — Stage authoring roots (UNN-692)
 
-### Measured: **+594 net production code lines in `apps/web`**
+### Measured: **+602 net production code lines in `apps/web`**
 
-`cloc --diff` at the ticket branch point reports 863 added and 269 removed
+`cloc --diff` at the ticket branch point reports 873 added and 271 removed
 production TypeScript/JavaScript code lines. The net number is growth, but it is
 not a queue moved behind a different name:
 
@@ -328,9 +328,9 @@ generic coordination includes 112 lines of queue/version helpers and 82 lines
 of client-version replacement actions and schemas. The remaining diff is the
 editor lifecycle integration and executor-neutral Store wiring.
 
-#### Tests: **−46 net app code lines**
+#### Tests: **+45 net app code lines**
 
-`cloc --diff` reports 609 added and 655 removed test code lines. The deleted
+`cloc --diff` reports 700 added and 655 removed test code lines. The deleted
 tests asserted queue serialization, monotonic token adoption, and legacy action
 stale behavior. Replacements cover event-batch prediction, disjoint composition,
 same-target authority order, caller-ID collision refusal, attempt-local auth,
@@ -361,7 +361,7 @@ not preserving the coordination this phase set out to delete.
 | P3b — dungeon / multi-row (UNN-679)        |                                            −466 | passed       |
 | P3b ergonomics (UNN-686)                   |                                             −84 | passed       |
 | P3c — watch-only (UNN-680)                 |                                          −1,150 | passed       |
-| P4 — Stage authoring roots (UNN-692)       |                                            +594 | passed       |
+| P4 — Stage authoring roots (UNN-692)       |                                            +602 | passed       |
 
 End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
@@ -372,7 +372,7 @@ Running total through P3c: **−1,882 production code lines in `apps/web`** (+38
 realtime capability; combat, dungeon, and watch reuse it and convert that
 investment into net application contraction.
 
-Running total through P4: **−1,288 production code lines in `apps/web`**. Stage
+Running total through P4: **−1,280 production code lines in `apps/web`**. Stage
 adds two new domain command surfaces while deleting the last client-version
 autosave queue; the total remains inside the original end-of-Phase-3 contraction
 range.

@@ -38,8 +38,8 @@ export function MapSettingsPanel({
   name: {
     value: string
     onChange: (value: string) => void
-    flush: () => void
     revert: () => void
+    onFocusChange: (focused: boolean) => void
   }
   save: { status: MapSaveStatus; lastSavedAt: number | null }
   zoneCount: number
@@ -84,7 +84,8 @@ export function MapSettingsPanel({
                 value={name.value}
                 maxLength={100}
                 onChange={(event) => name.onChange(event.target.value)}
-                onBlur={name.flush}
+                onFocus={() => name.onFocusChange(true)}
+                onBlur={() => name.onFocusChange(false)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault()

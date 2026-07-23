@@ -61,8 +61,8 @@ export function SetEditorSidebar({
   name: {
     value: string
     onChange: (value: string) => void
-    flush: () => void
     revert: () => void
+    onFocusChange: (focused: boolean) => void
   }
   save: { status: StageSaveStatus; lastSavedAt: number | null }
   selection: SetEditorSelection
@@ -114,7 +114,8 @@ export function SetEditorSidebar({
           value={name.value}
           maxLength={100}
           onChange={(event) => name.onChange(event.target.value)}
-          onBlur={name.flush}
+          onFocus={() => name.onFocusChange(true)}
+          onBlur={() => name.onFocusChange(false)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault()

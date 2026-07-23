@@ -88,6 +88,7 @@ export function useTemplateSetAutoSave({
     setSettledStatus("saving")
     const mutation = root.mutate(templateSetEvents({ templateSetId, events }))
     if (!mutation.ok) {
+      setContent(root.value.content)
       surfaceFailure("change-refused")
       return
     }
@@ -113,15 +114,20 @@ export function useTemplateSetAutoSave({
     eventTimerRef.current = setTimeout(flushEvents, DEBOUNCE_MS)
   }
 
-  const syncFromCanon = useEffectEvent(() => {
-    setContent(
-      pendingEventsRef.current.reduce(
-        reduceTemplateSetEvent,
-        root.value.content
+  const syncFromRoot = useEffectEvent(() => {
+    try {
+      setContent(
+        pendingEventsRef.current.reduce(
+          reduceTemplateSetEvent,
+          root.value.content
+        )
       )
-    )
+    } catch {
+      // Keep the responsive local draft until its pending batch receives the
+      // authority's explicit refusal; the failure path then restores canon.
+    }
   })
-  useEffect(() => syncFromCanon(), [canon])
+  useEffect(() => syncFromRoot(), [canon, root.status.pending])
 
   useEffect(() => {
     if (root.status.delivery === "uncertain") {
@@ -157,6 +163,7 @@ export function useTemplateSetAutoSave({
       onChange: name.setValue,
       flush: name.flush,
       revert: name.revert,
+      onFocusChange: name.onFocusChange,
     },
     applyEvent,
     save: {

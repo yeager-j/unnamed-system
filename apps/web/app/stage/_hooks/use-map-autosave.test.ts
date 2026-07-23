@@ -59,6 +59,10 @@ function accepted(version: number): DoorOutcome {
   return ok({ kind: "accepted", stamp: stampAt(version) }) as DoorOutcome
 }
 
+function rejected(): DoorOutcome {
+  return ok({ kind: "rejected", error: "map-event-refused" }) as DoorOutcome
+}
+
 function canonAt(
   version = 0,
   value: MapCanonValue = {
@@ -100,6 +104,26 @@ describe("useMapAutoSave", () => {
 
     expect(door).not.toHaveBeenCalled()
     expect(result.current.save.status).toBe("saved")
+  })
+
+  it("keeps a focused name draft across an incoming canon", async () => {
+    const { result, rerender } = renderHook(
+      ({ canon }) => useMapAutoSave({ mapId: "map-1", canon }),
+      { initialProps: { canon: canonAt() } }
+    )
+
+    act(() => {
+      result.current.name.onFocusChange(true)
+      result.current.name.onChange("Atlas draft")
+    })
+    rerender({
+      canon: canonAt(1, {
+        name: "Atlas saved",
+        geometry: mapGeometrySchema.parse({}),
+      }),
+    })
+
+    expect(result.current.name.value).toBe("Atlas draft")
   })
 
   it("batches geometry events into one intent-only mutation", async () => {
@@ -170,6 +194,28 @@ describe("useMapAutoSave", () => {
       "local",
       "remote",
     ])
+  })
+
+  it("restores root geometry when the authority rejects a delivered batch", async () => {
+    door.mockResolvedValue(rejected())
+    const { result } = renderMapHook()
+
+    act(() => {
+      result.current.saveGeometryEvent({
+        kind: "addZone",
+        id: "rejected",
+        pageId: "default",
+        position: { x: 0, y: 0 },
+      })
+      vi.advanceTimersByTime(600)
+    })
+    await flushMicrotasks()
+    await flushMicrotasks()
+
+    expect(result.current.geometry.zones.rejected).toBeUndefined()
+    expect(toast.error).toHaveBeenCalledWith(
+      "The map changed elsewhere, so that edit couldn't be applied."
+    )
   })
 
   it("orders name and geometry through one root and hands off to accepted canon", async () => {

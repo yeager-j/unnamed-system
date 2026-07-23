@@ -96,6 +96,26 @@ describe("useTemplateSetAutoSave", () => {
 
   afterEach(() => vi.useRealTimers())
 
+  it("keeps a focused name draft across an incoming canon", () => {
+    const { result, rerender } = renderHook(
+      ({ canon }) => useTemplateSetAutoSave({ templateSetId: "set-1", canon }),
+      { initialProps: { canon: canonAt() } }
+    )
+
+    act(() => {
+      result.current.name.onFocusChange(true)
+      result.current.name.onChange("Grammar draft")
+    })
+    rerender({
+      canon: canonAt(1, {
+        name: "Grammar saved",
+        content: templateSetContentSchema.parse({}),
+      }),
+    })
+
+    expect(result.current.name.value).toBe("Grammar draft")
+  })
+
   it("predicts locally and batches serializable events", async () => {
     door.mockResolvedValue(accepted(1))
     const { result } = renderTemplateSetHook()
@@ -199,6 +219,46 @@ describe("useTemplateSetAutoSave", () => {
 
     expect(result.current.content.templates["template-a"]).toBeDefined()
     expect(result.current.save.lastSavedAt).not.toBeNull()
+  })
+
+  it("holds an invalidated pending draft until predictor refusal restores the root", async () => {
+    const initialContent = templateSetContentSchema.parse({
+      templates: { a: { key: "a", name: "Atrium" } },
+      templateOrder: ["a"],
+    })
+    const { result, rerender } = renderHook(
+      ({ canon }) => useTemplateSetAutoSave({ templateSetId: "set-1", canon }),
+      {
+        initialProps: {
+          canon: canonAt(0, { name: "Grammar", content: initialContent }),
+        },
+      }
+    )
+
+    act(() =>
+      result.current.applyEvent({
+        kind: "updateTemplate",
+        key: "a",
+        patch: { name: "Local draft" },
+      })
+    )
+    rerender({
+      canon: canonAt(1, {
+        name: "Grammar",
+        content: templateSetContentSchema.parse({}),
+      }),
+    })
+
+    expect(result.current.content.templates.a?.name).toBe("Local draft")
+
+    act(() => vi.advanceTimersByTime(600))
+    await flushMicrotasks()
+
+    expect(door).not.toHaveBeenCalled()
+    expect(result.current.content.templates.a).toBeUndefined()
+    expect(toast.error).toHaveBeenCalledWith(
+      "The set changed elsewhere, so that edit couldn't be applied."
+    )
   })
 
   it("surfaces uncertain delivery with an actionable retry", async () => {
