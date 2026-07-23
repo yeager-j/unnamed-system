@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { createContext, useContext, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
@@ -27,6 +20,7 @@ import {
 } from "@/domain/entity/commit/protocol"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { resolveEntity } from "@/domain/game-engine-v2"
+import { useMutationRecoveryToasts } from "@/lib/sync/use-mutation-recovery-toasts"
 
 import {
   useDebouncedAutoSave,
@@ -77,47 +71,15 @@ interface EntityWriteApi {
 const EntityFrameContext = createContext<LoadedFrame | null>(null)
 const EntityWriteContext = createContext<EntityWriteApi | null>(null)
 
-const DELIVERY_TOAST_ID = "entity-delivery-uncertain"
-const FRESHNESS_TOAST_ID = "entity-refresh-stalled"
-
-/** Surfaces the root's degraded states as persistent, actionable toasts. */
-function useStatusToasts(root: ReturnType<typeof useEntityPredictions>): void {
-  const { status, conflicts, retryDelivery, retryRefresh } = root
-
-  useEffect(() => {
-    if (status.delivery === "uncertain") {
-      toast.error("Connection lost mid-save — your change is kept.", {
-        id: DELIVERY_TOAST_ID,
-        duration: Infinity,
-        action: { label: "Retry", onClick: retryDelivery },
-      })
-    } else {
-      toast.dismiss(DELIVERY_TOAST_ID)
-    }
-  }, [status.delivery, retryDelivery])
-
-  useEffect(() => {
-    if (status.freshness === "stalled") {
-      toast.error("Couldn't confirm your latest changes.", {
-        id: FRESHNESS_TOAST_ID,
-        duration: Infinity,
-        action: { label: "Refresh", onClick: retryRefresh },
-      })
-    } else {
-      toast.dismiss(FRESHNESS_TOAST_ID)
-    }
-  }, [status.freshness, retryRefresh])
-
-  const surfacedConflicts = useRef(0)
-  useEffect(() => {
-    if (conflicts.length > surfacedConflicts.current) {
-      surfacedConflicts.current = conflicts.length
-      toast.error(
-        "A pending change was rolled back — this character changed elsewhere."
-      )
-    }
-  }, [conflicts])
-}
+const ENTITY_RECOVERY_TOASTS = {
+  scope: "entity",
+  messages: {
+    delivery: "Connection lost mid-save — your change is kept.",
+    freshness: "Couldn't confirm your latest changes.",
+    conflict:
+      "A pending change was rolled back — this character changed elsewhere.",
+  },
+} as const
 
 export function EntityWriteProvider({
   profile,
@@ -148,7 +110,7 @@ export function EntityWriteProvider({
     [entity, identity, profile, resolved]
   )
 
-  useStatusToasts(predicted)
+  useMutationRecoveryToasts(predicted, ENTITY_RECOVERY_TOASTS)
 
   return (
     <EntityWriteContext.Provider
