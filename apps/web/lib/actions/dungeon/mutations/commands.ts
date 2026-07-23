@@ -13,7 +13,7 @@ import {
 import {
   applyStaticReveal,
   buildRetraction,
-  DEFAULT_PREGEN_ZONE_TARGET,
+  DEFAULT_PREGEN_MAX_DEPTH,
   foldExpedition,
   pregenerateExpedition,
   rollExpansion,
@@ -312,7 +312,7 @@ async function executeStart(
       mints: {},
     }
     // Pre-generate the whole map up front (UNN-642 "replace" experience): the
-    // pure roller carves to a target size and seals the frontier, so the
+    // pure roller carves out to the depth limit and seals the frontier, so the
     // expedition begins with a complete board the DM can review and the party
     // reveals as it explores — no per-room click, no per-carve turn cost.
     const pregen = pregenerateExpedition({
@@ -322,7 +322,7 @@ async function executeStart(
         generation: { ...snapshot.generation, stubs, startingZoneIds },
       },
       ledger,
-      zoneTarget: DEFAULT_PREGEN_ZONE_TARGET,
+      maxDepth: DEFAULT_PREGEN_MAX_DEPTH,
       newId,
     })
     nextInstance = placeRoster(pregen.instanceState, args.command.placements)

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
+import { DEFAULT_PREGEN_MAX_DEPTH } from "@workspace/game-v2/generation"
+
 import { STORAGE_STATE } from "./auth.setup"
 import {
   createDungeonExpansionTarget,
@@ -61,7 +63,11 @@ test("starting an expedition pre-generates a complete, sealed map at turn 0", as
   // The whole map is carved at start — many zones, not the one authored Entry.
   const started = await target.getInstanceState(expedition!.mapInstanceId)
   const zones = Object.values(started.geometry.zones)
-  expect(zones.length).toBeGreaterThanOrEqual(10)
+  expect(zones.length).toBeGreaterThanOrEqual(6)
+
+  // Nothing is carved past the depth limit (rings out from the entrance).
+  const depths = Object.values(started.generation.zones).map((p) => p.depth)
+  expect(Math.max(...depths)).toBeLessThanOrEqual(DEFAULT_PREGEN_MAX_DEPTH)
 
   // Every zone but the authored Entry was generated, and each recorded a mint.
   const generated = Object.entries(started.generation.zones).filter(

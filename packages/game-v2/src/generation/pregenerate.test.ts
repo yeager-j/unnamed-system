@@ -101,19 +101,24 @@ const counterIds = (prefix: string) => {
 }
 
 describe("pregenerateExpedition", () => {
-  it("carves the whole map to the target, then seals the frontier", () => {
+  it("carves to the depth limit, stamps no zone deeper, then seals the frontier", () => {
     const { instanceState, ledger } = seeded("pregen-seed")
+    const maxDepth = 5
     const result = pregenerateExpedition({
       set,
       instanceState,
       ledger,
-      zoneTarget: 30,
+      maxDepth,
       newId: counterIds("z"),
     })
 
     const zoneCount = Object.keys(result.instanceState.geometry.zones).length
-    expect(zoneCount).toBeGreaterThanOrEqual(20)
-    expect(zoneCount).toBeLessThanOrEqual(30)
+    expect(zoneCount).toBeGreaterThan(1)
+    // No zone is deeper than the limit, and the map actually reached it.
+    const depths = Object.values(result.instanceState.generation.zones).map(
+      (provenance) => provenance.depth
+    )
+    expect(Math.max(...depths)).toBe(maxDepth)
     // Frontier sealed — no open stubs, so no phantom exits in the snapshot.
     expect(result.instanceState.generation.stubs).toEqual({})
     // Every carved zone recorded a mint (retract still works at prep).
@@ -132,7 +137,7 @@ describe("pregenerateExpedition", () => {
       set,
       instanceState,
       ledger,
-      zoneTarget: 30,
+      maxDepth: 5,
       newId: counterIds("z"),
     })
     const zones = Object.values(grown.geometry.zones)
@@ -165,14 +170,14 @@ describe("pregenerateExpedition", () => {
       set,
       instanceState: a.instanceState,
       ledger: a.ledger,
-      zoneTarget: 30,
+      maxDepth: 5,
       newId: counterIds("z"),
     })
     const grownB = pregenerateExpedition({
       set,
       instanceState: b.instanceState,
       ledger: b.ledger,
-      zoneTarget: 30,
+      maxDepth: 5,
       newId: counterIds("z"),
     })
     expect(grownA).toStrictEqual(grownB)
@@ -185,14 +190,14 @@ describe("pregenerateExpedition", () => {
       set,
       instanceState: a.instanceState,
       ledger: a.ledger,
-      zoneTarget: 30,
+      maxDepth: 5,
       newId: counterIds("z"),
     })
     const grownB = pregenerateExpedition({
       set,
       instanceState: b.instanceState,
       ledger: b.ledger,
-      zoneTarget: 30,
+      maxDepth: 5,
       newId: counterIds("z"),
     })
     // The carved geometry differs (positions/templates), not just the ids.
