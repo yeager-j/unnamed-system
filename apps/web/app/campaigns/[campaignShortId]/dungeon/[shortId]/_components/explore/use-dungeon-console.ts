@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 
 import type { DungeonEvent, MapInstanceEvent } from "@workspace/game-v2/spatial"
@@ -14,47 +13,23 @@ import {
 import { useDungeonPredictions } from "@/domain/dungeon/use-dungeon-predictions"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
+import { useMutationRecoveryToasts } from "@/lib/sync/use-mutation-recovery-toasts"
 
-const DELIVERY_TOAST_ID = "dungeon-delivery-uncertain"
-const FRESHNESS_TOAST_ID = "dungeon-refresh-stalled"
+const DUNGEON_RECOVERY_TOASTS = {
+  scope: "dungeon",
+  messages: {
+    delivery: "Connection lost mid-save — your dungeon change is kept.",
+    freshness: "Couldn't confirm the latest dungeon changes.",
+    conflict: "A dungeon change was rolled back because the delve changed.",
+  },
+} as const
 
 export function useDungeonConsole(
   dungeon: Pick<DungeonRow, "id" | "shortId" | "regionId">,
   canon: Canon<DungeonCanonValue>
 ) {
   const root = useDungeonPredictions({ canon })
-
-  useEffect(() => {
-    if (root.status.delivery === "uncertain") {
-      toast.error("Connection lost mid-save — your dungeon change is kept.", {
-        id: DELIVERY_TOAST_ID,
-        duration: Infinity,
-        action: { label: "Retry", onClick: root.retryDelivery },
-      })
-    } else {
-      toast.dismiss(DELIVERY_TOAST_ID)
-    }
-  }, [root.status.delivery, root.retryDelivery])
-
-  useEffect(() => {
-    if (root.status.freshness === "stalled") {
-      toast.error("Couldn't confirm the latest dungeon changes.", {
-        id: FRESHNESS_TOAST_ID,
-        duration: Infinity,
-        action: { label: "Refresh", onClick: root.retryRefresh },
-      })
-    } else {
-      toast.dismiss(FRESHNESS_TOAST_ID)
-    }
-  }, [root.status.freshness, root.retryRefresh])
-
-  const surfacedConflicts = useRef(0)
-  useEffect(() => {
-    if (root.conflicts.length > surfacedConflicts.current) {
-      surfacedConflicts.current = root.conflicts.length
-      toast.error("A dungeon change was rolled back because the delve changed.")
-    }
-  }, [root.conflicts])
+  useMutationRecoveryToasts(root, DUNGEON_RECOVERY_TOASTS)
 
   function surface(error: DungeonCommandRefusal): void {
     toast.error(dungeonErrorMessage(error))
