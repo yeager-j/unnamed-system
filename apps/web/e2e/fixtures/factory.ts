@@ -232,6 +232,9 @@ export function testGeometry(spec: {
     pageId?: string
     x?: number
     y?: number
+    /** Binds the authored zone to a Template Set template (UNN-642) — the
+     *  hook expedition start sprouts stubs from. */
+    templateKey?: string
   }>
   connections?: Array<{ id: string; from: string; to: string }>
 }): MapGeometry {
@@ -247,6 +250,9 @@ export function testGeometry(spec: {
           name: zone.name ?? zone.id,
           position: { x: zone.x ?? 0, y: zone.y ?? 0 },
           pageId: zone.pageId ?? firstPageId,
+          ...(zone.templateKey === undefined
+            ? {}
+            : { templateKey: zone.templateKey }),
         },
       ])
     ),

@@ -81,25 +81,29 @@ export function useDungeonConsole(
   // The expand gesture's per-stub pending set (UNN-642, D8 seam 2): the roll is
   // server-owned so nothing is predicted — the spinner on *that* ghost is the
   // whole affordance. An id is added at dispatch and removed on refusal (the
-  // ghost is still open and must un-spin). On accept it is deliberately left:
-  // the spinner survives the accept → refetch gap, and once the refetched
-  // canon shows the stub consumed the ghost node itself unmounts (only open
-  // stubs render), so a stale id can never show — it is pruned lazily against
-  // the open set on the next dispatch.
+  // ghost is still open and must un-spin). On accept it is deliberately left
+  // so the spinner survives the accept → refetch gap; the render-phase prune
+  // below clears it the moment the refetched canon shows the stub consumed.
+  // Pruning must not wait for the next dispatch: retract restores the SAME
+  // stub id (byte-identical, D10), and a stale pending id would render the
+  // restored ghost permanently inert.
   const [pendingStubIds, setPendingStubIds] = useState<ReadonlySet<string>>(
     () => new Set()
   )
   const openStubs = root.value.instance.generation.stubs
+  // Render-phase derived-state adjustment (the active-page reset in body.tsx
+  // is the same pattern) — not an effect, so no cascading-render hazard.
+  if ([...pendingStubIds].some((stubId) => openStubs[stubId] === undefined)) {
+    setPendingStubIds(
+      new Set(
+        [...pendingStubIds].filter((stubId) => openStubs[stubId] !== undefined)
+      )
+    )
+  }
 
   function expandStub(stubId: string, forcedTemplateKey?: string) {
     if (pendingStubIds.has(stubId)) return
-    setPendingStubIds((current) => {
-      const next = new Set(
-        [...current].filter((id) => openStubs[id] !== undefined)
-      )
-      next.add(stubId)
-      return next
-    })
+    setPendingStubIds((current) => new Set(current).add(stubId))
     const unmark = () =>
       setPendingStubIds((current) => {
         const next = new Set(current)
