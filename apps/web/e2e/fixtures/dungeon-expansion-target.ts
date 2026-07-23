@@ -17,13 +17,13 @@ import {
 } from "./factory"
 
 /**
- * Ephemeral target for `e2e/dungeon-expansion.spec.ts` (UNN-642). Mints a
+ * Ephemeral target for `e2e/dungeon-pregeneration.spec.ts` (UNN-642). Mints a
  * finalized PC in a dev-DM campaign, a one-zone seed Map whose Entry is bound
- * to the set's "hall" template (so expedition start sprouts stubs), and a
- * Template Set built for deterministic expansion: `closureChance: 0` and one
- * weighted template, so every random expand mints "Hall Chamber"; the weight-0
- * "Ossuary" is reachable only through force-pick. The spec drives expand /
- * retract / force-pick through the real console and polls these helpers.
+ * to the set's "hall" template (so expedition start has a frontier to carve),
+ * and a Template Set with one weighted template and `closureChance: 0`, so
+ * pre-generation grows a deterministic "Hall Chamber" board. The weight-0
+ * "Ossuary" never rolls. The spec starts an expedition and polls these helpers
+ * to assert the whole map is pre-generated at turn 0.
  */
 
 const DEV_USER_ID = "dev-user-claude"

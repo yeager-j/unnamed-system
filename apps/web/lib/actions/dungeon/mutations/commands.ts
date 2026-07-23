@@ -13,7 +13,9 @@ import {
 import {
   applyStaticReveal,
   buildRetraction,
+  DEFAULT_PREGEN_ZONE_TARGET,
   foldExpedition,
+  pregenerateExpedition,
   rollExpansion,
   seedMintedUniqueKeys,
   sproutStartStubs,
@@ -302,13 +304,6 @@ async function executeStart(
     const startingZoneIds = [
       ...new Set(args.command.placements.map((placement) => placement.zoneId)),
     ].sort()
-    nextInstance = placeRoster(
-      {
-        ...snapshot,
-        generation: { ...snapshot.generation, stubs, startingZoneIds },
-      },
-      args.command.placements
-    )
     const ledger: GenerationLedger = {
       seed,
       streamCursors: cursors,
@@ -316,7 +311,22 @@ async function executeStart(
       mintedUniqueKeys: seedMintedUniqueKeys(snapshot.geometry, set.content),
       mints: {},
     }
-    nextDungeonState = { ...dungeon.state, generation: ledger }
+    // Pre-generate the whole map up front (UNN-642 "replace" experience): the
+    // pure roller carves to a target size and seals the frontier, so the
+    // expedition begins with a complete board the DM can review and the party
+    // reveals as it explores — no per-room click, no per-carve turn cost.
+    const pregen = pregenerateExpedition({
+      set: set.content,
+      instanceState: {
+        ...snapshot,
+        generation: { ...snapshot.generation, stubs, startingZoneIds },
+      },
+      ledger,
+      zoneTarget: DEFAULT_PREGEN_ZONE_TARGET,
+      newId,
+    })
+    nextInstance = placeRoster(pregen.instanceState, args.command.placements)
+    nextDungeonState = { ...dungeon.state, generation: pregen.ledger }
   }
 
   const savedInstance = await saveMapInstanceState(
