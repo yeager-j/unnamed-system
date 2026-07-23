@@ -26,7 +26,7 @@ import {
 export function SkillCastSection() {
   const role = useViewerRole()
   const { resolved } = useLoadedCharacter()
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const attributes = resolved.components.attributes
 
@@ -65,9 +65,7 @@ export function SkillCastSection() {
             key={view.key}
             view={view}
             showUse={role === "owner"}
-            useDisabled={
-              pending || (view.cost !== null && !canAfford(view.cost))
-            }
+            useDisabled={view.cost !== null && !canAfford(view.cost)}
             onUse={view.cost ? () => use(view.cost!) : undefined}
           />
         ))}

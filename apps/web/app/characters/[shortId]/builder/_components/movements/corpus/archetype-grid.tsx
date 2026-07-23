@@ -33,7 +33,7 @@ import { ArchetypeDialog } from "./archetype-dialog"
  */
 export function ArchetypeGrid() {
   const { entity } = useLoadedCharacter()
-  const { pending, dispatch } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const pathChoice = entity.components.path?.choice ?? "balanced"
   const optimisticKey = entity.components.archetypes?.origin ?? null
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -97,7 +97,6 @@ export function ArchetypeGrid() {
         archetype={open}
         pathChoice={pathChoice}
         selected={open?.key === optimisticKey}
-        pending={pending}
         onChoose={() => open && handleChoose(open.key)}
         onClose={() => setOpenKey(null)}
       />

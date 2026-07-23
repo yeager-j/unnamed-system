@@ -44,8 +44,9 @@ import { ITEM_CATEGORY_LABELS, ITEM_GROUP_LABELS } from "@/domain/labels"
  * chips, an Equipped-only toggle. The filter semantics live in the pure
  * `inventory-table` view helpers; the columns delegate to them. Owner rows
  * carry the write affordances (Equip/Unequip, qty stepper, Remove) — steppers
- * stay enabled while a write is pending (the S2a lesson) and bound only by
- * quantity limits.
+ * stay enabled while a write is pending
+ * (docs/lessons/2026-07-23-pending-gate-on-a-predicted-write.md, née "the S2a
+ * lesson") and bound only by quantity limits.
  */
 export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
   const role = useViewerRole()

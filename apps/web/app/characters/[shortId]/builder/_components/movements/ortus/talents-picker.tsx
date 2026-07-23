@@ -61,7 +61,7 @@ import { talentLabel } from "@/domain/labels"
  */
 export function TalentsPicker() {
   const { entity } = useLoadedCharacter()
-  const { pending, dispatch } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const anchor = useComboboxAnchor()
 
   const originArchetypeKey = entity.components.archetypes?.origin ?? null
@@ -91,7 +91,7 @@ export function TalentsPicker() {
   }
 
   return (
-    <FieldSet disabled={pending}>
+    <FieldSet>
       <FieldLegend>Talents</FieldLegend>
       <FieldDescription>
         Your active Archetype grants the Talents below automatically. You may

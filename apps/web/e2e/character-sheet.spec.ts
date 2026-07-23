@@ -177,10 +177,21 @@ test("awarding the 7th victory unlocks an explicit level up", async ({
 
   await page.getByRole("button", { name: "Victories" }).click()
   await page.getByRole("button", { name: "+ Award Victory" }).click()
+  await expect(page.getByRole("button", { name: "Level Up" })).toBeVisible()
 
-  const levelUp = page.getByRole("button", { name: "Level Up" })
-  await expect(levelUp).toBeVisible()
-  await levelUp.click()
+  // Confirm the Victory write landed before dispatching Level Up: the root's
+  // one ordered queue holds the second envelope behind the first, and a
+  // reload discards whatever the queue hasn't delivered yet (Headcanon v1
+  // does not persist pending intent across a reload — there is no pending
+  // gate here to accidentally throttle the two dispatches apart). Without
+  // this, Level Up races the still-in-flight Victory commit.
+  await expect(async () => {
+    await page.reload()
+    await page.getByRole("button", { name: "Victories" }).click()
+    await expect(page.getByRole("button", { name: "Level Up" })).toBeVisible()
+  }).toPass()
+
+  await page.getByRole("button", { name: "Level Up" }).click()
 
   await expect(page.getByText("Lv 2", { exact: true })).toBeVisible()
   await expect(async () => {

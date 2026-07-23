@@ -6,7 +6,10 @@ import { toast } from "sonner"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 import type { Canon, MutationErrorOf } from "@workspace/headcanon"
-import type { MutationReceipt } from "@workspace/headcanon/react"
+import type {
+  MutationLifecycleError,
+  MutationReceipt,
+} from "@workspace/headcanon/react"
 import { err, ok, type Result } from "@workspace/result"
 
 import type { CharacterProfile } from "@/domain/character/load"
@@ -44,7 +47,11 @@ import { useEntityPredictions } from "./use-entity-predictions"
  * - **Typed dispatch** — {@link useEntityWrite} / {@link useIdentityWrite}
  *   build invocations and map lifecycle outcomes onto the app's toast and
  *   callback vocabulary. A predictor refusal returns synchronously and sends
- *   nothing; an authority rejection rolls the prediction back.
+ *   nothing; an authority rejection rolls the prediction back. Every dispatch
+ *   returns the untouched `mutate` result, so a caller that needs more than
+ *   the default policy can await the receipt's `accepted` / `canonized`
+ *   milestones directly (the package idiom) instead of going through the
+ *   options callbacks.
  * - **Autosave UX** — {@link useEntityAutoSave} / {@link useEntityColumnSave}
  *   keep the debounced draft lifecycle and flush one `mutate` per settled
  *   edit; the debounce lives before the protocol, never inside it.
@@ -176,21 +183,31 @@ type EntityMutationResult<Error extends EntityMutationError> = Result<
   Error
 >
 
+/** The two lifecycle failures that carry a domain refusal back to the caller.
+ *  Cancelled delivery (a navigation signal) and unmount map to `null` — there
+ *  is nothing actionable to surface, and autosave settles them separately. */
+function asRefusal<Error>(failure: MutationLifecycleError<Error>) {
+  return failure.kind === "domain" || failure.kind === "replay-refused"
+    ? failure
+    : null
+}
+
 /**
- * The shared dispatch spine of both click-write hooks: run `mutate`, surface a
- * synchronous predictor refusal, then map the acceptance outcome onto the
- * caller's options. Cancelled delivery (a navigation signal) and unmount are
- * deliberately silent — there is nothing actionable to toast.
+ * The shared dispatch spine of the click-write hooks: surface a synchronous
+ * predictor refusal, map the accepted outcome onto the caller's options — and
+ * hand the `mutate` result back untouched so the caller keeps the receipt.
+ * Deliberately no pending state: a predicted write is already visible, so its
+ * dispatch surface stays live (rapid clicks are valid intent; an invalid
+ * second click is refused by the predictor over the folded projection).
  */
 function useProtocolDispatch(caller: string) {
   const { entityId, root } = useWriteApi(caller)
-  const [inflight, setInflight] = useState(0)
 
-  function dispatchMutation<Error extends EntityMutationError>(
+  function applyWritePolicy<Error extends EntityMutationError>(
     result: EntityMutationResult<Error>,
     refusalMessage: string,
     opts?: EntityDispatchOptions
-  ): void {
+  ): EntityMutationResult<Error> {
     const surface = (error: EntityMutationError, fallback: string) => {
       if (opts?.onError?.(error)) return
       toast.error(opts?.messages?.error ?? fallback)
@@ -198,81 +215,100 @@ function useProtocolDispatch(caller: string) {
 
     if (!result.ok) {
       surface(result.error, refusalMessage)
-      return
+      return result
     }
 
-    setInflight((count) => count + 1)
     void result.value.accepted.then((accepted) => {
-      setInflight((count) => count - 1)
       if (accepted.ok) {
         opts?.onSuccess?.()
         return
       }
-      const failure = accepted.error
-      if (failure.kind !== "domain" && failure.kind !== "replay-refused") return
-      surface(failure.error, "Couldn't save. Try again.")
+      const refused = asRefusal(accepted.error)
+      if (refused) surface(refused.error, "Couldn't save. Try again.")
     })
+    return result
   }
 
-  return { entityId, root, pending: inflight > 0, dispatchMutation }
+  return { entityId, root, applyWritePolicy }
 }
 
 /**
  * The click-write primitive for engine-component descriptors: predict
  * immediately through the registered `entity.write` mutation, deliver in root
- * order, roll back on rejection. Each consumer gets its own `pending`.
+ * order, roll back on rejection. No `pending` — the prediction is the
+ * feedback, and the control stays live for the next intent. `dispatch`
+ * returns the `mutate` result — a refusal comes back as `err` (already
+ * surfaced per the options), an accepted prediction carries the receipt.
  */
 export function useEntityWrite() {
-  const { entityId, root, pending, dispatchMutation } =
+  const { entityId, root, applyWritePolicy } =
     useProtocolDispatch("useEntityWrite")
 
   function dispatch(write: EntityWrite, opts?: EntityDispatchOptions) {
-    dispatchMutation(
+    return applyWritePolicy(
       root.mutate(entityWrite({ entityId, write })),
       "That change can't apply to this character. Reload and try again.",
       opts
     )
   }
 
-  return { pending, dispatch }
+  return { dispatch }
 }
 
 /**
  * The click-write primitive for the app-owned identity columns (portrait
  * commit/removal today): the registered `entity.identity` mutation, predicted
  * per field. Debounced text fields use {@link useEntityColumnSave} instead.
+ * No `pending`, same as {@link useEntityWrite}; `dispatch` returns the
+ * `mutate` result, receipt included.
  */
 export function useIdentityWrite() {
-  const { entityId, root, pending, dispatchMutation } =
+  const { entityId, root, applyWritePolicy } =
     useProtocolDispatch("useIdentityWrite")
 
   function dispatch(write: IdentityWrite, opts?: EntityDispatchOptions) {
-    dispatchMutation(
+    return applyWritePolicy(
       root.mutate(entityIdentity({ entityId, write })),
       "Couldn't save. Try again.",
       opts
     )
   }
 
-  return { pending, dispatch }
+  return { dispatch }
 }
 
-/** The builder's terminal lifecycle command. It shares the root queue with
+/**
+ * The builder's terminal lifecycle command. It shares the root queue with
  * identity autosaves, so finalize cannot race a pending rename, and its
- * authority-side status flip is receipt-backed with the identity-axis bump. */
+ * authority-side status flip is receipt-backed with the identity-axis bump.
+ *
+ * This is the one click-write that keeps `pending`, and it is not a loading
+ * indicator: finalize has **no client projection** (its predictor is
+ * identity — the status flip lives on the unversioned subtype, outside the
+ * canon value) and its success effect is a navigation. Between click and
+ * acceptance nothing visible changes, so the busy state is the only honest
+ * representation, and the gate prevents a double-submit that would round-trip
+ * just to toast "already finalized."
+ */
 export function useFinalizeEntity() {
-  const { entityId, root, pending, dispatchMutation } =
+  const { entityId, root, applyWritePolicy } =
     useProtocolDispatch("useFinalizeEntity")
+  const [inflight, setInflight] = useState(0)
 
   function dispatch(opts?: EntityDispatchOptions) {
-    dispatchMutation(
+    const result = applyWritePolicy(
       root.mutate(entityFinalize({ entityId })),
       "This character isn't ready to finalize.",
       opts
     )
+    if (result.ok) {
+      setInflight((count) => count + 1)
+      void result.value.accepted.then(() => setInflight((count) => count - 1))
+    }
+    return result
   }
 
-  return { pending, dispatch }
+  return { pending: inflight > 0, dispatch }
 }
 
 /** The autosave settle vocabulary: the protocol's typed failures plus the
@@ -302,9 +338,8 @@ async function settleAutoSave<TValue, Error extends EntityAutoSaveDomainError>(
   if (accepted.ok) return ok({ value })
 
   const failure = accepted.error
-  if (failure.kind === "domain" || failure.kind === "replay-refused") {
-    return err(failure.error)
-  }
+  const refused = asRefusal(failure)
+  if (refused) return err(refused.error)
   if (failure.kind === "root-unmounted" && failure.outcome === "accepted") {
     return ok({ value })
   }

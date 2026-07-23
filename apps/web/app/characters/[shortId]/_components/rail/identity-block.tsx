@@ -47,7 +47,7 @@ function Pill({ children }: { children: React.ReactNode }) {
 
 function ArchetypePill({ archetype }: { archetype: RailArchetype }) {
   const role = useViewerRole()
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const [open, setOpen] = useState(false)
 
   const label =
@@ -85,7 +85,7 @@ function ArchetypePill({ archetype }: { archetype: RailArchetype }) {
                     <li key={option.key}>
                       <button
                         type="button"
-                        disabled={pending || isActive}
+                        disabled={isActive}
                         onClick={() => {
                           dispatch({
                             component: "archetypes",

@@ -140,8 +140,11 @@ describe("useEntityWrite — dispatch over the predicted root", () => {
     }
 
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    await act(async () => result.current.dispatch(missingSkillPool))
+    const outcome = await act(async () =>
+      result.current.dispatch(missingSkillPool)
+    )
 
+    expect(outcome).toEqual(err("capability-missing"))
     expect(door).not.toHaveBeenCalled()
     expect(toast.error).toHaveBeenCalledWith(
       "That change can't apply to this character. Reload and try again."
@@ -259,6 +262,34 @@ describe("useEntityWrite — dispatch over the predicted root", () => {
     }
   })
 
+  it("returns the receipt so a caller can await acceptance and canonization", async () => {
+    const vitalsAxis = entityAxisFor.vitals("char-1")
+    door.mockResolvedValueOnce(accepted({ [vitalsAxis]: 2 }))
+
+    let currentCanon = canonAt()
+    const dynamicWrapper = ({ children }: { children: React.ReactNode }) => (
+      <EntityWriteProvider profile={profile} canon={currentCanon}>
+        {children}
+      </EntityWriteProvider>
+    )
+
+    const { result, rerender } = renderHook(() => useEntityWrite(), {
+      wrapper: dynamicWrapper,
+    })
+
+    const outcome = await act(async () => result.current.dispatch(damage))
+    await flush()
+
+    if (!outcome.ok) throw new Error("expected an accepted dispatch")
+    const acceptance = await outcome.value.accepted
+    expect(acceptance).toEqual(ok(stampFor({ [vitalsAxis]: 2 })))
+
+    currentCanon = canonAt({ vitals: 2 })
+    rerender()
+    await flush()
+    await expect(outcome.value.canonized).resolves.toEqual(ok(undefined))
+  })
+
   it("settles a covered acceptance once a newer canon arrives", async () => {
     const vitalsAxis = entityAxisFor.vitals("char-1")
     door.mockResolvedValueOnce(accepted({ [vitalsAxis]: 2 }))
@@ -276,7 +307,6 @@ describe("useEntityWrite — dispatch over the predicted root", () => {
 
     await act(async () => result.current.dispatch(damage))
     await flush()
-    expect(result.current.pending).toBe(false) // accepted releases the caller
 
     // The covering canon canonizes the headcanon; no error surfaces.
     currentCanon = canonAt({ vitals: 2 })

@@ -25,7 +25,7 @@ import { useEntityWrite } from "@/domain/entity/use-entity-write"
  */
 export function Wallet({ currency }: { currency: number }) {
   const role = useViewerRole()
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
@@ -87,7 +87,7 @@ export function Wallet({ currency }: { currency: number }) {
           <div className="grid grid-cols-2 gap-1.5">
             <Button
               size="sm"
-              disabled={pending || !valid}
+              disabled={!valid}
               onClick={() => apply("addCurrency")}
             >
               Add
@@ -95,7 +95,7 @@ export function Wallet({ currency }: { currency: number }) {
             <Button
               size="sm"
               variant="outline"
-              disabled={pending || !valid}
+              disabled={!valid}
               onClick={() => apply("removeCurrency")}
             >
               Remove
