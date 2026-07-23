@@ -52,7 +52,7 @@ const DOWNED_KEY: AilmentKey = "downed"
  * {@link import("@/components/combat/drawer/conditions-section").CombatantConditionsSection}
  * (UNN-310) so the player watch view's own combat-state control renders the
  * **identical** UI. Pure controls over the three pieces of overlay state, each
- * dispatched as a `CombatEvent` through `onCombatEvent`:
+ * dispatched as a `CombatEvent` through the registered `combat.event` command:
  *
  * - **Ailments** — a permissive multi-select (no one-at-a-time enforcement).
  * - **Battle-condition axes** — read-only state + duration per axis, with
@@ -60,8 +60,8 @@ const DOWNED_KEY: AilmentKey = "downed"
  * - **Charged / Concentrating** — manual on/off flags (`setBattleConditionFlag`).
  *
  * Presentational and emit-only: the DM drawer's `combatant-conditions-section`
- * feeds it the participant's session overlay and emits through
- * `applyCombatEvent`. The
+ * feeds it the participant's session overlay and emits through the combat
+ * command dispatcher. The
  * player watch no longer edits its own overlay — combat conditions are the DM's to
  * set — so the DM is the only caller that mounts this for editing.
  */

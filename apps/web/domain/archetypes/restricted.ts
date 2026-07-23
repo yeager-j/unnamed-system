@@ -12,7 +12,7 @@ import "server-only"
  * Two consumers:
  *  - the Atlas page computes {@link hiddenArchetypeKeysFor} for the viewer and
  *    passes the keys to `buildLineageAtlas`, which drops them from the tree;
- *  - the entity door (`applyEntityWriteAction`) re-checks
+ *  - the registered entity mutation command re-checks
  *    {@link hiddenArchetypeKeysFor} before a `spendArchetypeRank` write, so a
  *    tampered request cannot unlock a restricted Archetype the viewer may not
  *    see (the pure Writer is catalog-only and runs on the client too).

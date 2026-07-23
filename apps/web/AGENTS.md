@@ -31,9 +31,19 @@ runs on `npm run depcheck` and enforces four things:
   removes its final engine import — the gate rejects stale entries and new violations.
 - **Modeled version writes.** The four entity version columns may be incremented only in the
   stamped guard primitive. Its closed caller graph is recorded in `VERSION_WRITER_ALLOWLIST`:
-  registered mutation handlers, the stamped Stores they compose, and approved external commits.
-  An external entry must call its declared finalizer. Every entry records a rationale and removal
-  condition; the gate rejects raw bumps, new/stale callers, and missing finalizers.
+  registered mutation handlers and the stamped Stores they compose. The Headcanon executor owns
+  accepted-stamp finalization; application commands provide admission, execution, and projection
+  callbacks. Every entry records a rationale and removal condition; the gate rejects raw bumps and
+  new, stale, or unregistered callers.
+
+## Headcanon mutation boundary
+
+Current optimistic writes enter through registered commands in `lib/actions`. The
+`@workspace/headcanon` package owns the mutation protocol, receipts, delivery and contention
+retry, revision stamps, accepted-stamp finalization, and axis invalidation. The application owns
+trusted actor and authorization checks, domain operations, storage-home resolution, projections,
+and lock order. Entity, combat, dungeon, map, and template-set commands keep those concerns at
+their app-side doors; `lib/sync` is retired and has no runtime role.
 
 ## Project Structure
 
@@ -43,7 +53,7 @@ runs on `npm run depcheck` and enforces four things:
 apps/web/
 ├── app/                              Feature subtrees: routes + co-located _components/_hooks
 │   ├── _components/                  Home + shared SignedOutLanding
-│   ├── api/                          Route handlers: auth, dev sign-in/out, dungeon/encounter snapshot, realtime token
+│   ├── api/                          Route handlers: auth, dev sign-in/out, realtime token
 │   ├── campaigns/
 │   │   ├── _components/              List + manage widgets
 │   │   └── [campaignShortId]/

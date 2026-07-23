@@ -12,7 +12,7 @@ import { createInventoryTarget } from "./fixtures/inventory-target"
  *     Mail's Resist Slash shows on the Combat tab) and persists; unequip
  *     reverts both.
  *  2. Add via the dialog persists rows keyed by catalog item.
- *  3. The qty stepper and remove persist through the same class token.
+ *  3. The qty stepper and remove persist through the same inventory axis.
  *  4. The wallet set persists to `equipment.currency`.
  *  5. Search / category chips / Equipped-only filter the table (pure UI).
  *

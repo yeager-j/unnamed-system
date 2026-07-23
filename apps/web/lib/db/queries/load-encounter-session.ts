@@ -33,9 +33,11 @@ import type { VersionClass } from "@/lib/db/version-classes"
  *    locators' `entityId`s batch-load `entity` rows and assemble into the runtime
  *    `Entity` (signed depletion is stored natively, so there is no absolute-pool
  *    join — the row *is* the truth), and each row's `vitalsVersion` is returned
- *    alongside as the durable write arm's guard token. The snapshot path
- *    additionally reads each row's `ownerId` (the viewer-derivation input) and
- *    folds the versions into the composite snapshot version.
+ *    alongside as the existing write/read projection. The mutation Store reads
+ *    its own current row for the commit guard; it does not trust a client token.
+ *    The snapshot path additionally reads each row's `ownerId` (the
+ *    viewer-derivation input) and folds all version axes into the composite
+ *    snapshot version.
  */
 
 export interface LoadedEncounterForWrite {

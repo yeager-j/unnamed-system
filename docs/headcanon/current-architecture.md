@@ -1,9 +1,17 @@
-# Showtime's current entity read/write architecture
+# Showtime's pre-Headcanon entity read/write architecture
 
 **Implementation snapshot:** 2026-07-20  
 **Scope:** durable entity reads and writes from character routes, plus the combat
 adapter that writes those same durable entities. Encounter/session and map
 events are included only where they explain the entity seam.
+
+> **Historical baseline — pre-Headcanon (snapshot 2026-07-20).** This document
+> preserves the implementation record before the Headcanon migration. Do not use
+> it as current architecture guidance. See the [implemented outcome](./README.md)
+> and [deletion ledger](./deletion-ledger.md); Headcanon now owns mutation
+> protocol, delivery, receipts, retries, stamps, finalization, and invalidation,
+> while the application owns authority policy, domain operations, storage,
+> projections, and lock order.
 
 ## Executive answer
 
