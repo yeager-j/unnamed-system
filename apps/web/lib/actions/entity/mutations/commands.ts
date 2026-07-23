@@ -2,14 +2,12 @@ import "server-only"
 
 import { eq } from "drizzle-orm"
 
-import type { DrizzleMutationTx } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
   allowMutation,
   allowMutationScreening,
   denyMutation,
   refuseMutation,
-  type MutationCommand,
 } from "@workspace/headcanon/next/server"
 
 import {
@@ -20,8 +18,9 @@ import {
 import { buildFinalizePatch } from "@/domain/entity/finalize"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
+import type { ShowtimeMutationCommand } from "@/lib/actions/mutations/environment"
 import type { Actor } from "@/lib/auth/actor"
-import { getDb, type WriteExecutor } from "@/lib/db/client"
+import type { WriteExecutor } from "@/lib/db/client"
 import {
   loadPlayerCharacterById,
   type LoadedPlayerCharacter,
@@ -42,8 +41,6 @@ import {
 import { revalidateCharacterList, revalidateEntity } from "../revalidate"
 import { advanceEntityAxisGuarded } from "../version-guard"
 
-type EntityMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
-type EntityMutationPreflight = ReturnType<typeof getDb>
 type EntityMutation =
   | typeof entityWrite
   | typeof entityIdentity
@@ -52,14 +49,7 @@ type EntityMutationCommand<
   Mutation extends EntityMutation,
   Projection,
   Evidence,
-> = MutationCommand<
-  Mutation,
-  Actor,
-  EntityMutationPreflight,
-  EntityMutationTx,
-  Projection,
-  Evidence
->
+> = ShowtimeMutationCommand<Mutation, Projection, Evidence>
 
 async function projectAcceptedEntityMutation(context: {
   readonly shortId: string

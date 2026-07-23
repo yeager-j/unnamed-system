@@ -3,17 +3,13 @@ import "server-only"
 import { revalidatePath } from "next/cache"
 
 import type { StampAccumulator } from "@workspace/headcanon"
-import {
-  throwMutationContention,
-  type DrizzleMutationTx,
-} from "@workspace/headcanon/drizzle"
+import { throwMutationContention } from "@workspace/headcanon/drizzle"
 import {
   acceptMutation,
   allowMutation,
   allowMutationScreening,
   denyMutation,
   refuseMutation,
-  type MutationCommand,
 } from "@workspace/headcanon/next/server"
 
 import {
@@ -21,9 +17,10 @@ import {
   templateSetRename,
 } from "@/domain/template-set/commit/protocol"
 import { reduceTemplateSetEvents } from "@/domain/template-set/events"
+import type { ShowtimeMutationCommand } from "@/lib/actions/mutations/environment"
 import type { Actor } from "@/lib/auth/actor"
 import { templateSetAxis } from "@/lib/db/axes"
-import { getDb, type WriteExecutor } from "@/lib/db/client"
+import type { WriteExecutor } from "@/lib/db/client"
 import { loadTemplateSetRowById } from "@/lib/db/queries/load-template-set"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
 import {
@@ -32,15 +29,10 @@ import {
 } from "@/lib/db/writes/template-set"
 import { stageSetPath, stageSetsPath } from "@/lib/paths"
 
-type TemplateSetMutationTx = DrizzleMutationTx<ReturnType<typeof getDb>>
-type TemplateSetMutationPreflight = ReturnType<typeof getDb>
 type TemplateSetMutation = typeof templateSetRename | typeof templateSetEvents
 type TemplateSetMutationCommand<Mutation extends TemplateSetMutation> =
-  MutationCommand<
+  ShowtimeMutationCommand<
     Mutation,
-    Actor,
-    TemplateSetMutationPreflight,
-    TemplateSetMutationTx,
     { readonly shortId: string },
     TemplateSetRow
   >
