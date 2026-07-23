@@ -302,6 +302,54 @@ the finalization context still excludes attempt-local evidence.
 
 ---
 
+## Phase 4 — Stage authoring roots (UNN-692)
+
+### Measured: **+594 net production code lines in `apps/web`**
+
+`cloc --diff` at the ticket branch point reports 863 added and 269 removed
+production TypeScript/JavaScript code lines. The net number is growth, but it is
+not a queue moved behind a different name:
+
+- deleted the Stage write queue, queued-write hook, monotonic-version ref, both
+  version-bearing replacement actions and schemas, and all client-owned stale
+  recovery;
+- added complete Map and Template Set canons, serializable intent protocols,
+  deterministic reducers, and thin predicted-root bindings;
+- added the two aggregates' server-authoritative commands: each attempt reloads
+  ownership and current state, reduces intent, guards the observed row version,
+  and stamps its dedicated axis; and
+- retained application-owned editor policy: responsive drafts, debounce/batch
+  timing, save status, failure UX, unmount flushing, and canvas reconciliation
+  that replays a still-debounced local batch over incoming canon.
+
+The added production code is principally domain capability: 414 lines for the
+two intent/canon models and 279 for their command authorities. The deleted
+generic coordination includes 112 lines of queue/version helpers and 82 lines
+of client-version replacement actions and schemas. The remaining diff is the
+editor lifecycle integration and executor-neutral Store wiring.
+
+#### Tests: **−46 net app code lines**
+
+`cloc --diff` reports 609 added and 655 removed test code lines. The deleted
+tests asserted queue serialization, monotonic token adoption, and legacy action
+stale behavior. Replacements cover event-batch prediction, disjoint composition,
+same-target authority order, caller-ID collision refusal, attempt-local auth,
+current-row reduction, contention retry, stamps, intent-only wire envelopes,
+debounce/blur/unmount behavior, accepted-canon handoff, and actionable uncertain
+delivery. Generic ordering, receipts, retries, and canonization remain package
+contracts.
+
+### The gate: passed, with domain growth recorded
+
+No second optimistic store or application delivery queue surrounds either
+predicted root. Stage sends neither client revisions nor replacement geometry or
+content blobs; the application no longer decides ordering, receipt identity,
+contention retry, canonization, or invalidation. The positive LOC delta is the
+cost of introducing two explicit domain intent vocabularies and authorities,
+not preserving the coordination this phase set out to delete.
+
+---
+
 ## Running total
 
 | Phase                                      |              Net production lines in `apps/web` | Gate         |
@@ -313,6 +361,7 @@ the finalization context still excludes attempt-local evidence.
 | P3b — dungeon / multi-row (UNN-679)        |                                            −466 | passed       |
 | P3b ergonomics (UNN-686)                   |                                             −84 | passed       |
 | P3c — watch-only (UNN-680)                 |                                          −1,150 | passed       |
+| P4 — Stage authoring roots (UNN-692)       |                                            +594 | passed       |
 
 End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
@@ -322,3 +371,8 @@ Running total through P3c: **−1,882 production code lines in `apps/web`** (+38
 +64 −57 −227 −466 −84 −1,150). The character adoption first paid for shared
 realtime capability; combat, dungeon, and watch reuse it and convert that
 investment into net application contraction.
+
+Running total through P4: **−1,288 production code lines in `apps/web`**. Stage
+adds two new domain command surfaces while deleting the last client-version
+autosave queue; the total remains inside the original end-of-Phase-3 contraction
+range.

@@ -135,7 +135,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/characters/[shortId]/builder/_components/movements/corpus/path-bar.tsx",
   "app/characters/[shortId]/builder/_components/movements/ortus/talents-picker.tsx",
   "app/characters/[shortId]/builder/_components/movements/ortus/virtues-control.tsx",
-  "app/stage/_components/map-editor.tsx",
   "app/stage/_hooks/use-map-autosave.test.ts",
   "app/stage/_hooks/use-map-autosave.ts",
   "components/archetype/affinities.ts",

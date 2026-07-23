@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 /**
  * The Stage editors' shared save-indicator vocabulary: `saved` once the server
  * has the latest edit, `saving` while a write is in flight, `error` after a
- * failed write (local edits stay; whole-blob saves self-heal on the next edit).
+ * failed write while local edits remain available for retry.
  * Extracted from the Map settings panel when the Set editor became its second
  * consumer.
  */

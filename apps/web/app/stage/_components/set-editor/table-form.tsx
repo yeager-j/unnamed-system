@@ -39,7 +39,8 @@ import {
   ITEM_OPTIONS,
   type CatalogOption,
 } from "@/domain/template-set/catalog-options"
-import { removeTable, updateTable } from "@/domain/template-set/edit"
+import type { TemplateSetEvent } from "@/domain/template-set/commit/protocol"
+import type { TablePatch } from "@/domain/template-set/events"
 
 import type { SetEditorSelection } from "./selection"
 
@@ -53,12 +54,12 @@ import type { SetEditorSelection } from "./selection"
 export function TableForm({
   table,
   content,
-  onApplyContent,
+  onApplyEvent,
   onSelect,
 }: {
   table: ContentTable
   content: TemplateSetContent
-  onApplyContent: (content: TemplateSetContent) => void
+  onApplyEvent: (event: TemplateSetEvent) => void
   onSelect: (selection: SetEditorSelection) => void
 }) {
   const key = table.key
@@ -76,8 +77,8 @@ export function TableForm({
     [content, key]
   )
 
-  function patch(update: Partial<ContentTable>) {
-    onApplyContent(updateTable(content, key, update))
+  function patch(update: TablePatch) {
+    onApplyEvent({ kind: "updateTable", key, patch: update })
   }
 
   function patchRow(index: number, update: Partial<ContentTableRow>) {
@@ -240,7 +241,7 @@ export function TableForm({
         size="sm"
         className="self-start text-destructive"
         onClick={() => {
-          onApplyContent(removeTable(content, key))
+          onApplyEvent({ kind: "removeTable", key })
           onSelect({ kind: "settings" })
         }}
       >

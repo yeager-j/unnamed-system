@@ -11,10 +11,7 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { DeleteSetButton } from "@/app/stage/_components/delete-set-button"
 import type { TemplateSetContent } from "@/domain/template-set/authoring"
-import {
-  setClosureChance,
-  setConnectorTemplateKey,
-} from "@/domain/template-set/edit"
+import type { TemplateSetEvent } from "@/domain/template-set/commit/protocol"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
 
 /**
@@ -29,12 +26,12 @@ export function SetSettingsForm({
   set,
   setName,
   content,
-  onApplyContent,
+  onApplyEvent,
 }: {
   set: TemplateSetRow
   setName: string
   content: TemplateSetContent
-  onApplyContent: (content: TemplateSetContent) => void
+  onApplyEvent: (event: TemplateSetEvent) => void
 }) {
   const connectorOptions = content.templateOrder
     .map((key) => ({ key, template: content.templates[key] }))
@@ -70,12 +67,10 @@ export function SetSettingsForm({
             onChange={(event) => {
               const percent = Number(event.target.value)
               if (Number.isNaN(percent)) return
-              onApplyContent(
-                setClosureChance(
-                  content,
-                  Math.min(100, Math.max(0, percent)) / 100
-                )
-              )
+              onApplyEvent({
+                kind: "setClosureChance",
+                value: Math.min(100, Math.max(0, percent)) / 100,
+              })
             }}
             className="w-24 tabular-nums"
           />
@@ -101,7 +96,10 @@ export function SetSettingsForm({
           }
           value={content.connectorTemplateKey ?? ""}
           onValueChange={(value) =>
-            onApplyContent(setConnectorTemplateKey(content, value || undefined))
+            onApplyEvent({
+              kind: "setConnectorTemplateKey",
+              key: value || null,
+            })
           }
         />
         <FieldDescription>
