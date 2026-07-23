@@ -84,7 +84,8 @@ export default async function DungeonPage({ params }: PageProps) {
         campaignShortId,
         dungeon,
         instance,
-        placedCharacters
+        placedCharacters,
+        result.expandTemplates
       )
       return (
         <DungeonRunConsole
@@ -127,7 +128,8 @@ async function resolveRunMode(
   campaignShortId: string,
   dungeon: DungeonForDM["dungeon"],
   instance: DungeonForDM["instance"],
-  placedCharacters: DungeonForDM["placedCharacters"]
+  placedCharacters: DungeonForDM["placedCharacters"],
+  expandTemplates: DungeonForDM["expandTemplates"]
 ): Promise<DungeonRunMode> {
   const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
   if (live) {
@@ -160,5 +162,11 @@ async function resolveRunMode(
       },
     ])
   )
-  return { kind: "explore", instance, roster, placedCharacters }
+  return {
+    kind: "explore",
+    instance,
+    roster,
+    placedCharacters,
+    expandTemplates,
+  }
 }

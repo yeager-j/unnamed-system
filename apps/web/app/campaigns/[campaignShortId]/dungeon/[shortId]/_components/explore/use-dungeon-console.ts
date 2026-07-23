@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { toast } from "sonner"
 
 import type { DungeonEvent, MapInstanceEvent } from "@workspace/game-v2/spatial"
@@ -77,6 +78,54 @@ export function useDungeonConsole(
     dispatchMutation({ kind: "finish" })
   }
 
+  // The expand gesture's per-stub pending set (UNN-642, D8 seam 2): the roll is
+  // server-owned so nothing is predicted — the spinner on *that* ghost is the
+  // whole affordance. An id is added at dispatch and removed on refusal (the
+  // ghost is still open and must un-spin). On accept it is deliberately left:
+  // the spinner survives the accept → refetch gap, and once the refetched
+  // canon shows the stub consumed the ghost node itself unmounts (only open
+  // stubs render), so a stale id can never show — it is pruned lazily against
+  // the open set on the next dispatch.
+  const [pendingStubIds, setPendingStubIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const openStubs = root.value.instance.generation.stubs
+
+  function expandStub(stubId: string, forcedTemplateKey?: string) {
+    if (pendingStubIds.has(stubId)) return
+    setPendingStubIds((current) => {
+      const next = new Set(
+        [...current].filter((id) => openStubs[id] !== undefined)
+      )
+      next.add(stubId)
+      return next
+    })
+    const unmark = () =>
+      setPendingStubIds((current) => {
+        const next = new Set(current)
+        next.delete(stubId)
+        return next
+      })
+    const receipt = dispatchMutation({
+      kind: "expandStub",
+      stubId,
+      ...(forcedTemplateKey === undefined ? {} : { forcedTemplateKey }),
+    })
+    if (!receipt) {
+      unmark()
+      return
+    }
+    void receipt.accepted.then((accepted) => {
+      // Refusals toast via dispatchMutation; the benign no-op is an accept and
+      // stays silent by construction.
+      if (!accepted.ok) unmark()
+    })
+  }
+
+  function retractZone(zoneId: string) {
+    dispatchMutation({ kind: "retractZone", zoneId })
+  }
+
   return {
     dungeonState: root.value.dungeon,
     instanceState: root.value.instance,
@@ -85,5 +134,8 @@ export function useDungeonConsole(
     placeToken,
     searchReveal,
     finishDelve,
+    expandStub,
+    retractZone,
+    isStubPending: (stubId: string) => pendingStubIds.has(stubId),
   }
 }

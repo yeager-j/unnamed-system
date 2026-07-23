@@ -180,6 +180,7 @@ describe("getDungeonForDM", () => {
       dungeon: dungeonRow("ok-dm"),
       instance: instanceRow,
       placedCharacters: [placedCharacter],
+      expandTemplates: [],
       canon: {
         value: {
           dungeon: dungeonRow("ok-dm").state,
