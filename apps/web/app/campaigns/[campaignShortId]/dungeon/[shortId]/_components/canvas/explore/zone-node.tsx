@@ -74,7 +74,6 @@ export function DungeonZoneNode({
     isParty,
     navigateToPage,
     retractZone,
-    disabled,
   } = useDungeonCanvas()
   const { zone, revealed, tokens, crossPageLinks, retractable } = data
   const view = exploreZoneView({
@@ -167,7 +166,7 @@ export function DungeonZoneNode({
       onContextMenu={(event) => {
         event.preventDefault()
         event.stopPropagation()
-        if (!disabled) setRetractMenuOpen(true)
+        setRetractMenuOpen(true)
       }}
     >
       {setPiece}
@@ -183,9 +182,11 @@ export function DungeonZoneNode({
           }
         />
         <DropdownMenuContent align="start">
+          {/* No pending gate: retract is non-optimistic with a benign no-op
+              on a raced double-fire, so a gate would only re-add the wait
+              (2026-07-23 lesson). */}
           <DropdownMenuItem
             variant="destructive"
-            disabled={disabled}
             onClick={() => retractZone(zone.id)}
           >
             Retract room
