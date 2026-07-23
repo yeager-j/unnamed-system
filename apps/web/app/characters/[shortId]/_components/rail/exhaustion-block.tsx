@@ -6,8 +6,8 @@ import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { RailExhaustion } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 /**
  * The rail's Exhaustion tracker (D27; rulebook 2.5) — the one combat-adjacent
@@ -17,10 +17,15 @@ import { useEntityWrite } from "@/domain/entity/use-entity-write"
  * own.
  */
 export function ExhaustionBlock({ view }: { view: RailExhaustion }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const setLevel = (level: number) =>
-    dispatch({ component: "exhaustion", op: "setLevel", level })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "exhaustion", op: "setLevel", level },
+      })
+    )
 
   return (
     <section

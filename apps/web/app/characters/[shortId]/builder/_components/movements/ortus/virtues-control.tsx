@@ -13,10 +13,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/domain/labels"
 
 const RANKS = [0, 1, 2] as const
@@ -39,8 +36,8 @@ const RANKS = [0, 1, 2] as const
  * +1s, all different).
  */
 export function VirtuesControl() {
-  const { entity } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { entity } = root.value
   // Derived from the entity's virtues component. React Compiler (UNN-241)
   // memoizes this on the underlying ranks, so its identity is stable across
   // re-renders that don't change them — exactly what the `previousAllocation`
@@ -67,13 +64,15 @@ export function VirtuesControl() {
 
   function applyAllocation(next: VirtueAllocation) {
     setDraft(next)
-    dispatch(
-      { component: "virtues", op: "setAllocation", ranks: next },
-      {
-        messages: {
-          error: "Couldn't save your Virtues. Try again.",
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "virtues",
+          op: "setAllocation",
+          ranks: next,
         },
-      }
+      })
     )
   }
 

@@ -13,9 +13,9 @@ import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import {
-  useIdentityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+  characterIdentityWrite,
+  CharacterRoot,
+} from "@/domain/character/client"
 import { uploadEntityPortraitAction } from "@/lib/actions/entity/portrait"
 import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import {
@@ -40,8 +40,8 @@ import {
  * server enforces so the user gets fast feedback.
  */
 export function PortraitArea() {
-  const { profile } = useLoadedCharacter()
-  const identityWrite = useIdentityWrite()
+  const root = CharacterRoot.useRoot()
+  const { profile } = root.value
   const portraitUrl = profile.portraitUrl
   // Only the Blob upload is a real wait — the identity write that follows it
   // predicts, so the avatar swaps the instant the mutation dispatches.
@@ -90,9 +90,22 @@ export function PortraitArea() {
   }
 
   function setPortrait(url: string | null, message: string) {
-    identityWrite.dispatch(
-      { field: "portraitUrl", value: url },
-      { messages: { error: message } }
+    root.mutate(
+      characterIdentityWrite({
+        entityId: root.value.profile.id,
+        write: { field: "portraitUrl", value: url },
+      }),
+      {
+        onAcceptance: (result) => {
+          if (
+            !result.ok &&
+            (result.error.kind === "domain" ||
+              result.error.kind === "replay-refused")
+          ) {
+            toast.error(message)
+          }
+        },
+      }
     )
   }
 

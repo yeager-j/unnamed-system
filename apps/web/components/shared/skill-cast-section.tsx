@@ -3,14 +3,11 @@
 import { SectionLabel } from "@/components/shared/section-label"
 import { SkillBannerCard } from "@/components/shared/skill-banner-card"
 import { useViewerRole } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import {
   buildSkillCardViews,
   type SkillCardCost,
 } from "@/domain/combat/view/skill-card-view"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
 
 /**
  * The Skill-card grid and its **cast** affordance — every source (archetype
@@ -25,8 +22,8 @@ import {
  */
 export function SkillCastSection() {
   const role = useViewerRole()
-  const { resolved } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { resolved } = root.value
 
   const attributes = resolved.components.attributes
 
@@ -37,10 +34,14 @@ export function SkillCastSection() {
     cost.kind === "sp" ? cost.amount <= currentSP : cost.amount < currentHP
 
   const use = (cost: SkillCardCost) =>
-    dispatch(
-      cost.kind === "sp"
-        ? { component: "skillPool", op: "damage", amount: cost.amount }
-        : { component: "vitals", op: "damage", amount: cost.amount }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write:
+          cost.kind === "sp"
+            ? { component: "skillPool", op: "damage", amount: cost.amount }
+            : { component: "vitals", op: "damage", amount: cost.amount },
+      })
     )
 
   if ((resolved.components.skills ?? []).length === 0 || !attributes) {

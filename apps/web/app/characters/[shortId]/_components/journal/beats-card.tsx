@@ -9,7 +9,7 @@ import {
   useAnimusWriterHref,
 } from "@/components/shared/sheet-cards/animus-edit"
 import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 
 const BEAT_LIST_COPY = {
   knives: {
@@ -35,7 +35,7 @@ const BEAT_LIST_COPY = {
  * prompt (opens the writer to add the first entry).
  */
 export function BeatsCard({ list }: { list: "knives" | "chains" }) {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
   const copy = BEAT_LIST_COPY[list]
   const beats = entity.components.narrative?.[list] ?? []
   const beatKind = list === "knives" ? "knife" : "chain"

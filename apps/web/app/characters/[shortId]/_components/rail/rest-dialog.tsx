@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -19,8 +20,8 @@ import {
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 type RestVariant = "fullRest" | "partialRest" | "respite"
 
@@ -53,7 +54,7 @@ const VARIANT_COPY: Record<
  * silently clamping.
  */
 export function RestDialog() {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const [open, setOpen] = useState(false)
   const [variant, setVariant] = useState<RestVariant>("fullRest")
   const [diceToSpend, setDiceToSpend] = useState("")
@@ -95,28 +96,35 @@ export function RestDialog() {
 
   const confirm = () => {
     setRefusal(null)
-    // The inline copy handles the synchronous predictor refusal, which fires
-    // inside `dispatch`. Once the local prediction succeeds the dialog closes
+    // The inline copy handles the synchronous prediction stage. Once the local
+    // prediction succeeds the dialog closes
     // immediately — one confirm is one rest, with no acceptance-latency window
     // for a double-submit — so a later authority rejection must fall through
     // to the default toast rather than writing inline copy nobody can see.
-    let dialogClosed = false
-    const result = dispatch(write, {
-      onError: (error) => {
-        if (dialogClosed) return false
-        if (error === "insufficient-skill-dice") {
-          setRefusal("Not enough unspent Skill Dice for that.")
-          return true
-        }
-        if (error === "insufficient-hit-dice") {
-          setRefusal("Not enough unspent Hit Dice for that.")
-          return true
-        }
-        return false
-      },
-    })
+    const result = root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write,
+      }),
+      {
+        onPrediction: (prediction) => {
+          if (prediction.ok) return
+          const error = prediction.error
+          if (error === "insufficient-skill-dice") {
+            setRefusal("Not enough unspent Skill Dice for that.")
+            return
+          }
+          if (error === "insufficient-hit-dice") {
+            setRefusal("Not enough unspent Hit Dice for that.")
+            return
+          }
+          toast.error(
+            "That change can't apply to this character. Reload and try again."
+          )
+        },
+      }
+    )
     if (result.ok) {
-      dialogClosed = true
       reset()
       setOpen(false)
     }

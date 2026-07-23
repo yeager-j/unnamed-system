@@ -3,13 +3,13 @@
 import { toast } from "sonner"
 
 import { DocumentEditor } from "@/components/editor/document-editor"
+import { useCharacterEntityAutoSave } from "@/domain/character/client"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import { useEntityAutoSave } from "@/domain/entity/use-entity-write"
 
 /**
  * The Animus writer's narrative document surface: the shared
  * {@link DocumentEditor} shell bound to the **entity door** — two independent
- * {@link useEntityAutoSave} instances drive title and body. Both dispatch
+ * {@link useCharacterEntityAutoSave} instances drive title and body. Both dispatch
  * identity-class narrative descriptors through the provider's shared token +
  * queue (UNN-274), so the title's bump is visible to the body's next save
  * in-frame — no version race between them — and the server merges each write
@@ -64,7 +64,7 @@ export function AnimusDocumentEditor({
   const onError = () => toast.error(messages.saveError)
   const isTitleEditable = !!makeTitleWrite
 
-  const titleState = useEntityAutoSave({
+  const titleState = useCharacterEntityAutoSave({
     serverValue: title,
     isEqual: (a, b) => a.trim() === b.trim(),
     // No `isEmpty` guard — clearing the title is a legitimate edit. The
@@ -86,7 +86,7 @@ export function AnimusDocumentEditor({
           },
   })
 
-  const bodyState = useEntityAutoSave({
+  const bodyState = useCharacterEntityAutoSave({
     serverValue: body,
     isEqual: (a, b) => a.trim() === b.trim(),
     onError,

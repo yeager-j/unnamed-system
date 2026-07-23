@@ -10,11 +10,11 @@ import {
   useAnimusEditHref,
 } from "@/components/shared/sheet-cards/animus-edit"
 import { useViewerRole } from "@/components/shell/viewer-role"
+import { CharacterRoot } from "@/domain/character/client"
 import {
   IDENTITY_TRAIT_MESSAGES,
   type IdentityTraitField,
 } from "@/domain/character/identity-trait-messages"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { SheetCard } from "./sheet-card"
 
@@ -36,7 +36,7 @@ type EditHrefFor = (field: IdentityTraitField) => string | null
  * edit surface.
  */
 export function IdentityCard({ editable = false }: { editable?: boolean }) {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
   const narrative = entity.components.narrative
   const editHref = useAnimusEditHref(editable)
 

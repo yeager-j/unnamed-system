@@ -4,13 +4,13 @@ import type { NarrativeTextField } from "@workspace/game-v2/narrative"
 import { ok } from "@workspace/result"
 
 import {
-  useDebouncedAutoSave,
-  type UseDebouncedAutoSaveReturn,
-} from "@/domain/entity/use-debounced-auto-save"
-import {
   saveNpcNameAction,
   saveNpcNarrativeAction,
 } from "@/lib/actions/campaign-world/npc-prose"
+import {
+  useDebouncedAutoSave,
+  type UseDebouncedAutoSaveReturn,
+} from "@/lib/sync/use-debounced-auto-save"
 
 import { WORLD_PROSE_DEBOUNCE_MS } from "./world-prose"
 

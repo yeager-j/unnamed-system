@@ -9,7 +9,7 @@ import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
@@ -21,10 +21,15 @@ import { WidgetHeader, WidgetStepper } from "./widget-chrome"
  * damage ladders by the resolve fold).
  */
 export function FrenzyWidget({ state }: { state: FrenzyState }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const write = (transition: unknown) =>
-    dispatch({ component: "mechanics", mechanic: "frenzy", transition })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "mechanics", mechanic: "frenzy", transition },
+      })
+    )
 
   return (
     <>

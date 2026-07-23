@@ -19,7 +19,7 @@ import { characterBuilderPath } from "@/lib/paths"
  * Showtime! redesign. The route is the read boundary's mount point:
  * {@link loadCharacterByShortId} loads + resolves once (React-cached, so
  * `generateMetadata` shares the query), and the client
- * {@link CharacterSheet} mounts the `EntityWriteProvider` over the loaded
+ * {@link CharacterSheet} mounts the `CharacterProvider` over the loaded
  * triple — every interactive control dispatches descriptors through it.
  *
  * Publicly viewable; owner-mode controls render only for the owner

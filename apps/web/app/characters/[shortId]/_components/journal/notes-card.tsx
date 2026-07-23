@@ -6,7 +6,7 @@ import {
   useAnimusEditHref,
 } from "@/components/shared/sheet-cards/animus-edit"
 import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 
 /**
  * The Notes card: the free-form `profile.notes` app column, read-only and
@@ -14,7 +14,7 @@ import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
  * edits it in the Animus writer via the header affordance (UNN-221).
  */
 export function NotesCard() {
-  const { profile } = useLoadedCharacter()
+  const { profile } = CharacterRoot.useRoot().value
   const notesHref = useAnimusEditHref()({
     kind: "notes",
     id: "notes",

@@ -7,15 +7,15 @@ import {
   type DocumentFieldState,
 } from "@/components/editor/document-editor"
 import {
-  useEntityColumnSave,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+  CharacterRoot,
+  useCharacterProfileAutoSave,
+} from "@/domain/character/client"
 
 /**
  * The Notes document surface: the shared {@link DocumentEditor} shell bound to
  * the **identity door**, not the entity descriptor router. Notes lives on the
  * `profile.notes` app column (table-facing, visible to every viewer — unlike
- * the narrative Secrets), so it saves through {@link useEntityColumnSave} + the
+ * the narrative Secrets), so it saves through {@link useCharacterProfileAutoSave} + the
  * `notes` arm of `entity.identity` rather than a `narrative` descriptor. That one
  * storage difference is the reason the writer pane forks Notes to this editor
  * instead of {@link AnimusDocumentEditor} — both write species now share one
@@ -31,9 +31,9 @@ const NOTES_TITLE: DocumentFieldState = {
 }
 
 export function NotesDocumentEditor() {
-  const { profile } = useLoadedCharacter()
+  const { profile } = CharacterRoot.useRoot().value
 
-  const bodyState = useEntityColumnSave({
+  const bodyState = useCharacterProfileAutoSave({
     serverValue: profile.notes ?? "",
     isEqual: (a, b) => a.trim() === b.trim(),
     onError: () => toast.error("Couldn't save your Notes. Try again."),

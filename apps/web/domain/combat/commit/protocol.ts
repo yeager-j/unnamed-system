@@ -24,7 +24,7 @@ import {
 import { err, ok, type Result } from "@workspace/result"
 
 import { mergeComponentPatch } from "@/domain/entity/commit/merge-patch"
-import { entityWriteRefusalSchema } from "@/domain/entity/commit/protocol"
+import { entityWriteRefusalSchema } from "@/domain/entity/commit/refusal.schema"
 import { combatEntityWriteSchema } from "@/domain/entity/commit/write.schema"
 import {
   applyEntityWrite,

@@ -32,11 +32,8 @@ import {
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
 import { resolveArchetypeRoster } from "@/domain/game-engine-v2"
 import { LINEAGE_LABELS } from "@/domain/labels"
 
@@ -61,7 +58,7 @@ export function InheritanceSlots({
   attributes: AttributeScores
 }) {
   const total = entry.archetype.inheritanceSlots
-  const { resolved } = useLoadedCharacter()
+  const { resolved } = CharacterRoot.useRoot().value
   const isOwner = useViewerRole() === "owner"
 
   // Resolve the picker's source groups once for the whole block — every slot
@@ -113,19 +110,24 @@ function SlotRow({
   attributes: AttributeScores
   sourceGroups: InheritanceSourceGroup[]
 }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const invalid = slot !== null && !slot.isValid
   const filled = slot?.resolved != null
 
   const clear = () =>
-    dispatch({
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: ownerKey,
-      slotIndex,
-      sourceArchetypeKey: null,
-      skillKey: null,
-    })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "archetypes",
+          op: "setInheritanceSlot",
+          archetypeKey: ownerKey,
+          slotIndex,
+          sourceArchetypeKey: null,
+          skillKey: null,
+        },
+      })
+    )
 
   return (
     <li className="flex flex-col gap-1.5 rounded-lg border p-3">
@@ -197,19 +199,24 @@ function SlotPicker({
   sourceGroups: InheritanceSourceGroup[]
   filled: boolean
 }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const [open, setOpen] = useState(false)
 
   const assign = (sourceArchetypeKey: string, skillKey: string) => {
     setOpen(false)
-    dispatch({
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: ownerKey,
-      slotIndex,
-      sourceArchetypeKey,
-      skillKey,
-    })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "archetypes",
+          op: "setInheritanceSlot",
+          archetypeKey: ownerKey,
+          slotIndex,
+          sourceArchetypeKey,
+          skillKey,
+        },
+      })
+    )
   }
 
   return (

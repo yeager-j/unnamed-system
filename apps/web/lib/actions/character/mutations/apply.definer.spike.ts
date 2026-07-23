@@ -2,7 +2,7 @@
 
 import { createNextMutationAction } from "@workspace/headcanon/next/server"
 
-import { entityProtocol } from "@/domain/entity/commit/protocol"
+import { characterProtocol } from "@/domain/character/commit/protocol"
 import { showtimeMutationEnvironment } from "@/lib/actions/mutations/environment"
 
 import {
@@ -18,10 +18,10 @@ import {
  */
 const executeEntityMutation = createNextMutationAction({
   ...showtimeMutationEnvironment(),
-  protocol: entityProtocol,
+  protocol: characterProtocol,
   commands: [entityWriteCommand, entityIdentityCommand, entityFinalizeCommand],
 })
 
-export async function applyEntityMutationActionSpike(envelope: unknown) {
+export async function applyCharacterMutationActionSpike(envelope: unknown) {
   return executeEntityMutation(envelope)
 }

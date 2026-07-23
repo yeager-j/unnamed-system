@@ -20,10 +20,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { resolveTalentRoster } from "@/domain/game-engine-v2"
 
 import { SheetCard } from "./sheet-card"
@@ -38,24 +35,28 @@ import { SheetCard } from "./sheet-card"
  */
 export function TalentsCard() {
   const role = useViewerRole()
-  const { resolved } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { resolved } = root.value
   const [addOpen, setAddOpen] = useState(false)
 
   const { entries, learnable } = resolveTalentRoster(resolved)
 
   const add = (key: string) => {
     setAddOpen(false)
-    dispatch(
-      { component: "talents", op: "add", key },
-      { messages: { error: "Couldn't add the Talent. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "talents", op: "add", key },
+      })
     )
   }
 
   const remove = (key: string) =>
-    dispatch(
-      { component: "talents", op: "remove", key },
-      { messages: { error: "Couldn't remove the Talent. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "talents", op: "remove", key },
+      })
     )
 
   return (

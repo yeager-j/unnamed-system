@@ -9,7 +9,6 @@ import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
-import { useCombatFeedback } from "@/components/combat/console/use-combat-feedback"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
 import { combatEnd } from "@/domain/combat/commit/protocol"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
@@ -31,7 +30,6 @@ import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 export function useCombatConsole(data: EncounterForDM) {
   const { encounter, participantMeta } = data
   const combatRoot = useCombatPredictions({ canon: data.canon })
-  useCombatFeedback(combatRoot)
   const state = combatRoot.value
 
   /**

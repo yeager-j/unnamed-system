@@ -37,6 +37,21 @@ export const MODELED_VERSION_BUMP_ALLOWLIST = [
  */
 export const VERSION_WRITER_ALLOWLIST = [
   {
+    file: "lib/actions/character/mutations/commands.definer.spike.ts",
+    role: "registered-handler",
+    rationale:
+      "UNN-688 spike twin of commands.ts proving the definer-scoped command factory; never imported by production code.",
+    removeWhen:
+      "The UNN-688 spike resolves — the twin is deleted or promoted to replace commands.ts.",
+  },
+  {
+    file: "lib/actions/character/mutations/commands.ts",
+    role: "registered-handler",
+    rationale:
+      "The exhaustive character command manifest composes admitted evidence with the stamped Stores.",
+    removeWhen: "The character mutation protocol is removed.",
+  },
+  {
     file: "lib/actions/combat/mutations/commands.ts",
     role: "registered-handler",
     rationale:
@@ -58,21 +73,6 @@ export const VERSION_WRITER_ALLOWLIST = [
       "The identity-column store advances the identity axis and records it on the supplied attempt stamp.",
     removeWhen:
       "Identity columns stop using their focused store or move into the entity-row Store.",
-  },
-  {
-    file: "lib/actions/entity/mutations/commands.definer.spike.ts",
-    role: "registered-handler",
-    rationale:
-      "UNN-688 spike twin of commands.ts proving the definer-scoped command factory; never imported by production code.",
-    removeWhen:
-      "The UNN-688 spike resolves — the twin is deleted or promoted to replace commands.ts.",
-  },
-  {
-    file: "lib/actions/entity/mutations/commands.ts",
-    role: "registered-handler",
-    rationale:
-      "The exhaustive entity command manifest composes admitted evidence with the stamped Stores.",
-    removeWhen: "The entity mutation protocol is removed.",
   },
 ]
 

@@ -32,7 +32,7 @@ export function DungeonExploreSheetColumn({
   characters: CharacterMount[]
 }) {
   const sheets: OwnedSheet[] = characters.map((character) => ({
-    key: character.profile.id,
+    key: character.canon.value.profile.id,
     character,
   }))
 

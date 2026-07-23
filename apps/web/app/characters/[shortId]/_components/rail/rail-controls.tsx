@@ -12,8 +12,8 @@ import {
 import { AdjustPoolControl } from "@/components/shared/adjust-pool-control"
 import { SectionLabel } from "@/components/shared/section-label"
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { RailView } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 import { RestDialog } from "./rest-dialog"
 
@@ -84,7 +84,14 @@ function VictoriesControl({
   canLevelUp: boolean
   banked: number
 }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const mutateLevel = (op: "awardVictory" | "removeVictory" | "levelUp") =>
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "level", op },
+      })
+    )
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -100,17 +107,14 @@ function VictoriesControl({
         Victories
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-56 flex-col gap-1.5 p-3">
-        <Button
-          size="sm"
-          onClick={() => dispatch({ component: "level", op: "awardVictory" })}
-        >
+        <Button size="sm" onClick={() => mutateLevel("awardVictory")}>
           + Award Victory
         </Button>
         <Button
           size="sm"
           variant="outline"
           disabled={banked === 0}
-          onClick={() => dispatch({ component: "level", op: "removeVictory" })}
+          onClick={() => mutateLevel("removeVictory")}
         >
           − Remove Victory
         </Button>
@@ -120,7 +124,7 @@ function VictoriesControl({
             variant="outline"
             className="border-gold/60 text-gold hover:bg-gold/10 hover:text-gold"
             onClick={() => {
-              dispatch({ component: "level", op: "levelUp" })
+              mutateLevel("levelUp")
               onOpenChange(false)
             }}
           >

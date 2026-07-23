@@ -7,7 +7,7 @@ import {
   useAnimusEditHref,
 } from "@/components/shared/sheet-cards/animus-edit"
 import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 
 /**
  * The History card (rulebook 1.4): the two setting-defined slots — Ancestry
@@ -17,7 +17,7 @@ import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
  * plain.
  */
 export function HistoryCard() {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
   const narrative = entity.components.narrative
   const backstoryHref = useAnimusEditHref()({
     kind: "backstory",

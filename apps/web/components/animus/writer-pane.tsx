@@ -10,9 +10,9 @@ import {
   type NarrativeDocumentRef,
   type ResolvedDocument,
 } from "@/domain/character/animus/documents"
+import { CharacterRoot } from "@/domain/character/client"
 import type { IdentityTraitField } from "@/domain/character/identity-trait-messages"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { useAnimusDocument } from "./animus-context"
 import {
@@ -51,7 +51,7 @@ export function WriterPane() {
 }
 
 function PaneBody({ activeRef }: { activeRef: DocumentRef }) {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
 
   if (activeRef.kind === "notes") {
     return <NotesDocumentEditor key="notes:notes" />

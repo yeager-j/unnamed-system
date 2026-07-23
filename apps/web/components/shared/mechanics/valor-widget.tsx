@@ -9,7 +9,7 @@ import {
 import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
@@ -22,14 +22,19 @@ import { WidgetHeader, WidgetStepper } from "./widget-chrome"
  * Resist through the resolve fold); the others are narrative.
  */
 export function ValorWidget({ state }: { state: ValorState }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const adjust = (delta: number) =>
-    dispatch({
-      component: "mechanics",
-      mechanic: "valor",
-      transition: { op: "adjust", delta },
-    })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "mechanics",
+          mechanic: "valor",
+          transition: { op: "adjust", delta },
+        },
+      })
+    )
 
   return (
     <>

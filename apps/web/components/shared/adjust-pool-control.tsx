@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 import { AdjustPoolForm } from "./adjust-pool-controls"
 
@@ -36,7 +36,7 @@ export function AdjustPoolControl({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -57,9 +57,21 @@ export function AdjustPoolControl({
           decrementLabel={negativeLabel}
           incrementLabel={positiveLabel}
           onDecrement={(amount) =>
-            dispatch({ component, op: "damage", amount })
+            root.mutate(
+              characterEntityWrite({
+                entityId: root.value.profile.id,
+                write: { component, op: "damage", amount },
+              })
+            )
           }
-          onIncrement={(amount) => dispatch({ component, op: "heal", amount })}
+          onIncrement={(amount) =>
+            root.mutate(
+              characterEntityWrite({
+                entityId: root.value.profile.id,
+                write: { component, op: "heal", amount },
+              })
+            )
+          }
           onAfterSubmit={() => onOpenChange(false)}
         />
       </PopoverContent>

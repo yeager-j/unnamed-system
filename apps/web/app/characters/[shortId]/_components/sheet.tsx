@@ -2,13 +2,10 @@
 
 import { useState } from "react"
 
+import { CharacterProvider, CharacterRoot } from "@/domain/character/client"
 import type { CharacterMount } from "@/domain/character/load"
 import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
 import { buildRailView } from "@/domain/character/view/rail-view"
-import {
-  EntityWriteProvider,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
 
 import { ArchetypesTab } from "./archetypes/archetypes-tab"
 import { CombatTab } from "./combat/combat-tab"
@@ -21,7 +18,7 @@ import { SheetDock, type SheetTabKey } from "./tab-dock"
 
 /**
  * The character-sheet client root (S2a — UNN-557): mounts the
- * {@link EntityWriteProvider} over the route's `{ profile, canon }` mount, then
+ * {@link CharacterProvider} over the route's `{ profile, canon }` mount, then
  * renders the Showtime! frame — persistent left rail, tabbed content column,
  * bottom tab dock. Interactive by design (CH18): the predicted frame re-folds
  * `resolveEntity` through the registered mutation predictors, so every derived
@@ -29,9 +26,9 @@ import { SheetDock, type SheetTabKey } from "./tab-dock"
  */
 export function CharacterSheet({ character }: { character: CharacterMount }) {
   return (
-    <EntityWriteProvider profile={character.profile} canon={character.canon}>
+    <CharacterProvider canon={character.canon}>
       <SheetShell />
-    </EntityWriteProvider>
+    </CharacterProvider>
   )
 }
 
@@ -45,7 +42,7 @@ export function CharacterSheet({ character }: { character: CharacterMount }) {
  * as one.
  */
 function SheetShell() {
-  const { profile, entity, resolved } = useLoadedCharacter()
+  const { profile, entity, resolved } = CharacterRoot.useRoot().value
   const [tab, setTab] = useState<SheetTabKey>("combat")
 
   const rail = buildRailView(profile, entity, resolved)

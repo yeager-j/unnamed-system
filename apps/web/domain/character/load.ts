@@ -6,7 +6,7 @@ import { cache } from "react"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import { defineCanon, type Canon } from "@workspace/headcanon"
 
-import type { EntityCanonValue } from "@/domain/entity/commit/protocol"
+import type { CharacterCanonValue } from "@/domain/character/commit/protocol"
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { entityAxisFor } from "@/lib/db/axes"
@@ -15,8 +15,9 @@ import {
   loadPlayerCharacterByShortId,
   type LoadedPlayerCharacter,
 } from "@/lib/db/queries/load-player-character"
-import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
+
+import type { CharacterProfile } from "./types"
 
 /**
  * The character read side's **one load boundary** (ADR §2.6; UNN-556): a
@@ -27,18 +28,7 @@ import type { VersionClass } from "@/lib/db/version-classes"
 
 /** The app-owned fields (typed off the table) a character surface renders and
  *  writes around — content-named, never storage-tiered (the F1 rule). */
-export interface CharacterProfile {
-  id: string
-  shortId: string
-  ownerId: string
-  campaignId: string | null
-  status: PlayerCharacterStatus
-  builderStep: number
-  name: string
-  portraitUrl: string | null
-  pronouns: string | null
-  notes: string | null
-}
+export type { CharacterProfile } from "./types"
 
 /**
  * What a character route's server side holds: the app profile, the authored
@@ -50,7 +40,7 @@ export interface CharacterProfile {
  * `versions` is **read evidence for the canon, never a write token** (the P2d
  * cutover, UNN-676): it exists solely so {@link toCharacterCanon} can stamp
  * the revision vector after route-level redaction has run. No client code
- * reads it — the mounted provider receives only `{ profile, canon }`.
+ * reads it — the mounted provider receives the resulting canon.
  */
 export interface LoadedCharacter {
   profile: CharacterProfile
@@ -143,35 +133,30 @@ export const loadCharacterByShortId = cache(
 
 /**
  * Projects a loaded character into a Headcanon {@link Canon} observing the four
- * entity axes (UNN-673, AC #3). The canon value is what those axes govern: the
- * authored {@link Entity}, its {@link ResolvedEntity}, and the identity columns
- * the `identity` axis owns (UNN-675). It is still not the whole `profile` — ids
- * are immutable and `status`/`builderStep` are unversioned subtype facts, so no
- * axis revision speaks for them.
+ * entity axes (UNN-673, AC #3). The canon value is the complete character
+ * aggregate consumed by the shared root: its profile, authored {@link Entity},
+ * and {@link ResolvedEntity}.
  *
- * The identity slice and the four revisions come from one `entity`-row observation
- * (a single SELECT in {@link loadCharacterByShortId}), so they share one snapshot
- * — the "one authoritative observation" invariant holds without a
+ * The profile and four revisions come from one joined row observation (a single
+ * SELECT in {@link loadCharacterByShortId}), so they share one snapshot — the
+ * "one authoritative observation" invariant holds without a
  * snapshot-isolated multi-query loader. `defineCanon` brands the raw version
  * integers and throws if a stored column is not a valid revision.
  *
  * Call this **after** `redactLoadedCharacterForViewer` — the canon value is the
  * client's optimistic base, so a pre-redaction canon would hand a public viewer
- * the secrets the route boundary just stripped. The identity columns remain
- * projected on {@link CharacterProfile} for surfaces outside a provider mount
- * (roster labels, metadata); inside the mounted frame the provider overlays the
- * predicted `identity` slice, so the canon is the one client authority.
+ * the secrets the route boundary just stripped.
  */
 export function toCharacterCanon(
   loaded: LoadedCharacter
-): Canon<EntityCanonValue> {
+): Canon<CharacterCanonValue> {
   const { versions } = loaded
-  const { id, name, pronouns, portraitUrl, notes } = loaded.profile
+  const { id } = loaded.profile
   return defineCanon({
     value: {
+      profile: loaded.profile,
       entity: loaded.entity,
       resolved: loaded.resolved,
-      identity: { name, pronouns, portraitUrl, notes },
     },
     revisions: {
       [entityAxisFor.identity(id)]: versions.identity,
@@ -183,21 +168,17 @@ export function toCharacterCanon(
 }
 
 /**
- * Exactly what a mounted `EntityWriteProvider` needs across the RSC boundary
- * (P2d — UNN-676): the app profile plus the versioned canon. Deliberately
- * **not** the whole {@link LoadedCharacter} — the canon value already carries
- * `entity`/`resolved`, so shipping the triple alongside it would serialize the
- * component bag twice into the client payload.
+ * Exactly what a mounted `CharacterProvider` needs across the RSC boundary:
+ * one versioned character canon, without a duplicate profile or entity payload.
  */
 export interface CharacterMount {
-  profile: CharacterProfile
-  canon: Canon<EntityCanonValue>
+  canon: Canon<CharacterCanonValue>
 }
 
 /** Projects one (already redacted, where applicable) loaded character into its
  *  provider-mount shape. */
 export function toCharacterMount(loaded: LoadedCharacter): CharacterMount {
-  return { profile: loaded.profile, canon: toCharacterCanon(loaded) }
+  return { canon: toCharacterCanon(loaded) }
 }
 
 /**

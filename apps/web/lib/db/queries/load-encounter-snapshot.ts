@@ -193,7 +193,7 @@ async function projectSnapshotCore(
  * A durable combatant the watch viewer owns: the roster id it occupies (the key
  * the snapshot's overlay reads correlate on), its provider mount (profile +
  * versioned canon), and the encounter context its derived values are re-folded
- * with — the watch column's `EntityWriteProvider` re-derives `resolved` from
+ * with — the watch column's `CharacterProvider` re-derives `resolved` from
  * the predicted entity through it, so a click's predicted numbers match the
  * server's.
  */

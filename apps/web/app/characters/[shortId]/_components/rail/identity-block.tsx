@@ -11,8 +11,8 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { RailArchetype, RailView } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { LINEAGE_LABELS } from "@/domain/labels"
 
 /**
@@ -47,7 +47,7 @@ function Pill({ children }: { children: React.ReactNode }) {
 
 function ArchetypePill({ archetype }: { archetype: RailArchetype }) {
   const role = useViewerRole()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const [open, setOpen] = useState(false)
 
   const label =
@@ -87,11 +87,16 @@ function ArchetypePill({ archetype }: { archetype: RailArchetype }) {
                         type="button"
                         disabled={isActive}
                         onClick={() => {
-                          dispatch({
-                            component: "archetypes",
-                            op: "setActive",
-                            archetypeKey: option.key,
-                          })
+                          root.mutate(
+                            characterEntityWrite({
+                              entityId: root.value.profile.id,
+                              write: {
+                                component: "archetypes",
+                                op: "setActive",
+                                archetypeKey: option.key,
+                              },
+                            })
+                          )
                           setOpen(false)
                         }}
                         className={cn(

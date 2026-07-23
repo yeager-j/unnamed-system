@@ -10,12 +10,12 @@ import {
   refuseMutation,
 } from "@workspace/headcanon/next/server"
 
+import { buildFinalizePatch } from "@/domain/character/commit/finalize"
 import {
-  entityFinalize,
-  entityIdentity,
-  entityWrite,
-} from "@/domain/entity/commit/protocol"
-import { buildFinalizePatch } from "@/domain/entity/finalize"
+  characterEntityWrite,
+  characterFinalize,
+  characterIdentityWrite,
+} from "@/domain/character/commit/protocol"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import type { ShowtimeMutationCommand } from "@/lib/actions/mutations/environment"
@@ -32,19 +32,22 @@ import {
   admitEntityWrite,
   commitAdmittedEntityWrite,
   type AdmittedEntityWrite,
-} from "../entity-row-store"
+} from "../../entity/entity-row-store"
 import {
   admitIdentityWrite,
   commitAdmittedIdentityWrite,
   type AdmittedIdentityWrite,
-} from "../identity-store"
-import { revalidateCharacterList, revalidateEntity } from "../revalidate"
-import { advanceEntityAxisGuarded } from "../version-guard"
+} from "../../entity/identity-store"
+import {
+  revalidateCharacterList,
+  revalidateEntity,
+} from "../../entity/revalidate"
+import { advanceEntityAxisGuarded } from "../../entity/version-guard"
 
 type EntityMutation =
-  | typeof entityWrite
-  | typeof entityIdentity
-  | typeof entityFinalize
+  | typeof characterEntityWrite
+  | typeof characterIdentityWrite
+  | typeof characterFinalize
 type EntityMutationCommand<
   Mutation extends EntityMutation,
   Projection,
@@ -90,7 +93,7 @@ export const entityWriteCommand = {
     })
   },
 } satisfies EntityMutationCommand<
-  typeof entityWrite,
+  typeof characterEntityWrite,
   { readonly shortId: string; readonly versionClass: VersionClass },
   AdmittedEntityWrite
 >
@@ -118,7 +121,7 @@ export const entityIdentityCommand = {
     })
   },
 } satisfies EntityMutationCommand<
-  typeof entityIdentity,
+  typeof characterIdentityWrite,
   { readonly shortId: string },
   AdmittedIdentityWrite
 >
@@ -186,7 +189,7 @@ export const entityFinalizeCommand = {
     })
   },
 } satisfies EntityMutationCommand<
-  typeof entityFinalize,
+  typeof characterFinalize,
   { readonly shortId: string },
   AdmittedFinalize
 >

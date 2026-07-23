@@ -4,8 +4,8 @@ import { useState } from "react"
 
 import { AdjustPoolControl } from "@/components/shared/adjust-pool-control"
 import { VitalsBlock } from "@/components/shared/vitals-block"
+import { CharacterRoot } from "@/domain/character/client"
 import { buildRailView } from "@/domain/character/view/rail-view"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 /**
  * The own-sheet column's masthead, shared by both watches (UNN-566): identity,
@@ -18,7 +18,7 @@ import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
  * reason.
  */
 export function OwnerSheetHeader() {
-  const { profile, entity, resolved } = useLoadedCharacter()
+  const { profile, entity, resolved } = CharacterRoot.useRoot().value
   const [open, setOpen] = useState<"hp" | "sp" | null>(null)
 
   const view = buildRailView(profile, entity, resolved)

@@ -13,11 +13,8 @@ import {
 } from "@workspace/ui/components/command"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
 
 import { SHEET_TABS, type SheetTabKey } from "./tab-dock"
 
@@ -34,8 +31,8 @@ export function SheetCommandPalette({
   onNavigate: (tab: SheetTabKey) => void
 }) {
   const role = useViewerRole()
-  const { resolved } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { resolved } = root.value
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -54,7 +51,15 @@ export function SheetCommandPalette({
     setOpen(false)
   }
 
-  const write = (descriptor: EntityWrite) => run(() => dispatch(descriptor))
+  const write = (descriptor: EntityWrite) =>
+    run(() =>
+      root.mutate(
+        characterEntityWrite({
+          entityId: root.value.profile.id,
+          write: descriptor,
+        })
+      )
+    )
 
   const vitals: Array<{ label: string; descriptor: EntityWrite }> = []
   if (role === "owner") {

@@ -6,10 +6,7 @@ import { useState } from "react"
 import { sortArchetypesByPath } from "@workspace/game-v2/archetypes/display"
 
 import { Sparkle } from "@/components/shared/celestial"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { creationArchetypes } from "@/domain/game-engine-v2"
 import { PATH_CHOICE_LABELS } from "@/domain/labels"
 
@@ -32,8 +29,8 @@ import { ArchetypeDialog } from "./archetype-dialog"
  * (progression class) and reads back off the shared optimistic frame.
  */
 export function ArchetypeGrid() {
-  const { entity } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { entity } = root.value
   const pathChoice = entity.components.path?.choice ?? "balanced"
   const optimisticKey = entity.components.archetypes?.origin ?? null
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -48,13 +45,11 @@ export function ArchetypeGrid() {
 
   function handleSelect(archetypeKey: string) {
     if (archetypeKey === optimisticKey) return
-    dispatch(
-      { component: "archetypes", op: "setOrigin", archetypeKey },
-      {
-        messages: {
-          error: "Couldn't save your Origin. Try again.",
-        },
-      }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "archetypes", op: "setOrigin", archetypeKey },
+      })
     )
   }
 

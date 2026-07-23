@@ -7,13 +7,13 @@ import {
 } from "@/lib/__fixtures__/seed-characters"
 
 import {
-  entityFinalize,
-  entityIdentity,
+  characterEntityWrite,
+  characterFinalize,
+  characterIdentityWrite,
+  characterProtocol,
   entityIdentityArgs,
-  entityProtocol,
-  entityWrite,
   entityWriteArgs,
-  type EntityCanonValue,
+  type CharacterCanonValue,
 } from "./protocol"
 
 const SEED_IDENTITY = {
@@ -24,31 +24,41 @@ const SEED_IDENTITY = {
 }
 const mutationContext = { mutationId: "mutation-1" }
 
-function seedState(slug: string): EntityCanonValue {
+function seedState(slug: string): CharacterCanonValue {
   const entity = seedCharacterToEntity(
     SEED_CHARACTERS.find((c) => c.slug === slug)!
   )
   return {
+    profile: {
+      id: entity.id,
+      shortId: "character-1",
+      ownerId: "user-1",
+      campaignId: null,
+      status: "draft",
+      builderStep: 0,
+      ...SEED_IDENTITY,
+    },
     entity,
     resolved: resolveEntity(entity),
-    identity: { ...SEED_IDENTITY },
   }
 }
 
 describe("entity protocol registration", () => {
   it("registers all three write species under one versioned protocol id", () => {
-    expect(entityProtocol.id).toBe("showtime.entity.v1")
-    expect(entityProtocol.mutationsByName["entity.write"]).toBe(entityWrite)
-    expect(entityProtocol.mutationsByName["entity.identity"]).toBe(
-      entityIdentity
+    expect(characterProtocol.id).toBe("showtime.entity.v1")
+    expect(characterProtocol.mutationsByName["entity.write"]).toBe(
+      characterEntityWrite
     )
-    expect(entityProtocol.mutationsByName["entity.finalize"]).toBe(
-      entityFinalize
+    expect(characterProtocol.mutationsByName["entity.identity"]).toBe(
+      characterIdentityWrite
+    )
+    expect(characterProtocol.mutationsByName["entity.finalize"]).toBe(
+      characterFinalize
     )
   })
 
   it("factories an invocation carrying only name + args", () => {
-    const invocation = entityWrite({
+    const invocation = characterEntityWrite({
       entityId: "e1",
       write: { component: "vitals", op: "damage", amount: 2 },
     })
@@ -78,7 +88,7 @@ describe("entity.finalize predictor", () => {
         },
       },
     }
-    const result = entityFinalize.predict(
+    const result = characterFinalize.predict(
       state,
       { entityId: state.entity.id },
       mutationContext
@@ -91,7 +101,7 @@ describe("entity.finalize predictor", () => {
     const state = seedState("warrior")
     state.entity.components.archetypes = undefined
 
-    const result = entityFinalize.predict(
+    const result = characterFinalize.predict(
       state,
       { entityId: state.entity.id },
       mutationContext
@@ -114,7 +124,7 @@ describe("entity.finalize predictor", () => {
       reason: "Name your character.",
     }
 
-    expect(entityFinalize.refusal.parse(refusal)).toEqual(refusal)
+    expect(characterFinalize.refusal.parse(refusal)).toEqual(refusal)
   })
 })
 
@@ -141,7 +151,7 @@ describe("entity.write predictor", () => {
     const state = seedState("warrior")
     const before = state.resolved.components.vitals?.currentHP
 
-    const result = entityWrite.predict(
+    const result = characterEntityWrite.predict(
       state,
       {
         entityId: state.entity.id,
@@ -164,14 +174,14 @@ describe("entity.write predictor", () => {
       entityId: state.entity.id,
       write: { component: "vitals", op: "damage", amount: 3 },
     } as const
-    const a = entityWrite.predict(state, args, mutationContext)
-    const b = entityWrite.predict(state, args, mutationContext)
+    const a = characterEntityWrite.predict(state, args, mutationContext)
+    const b = characterEntityWrite.predict(state, args, mutationContext)
     expect(a).toEqual(b)
   })
 
-  it("carries the identity columns through untouched", () => {
+  it("carries the character profile through untouched", () => {
     const state = seedState("warrior")
-    const result = entityWrite.predict(
+    const result = characterEntityWrite.predict(
       state,
       {
         entityId: state.entity.id,
@@ -182,7 +192,7 @@ describe("entity.write predictor", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.identity).toEqual(SEED_IDENTITY)
+    expect(result.value.profile).toEqual(state.profile)
   })
 })
 
@@ -215,7 +225,7 @@ describe("entity.identity predictor", () => {
   it("replaces only the submitted column", () => {
     const state = seedState("warrior")
 
-    const result = entityIdentity.predict(
+    const result = characterIdentityWrite.predict(
       state,
       {
         entityId: state.entity.id,
@@ -226,13 +236,13 @@ describe("entity.identity predictor", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.identity).toEqual({
-      ...SEED_IDENTITY,
+    expect(result.value.profile).toEqual({
+      ...state.profile,
       pronouns: "she/her",
     })
     // Pure: the input state is untouched, and the entity half is shared by
     // reference rather than re-derived — an identity write resolves nothing.
-    expect(state.identity.pronouns).toBe("they/them")
+    expect(state.profile.pronouns).toBe("they/them")
     expect(result.value.entity).toBe(state.entity)
     expect(result.value.resolved).toBe(state.resolved)
   })
@@ -240,7 +250,7 @@ describe("entity.identity predictor", () => {
   it("canonicalizes a cleared optional column to null, as the authority does", () => {
     const state = seedState("warrior")
 
-    const cleared = entityIdentity.predict(
+    const cleared = characterIdentityWrite.predict(
       state,
       {
         entityId: state.entity.id,
@@ -251,6 +261,6 @@ describe("entity.identity predictor", () => {
 
     expect(cleared.ok).toBe(true)
     if (!cleared.ok) return
-    expect(cleared.value.identity.pronouns).toBeNull()
+    expect(cleared.value.profile.pronouns).toBeNull()
   })
 })

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest"
 
 import { emptyNarrative } from "@workspace/game-v2/narrative"
 
+import { draftEntityComponents } from "@/domain/character/draft"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
 
-import { draftEntityComponents } from "./draft"
 import { buildFinalizePatch, type FinalizeDeps } from "./finalize"
 
 /**

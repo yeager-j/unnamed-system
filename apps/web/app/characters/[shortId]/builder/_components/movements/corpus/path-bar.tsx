@@ -8,10 +8,7 @@ import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { Sparkle } from "@/components/shared/celestial"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { PATH_CHOICE_LABELS } from "@/domain/labels"
 
 function formatDie(die: { hitDie: number; skillDie: number }): string {
@@ -30,19 +27,17 @@ function formatDie(die: { hitDie: number; skillDie: number }): string {
  * dispatch (UNN-556) — the selection reads back off the shared frame.
  */
 export function PathBar() {
-  const { entity } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { entity } = root.value
   const optimisticPath = entity.components.path?.choice ?? "balanced"
 
   function handleChange(next: PathChoice) {
     if (next === optimisticPath) return
-    dispatch(
-      { component: "path", op: "setChoice", choice: next },
-      {
-        messages: {
-          error: "Couldn't save your path. Try again.",
-        },
-      }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "path", op: "setChoice", choice: next },
+      })
     )
   }
 

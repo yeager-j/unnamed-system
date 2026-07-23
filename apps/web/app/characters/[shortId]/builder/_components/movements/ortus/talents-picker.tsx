@@ -28,10 +28,7 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { resolveOriginTalentChoices } from "@/domain/game-engine-v2"
 import { talentLabel } from "@/domain/labels"
 
@@ -60,8 +57,8 @@ import { talentLabel } from "@/domain/labels"
  * prunes the stored list for real).
  */
 export function TalentsPicker() {
-  const { entity } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { entity } = root.value
   const anchor = useComboboxAnchor()
 
   const originArchetypeKey = entity.components.archetypes?.origin ?? null
@@ -80,13 +77,11 @@ export function TalentsPicker() {
       toast.error(`You can pick at most ${MAX_PLAYER_ADDED_TALENTS} Talents.`)
       return
     }
-    dispatch(
-      { component: "talents", op: "setGained", keys: next },
-      {
-        messages: {
-          error: "Couldn't save Talents. Try again.",
-        },
-      }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "talents", op: "setGained", keys: next },
+      })
     )
   }
 

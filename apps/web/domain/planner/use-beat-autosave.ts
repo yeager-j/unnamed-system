@@ -4,12 +4,12 @@ import { useRef } from "react"
 
 import { ok, type Result } from "@workspace/result"
 
+import { saveBeatProseAction } from "@/lib/actions/campaign-notes/prose"
+import type { SaveBeatProseError } from "@/lib/actions/campaign-notes/prose.schema"
 import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveReturn,
-} from "@/domain/entity/use-debounced-auto-save"
-import { saveBeatProseAction } from "@/lib/actions/campaign-notes/prose"
-import type { SaveBeatProseError } from "@/lib/actions/campaign-notes/prose.schema"
+} from "@/lib/sync/use-debounced-auto-save"
 
 /** The beat editor's autosave debounce (D10's ~800 ms; map uses 600, entity fields 500). */
 const BEAT_DEBOUNCE_MS = 800

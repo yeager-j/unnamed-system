@@ -11,8 +11,8 @@ import {
 
 import { AnimusDocumentProvider } from "@/components/animus/animus-context"
 import { WriterSidebar } from "@/components/animus/writer-sidebar"
+import { CharacterProvider } from "@/domain/character/client"
 import type { CharacterMount } from "@/domain/character/load"
-import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 
 import { BuilderAnimusSidebarHeader } from "./movements/animus/writer-sidebar-header"
 
@@ -44,7 +44,7 @@ export function BuilderProviderShell({
 
   return (
     <AnimusDocumentProvider>
-      <EntityWriteProvider profile={character.profile} canon={character.canon}>
+      <CharacterProvider canon={character.canon}>
         <SidebarProvider
           open={isAnimus}
           onOpenChange={() => {}}
@@ -65,7 +65,7 @@ export function BuilderProviderShell({
           </Sidebar>
           <SidebarInset>{children}</SidebarInset>
         </SidebarProvider>
-      </EntityWriteProvider>
+      </CharacterProvider>
     </AnimusDocumentProvider>
   )
 }

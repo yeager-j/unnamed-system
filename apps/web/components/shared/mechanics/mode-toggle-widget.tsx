@@ -4,7 +4,7 @@ import { getMechanic } from "@workspace/game-v2/mechanics"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 import { WidgetHeader } from "./widget-chrome"
 
@@ -22,7 +22,7 @@ export function ModeToggleWidget({
   modeLabel: string
   on: boolean
 }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const definition = getMechanic(mechanic)
 
   return (
@@ -37,11 +37,16 @@ export function ModeToggleWidget({
           <Switch
             checked={on}
             onCheckedChange={(value) =>
-              dispatch({
-                component: "mechanics",
-                mechanic,
-                transition: { op: "setMode", value },
-              })
+              root.mutate(
+                characterEntityWrite({
+                  entityId: root.value.profile.id,
+                  write: {
+                    component: "mechanics",
+                    mechanic,
+                    transition: { op: "setMode", value },
+                  },
+                })
+              )
             }
             aria-label={modeLabel}
           />

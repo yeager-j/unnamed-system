@@ -13,7 +13,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 /**
  * The wallet (S2c — UNN-559): the gp readout plus the owner's coin-button
@@ -25,7 +25,7 @@ import { useEntityWrite } from "@/domain/entity/use-entity-write"
  */
 export function Wallet({ currency }: { currency: number }) {
   const role = useViewerRole()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
@@ -39,9 +39,11 @@ export function Wallet({ currency }: { currency: number }) {
   const apply = (op: "addCurrency" | "removeCurrency") => {
     if (!valid) return
     setOpen(false)
-    dispatch(
-      { component: "equipment", op, amount },
-      { messages: { error: "Couldn't update the wallet. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "equipment", op, amount },
+      })
     )
   }
 

@@ -12,12 +12,12 @@ import {
   refuseMutation,
 } from "@workspace/headcanon/next/server"
 
+import { buildFinalizePatch } from "@/domain/character/commit/finalize"
 import {
-  entityFinalize,
-  entityIdentity,
-  entityWrite,
-} from "@/domain/entity/commit/protocol"
-import { buildFinalizePatch } from "@/domain/entity/finalize"
+  characterEntityWrite,
+  characterFinalize,
+  characterIdentityWrite,
+} from "@/domain/character/commit/protocol"
 import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import type { Actor } from "@/lib/auth/actor"
@@ -31,13 +31,16 @@ import { playerCharacter } from "@/lib/db/schema/player-character"
 import {
   admitEntityWrite,
   commitAdmittedEntityWrite,
-} from "../entity-row-store"
+} from "../../entity/entity-row-store"
 import {
   admitIdentityWrite,
   commitAdmittedIdentityWrite,
-} from "../identity-store"
-import { revalidateCharacterList, revalidateEntity } from "../revalidate"
-import { advanceEntityAxisGuarded } from "../version-guard"
+} from "../../entity/identity-store"
+import {
+  revalidateCharacterList,
+  revalidateEntity,
+} from "../../entity/revalidate"
+import { advanceEntityAxisGuarded } from "../../entity/version-guard"
 
 /**
  * UNN-688 spike, question 3 revisited: the definer-scoped command factory.
@@ -62,36 +65,44 @@ async function projectAcceptedEntityMutation(context: {
   if (context.changesCharacterList) revalidateCharacterList()
 }
 
-export const entityWriteCommand = defineEntityMutationCommand(entityWrite, {
-  async screen({ executor, actor, args }) {
-    const screened = await admitEntityWrite(executor, actor, args)
-    return screened.ok
-      ? allowMutationScreening({
-          shortId: screened.value.pc.entity.shortId,
-          versionClass: screened.value.versionClass,
-        })
-      : denyMutation()
-  },
-  async admit({ tx, actor, args }) {
-    const admitted = await admitEntityWrite(tx, actor, args)
-    return admitted.ok ? allowMutation(admitted.value) : denyMutation()
-  },
-  async execute({ tx, args, evidence, stamp }) {
-    const committed = await commitAdmittedEntityWrite(tx, args, evidence, stamp)
-    return committed.ok ? acceptMutation() : refuseMutation(committed.error)
-  },
-  finalizeAccepted({ args, projection }) {
-    return projectAcceptedEntityMutation({
-      shortId: projection.shortId,
-      changesCharacterList:
-        args.write.component === "level" ||
-        args.write.component === "archetypes",
-    })
-  },
-})
+export const entityWriteCommand = defineEntityMutationCommand(
+  characterEntityWrite,
+  {
+    async screen({ executor, actor, args }) {
+      const screened = await admitEntityWrite(executor, actor, args)
+      return screened.ok
+        ? allowMutationScreening({
+            shortId: screened.value.pc.entity.shortId,
+            versionClass: screened.value.versionClass,
+          })
+        : denyMutation()
+    },
+    async admit({ tx, actor, args }) {
+      const admitted = await admitEntityWrite(tx, actor, args)
+      return admitted.ok ? allowMutation(admitted.value) : denyMutation()
+    },
+    async execute({ tx, args, evidence, stamp }) {
+      const committed = await commitAdmittedEntityWrite(
+        tx,
+        args,
+        evidence,
+        stamp
+      )
+      return committed.ok ? acceptMutation() : refuseMutation(committed.error)
+    },
+    finalizeAccepted({ args, projection }) {
+      return projectAcceptedEntityMutation({
+        shortId: projection.shortId,
+        changesCharacterList:
+          args.write.component === "level" ||
+          args.write.component === "archetypes",
+      })
+    },
+  }
+)
 
 export const entityIdentityCommand = defineEntityMutationCommand(
-  entityIdentity,
+  characterIdentityWrite,
   {
     async screen({ executor, actor, args }) {
       const screened = await admitIdentityWrite(executor, actor, args)
@@ -132,7 +143,7 @@ async function admitFinalize(
 }
 
 export const entityFinalizeCommand = defineEntityMutationCommand(
-  entityFinalize,
+  characterFinalize,
   {
     async screen({ executor, actor, args }) {
       const screened = await admitFinalize(executor, actor, args.entityId)

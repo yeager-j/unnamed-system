@@ -13,8 +13,8 @@ import { createPredictedRoot } from "@workspace/headcanon/react"
 import { createInMemoryInvalidationAdapter } from "@workspace/headcanon/testing"
 import { ok } from "@workspace/result"
 
+import { characterProtocol } from "@/domain/character/commit/protocol"
 import { combatProtocol } from "@/domain/combat/commit/protocol"
-import { entityProtocol } from "@/domain/entity/commit/protocol"
 import { entityIdentityAxis, entityVitalsAxis } from "@/lib/db/axes"
 
 function stamp(axis: string, value: number): AcceptedStamp {
@@ -29,7 +29,7 @@ describe("character and combat root invalidation isomorphism", () => {
     const refreshCharacter = vi.fn()
     const refreshCombat = vi.fn()
     const useCharacterRoot = createPredictedRoot({
-      protocol: entityProtocol,
+      protocol: characterProtocol,
       send: async () => ok(stamp(entityVitalsAxis("entity-1"), 2)),
       refresh: () => ({ acceptanceGraceMs: 0, request: refreshCharacter }),
       invalidations,

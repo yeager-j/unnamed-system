@@ -28,29 +28,16 @@ edge) — live in `__laws__/patch-monoid.laws.test.ts`. Never hand-compose
 patches with conditional spreads (`...(p.vitals && { … })`): that drops an
 explicit-`undefined` deletion, the exact edge the negative control proves.
 
-## Two write species — explained once
+## Generic entity writes
 
-- **Engine-component state** (vitals, rest, level, narrative, …) rides the
-  `entityWriteSchema` descriptor + `ENTITY_WRITERS`: server reads the row, applies
-  the pure op, merges — per-field discipline is structural (UNN-226
-  unrepresentable).
-- **App-owned identity columns** (name, portrait, pronouns, notes) ride the
-  `identityWriteSchema` descriptor + `identityWritePatch` (`identity.ts`). No
-  Writer, no `durableClass` to derive — they are the `identity` class by
-  construction — but the same per-field discipline: one field per invocation, the
-  patch composed server-side.
+Engine-component state (vitals, rest, level, narrative, …) rides the
+`entityWriteSchema` descriptor + `ENTITY_WRITERS`: an authority reads its
+container, applies the pure op, and merges the resulting patch. This folder
+does not define a root. Character and combat protocols each compose this
+vocabulary into the aggregate and ordering domain they actually own.
 
-Both are the same D35 storage projection surfacing at the write layer; do not
-route one through the other. **They do, however, share one write _protocol_**
-(Headcanon P2c — UNN-675): `entity.write` and `entity.identity` are both
-registered mutations on `entityProtocol`, so both take a receipt, stamp the axis
-they advance, and get its cache-tag expiry and realtime invalidation from the one
-executor. Two descriptors, one protocol.
-
-The remaining app columns are **not** on it, and the reason is mechanical: PC
-lifecycle state (`builderStep`, `status`, `campaignId`) lives on the unversioned
-`playerCharacter` subtype, so it advances no modeled version column and has no
-axis to stamp. Those stay plain owner-gated actions (`entity/builder-step.ts`).
+App-owned character identity columns and finalization are not generic entity
+transactions. They live in `domain/character/commit`.
 
 ## Adding a write family
 
@@ -61,19 +48,13 @@ ONLY for state a combat surface genuinely writes; the rejection test pins the
 subset. A multi-component patch (rest, levelUp) must keep its columns inside
 one version class — CH15's disjoint-footprint guarantee is per class.
 
-An **identity column** is smaller: one arm in `identityWriteSchema` + one case in
-`identityWritePatch`. Keep bounds in the schema and canonicalization in the patch
-— the schema must re-admit its own output, because the client sends the args it
-built and the authority parses them again, and both sides run the patch so the
-prediction and the stored column agree by construction.
+## The two optimistic roots (Open Q5 — container split stays)
 
-## The two optimistic hooks (Open Q5 — container split stays)
-
-`useEntityWrite` (character routes) and `useCombatantWrite` (encounters) both
-predict via the same Writers and both bind registered Headcanon mutations. The
-character root re-folds `resolveEntity`; the combat root predicts against the
-encounter container and then feeds that value into the encounter-event
-reducer. Both catch up through opaque canon-axis invalidations. That
+`CharacterRoot` and the combat root both predict via the same Writers and bind
+different registered Headcanon mutations. The character root re-folds
+`resolveEntity`; the combat root predicts against the encounter container and
+then feeds that value into the encounter-event reducer. Both catch up through
+opaque canon-axis invalidations. That
 **container** split stays deliberate because the two roots own different
 values, while character and combat writes to the same durable entity share the
 same four entity axes.
