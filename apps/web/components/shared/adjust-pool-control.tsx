@@ -16,8 +16,7 @@ import { AdjustPoolForm } from "./adjust-pool-controls"
  * one `damage`/`heal` descriptor — the server merges against its own row, so
  * back-to-back clicks sum (UNN-226 is structural now). Composes the shared
  * {@link AdjustPoolForm}; it adds only the controlled-open coordination (the
- * caller keeps one popover open at a time), the entity-write dispatch, and the
- * `pending` gate on the buttons.
+ * caller keeps one popover open at a time) and the entity-write dispatch.
  *
  * Rendered by the sheet's rail controls and by the watch view's own-sheet
  * column (UNN-566), which is why it isn't inlined in either.
@@ -37,7 +36,7 @@ export function AdjustPoolControl({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -57,7 +56,6 @@ export function AdjustPoolControl({
           inputId={`${label}-amount`}
           decrementLabel={negativeLabel}
           incrementLabel={positiveLabel}
-          disabled={pending}
           onDecrement={(amount) =>
             dispatch({ component, op: "damage", amount })
           }

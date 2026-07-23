@@ -84,7 +84,7 @@ function VictoriesControl({
   canLevelUp: boolean
   banked: number
 }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -119,7 +119,6 @@ function VictoriesControl({
             size="sm"
             variant="outline"
             className="border-gold/60 text-gold hover:bg-gold/10 hover:text-gold"
-            disabled={pending}
             onClick={() => {
               dispatch({ component: "level", op: "levelUp" })
               onOpenChange(false)

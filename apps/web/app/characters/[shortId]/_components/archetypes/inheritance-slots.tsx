@@ -113,7 +113,7 @@ function SlotRow({
   attributes: AttributeScores
   sourceGroups: InheritanceSourceGroup[]
 }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const invalid = slot !== null && !slot.isValid
   const filled = slot?.resolved != null
 
@@ -154,12 +154,7 @@ function SlotRow({
               filled={filled}
             />
             {filled ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={clear}
-              >
+              <Button size="sm" variant="ghost" onClick={clear}>
                 Clear
               </Button>
             ) : null}
@@ -202,7 +197,7 @@ function SlotPicker({
   sourceGroups: InheritanceSourceGroup[]
   filled: boolean
 }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const [open, setOpen] = useState(false)
 
   const assign = (sourceArchetypeKey: string, skillKey: string) => {
@@ -220,13 +215,7 @@ function SlotPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        render={
-          <Button
-            size="sm"
-            variant={filled ? "ghost" : "outline"}
-            disabled={pending}
-          />
-        }
+        render={<Button size="sm" variant={filled ? "ghost" : "outline"} />}
       >
         {filled ? (
           "Change"

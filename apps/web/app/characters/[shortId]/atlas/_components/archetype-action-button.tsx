@@ -51,7 +51,7 @@ export function ArchetypeActionButton({
   savedRanks: number
 } & ButtonProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   if (state.kind === "mastered") {
     return (
@@ -97,7 +97,7 @@ export function ArchetypeActionButton({
   return (
     <div className="flex flex-col items-end gap-1">
       <TooltipButton
-        disabled={noRanks || pending}
+        disabled={noRanks}
         disabledReason={NO_RANKS_REASON}
         title={noRanks ? NO_RANKS_REASON : undefined}
         onClick={() => setConfirmOpen(true)}

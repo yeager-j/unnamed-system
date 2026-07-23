@@ -22,7 +22,7 @@ export function ModeToggleWidget({
   modeLabel: string
   on: boolean
 }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const definition = getMechanic(mechanic)
 
   return (
@@ -36,7 +36,6 @@ export function ModeToggleWidget({
         <OwnerOnly>
           <Switch
             checked={on}
-            disabled={pending}
             onCheckedChange={(value) =>
               dispatch({
                 component: "mechanics",

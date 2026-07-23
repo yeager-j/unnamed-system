@@ -53,7 +53,7 @@ const VARIANT_COPY: Record<
  * silently clamping.
  */
 export function RestDialog() {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const [open, setOpen] = useState(false)
   const [variant, setVariant] = useState<RestVariant>("fullRest")
   const [diceToSpend, setDiceToSpend] = useState("")
@@ -95,12 +95,15 @@ export function RestDialog() {
 
   const confirm = () => {
     setRefusal(null)
-    dispatch(write, {
-      onSuccess: () => {
-        reset()
-        setOpen(false)
-      },
+    // The inline copy handles the synchronous predictor refusal, which fires
+    // inside `dispatch`. Once the local prediction succeeds the dialog closes
+    // immediately — one confirm is one rest, with no acceptance-latency window
+    // for a double-submit — so a later authority rejection must fall through
+    // to the default toast rather than writing inline copy nobody can see.
+    let dialogClosed = false
+    const result = dispatch(write, {
       onError: (error) => {
+        if (dialogClosed) return false
         if (error === "insufficient-skill-dice") {
           setRefusal("Not enough unspent Skill Dice for that.")
           return true
@@ -112,6 +115,11 @@ export function RestDialog() {
         return false
       },
     })
+    if (result.ok) {
+      dialogClosed = true
+      reset()
+      setOpen(false)
+    }
   }
 
   return (
@@ -190,7 +198,7 @@ export function RestDialog() {
         ) : null}
 
         <DialogFooter>
-          <Button disabled={pending || !inputsValid} onClick={confirm}>
+          <Button disabled={!inputsValid} onClick={confirm}>
             {VARIANT_COPY[variant].label}
           </Button>
         </DialogFooter>

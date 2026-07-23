@@ -21,7 +21,7 @@ import { WidgetHeader, WidgetStepper } from "./widget-chrome"
  * damage ladders by the resolve fold).
  */
 export function FrenzyWidget({ state }: { state: FrenzyState }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const write = (transition: unknown) =>
     dispatch({ component: "mechanics", mechanic: "frenzy", transition })
@@ -58,7 +58,7 @@ export function FrenzyWidget({ state }: { state: FrenzyState }) {
         <OwnerOnly>
           <Switch
             checked={state.frenzyMode}
-            disabled={pending || (!state.frenzyMode && state.pain === 0)}
+            disabled={!state.frenzyMode && state.pain === 0}
             onCheckedChange={(value) => write({ op: "setFrenzyMode", value })}
             aria-label="Frenzy Mode"
           />

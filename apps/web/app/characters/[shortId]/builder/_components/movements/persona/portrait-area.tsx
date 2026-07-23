@@ -43,8 +43,9 @@ export function PortraitArea() {
   const { profile } = useLoadedCharacter()
   const identityWrite = useIdentityWrite()
   const portraitUrl = profile.portraitUrl
+  // Only the Blob upload is a real wait — the identity write that follows it
+  // predicts, so the avatar swaps the instant the mutation dispatches.
   const [uploading, startTransition] = useTransition()
-  const pending = uploading || identityWrite.pending
   const inputRef = useRef<HTMLInputElement>(null)
 
   function openPicker() {
@@ -120,9 +121,9 @@ export function PortraitArea() {
           variant="outline"
           size="sm"
           onClick={openPicker}
-          disabled={pending}
+          disabled={uploading}
         >
-          {pending ? <Spinner /> : <CameraIcon weight="bold" />}
+          {uploading ? <Spinner /> : <CameraIcon weight="bold" />}
           {portraitUrl ? "Replace" : "Upload portrait"}
         </Button>
         {portraitUrl ? (
@@ -131,7 +132,7 @@ export function PortraitArea() {
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            disabled={pending}
+            disabled={uploading}
           >
             <TrashIcon weight="bold" />
             Remove

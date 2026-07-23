@@ -21,7 +21,7 @@ import { WidgetHeader, WidgetStepper } from "./widget-chrome"
  * owner's step/reset controls.
  */
 export function PerfectionWidget({ state }: { state: PerfectionState }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const write = (transition: unknown) =>
     dispatch({ component: "mechanics", mechanic: "perfection", transition })
@@ -58,7 +58,7 @@ export function PerfectionWidget({ state }: { state: PerfectionState }) {
           <Button
             size="sm"
             variant="ghost"
-            disabled={pending || state.rank === 0}
+            disabled={state.rank === 0}
             onClick={() => write({ op: "reset" })}
           >
             Reset

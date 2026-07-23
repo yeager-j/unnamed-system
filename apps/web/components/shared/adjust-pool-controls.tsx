@@ -26,7 +26,6 @@ export function AdjustPoolForm({
   inputId,
   decrementLabel,
   incrementLabel,
-  disabled = false,
   onDecrement,
   onIncrement,
   onAfterSubmit,
@@ -34,9 +33,6 @@ export function AdjustPoolForm({
   inputId: string
   decrementLabel: string
   incrementLabel: string
-  /** Disable both action buttons while a write is in flight (the entity-write
-   *  callers pass `pending`); the input stays editable. Default false. */
-  disabled?: boolean
   onDecrement: (amount: number) => void
   onIncrement: (amount: number) => void
   onAfterSubmit: () => void
@@ -75,16 +71,11 @@ export function AdjustPoolForm({
         <Button
           size="sm"
           variant="destructive"
-          disabled={disabled}
           onClick={() => submit(onDecrement)}
         >
           {decrementLabel}
         </Button>
-        <Button
-          size="sm"
-          disabled={disabled}
-          onClick={() => submit(onIncrement)}
-        >
+        <Button size="sm" onClick={() => submit(onIncrement)}>
           {incrementLabel}
         </Button>
       </div>
