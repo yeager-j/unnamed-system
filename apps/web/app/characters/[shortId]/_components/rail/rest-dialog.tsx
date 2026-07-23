@@ -53,7 +53,7 @@ const VARIANT_COPY: Record<
  * silently clamping.
  */
 export function RestDialog() {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
   const [open, setOpen] = useState(false)
   const [variant, setVariant] = useState<RestVariant>("fullRest")
   const [diceToSpend, setDiceToSpend] = useState("")
@@ -190,7 +190,7 @@ export function RestDialog() {
         ) : null}
 
         <DialogFooter>
-          <Button disabled={pending || !inputsValid} onClick={confirm}>
+          <Button disabled={!inputsValid} onClick={confirm}>
             {VARIANT_COPY[variant].label}
           </Button>
         </DialogFooter>

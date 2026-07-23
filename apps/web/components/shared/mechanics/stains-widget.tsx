@@ -29,7 +29,7 @@ import { WidgetHeader } from "./widget-chrome"
  */
 export function StainsWidget({ state }: { state: StainsState }) {
   const role = useViewerRole()
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const write = (transition: unknown) =>
     dispatch({ component: "mechanics", mechanic: "stains", transition })
@@ -46,7 +46,6 @@ export function StainsWidget({ state }: { state: StainsState }) {
               key={index}
               index={index}
               token={token}
-              pending={pending}
               onPick={(element) =>
                 write({ op: "setSlot", slotIndex: index, element })
               }
@@ -62,7 +61,6 @@ export function StainsWidget({ state }: { state: StainsState }) {
             size="sm"
             variant="ghost"
             className="self-end"
-            disabled={pending}
             onClick={() => write({ op: "clear" })}
           >
             Clear
@@ -89,12 +87,10 @@ function StainToken({ token }: { token: StainElement | null }) {
 function StainSlotPicker({
   index,
   token,
-  pending,
   onPick,
 }: {
   index: number
   token: StainElement | null
-  pending: boolean
   onPick: (element: StainElement | null) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -103,7 +99,6 @@ function StainSlotPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         aria-label={`Stain slot ${index + 1}`}
-        disabled={pending}
         className={cn(
           "flex h-8 items-center justify-center rounded-md border text-[10px] font-semibold uppercase transition-colors hover:border-primary/60",
           token

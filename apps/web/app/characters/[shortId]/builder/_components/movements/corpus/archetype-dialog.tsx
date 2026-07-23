@@ -36,14 +36,12 @@ export function ArchetypeDialog({
   archetype,
   pathChoice,
   selected,
-  pending,
   onChoose,
   onClose,
 }: {
   archetype: Archetype | null
   pathChoice: PathChoice
   selected: boolean
-  pending: boolean
   onChoose: () => void
   onClose: () => void
 }) {
@@ -58,7 +56,6 @@ export function ArchetypeDialog({
           archetype={shown}
           pathChoice={pathChoice}
           selected={selected}
-          pending={pending}
           onChoose={onChoose}
           onClose={onClose}
         />
@@ -71,14 +68,12 @@ function PanelBody({
   archetype,
   pathChoice,
   selected,
-  pending,
   onChoose,
   onClose,
 }: {
   archetype: Archetype
   pathChoice: PathChoice
   selected: boolean
-  pending: boolean
   onChoose: () => void
   onClose: () => void
 }) {
@@ -114,7 +109,7 @@ function PanelBody({
         <Button
           type="button"
           variant={selected ? "secondary" : "default"}
-          disabled={selected || pending}
+          disabled={selected}
           onClick={onChoose}
         >
           {selected

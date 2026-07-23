@@ -78,7 +78,7 @@ export function WriterSidebar({
 function SidebarSection({ group }: { group: DocumentGroup }) {
   const { activeRef, selectDocument, resetToDefault } = useAnimusDocument()
   const { entity } = useLoadedCharacter()
-  const { pending, dispatch } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const showCount = group.kind === "knives" || group.kind === "chains"
   // Single-row sections (Backstory, Notes) label themselves via the row; the
@@ -176,7 +176,6 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
                   <SidebarMenuAction
                     showOnHover
                     aria-label={`Remove ${displayedLabel}`}
-                    disabled={pending}
                     onClick={() => handleRemove(entry)}
                   >
                     <TrashIcon weight="bold" />
@@ -190,7 +189,6 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={handleAdd}
-                disabled={pending}
                 className="text-sidebar-foreground/60 hover:text-sidebar-foreground"
               >
                 <PlusIcon weight="bold" />
