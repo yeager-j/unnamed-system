@@ -103,14 +103,7 @@ describe("commitEntityWrite — executor-neutral durable component writes", () =
       stamp
     )
 
-    expect(result).toEqual(
-      ok({
-        version: 8,
-        shortId: "s1",
-        versionClass: "vitals",
-        status: "finalized",
-      })
-    )
+    expect(result).toEqual(ok(undefined))
     expect(stamp.accepted().revisions).toEqual({
       [entityVitalsAxis(ENTITY_ID)]: 8,
     })

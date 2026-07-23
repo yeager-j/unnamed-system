@@ -348,6 +348,39 @@ contention retry, canonization, or invalidation. The positive LOC delta is the
 cost of introducing two explicit domain intent vocabularies and authorities,
 not preserving the coordination this phase set out to delete.
 
+## Phase 4b — post-migration contraction (UNN-695)
+
+### Measured: **−97 net production code lines in `apps/web`**
+
+The deletion pass removes the last application-only shapes left by the
+Headcanon migration:
+
+- deletes the orphan encounter mutation envelope and the three snapshot route
+  handlers; their query loaders remain because the RSC watch pages consume them;
+- removes the DM loader's unused raw encounter and Map Instance version fields,
+  while retaining both versions in the observed canon revision map;
+- contracts both entity Stores to `Result<void, ...>`: the stamp remains the
+  observable success, while the queue-era `stale` error and unused commit
+  details disappear;
+- removes the direct `immer` dependency from `apps/web`; `game-v2` remains its
+  dependency owner; and
+- removes the app depcheck's unused external-finalizer exception machinery.
+
+### Tests: **−66 net app code lines**
+
+The two direct snapshot endpoint assertions are deleted. The signed-out
+encounter watch redaction test and the dungeon watch's polling-driven
+explore/combat phase transition remain as the supported-interface coverage.
+Store and loader tests now assert the contracted result and loader shapes.
+
+### The gate: passed
+
+No production code fetches or links to the deleted snapshot endpoints.
+`commitEntityWrite` remains the combat durable-write seam, while the Store
+results expose only typed refusals and stamp-backed success. The underlying
+dungeon, encounter, and combat snapshot loaders retain their RSC watch
+consumers.
+
 ---
 
 ## Running total
@@ -362,6 +395,7 @@ not preserving the coordination this phase set out to delete.
 | P3b ergonomics (UNN-686)                   |                                             −84 | passed       |
 | P3c — watch-only (UNN-680)                 |                                          −1,150 | passed       |
 | P4 — Stage authoring roots (UNN-692)       |                                            +602 | passed       |
+| P4b — post-migration contraction (UNN-695) |                                             −97 | passed       |
 
 End-of-Phase-3 target: ≈ −1,100 to −1,800. Reaching it depends on Phase 3
 deleting the transitional bridges and the `lib/sync` runtime, which is where the
@@ -376,3 +410,8 @@ Running total through P4: **−1,280 production code lines in `apps/web`**. Stag
 adds two new domain command surfaces while deleting the last client-version
 autosave queue; the total remains inside the original end-of-Phase-3 contraction
 range.
+
+Running total through P4b: **−1,377 production code lines in `apps/web`**.
+UNN-695 removes the remaining unused compatibility surfaces after the
+publication-decision proof; it does not remove any supported watch loader or
+real watch behavior.

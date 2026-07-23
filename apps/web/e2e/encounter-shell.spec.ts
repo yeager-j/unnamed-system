@@ -1,11 +1,4 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test"
-
-import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
+import { expect, test, type Page } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -564,8 +557,8 @@ test("the watch's own-sheet column adjusts the owner's HP durably (UNN-566)", as
 })
 
 test.describe("signed out", () => {
-  // A fresh context with no auth cookie — the watch and the snapshot API are
-  // public, and the spectator relationship is the strictest redaction tier.
+  // A fresh context with no auth cookie — the watch is public, and the
+  // spectator relationship is the strictest redaction tier.
   test.use({ storageState: { cookies: [], origins: [] } })
 
   const WATCH_URL = `${encounterTarget.live.url}/watch`
@@ -582,7 +575,8 @@ test.describe("signed out", () => {
     await expect(page.getByText("Cave Bat").first()).toBeVisible()
 
     // Redaction proxy: no stat section renders anywhere on the spectator page
-    // (one snapshot read — the API test below is the structural check).
+    // The watch receives one server-redacted snapshot, so no stat section
+    // renders anywhere on the spectator page.
     expect(await page.getByText("Attributes").count()).toBe(0)
     expect(await page.getByText("Affinities").count()).toBe(0)
 
@@ -592,33 +586,4 @@ test.describe("signed out", () => {
       await page.getByRole("complementary", { name: "Your characters" }).count()
     ).toBe(0)
   })
-
-  test("the snapshot API structurally drops enemy attributes/affinities (UNN-535)", async ({
-    request,
-  }) => {
-    const snapshot = await fetchSnapshot(request, encounterTarget.live.shortId)
-
-    const enemies = snapshot.combatants.filter(
-      (combatant) => combatant.components.allegiance?.side === "enemies"
-    )
-    expect(enemies.length).toBeGreaterThan(0)
-    for (const enemy of enemies) {
-      expect("attributes" in enemy.components).toBe(false)
-      expect("affinities" in enemy.components).toBe(false)
-    }
-  })
 })
-
-/** GETs the public snapshot route unauthenticated and returns the redacted
- *  snapshot body (asserting the 200 envelope on the way). */
-async function fetchSnapshot(
-  request: APIRequestContext,
-  shortId: string
-): Promise<SpatialEncounterSnapshot> {
-  const response = await request.get(`/api/encounter/${shortId}/snapshot`)
-  expect(response.status()).toBe(200)
-  const body = (await response.json()) as {
-    canon: { value: SpatialEncounterSnapshot }
-  }
-  return body.canon.value
-}
