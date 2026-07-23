@@ -47,12 +47,6 @@ export type IdentityWriteRejection =
   | "entity-not-found"
   | EntityWriteAuthRejection
 
-/** The bumped identity token and the entity's `shortId` for accepted projection. */
-export interface IdentityCommit {
-  version: number
-  shortId: string
-}
-
 export interface AdmittedIdentityWrite {
   readonly pc: LoadedPlayerCharacter
 }
@@ -75,8 +69,8 @@ export async function commitAdmittedIdentityWrite(
   { write }: EntityIdentityArgs,
   admitted: AdmittedIdentityWrite,
   stamp: StampAccumulator
-): Promise<Result<IdentityCommit, never>> {
-  const version = await advanceEntityAxisGuarded(
+): Promise<Result<void, never>> {
+  await advanceEntityAxisGuarded(
     executor,
     admitted.pc.entity,
     "identity",
@@ -84,7 +78,7 @@ export async function commitAdmittedIdentityWrite(
     stamp
   )
 
-  return ok({ version, shortId: admitted.pc.entity.shortId })
+  return ok(undefined)
 }
 
 export async function commitIdentityWrite(
@@ -92,7 +86,7 @@ export async function commitIdentityWrite(
   actor: Actor,
   { entityId, write }: EntityIdentityArgs,
   stamp: StampAccumulator
-): Promise<Result<IdentityCommit, IdentityWriteRejection>> {
+): Promise<Result<void, IdentityWriteRejection>> {
   const args = { entityId, write }
   const admitted = await admitIdentityWrite(executor, actor, args)
   if (!admitted.ok) return admitted

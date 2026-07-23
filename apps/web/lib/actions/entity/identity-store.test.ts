@@ -82,7 +82,7 @@ describe("commitIdentityWrite — executor-neutral identity column writes", () =
       stamp
     )
 
-    expect(result).toEqual(ok({ version: 4, shortId: "s1" }))
+    expect(result).toEqual(ok(undefined))
     expect(stamp.accepted().revisions).toEqual({
       [entityIdentityAxis(ENTITY_ID)]: 4,
     })

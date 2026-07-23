@@ -140,7 +140,8 @@ describe("getEncounterForDM", () => {
 
     expect(result?.encounter.shortId).toBe("ok-dm")
     expect(result?.canon.value.mapInstance).toEqual(instanceRow.state)
-    expect(result?.instanceVersion).toBe(0)
+    expect(result?.encounter).not.toHaveProperty("version")
+    expect(result).not.toHaveProperty("instanceVersion")
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "repeatable read",
       accessMode: "read only",

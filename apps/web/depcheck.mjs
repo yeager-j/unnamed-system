@@ -138,7 +138,7 @@ export function scanModeledVersionBumps(relPath, source) {
 /**
  * Finds application modules that import the stamped guard or either Store that
  * wraps it. The allowlist is the explicit closed write graph: registered
- * handlers, stamped Stores, and approved external-commit modules only.
+ * handlers and stamped Stores only.
  * @param {string} relPath
  * @param {string} source
  * @returns {{ file: string; line: number; specifier: string }[]}
@@ -174,11 +174,6 @@ export function scanVersionWriterImports(relPath, source) {
     if (match[1]) flag(match[1], match.index)
   }
   return imports
-}
-
-/** @param {string} source @param {string} finalizer */
-export function callsRequiredFinalizer(source, finalizer) {
-  return new RegExp(`\\b${finalizer}\\s*\\(`).test(blankComments(source))
 }
 
 const IMPORT_PATTERNS = [
@@ -538,15 +533,11 @@ function scanVersionArchitecture() {
   const bumps = []
   /** @type {{ file: string; line: number; specifier: string }[]} */
   const writers = []
-  /** @type {Map<string, string>} */
-  const sources = new Map()
-
   for (const root of TIER_ROOTS) {
     for (const file of collectSourceFiles(join(ROOT, root))) {
       const relPath = relative(ROOT, file).split("\\").join("/")
       if (isApplicationTestFile(relPath)) continue
       const source = readFileSync(file, "utf8")
-      sources.set(relPath, source)
       bumps.push(...scanModeledVersionBumps(relPath, source))
       writers.push(...scanVersionWriterImports(relPath, source))
     }
@@ -564,25 +555,11 @@ function scanVersionArchitecture() {
   )
   const writerEntries = VERSION_WRITER_ALLOWLIST.map((entry) => entry.file)
   const writerAllowlist = reconcileAllowlist(writerFiles, writerEntries)
-  const writerEntryByFile = new Map(
-    VERSION_WRITER_ALLOWLIST.map((entry) => [entry.file, entry])
-  )
-  const missingFinalizers = writerFiles.filter((file) => {
-    const entry = writerEntryByFile.get(file)
-    const required =
-      entry && "requiredFinalizer" in entry
-        ? entry.requiredFinalizer
-        : undefined
-    if (typeof required !== "string") return false
-    return !callsRequiredFinalizer(sources.get(file) ?? "", required)
-  })
-
   return {
     bumps,
     writers,
     bumpAllowlist,
     writerAllowlist,
-    missingFinalizers,
   }
 }
 
@@ -630,8 +607,7 @@ function run() {
     versionArchitecture.writerAllowlist.newViolations.length > 0 ||
     versionArchitecture.writerAllowlist.staleEntries.length > 0 ||
     versionArchitecture.writerAllowlist.duplicateEntries.length > 0 ||
-    !versionArchitecture.writerAllowlist.isSorted ||
-    versionArchitecture.missingFinalizers.length > 0
+    !versionArchitecture.writerAllowlist.isSorted
 
   if (!failed) {
     console.log(
@@ -685,11 +661,6 @@ function run() {
   }
   for (const file of versionArchitecture.writerAllowlist.staleEntries) {
     console.error(`  Stale version-writer allowlist entry: ${file}`)
-  }
-  for (const file of versionArchitecture.missingFinalizers) {
-    console.error(
-      `  External entity-axis writer missing its required finalizer: ${file}`
-    )
   }
   for (const file of versionArchitecture.bumpAllowlist.duplicateEntries) {
     console.error(`  Duplicate modeled-version-bump allowlist entry: ${file}`)

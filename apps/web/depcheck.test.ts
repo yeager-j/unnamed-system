@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  callsRequiredFinalizer,
   classifyTier,
   deriveModeledVersionFields,
   importClauseIsTypeOnly,
@@ -63,21 +62,6 @@ describe("web dependency check", () => {
         specifier: "./entity/version-guard",
       },
     ])
-  })
-
-  it("requires an external writer's finalizer call, not a comment about it", () => {
-    expect(
-      callsRequiredFinalizer(
-        "// finalizeExternalActionCommit(stamp) is required",
-        "finalizeExternalActionCommit"
-      )
-    ).toBe(false)
-    expect(
-      callsRequiredFinalizer(
-        "await finalizeExternalActionCommit(stamp)",
-        "finalizeExternalActionCommit"
-      )
-    ).toBe(true)
   })
 
   it("detects every supported engine import form", () => {
