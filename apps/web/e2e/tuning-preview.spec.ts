@@ -115,8 +115,11 @@ test("grow a ~25-zone expedition and screenshot the board", async ({
     .where(eq(mapInstances.id, expedition!.mapInstanceId))
 
   // Grow the expedition with the pure engine, exactly as the executor folds.
+  // Pick a RANDOM open stub each step (not always the first) so a dead-ending
+  // branch can't starve the frontier — the preview needs a full board, and
+  // depth-first growth collapses on unlucky seeds.
   const reduceInstance = createReduceMapInstance(() => crypto.randomUUID())
-  for (let i = 0; i < 28; i++) {
+  for (let i = 0; i < 200; i++) {
     const [instanceRow] = await db
       .select({ state: mapInstances.state, version: mapInstances.version })
       .from(mapInstances)
@@ -127,8 +130,11 @@ test("grow a ~25-zone expedition and screenshot the board", async ({
       .from(dungeons)
       .where(eq(dungeons.id, expedition!.id))
       .limit(1)
-    const stubId = Object.keys(instanceRow!.state.generation.stubs)[0]
-    if (stubId === undefined) break
+    const zoneCount = Object.keys(instanceRow!.state.geometry.zones).length
+    if (zoneCount >= 30) break
+    const stubIds = Object.keys(instanceRow!.state.generation.stubs)
+    if (stubIds.length === 0) break
+    const stubId = stubIds[Math.floor(Math.random() * stubIds.length)]!
 
     const rolled = rollExpansion({
       set: setRow!.content,

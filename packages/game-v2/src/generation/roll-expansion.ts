@@ -198,7 +198,11 @@ function resolveContext(
     parentDepth: deps.instanceState.generation.zones[parent.id]?.depth ?? 0,
     pageId,
     growth,
-    spacing: pageSpacing(geometry, pageId),
+    spacing: pageSpacing(
+      geometry,
+      pageId,
+      deps.instanceState.generation.connections
+    ),
     halfPlane:
       growth === "edge"
         ? edgeHalfPlane(
