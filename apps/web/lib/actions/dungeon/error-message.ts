@@ -22,6 +22,13 @@ export type DungeonActionError =
   | "region-not-found"
   | "template-set-not-found"
   | "generation-event-not-supported"
+  | "expansion-failed"
+  | "forced-template-not-mintable"
+  | "retract-zone-not-generated"
+  | "retract-zone-revealed"
+  | "retract-zone-not-leaf"
+  | "retract-zone-occupied"
+  | "retract-zone-in-encounter"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
   | "character-not-found"
@@ -57,6 +64,20 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
       return "This Region's Template Set no longer exists."
     case "generation-event-not-supported":
       return "That gesture isn't available yet. Reload and try again."
+    case "expansion-failed":
+      return "The expansion roll failed. Reload and try again."
+    case "forced-template-not-mintable":
+      return "That template can't be placed from this passage."
+    case "retract-zone-not-generated":
+      return "Only generated rooms can be retracted."
+    case "retract-zone-revealed":
+      return "Players have seen this room. Hide it first."
+    case "retract-zone-not-leaf":
+      return "Retract this room's deeper rooms first."
+    case "retract-zone-occupied":
+      return "Someone is standing in this room. Move them out first."
+    case "retract-zone-in-encounter":
+      return "Finish the live encounter first."
     case "campaign-already-has-live-encounter":
       return "This campaign already has a live encounter."
     case "encounter-has-unplaced-combatants":

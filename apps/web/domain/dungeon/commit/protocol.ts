@@ -58,6 +58,18 @@ const dungeonCommandSchema = z.discriminatedUnion("kind", [
     placements: z.array(placementSchema),
   }),
   z.object({ kind: z.literal("finish") }),
+  // The expand gesture (UNN-642, D8 seam 2): the one non-optimistic spatial
+  // write. `forcedTemplateKey` is the DM's force-pick — same kind, same
+  // executor, same engine emitter, so random and forced cannot diverge.
+  z.object({
+    kind: z.literal("expandStub"),
+    stubId: z.string().min(1),
+    forcedTemplateKey: z.string().min(1).optional(),
+  }),
+  z.object({
+    kind: z.literal("retractZone"),
+    zoneId: z.string().min(1),
+  }),
   z.object({
     kind: z.literal("startEncounter"),
     name: z.string().trim().min(1).max(100),
@@ -91,11 +103,25 @@ export const dungeonCommandRefusalSchema = z.enum([
   "delve-not-active",
   "delve-not-draft",
   "encounter-has-unplaced-combatants",
+  // Defensive: the roller failed for a reason no precondition names (corrupt
+  // state) — deliberately generic, never the benign consumed-stub case.
+  "expansion-failed",
+  // The forced pick was unknown, tombstoned, or a spent unique.
+  "forced-template-not-mintable",
   "generation-event-not-supported",
   "locator-missing",
   "map-instance-not-found",
   "map-not-found",
+  "not-an-expedition",
   "region-not-found",
+  // Five distinct retract refusals, not one: each names a different next
+  // action for the DM (finish combat / move the party / hide the zone /
+  // retract deeper rooms first), and the toast table keys per-cause copy.
+  "retract-zone-in-encounter",
+  "retract-zone-not-generated",
+  "retract-zone-not-leaf",
+  "retract-zone-occupied",
+  "retract-zone-revealed",
   "template-set-not-found",
   "unknown-enemy",
 ])
@@ -154,6 +180,11 @@ export function predictDungeonCommand(
     })
   }
 
+  // `expandStub` and `retractZone` fall through unpredicted (D1): the roll —
+  // and the retract inverse it recorded — resolves server-side against the
+  // ledger, and a roll was never re-derivable. The pending affordance comes
+  // from the root's pending count; the accepted stamp invalidates both axes
+  // and the refetched canon paints the result.
   return ok(state)
 }
 

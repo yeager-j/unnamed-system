@@ -78,6 +78,58 @@ describe("showtime.dungeon.v1", () => {
     })
   })
 
+  it("leaves expandStub and retractZone unpredicted — the same state reference back (D1)", () => {
+    // The roll (and the retract inverse it recorded) is server-owned; there is
+    // nothing sound to predict. The pending affordance comes from the root's
+    // pending count; catch-up is stamp → axis invalidation → refetch.
+    expect(
+      predictDungeonCommand(state, {
+        command: { kind: "expandStub", stubId: "stub-1" },
+      })
+    ).toEqual({ ok: true, value: state })
+    expect(
+      predictDungeonCommand(state, {
+        command: {
+          kind: "expandStub",
+          stubId: "stub-1",
+          forcedTemplateKey: "vault",
+        },
+      })
+    ).toEqual({ ok: true, value: state })
+    expect(
+      predictDungeonCommand(state, {
+        command: { kind: "retractZone", zoneId: "z1" },
+      })
+    ).toEqual({ ok: true, value: state })
+  })
+
+  it("round-trips the expand and retract command shapes through the args schema", () => {
+    const expand = dungeonCommand({
+      dungeonId: "dungeon-1",
+      command: {
+        kind: "expandStub",
+        stubId: "stub-1",
+        forcedTemplateKey: "vault",
+      },
+    })
+    expect(expand.args).toEqual({
+      dungeonId: "dungeon-1",
+      command: {
+        kind: "expandStub",
+        stubId: "stub-1",
+        forcedTemplateKey: "vault",
+      },
+    })
+    const retract = dungeonCommand({
+      dungeonId: "dungeon-1",
+      command: { kind: "retractZone", zoneId: "z1" },
+    })
+    expect(retract.args).toEqual({
+      dungeonId: "dungeon-1",
+      command: { kind: "retractZone", zoneId: "z1" },
+    })
+  })
+
   it("puts intent but no revisions on the wire", () => {
     const invocation = dungeonCommand({
       dungeonId: "dungeon-1",

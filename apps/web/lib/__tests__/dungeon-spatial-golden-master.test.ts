@@ -87,7 +87,13 @@ const mapInstanceWith = (occupancy: Record<string, { zoneId: string }>) => ({
   ),
   enchantment: null,
   reveal: reveal(),
-  generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
+  generation: {
+    zones: {},
+    stubs: {},
+    connections: {},
+    grafts: {},
+    startingZoneIds: [],
+  },
   lastMovedTokenKey: null,
 })
 
