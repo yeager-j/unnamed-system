@@ -24,6 +24,7 @@ import {
 import { useTheme } from "next-themes"
 import {
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type MouseEvent,
@@ -115,14 +116,14 @@ function footprintFields(zone: MapZone) {
  * presentational contract: it takes a {@link MapGeometry}, emits the edited
  * geometry through `onGeometryChange`, and knows nothing about persistence or which
  * surface hosts it (the Map editor today; the run console / player view in M2/M3
- * reuse it, gating with `interactivity`). `geometry` seeds the canvas; the canvas
- * then owns the live editing state, so the host passes its persisted geometry once.
+ * reuse it, gating with `interactivity`). The canvas owns responsive editing state
+ * and reconciles a changed host `geometry` after canon refreshes.
  *
- * Two ways to consume an edit — a host wires **one**:
- * - `onGeometryChange` — the whole next blob (the Map-template editor's autosave).
- * - `onGeometryEvent` — the discrete {@link MapGeometryEvent} (the live Map Instance,
- *   which wraps it as `editGeometry` and version-guards it). Fires only when the edit
- *   actually changed the geometry (no-ops don't dispatch). UNN-486.
+ * Two edit signals are available. `onGeometryChange` exposes the responsive next
+ * blob for presentation-only mirrors such as live counts. `onGeometryEvent`
+ * exposes the discrete {@link MapGeometryEvent} used by both Map-template and
+ * live-Instance persistence. The event fires only when the edit changed geometry,
+ * and caller-minted ids make authority replay deterministic. UNN-486/UNN-692.
  *
  * The live-Instance host also passes `lockedZoneIds` (Zones an occupancy token
  * stands in — their delete affordance is disabled) and `zoneOccupants` (the party
@@ -138,7 +139,7 @@ function footprintFields(zone: MapZone) {
 export function MapCanvas(props: {
   geometry: MapGeometry
   onGeometryChange?: (geometry: MapGeometry) => void
-  onGeometryEvent?: (event: MapGeometryEvent) => void
+  onGeometryEvent?: (event: MapGeometryEvent, geometry: MapGeometry) => void
   interactivity?: "edit" | "readonly"
   lockedZoneIds?: ReadonlySet<string>
   zoneOccupants?: (zoneId: string) => SetPieceOccupant[]
@@ -194,7 +195,7 @@ function MapCanvasInner({
 }: {
   geometry: MapGeometry
   onGeometryChange?: (geometry: MapGeometry) => void
-  onGeometryEvent?: (event: MapGeometryEvent) => void
+  onGeometryEvent?: (event: MapGeometryEvent, geometry: MapGeometry) => void
   interactivity?: "edit" | "readonly"
   lockedZoneIds?: ReadonlySet<string>
   zoneOccupants?: (zoneId: string) => SetPieceOccupant[]
@@ -270,6 +271,20 @@ function MapCanvasInner({
     reseedFlow(activePageId)
   }
 
+  const reconcileFromHost = useEffectEvent((nextGeometry: MapGeometry) => {
+    if (nextGeometry === geometryRef.current) return
+    geometryRef.current = nextGeometry
+    setGeometry(nextGeometry)
+    const nextPageId =
+      requestedPageId !== null &&
+      nextGeometry.pages[requestedPageId] !== undefined
+        ? requestedPageId
+        : firstPageId(nextGeometry)
+    setLastPageId(nextPageId)
+    reseedFlow(nextPageId)
+  })
+  useEffect(() => reconcileFromHost(initialGeometry), [initialGeometry])
+
   /** Switch pages (chip click, tabs, host) and optionally center a zone there. */
   function navigateToPage(pageId: string, focusZoneId?: string) {
     pendingFocusZoneIdRef.current = focusZoneId ?? null
@@ -306,7 +321,7 @@ function MapCanvasInner({
   function dispatchGeometry(event: MapGeometryEvent): MapGeometry {
     const before = geometryRef.current
     const next = applyGeometry(reduceMapGeometry(before, event))
-    if (next !== before) onGeometryEvent?.(event)
+    if (next !== before) onGeometryEvent?.(event, next)
     return next
   }
 

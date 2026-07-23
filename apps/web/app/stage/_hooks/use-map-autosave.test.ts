@@ -3,236 +3,304 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { MapGeometry } from "@workspace/game-v2/spatial"
-import { err, ok, type Result } from "@workspace/result"
+import {
+  mapGeometrySchema,
+  reduceMapGeometry,
+} from "@workspace/game-v2/spatial"
+import {
+  defineCanon,
+  revisionVector,
+  type AcceptedStamp,
+  type Canon,
+  type MutationEnvelope,
+  type ProtocolInvocation,
+} from "@workspace/headcanon"
+import { ok } from "@workspace/result"
 
-import type { SaveMapError, SaveMapInput } from "@/lib/actions/save-map.schema"
+import { mapProtocol, type MapCanonValue } from "@/domain/map/commit/protocol"
+import { applyMapMutationAction } from "@/lib/actions/map/mutations/apply"
+import { mapAxis } from "@/lib/db/axes"
 
 import { useMapAutoSave } from "./use-map-autosave"
 
-vi.mock("@/lib/actions/save-map", () => ({ saveMapAction: vi.fn() }))
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
+const { routerRefresh } = vi.hoisted(() => ({ routerRefresh: vi.fn() }))
 
-// Imported after the mocks so these bindings are the mocked ones.
-const { saveMapAction } = await import("@/lib/actions/save-map")
+vi.mock("@/lib/actions/map/mutations/apply", () => ({
+  applyMapMutationAction: vi.fn(),
+}))
+vi.mock("@/lib/realtime/axis-invalidations", () => ({
+  axisInvalidations: {
+    initialStatus: "disabled" as const,
+    subscribe: () => () => {},
+  },
+}))
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), dismiss: vi.fn() },
+}))
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefresh }),
+  unstable_rethrow: () => {},
+}))
+
+const door = vi.mocked(applyMapMutationAction)
 const { toast } = await import("sonner")
+const axis = mapAxis("map-1")
 
-type MapSaveResult = Result<{ version: number }, SaveMapError>
-
-type SaveCall = {
-  input: SaveMapInput
-  resolve: (result: MapSaveResult) => void
+function stampAt(version: number): AcceptedStamp {
+  const parsed = revisionVector({ [axis]: version })
+  if (!parsed.ok) throw new Error("invalid test stamp")
+  return { revisions: parsed.value }
 }
 
-/**
- * Installs a manually-controlled `saveMapAction`: each invocation records the
- * `input` it was handed and parks until the test fires its `resolve`, so the
- * serialized-queue races reproduce deterministically without real timers on the
- * network side.
- */
-function installControlledSave(): SaveCall[] {
-  const calls: SaveCall[] = []
-  vi.mocked(saveMapAction).mockImplementation(
-    (input: SaveMapInput) =>
-      new Promise<MapSaveResult>((resolve) => {
-        calls.push({ input, resolve })
-      })
-  )
-  return calls
+type DoorOutcome = Awaited<ReturnType<typeof applyMapMutationAction>>
+type MapEnvelope = MutationEnvelope<ProtocolInvocation<typeof mapProtocol>>
+
+function accepted(version: number): DoorOutcome {
+  return ok({ kind: "accepted", stamp: stampAt(version) }) as DoorOutcome
 }
 
-/** The queued save chains through a `.then`, so the request only goes out on the
- *  next microtask. Wrap any assertion about a dispatched call in this. */
+function rejected(): DoorOutcome {
+  return ok({ kind: "rejected", error: "map-event-refused" }) as DoorOutcome
+}
+
+function canonAt(
+  version = 0,
+  value: MapCanonValue = {
+    name: "Atlas",
+    geometry: mapGeometrySchema.parse({}),
+  }
+): Canon<MapCanonValue> {
+  return defineCanon({ value, revisions: { [axis]: version } })
+}
+
 async function flushMicrotasks(): Promise<void> {
   await act(async () => {
+    await Promise.resolve()
     await Promise.resolve()
   })
 }
 
-const GEOMETRY_A: MapGeometry = {
-  pages: { default: { id: "default", name: "Page 1" } },
-  zones: {},
-  connections: {},
-}
-const GEOMETRY_B: MapGeometry = {
-  pages: { default: { id: "default", name: "Page 1" } },
-  zones: {
-    z1: {
-      id: "z1",
-      name: "Z1",
-      description: "",
-      dmNotes: "",
-      position: { x: 0, y: 0 },
-      pageId: "default",
-    },
-  },
-  connections: {},
-}
-
-function render(serverVersion = 0) {
-  return renderHook(() =>
-    useMapAutoSave({
-      mapId: "map-1",
-      serverName: "Atlas",
-      serverGeometry: GEOMETRY_A,
-      serverVersion,
-    })
-  )
+function renderMapHook() {
+  const canon = canonAt()
+  return renderHook(() => useMapAutoSave({ mapId: "map-1", canon }))
 }
 
 describe("useMapAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.mocked(saveMapAction).mockReset()
+    door.mockReset()
     vi.mocked(toast.error).mockReset()
+    vi.mocked(toast.dismiss).mockReset()
+    routerRefresh.mockReset()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+  afterEach(() => vi.useRealTimers())
 
-  it("skips the server call and status flip for a no-op name edit", async () => {
-    installControlledSave()
-    const { result } = render()
+  it("skips an unchanged name on blur", async () => {
+    const { result } = renderMapHook()
 
-    // Blur with the unchanged name — trimmed value equals last-saved.
     act(() => result.current.name.flush())
     await flushMicrotasks()
 
-    expect(saveMapAction).not.toHaveBeenCalled()
+    expect(door).not.toHaveBeenCalled()
     expect(result.current.save.status).toBe("saved")
   })
 
-  it("skips the server call for a re-saved (unchanged) geometry", async () => {
-    installControlledSave()
-    const { result } = render()
-
-    act(() => result.current.saveGeometry(GEOMETRY_A))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-
-    expect(saveMapAction).not.toHaveBeenCalled()
-    expect(result.current.save.status).toBe("saved")
-  })
-
-  it("reverts the name draft to last-saved on a failed name save", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
-
-    act(() => result.current.name.onChange("Cartograph"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    expect(result.current.name.value).toBe("Cartograph")
-    expect(calls).toHaveLength(1)
-
-    await act(async () => {
-      calls[0]!.resolve(err("invalid-input"))
-    })
-    await flushMicrotasks()
-
-    expect(result.current.name.value).toBe("Atlas")
-    expect(result.current.save.status).toBe("error")
-  })
-
-  it("keeps geometry edits on failure and self-heals on the next identical save", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
-
-    // First geometry save fails.
-    act(() => result.current.saveGeometry(GEOMETRY_B))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-    expect(calls).toHaveLength(1)
-    await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    expect(result.current.save.status).toBe("error")
-
-    // The SAME geometry blob re-dispatches — last-saved was never advanced, so
-    // the transient failure self-heals rather than being skipped as a no-op.
-    act(() => result.current.saveGeometry(GEOMETRY_B))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-    expect(calls).toHaveLength(2)
-  })
-
-  it("toasts the stale-specific copy on a stale failure, generic otherwise", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
-
-    act(() => result.current.name.onChange("Ley"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    expect(toast.error).toHaveBeenLastCalledWith(
-      "Couldn't sync the map — refresh to see the latest changes."
+  it("keeps a focused name draft across an incoming canon", async () => {
+    const { result, rerender } = renderHook(
+      ({ canon }) => useMapAutoSave({ mapId: "map-1", canon }),
+      { initialProps: { canon: canonAt() } }
     )
 
-    act(() => result.current.name.onChange("Rune"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[1]!.resolve(err("map-not-found"))
+    act(() => {
+      result.current.name.onFocusChange(true)
+      result.current.name.onChange("Atlas draft")
+    })
+    rerender({
+      canon: canonAt(1, {
+        name: "Atlas saved",
+        geometry: mapGeometrySchema.parse({}),
+      }),
+    })
+
+    expect(result.current.name.value).toBe("Atlas draft")
+  })
+
+  it("batches geometry events into one intent-only mutation", async () => {
+    door.mockResolvedValue(accepted(1))
+    const { result } = renderMapHook()
+
+    act(() => {
+      result.current.saveGeometryEvent({
+        kind: "addZone",
+        id: "z1",
+        pageId: "default",
+        position: { x: 0, y: 0 },
+      })
+      result.current.saveGeometryEvent({
+        kind: "renameZone",
+        zoneId: "z1",
+        name: "Atrium",
+      })
+      vi.advanceTimersByTime(600)
     })
     await flushMicrotasks()
-    expect(toast.error).toHaveBeenLastCalledWith(
-      "Couldn't save the map. Try again."
+
+    expect(door).toHaveBeenCalledTimes(1)
+    const envelope = door.mock.calls[0]![0] as MapEnvelope
+    expect(envelope.invocation).toEqual({
+      name: "map.geometry-events",
+      args: {
+        mapId: "map-1",
+        events: [
+          {
+            kind: "addZone",
+            id: "z1",
+            pageId: "default",
+            position: { x: 0, y: 0 },
+          },
+          { kind: "renameZone", zoneId: "z1", name: "Atrium" },
+        ],
+      },
+    })
+    expect(JSON.stringify(envelope)).not.toMatch(/expectedVersion|geometry":/)
+    expect(result.current.geometry.zones.z1?.name).toBe("Atrium")
+  })
+
+  it("replays a still-debounced local event over an incoming canon", async () => {
+    const { result, rerender } = renderHook(
+      ({ canon }) => useMapAutoSave({ mapId: "map-1", canon }),
+      { initialProps: { canon: canonAt() } }
+    )
+
+    act(() =>
+      result.current.saveGeometryEvent({
+        kind: "addZone",
+        id: "local",
+        pageId: "default",
+        position: { x: 0, y: 0 },
+      })
+    )
+    const remoteGeometry = reduceMapGeometry(mapGeometrySchema.parse({}), {
+      kind: "addZone",
+      id: "remote",
+      pageId: "default",
+      position: { x: 10, y: 10 },
+    })
+    rerender({ canon: canonAt(1, { name: "Atlas", geometry: remoteGeometry }) })
+    await flushMicrotasks()
+
+    expect(Object.keys(result.current.geometry.zones).sort()).toEqual([
+      "local",
+      "remote",
+    ])
+  })
+
+  it("restores root geometry when the authority rejects a delivered batch", async () => {
+    door.mockResolvedValue(rejected())
+    const { result } = renderMapHook()
+
+    act(() => {
+      result.current.saveGeometryEvent({
+        kind: "addZone",
+        id: "rejected",
+        pageId: "default",
+        position: { x: 0, y: 0 },
+      })
+      vi.advanceTimersByTime(600)
+    })
+    await flushMicrotasks()
+    await flushMicrotasks()
+
+    expect(result.current.geometry.zones.rejected).toBeUndefined()
+    expect(toast.error).toHaveBeenCalledWith(
+      "The map changed elsewhere, so that edit couldn't be applied."
     )
   })
 
-  it("serializes name + geometry on one shared token: the second reads the bumped version", async () => {
-    const calls = installControlledSave()
-    const { result } = render(0)
+  it("orders name and geometry through one root and hands off to accepted canon", async () => {
+    const outcomes: Array<(outcome: DoorOutcome) => void> = []
+    door.mockImplementation(
+      () => new Promise<DoorOutcome>((resolve) => outcomes.push(resolve))
+    )
+    const { result, rerender } = renderHook(
+      ({ canon }) => useMapAutoSave({ mapId: "map-1", canon }),
+      { initialProps: { canon: canonAt() } }
+    )
 
-    // Blur the name, then immediately queue a geometry save — they share one
-    // token and one queue, so the geometry save chains behind the name save.
     act(() => result.current.name.onChange("Meridian"))
     act(() => result.current.name.flush())
-    act(() => result.current.saveGeometry(GEOMETRY_B))
-    act(() => vi.advanceTimersByTime(600))
     await flushMicrotasks()
-
-    // Only the name save has dispatched, at the initial version 0.
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.input.expectedVersion).toBe(0)
-    expect(calls[0]!.input.patch.field).toBe("name")
-
-    // Name succeeds and bumps the shared token to 1.
-    await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+    act(() => {
+      result.current.saveGeometryEvent({
+        kind: "addZone",
+        id: "z1",
+        pageId: "default",
+        position: { x: 0, y: 0 },
+      })
+      vi.advanceTimersByTime(600)
     })
     await flushMicrotasks()
 
-    // Now geometry dispatches — reading the freshly-bumped version 1, not 0.
-    expect(calls).toHaveLength(2)
-    expect(calls[1]!.input.expectedVersion).toBe(1)
-    expect(calls[1]!.input.patch.field).toBe("geometry")
+    expect(door).toHaveBeenCalledTimes(1)
+    expect((door.mock.calls[0]![0] as MapEnvelope).invocation.name).toBe(
+      "map.rename"
+    )
+
+    await act(async () => outcomes[0]!(accepted(1)))
+    await flushMicrotasks()
+    expect(door).toHaveBeenCalledTimes(2)
+    expect((door.mock.calls[1]![0] as MapEnvelope).invocation.name).toBe(
+      "map.geometry-events"
+    )
+
+    const geometry = reduceMapGeometry(mapGeometrySchema.parse({}), {
+      kind: "addZone",
+      id: "z1",
+      pageId: "default",
+      position: { x: 0, y: 0 },
+    })
+    await act(async () => outcomes[1]!(accepted(2)))
+    rerender({ canon: canonAt(2, { name: "Meridian", geometry }) })
+    await flushMicrotasks()
+
+    expect(result.current.name.value).toBe("Meridian")
+    expect(result.current.save.lastSavedAt).not.toBeNull()
   })
 
-  it("flushes a pending name and geometry edit on unmount", async () => {
-    const calls = installControlledSave()
-    const { result, unmount } = render()
+  it("flushes a pending geometry batch on unmount", async () => {
+    door.mockResolvedValue(accepted(1))
+    const { result, unmount } = renderMapHook()
 
-    // Both edits are mid-debounce — nothing dispatched yet.
-    act(() => result.current.name.onChange("Draft"))
-    act(() => result.current.saveGeometry(GEOMETRY_B))
-    expect(calls).toHaveLength(0)
-
+    act(() =>
+      result.current.saveGeometryEvent({
+        kind: "addZone",
+        id: "z1",
+        pageId: "default",
+        position: { x: 0, y: 0 },
+      })
+    )
     unmount()
     await flushMicrotasks()
-    // The name flush dispatches first (chained ahead of geometry).
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.input.patch).toEqual({ field: "name", name: "Draft" })
 
-    await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
-    })
+    expect(door).toHaveBeenCalledTimes(1)
+  })
+
+  it("surfaces uncertain delivery with an actionable retry", async () => {
+    door.mockRejectedValue(new Error("connection lost"))
+    const { result } = renderMapHook()
+
+    act(() => result.current.name.onChange("Meridian"))
+    act(() => result.current.name.flush())
     await flushMicrotasks()
-    expect(calls).toHaveLength(2)
-    expect(calls[1]!.input.patch.field).toBe("geometry")
+    await flushMicrotasks()
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Connection lost mid-save — your map change is kept.",
+      expect.objectContaining({
+        duration: Infinity,
+        action: expect.objectContaining({ label: "Retry" }),
+      })
+    )
   })
 })

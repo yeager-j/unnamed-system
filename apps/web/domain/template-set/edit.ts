@@ -9,14 +9,12 @@ import {
 } from "./authoring"
 
 /**
- * The pure content transforms the Template Set editor's forms call before handing
- * the whole re-derived blob to autosave (UNN-588). Every helper is an immutable
- * `TemplateSetContent → TemplateSetContent` step (spread, never mutate the input),
- * and every result stays a **fixed point** of `templateSetContentSchema.parse` —
- * the editor never re-parses between edits, so a transform that produced an
- * unparseable blob would only surface at the save boundary. Keys are opaque
- * `nanoid(8)` ids minted here (the schema imposes no format); a record's key and
- * its record's `key` field are kept in lockstep by these helpers.
+ * Pure transforms behind the Template Set event reducer. Every helper is an
+ * immutable `TemplateSetContent → TemplateSetContent` step (spread, never mutate
+ * the input), and every result stays a fixed point of
+ * `templateSetContentSchema.parse`. Add helpers mint opaque `nanoid(8)` ids for
+ * direct callers or accept the caller-minted id carried by a serializable event;
+ * a record's key and its record's `key` field stay in lockstep.
  *
  * Pure model code — no `lib` runtime imports; types + schema come from the domain
  * seam (`./authoring`), not the engine directly.
@@ -31,13 +29,14 @@ function withoutKey<T extends { key?: string }>(patch: T): Omit<T, "key"> {
   return copy
 }
 
-/** Mints a fresh template with an opaque `nanoid(8)` key and appends it to the
- *  display order. Returns the new key so the caller can select it. */
+/** Adds a template with a supplied or freshly minted key and appends it to the
+ *  display order. Returns the key so the caller can select it. */
 export function addTemplate(
   content: TemplateSetContent,
-  name?: string
+  name?: string,
+  key: string = nanoid(8)
 ): { content: TemplateSetContent; key: string } {
-  const key = nanoid(8)
+  if (content.templates[key]) return { content, key }
   const template = zoneTemplateSchema.parse({
     key,
     name: name ?? "New template",
@@ -52,13 +51,14 @@ export function addTemplate(
   }
 }
 
-/** Mints a fresh content table with an opaque `nanoid(8)` key and appends it to
- *  the display order. Returns the new key so the caller can select it. */
+/** Adds a table with a supplied or freshly minted key and appends it to the
+ *  display order. Returns the key so the caller can select it. */
 export function addTable(
   content: TemplateSetContent,
-  name?: string
+  name?: string,
+  key: string = nanoid(8)
 ): { content: TemplateSetContent; key: string } {
-  const key = nanoid(8)
+  if (content.tables[key]) return { content, key }
   const table = contentTableSchema.parse({ key, name: name ?? "New table" })
   return {
     content: {

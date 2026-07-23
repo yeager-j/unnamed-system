@@ -86,3 +86,11 @@ export const dungeonAxis = (dungeonId: string): AxisId =>
 /** `region/{id}` — one region's version line. */
 export const regionAxis = (regionId: string): AxisId =>
   opaqueAxis(`showtime:storage:v1:region:${regionId}`)
+
+/** `map/{id}` — one authored Map template's name and geometry version line. */
+export const mapAxis = (mapId: string): AxisId =>
+  opaqueAxis(`showtime:storage:v1:map:${mapId}`)
+
+/** `template-set/{id}` — one authored Template Set's name/content version line. */
+export const templateSetAxis = (templateSetId: string): AxisId =>
+  opaqueAxis(`showtime:storage:v1:template-set:${templateSetId}`)

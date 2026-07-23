@@ -4,6 +4,7 @@ import { cache } from "react"
 
 import { MapEditor } from "@/app/stage/_components/map-editor"
 import type { MapAuthoringOptions } from "@/components/shared/canvas/map-canvas-context"
+import { toMapCanon } from "@/domain/map/load-canon"
 import { auth } from "@/lib/auth"
 import {
   loadMapByShortId,
@@ -81,5 +82,5 @@ export default async function MapEditorPage({ params }: PageProps) {
     maps: mapOptions.filter((option) => option.id !== map.id),
   }
 
-  return <MapEditor map={map} authoring={authoring} />
+  return <MapEditor map={map} canon={toMapCanon(map)} authoring={authoring} />
 }
