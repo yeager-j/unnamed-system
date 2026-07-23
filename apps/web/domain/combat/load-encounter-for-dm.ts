@@ -26,11 +26,9 @@ import { VERSION_CLASSES } from "@/lib/db/version-classes"
 export interface EncounterForDM {
   encounter: Pick<
     EncounterRow,
-    "id" | "shortId" | "campaignId" | "name" | "notes" | "status" | "version"
+    "id" | "shortId" | "campaignId" | "name" | "notes" | "status"
   >
   canon: Canon<EncounterState>
-  /** Scalar retained only for the still-legacy Map Instance event queue. */
-  instanceVersion: number
   participantMeta: Record<ParticipantId, ParticipantMeta>
   combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
 }
@@ -103,7 +101,6 @@ export const getEncounterForDM = cache(
             name: row.name,
             notes: row.notes,
             status: row.status,
-            version: row.version,
           },
           canon: defineCanon({
             value: {
@@ -112,7 +109,6 @@ export const getEncounterForDM = cache(
             },
             revisions,
           }),
-          instanceVersion: instance.version,
           participantMeta,
           combatantSheetSliceById,
         }

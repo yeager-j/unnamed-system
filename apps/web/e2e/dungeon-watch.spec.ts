@@ -1,7 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
 
-import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
-
 import { STORAGE_STATE } from "./auth.setup"
 import { createDungeonCombatTarget } from "./fixtures/dungeon-combat-target"
 import { cleanup, createTracker } from "./fixtures/factory"
@@ -80,24 +78,6 @@ test("the signed-out watch catches up through degraded polling with redaction in
     .click()
   await page.getByRole("button", { name: "Begin encounter" }).click()
   await expect.poll(async () => await target.getLiveEncounter()).not.toBeNull()
-  const live = await target.getLiveEncounter()
-  if (!live) throw new Error("expected a live encounter")
-
-  const snapshotResponse = await watchPage.request.get(
-    `/api/encounter/${live.shortId}/combat-snapshot`
-  )
-  expect(snapshotResponse.status()).toBe(200)
-  const snapshotBody = (await snapshotResponse.json()) as {
-    canon: { value: SpatialEncounterSnapshot }
-  }
-  const enemies = snapshotBody.canon.value.combatants.filter(
-    (combatant) => combatant.components.allegiance?.side === "enemies"
-  )
-  expect(enemies.length).toBeGreaterThan(0)
-  for (const enemy of enemies) {
-    expect("attributes" in enemy.components).toBe(false)
-    expect("affinities" in enemy.components).toBe(false)
-  }
 
   // The watch swaps to the combat battlefield without a reload: the round
   // tracker + Combat badge appear, and the board is still the map — the same

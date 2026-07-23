@@ -14,7 +14,6 @@ import {
   loadPlayerCharacterById,
   type LoadedPlayerCharacter,
 } from "@/lib/db/queries/load-player-character"
-import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
 
 import {
@@ -51,26 +50,6 @@ import { advanceEntityAxisGuarded } from "./version-guard"
  * class requires the strict owner — a DM must not rewrite a placed player's
  * Origin, Virtues, or narrative (Secrets!) through this Store.
  */
-
-/** The composed external call's public error surface: the Writer refusals plus the
- *  authority-load and lost-race outcomes. Authorization refusals are *not* here —
- *  external callers translate them to `forbidden()`; contention is caught and
- *  surfaced as `"stale"` for the un-migrated client's one-shot retry. */
-export type EntityWriteError =
-  | EntityWriteRefusal
-  | "entity-not-found"
-  | "entity-load-failed"
-  | "stale"
-
-/** The bumped class token, the entity's `shortId`, the
- *  bumped class (the ping's payload key), and the PC lifecycle status (external
- *  projections may read it). */
-export interface EntityCommit {
-  version: number
-  shortId: string
-  versionClass: VersionClass
-  status: PlayerCharacterStatus
-}
 
 export type EntityWriteCommitRejection =
   | EntityWriteRefusal
@@ -109,14 +88,14 @@ export async function commitAdmittedEntityWrite(
   { write }: EntityWriteArgs,
   admitted: AdmittedEntityWrite,
   stamp: StampAccumulator
-): Promise<Result<EntityCommit, EntityWriteRefusal | "entity-load-failed">> {
+): Promise<Result<void, EntityWriteRefusal | "entity-load-failed">> {
   const loaded = loadEntityRow(admitted.pc.entity)
   if (!loaded.ok) return err("entity-load-failed")
 
   const patch = applyEntityWrite(loaded.value.components, write)
   if (!patch.ok) return patch
 
-  const version = await advanceEntityAxisGuarded(
+  await advanceEntityAxisGuarded(
     executor,
     admitted.pc.entity,
     admitted.versionClass,
@@ -124,12 +103,7 @@ export async function commitAdmittedEntityWrite(
     stamp
   )
 
-  return ok({
-    version,
-    shortId: admitted.pc.entity.shortId,
-    versionClass: admitted.versionClass,
-    status: admitted.pc.status,
-  })
+  return ok(undefined)
 }
 
 export async function commitEntityWrite(
@@ -137,7 +111,7 @@ export async function commitEntityWrite(
   actor: Actor,
   { entityId, write }: EntityWriteArgs,
   stamp: StampAccumulator
-): Promise<Result<EntityCommit, EntityWriteCommitRejection>> {
+): Promise<Result<void, EntityWriteCommitRejection>> {
   const args = { entityId, write }
   const admitted = await admitEntityWrite(executor, actor, args)
   if (!admitted.ok) return admitted
