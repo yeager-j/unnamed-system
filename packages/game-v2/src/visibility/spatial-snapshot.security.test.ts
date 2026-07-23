@@ -369,6 +369,7 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
       },
       connections: { c1: { source: "generated" } },
       grafts: {},
+      startingZoneIds: [],
     },
   })
 
@@ -410,6 +411,13 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
             sequence: 0,
             templateKey: "hall",
             unique: false,
+            stub: {
+              id: "stub-consumed",
+              zoneId: "z1",
+              bearing: 1.25,
+              anchor: { side: "e", offset: 0.5 },
+            },
+            childStubIds: ["child-stub-1"],
             effects: [],
           },
         },

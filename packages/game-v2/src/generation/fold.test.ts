@@ -31,7 +31,13 @@ const abcInstance = (
         makeConnection("conn-bc", "zone-b", "zone-c"),
       ]
     ),
-    generation: { zones, stubs: {}, connections: {}, grafts: {} },
+    generation: {
+      zones,
+      stubs: {},
+      connections: {},
+      grafts: {},
+      startingZoneIds: [],
+    },
     reveal: {
       revealedZoneIds: [],
       revealedConnectionIds: [],
@@ -181,6 +187,7 @@ describe("foldExpedition", () => {
         stubs: {},
         connections: {},
         grafts: { "portal-map": { pageIds: ["grafted-page"] } },
+        startingZoneIds: [],
       },
       reveal: {
         revealedZoneIds: ["zone-a", "zone-g"],

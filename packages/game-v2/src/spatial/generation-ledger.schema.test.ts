@@ -6,6 +6,13 @@ import {
   generationLedgerSchema,
 } from "./generation-ledger.schema"
 
+const consumedStub = {
+  id: "stub-1",
+  zoneId: "zone-parent",
+  bearing: 0.5,
+  anchor: { side: "e", offset: 0.5 },
+}
+
 describe("generationLedgerSchema", () => {
   it("parses {} to the zero ledger", () => {
     expect(generationLedgerSchema.parse({})).toStrictEqual({
@@ -29,7 +36,13 @@ describe("generationLedgerSchema", () => {
       ],
       mintedUniqueKeys: ["castle-entrance"],
       mints: {
-        "zone-1": { sequence: 0, templateKey: "hall", unique: false },
+        "zone-1": {
+          sequence: 0,
+          templateKey: "hall",
+          unique: false,
+          stub: consumedStub,
+          childStubIds: [],
+        },
       },
     })
     expect(generationLedgerSchema.parse(once)).toStrictEqual(once)
@@ -40,7 +53,15 @@ describe("generationLedgerSchema", () => {
       declarations: [
         { id: "d1", sequence: 0, templateKey: "vault", k: 6, secretIndex: 1 },
       ],
-      mints: { z: { sequence: 1, templateKey: "hall", unique: true } },
+      mints: {
+        z: {
+          sequence: 1,
+          templateKey: "hall",
+          unique: true,
+          stub: consumedStub,
+          childStubIds: ["child-1"],
+        },
+      },
     })
     expect(ledger.declarations[0]).toMatchObject({
       minDepth: 0,

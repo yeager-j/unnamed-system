@@ -18,6 +18,7 @@ describe("mapInstanceStateSchema — generation slice", () => {
       stubs: {},
       connections: {},
       grafts: {},
+      startingZoneIds: [],
     })
   })
 
@@ -26,6 +27,7 @@ describe("mapInstanceStateSchema — generation slice", () => {
       generation: {
         zones: { "zone-a": { source: "authored" } },
         grafts: {},
+        startingZoneIds: [],
       },
     })
 

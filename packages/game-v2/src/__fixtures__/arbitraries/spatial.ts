@@ -6,6 +6,7 @@ import type {
   MapGeometry,
   MapPage,
   MapZone,
+  MapZoneSize,
 } from "@workspace/game-v2/spatial/geometry.schema"
 import type {
   GenerationState,
@@ -90,6 +91,52 @@ export const arbitraryMapGeometry: fc.Arbitrary<MapGeometry> = record({
 
   return { pages, zones, connections }
 })
+
+/** A random optional zone size (absent exercises the M default). */
+export const arbitraryZoneSize = fc.option(
+  fc.constantFrom<MapZoneSize>("S", "M", "L", "XL"),
+  { nil: undefined }
+)
+
+/**
+ * A geometry whose zones carry random spread-out positions/sizes (the base
+ * generator pins every position at the origin, which is a degenerate stack).
+ * Shared by the layout and roll-expansion laws (UNN-642 hoisted it here).
+ */
+export const arbitraryPlacedGeometry: fc.Arbitrary<MapGeometry> =
+  arbitraryMapGeometry.chain((geometry) => {
+    const zoneIds = Object.keys(geometry.zones)
+    if (zoneIds.length === 0) return fc.constant(geometry)
+    return fc
+      .tuple(
+        ...zoneIds.map(() =>
+          record({
+            x: fc.integer({ min: -1500, max: 1500 }),
+            y: fc.integer({ min: -1500, max: 1500 }),
+            size: arbitraryZoneSize,
+          })
+        )
+      )
+      .map((placements) => ({
+        ...geometry,
+        zones: Object.fromEntries(
+          zoneIds.map((zoneId, index) => {
+            const placement = placements[index]!
+            const zone = geometry.zones[zoneId]!
+            return [
+              zoneId,
+              {
+                ...zone,
+                position: { x: placement.x, y: placement.y },
+                ...(placement.size === undefined
+                  ? {}
+                  : { size: placement.size }),
+              },
+            ]
+          })
+        ),
+      }))
+  })
 
 const arbitrarySource = fc.constantFrom<
   GenerationState["zones"][string]["source"]
@@ -206,7 +253,13 @@ export const arbitraryExpeditionInstance: fc.Arbitrary<MapInstanceState> =
           revealedConnectionIds,
           unlockedConnectionIds,
         },
-        generation: { zones, stubs, connections: {}, grafts: {} },
+        generation: {
+          zones,
+          stubs,
+          connections: {},
+          grafts: {},
+          startingZoneIds: [],
+        },
         lastMovedTokenKey: null,
       })
     )

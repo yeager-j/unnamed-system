@@ -2,7 +2,10 @@ import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
 import { record } from "@workspace/game-v2/__fixtures__/arbitraries/record"
-import { arbitraryMapGeometry } from "@workspace/game-v2/__fixtures__/arbitraries/spatial"
+import {
+  arbitraryPlacedGeometry,
+  arbitraryZoneSize,
+} from "@workspace/game-v2/__fixtures__/arbitraries/spatial"
 import {
   footprintOf,
   rectOfZone,
@@ -10,10 +13,6 @@ import {
   sideBetween,
   type Rect,
 } from "@workspace/game-v2/spatial/footprints"
-import type {
-  MapGeometry,
-  MapZoneSize,
-} from "@workspace/game-v2/spatial/geometry.schema"
 
 import {
   anchorFromBearing,
@@ -41,47 +40,7 @@ const arbitraryBearing = fc.double({
   noDefaultInfinity: true,
 })
 
-const arbitrarySize = fc.option(
-  fc.constantFrom<MapZoneSize>("S", "M", "L", "XL"),
-  { nil: undefined }
-)
-
-/** A geometry whose zones carry random positions/sizes (the base generator pins
- *  every position at the origin, which is a degenerate stack). */
-const arbitraryPlacedGeometry: fc.Arbitrary<MapGeometry> =
-  arbitraryMapGeometry.chain((geometry) => {
-    const zoneIds = Object.keys(geometry.zones)
-    if (zoneIds.length === 0) return fc.constant(geometry)
-    return fc
-      .tuple(
-        ...zoneIds.map(() =>
-          record({
-            x: fc.integer({ min: -1500, max: 1500 }),
-            y: fc.integer({ min: -1500, max: 1500 }),
-            size: arbitrarySize,
-          })
-        )
-      )
-      .map((placements) => ({
-        ...geometry,
-        zones: Object.fromEntries(
-          zoneIds.map((zoneId, index) => {
-            const placement = placements[index]!
-            const zone = geometry.zones[zoneId]!
-            return [
-              zoneId,
-              {
-                ...zone,
-                position: { x: placement.x, y: placement.y },
-                ...(placement.size === undefined
-                  ? {}
-                  : { size: placement.size }),
-              },
-            ]
-          })
-        ),
-      }))
-  })
+const arbitrarySize = arbitraryZoneSize
 
 const arbitraryPlacementCase = arbitraryPlacedGeometry
   .filter((geometry) => Object.keys(geometry.zones).length > 0)

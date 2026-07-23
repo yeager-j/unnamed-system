@@ -10,10 +10,13 @@
  * seeded named-stream RNG (`rng.ts`), the directional-fan layout + stub anchors
  * (`layout.ts`), loop-closure candidate selection (`closure.ts`), and the
  * expedition-start helpers (`start.ts`: unique-key seeding, optional-exit
- * culling + stub sprouting). The expand-loop roller (`roll-expansion`) lands
- * P3b; graft lands P6. Like `spatial/`, this slice imports `kernel/` +
- * `spatial/` shapes only and takes its catalog membership injected
- * (`LintVocab`), never value-importing `catalog/`.
+ * culling + stub sprouting). P3b (UNN-642) adds the expand loop itself — the
+ * server-resolved roller (`roll-expansion.ts`: mint / loop closure / dead end,
+ * one gesture, never a dead click) and the retract builder (`retract.ts`: the
+ * paired `retractZone` + `revertMint` inverse). Graft lands P6. Like
+ * `spatial/`, this slice imports `kernel/` + `spatial/` shapes only and takes
+ * its catalog membership injected (`LintVocab`), never value-importing
+ * `catalog/`.
  */
 export * from "./template-set.schema"
 export * from "./d100-ranges"
@@ -25,3 +28,5 @@ export * from "./rng"
 export * from "./layout"
 export * from "./closure"
 export * from "./start"
+export * from "./roll-expansion"
+export * from "./retract"

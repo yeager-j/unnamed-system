@@ -1,11 +1,22 @@
 import fc from "fast-check"
 
 import { record } from "@workspace/game-v2/__fixtures__/arbitraries/record"
+import { arbitraryPlacedGeometry } from "@workspace/game-v2/__fixtures__/arbitraries/spatial"
+import { anchorFromBearing } from "@workspace/game-v2/generation/layout"
+import {
+  templateSetContentSchema,
+  type TemplateSetContent,
+} from "@workspace/game-v2/generation/template-set.schema"
+import { footprintOf } from "@workspace/game-v2/spatial/footprints"
 import type {
   Declaration,
   GenerationLedger,
   MintRecord,
 } from "@workspace/game-v2/spatial/generation-ledger.schema"
+import {
+  mapInstanceStateSchema,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial/map-instance.schema"
 
 /**
  * Ledger arbitraries for the UNN-590 draw-ledger laws. Same discipline as the
@@ -68,11 +79,238 @@ export const arbitraryGenerationLedger: fc.Arbitrary<GenerationLedger> = record(
  * resolved declaration never re-draws), and `unique` keys distinct from each
  * other and from the base ledger's.
  */
+/** The 3-tag adjacency vocabulary the template-set arbitrary draws from. */
+const TAG_VOCAB = ["cave", "hall", "crypt"] as const
+
+/**
+ * A small {@link TemplateSetContent} for the roll-expansion laws: 1–5 templates
+ * with random tags/accepts (so two-way legality genuinely varies), weights in
+ * {0, 1, 3} (0 exercises the never-random rule), unique/tombstoned flags, 0–3
+ * exits with random optionality, a `closureChance` at the interesting points,
+ * and an optional connector designation. Normalized through the load schema, so
+ * every emitted value is a **fixed point by construction** (the transform
+ * reconciles the order arrays; defaults land).
+ */
+export const arbitraryTemplateSet: fc.Arbitrary<TemplateSetContent> = fc
+  .array(
+    record({
+      tags: fc.subarray([...TAG_VOCAB]),
+      accepts: fc.subarray([...TAG_VOCAB]),
+      weight: fc.constantFrom(0, 1, 3),
+      unique: fc.boolean(),
+      tombstoned: fc.boolean(),
+      optionalExits: fc.array(fc.boolean(), { maxLength: 3 }),
+    }),
+    { minLength: 1, maxLength: 5 }
+  )
+  .chain((specs) =>
+    record({
+      specs: fc.constant(specs),
+      closureChance: fc.constantFrom(0, 0.1, 1),
+      connectorIndex: fc.option(fc.nat({ max: specs.length - 1 }), {
+        nil: undefined,
+      }),
+    })
+  )
+  .map(({ specs, closureChance, connectorIndex }) => {
+    const templates = Object.fromEntries(
+      specs.map((spec, index) => [
+        `t${index}`,
+        {
+          key: `t${index}`,
+          tags: spec.tags,
+          accepts: spec.accepts,
+          weight: spec.weight,
+          unique: spec.unique,
+          ...(spec.tombstoned ? { tombstoned: true } : {}),
+          exits: spec.optionalExits.map((optional) => ({ optional })),
+        },
+      ])
+    )
+    return templateSetContentSchema.parse({
+      templates,
+      closureChance,
+      ...(connectorIndex === undefined
+        ? {}
+        : { connectorTemplateKey: `t${connectorIndex}` }),
+    })
+  })
+
+/** One roll-expansion input: a mid-expedition instance whose zones are bound to
+ *  set templates, at least one open stub, and a seeded ledger consistent with
+ *  the set. See {@link arbitraryExpansionScenario}. */
+export interface ExpansionScenario {
+  set: TemplateSetContent
+  instanceState: MapInstanceState
+  ledger: GenerationLedger
+  stubId: string
+}
+
+/**
+ * The composite the roll-expansion laws quantify over: an
+ * {@link arbitraryPlacedGeometry} whose zones each (maybe) bind a template from
+ * an {@link arbitraryTemplateSet}, pages with random growth modes, a
+ * self-consistent generation slice (all-authored provenance with random depths,
+ * 1–4 stubs hung off bound zones, `startingZoneIds` ⊆ zone ids), and a ledger
+ * with a non-empty seed, small pre-advanced cursors, `mintedUniqueKeys` drawn
+ * from the set's unique templates, and no mints. The emitted instance state is
+ * a load-schema fixed point (pinned as a meta-law).
+ */
+export const arbitraryExpansionScenario: fc.Arbitrary<ExpansionScenario> =
+  record({
+    set: arbitraryTemplateSet,
+    geometry: arbitraryPlacedGeometry.filter(
+      (geometry) => Object.keys(geometry.zones).length > 0
+    ),
+  }).chain(({ set, geometry }) => {
+    const zoneIds = Object.keys(geometry.zones)
+    const templateKeys = Object.keys(set.templates)
+    const pageIds = Object.keys(geometry.pages)
+    return record({
+      set: fc.constant(set),
+      geometry: fc.constant(geometry),
+      growths: tupleOf(
+        pageIds.map(() =>
+          fc.option(fc.constantFrom<"edge" | "open">("edge", "open"), {
+            nil: undefined,
+          })
+        )
+      ),
+      bindings: tupleOf(
+        zoneIds.map(() =>
+          fc.option(fc.nat({ max: templateKeys.length - 1 }), {
+            nil: undefined,
+          })
+        )
+      ),
+      depths: tupleOf(zoneIds.map(() => fc.nat({ max: 4 }))),
+      stubSpecs: fc.array(
+        record({
+          zoneIndex: fc.nat(),
+          bearing: fc.double({
+            min: -Math.PI,
+            max: Math.PI,
+            noNaN: true,
+            noDefaultInfinity: true,
+          }),
+        }),
+        { minLength: 1, maxLength: 4 }
+      ),
+      startingZoneIds: fc.subarray(zoneIds),
+      seed: fc.constantFrom("seed-a", "seed-b", "seed-c"),
+      cursors: fc.constantFrom<Record<string, number>>(
+        {},
+        { templates: 5 },
+        { templates: 2, closure: 7 }
+      ),
+      uniqueSeeded: fc.subarray(
+        templateKeys.filter((key) => set.templates[key]!.unique)
+      ),
+      stubPick: fc.nat(),
+    }).map(
+      ({
+        set: pickedSet,
+        geometry: baseGeometry,
+        growths,
+        bindings,
+        depths,
+        stubSpecs,
+        startingZoneIds,
+        seed,
+        cursors,
+        uniqueSeeded,
+        stubPick,
+      }) => {
+        const pages = Object.fromEntries(
+          pageIds.map((pageId, index) => [
+            pageId,
+            {
+              ...baseGeometry.pages[pageId]!,
+              ...(growths[index] === undefined
+                ? {}
+                : { growth: growths[index] }),
+            },
+          ])
+        )
+        const zones = Object.fromEntries(
+          zoneIds.map((zoneId, index) => [
+            zoneId,
+            {
+              ...baseGeometry.zones[zoneId]!,
+              ...(bindings[index] === undefined
+                ? {}
+                : { templateKey: templateKeys[bindings[index]!]! }),
+            },
+          ])
+        )
+        const provenance = Object.fromEntries(
+          zoneIds.map((zoneId, index) => [
+            zoneId,
+            { source: "authored" as const, depth: depths[index]! },
+          ])
+        )
+        const stubs = Object.fromEntries(
+          stubSpecs.map((spec, index) => {
+            const id = `stub-${index}`
+            const zoneId = zoneIds[spec.zoneIndex % zoneIds.length]!
+            return [
+              id,
+              {
+                id,
+                zoneId,
+                bearing: spec.bearing,
+                // The real sprout derivation — a scenario stub is a stub the
+                // substrate could actually have produced.
+                anchor: anchorFromBearing(
+                  footprintOf(baseGeometry.zones[zoneId]!.size),
+                  spec.bearing
+                ),
+              },
+            ]
+          })
+        )
+        const instanceState = mapInstanceStateSchema.parse({
+          geometry: { ...baseGeometry, pages, zones },
+          occupancy: {},
+          enchantment: null,
+          reveal: {
+            revealedZoneIds: [],
+            revealedConnectionIds: [],
+            unlockedConnectionIds: [],
+          },
+          generation: {
+            zones: provenance,
+            stubs,
+            connections: {},
+            grafts: {},
+            startingZoneIds,
+          },
+          lastMovedTokenKey: null,
+        })
+        const ledger: GenerationLedger = {
+          seed,
+          streamCursors: cursors,
+          declarations: [],
+          mintedUniqueKeys: [...uniqueSeeded].sort(),
+          mints: {},
+        }
+        const stubIds = Object.keys(stubs)
+        return {
+          set: pickedSet,
+          instanceState,
+          ledger,
+          stubId: stubIds[stubPick % stubIds.length]!,
+        }
+      }
+    )
+  })
+
 export function arbitraryMintBatch(
   ledger: GenerationLedger
 ): fc.Arbitrary<{ zoneId: string; record: MintRecord }[]> {
   const perMintSpec = record({
     unique: fc.boolean(),
+    childStubCount: fc.nat({ max: 1 }),
     effectFlags: tupleOf(
       ledger.declarations.map(() =>
         record({
@@ -108,6 +346,13 @@ export function arbitraryMintBatch(
           sequence: 100 + index,
           templateKey: spec.unique ? `unique-${index}` : "hall",
           unique: spec.unique,
+          stub: {
+            id: `stub-${index}`,
+            zoneId: `parent-zone-${index}`,
+            bearing: index * 0.5,
+            anchor: { side: "e" as const, offset: 0.5 },
+          },
+          childStubIds: spec.childStubCount === 0 ? [] : [`child-${index}-0`],
           effects,
         },
       }
