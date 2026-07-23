@@ -52,20 +52,22 @@ import type { TemplateSetContent, ZoneTemplate } from "./template-set.schema"
  *
  * Consumption per outcome (the table the laws pin):
  *
- * | outcome                        | closure | templates                    |
- * | ------------------------------ | ------- | ---------------------------- |
- * | closeLoop                      | 1       | 0                            |
- * | dead end (empty pool)          | 1       | 0                            |
- * | dead end (no-space after pick) | 1       | 1                            |
- * | mint, random pick              | 1       | 1 + optional-exit culls      |
- * | mint, connector fallback       | 1       | optional-exit culls          |
- * | mint, forced                   | 0       | optional-exit culls          |
+ * | outcome                        | closure | templates               | layout      |
+ * | ------------------------------ | ------- | ----------------------- | ----------- |
+ * | closeLoop                      | 1       | 0                       | 0           |
+ * | dead end (empty pool)          | 1       | 0                       | 0           |
+ * | dead end (no-space after pick) | 1       | 1                       | 0           |
+ * | mint, random pick              | 1       | 1 + optional-exit culls | child count |
+ * | mint, connector fallback       | 1       | optional-exit culls     | child count |
+ * | mint, forced                   | 0       | optional-exit culls     | child count |
  *
  * The closure draw is **unconditional on the random path** (fixed consumption):
  * it makes "every random outcome consumed a roll" true by construction — the
  * zod-valid non-empty `advanceCursors` D4 requires — and the closure cursor
  * counts expansion attempts, a clean law. The template pick is consume-as-needed
- * (an empty-pool pick draw would buy nothing).
+ * (an empty-pool pick draw would buy nothing), and the **layout** stream draws
+ * one per surviving child exit — the fan's per-exit orientation jitter — but
+ * only after a successful placement (a no-space dead end never fans).
  */
 
 export type ExpansionError =
@@ -238,7 +240,8 @@ function emitMint(
   templateKey: string,
   template: ZoneTemplate,
   streams: Record<string, RngStream>,
-  templatesStream: RngStream
+  templatesStream: RngStream,
+  layoutStream: RngStream
 ): Result<ExpansionOutcome, "no-space"> {
   const placed = placeMintedZone({
     geometry: ctx.instanceState.geometry,
@@ -285,7 +288,16 @@ function emitMint(
     if (roll >= DEFAULT_OPTIONAL_EXIT_CULL) surviving += 1
   }
   const budget = Math.max(0, surviving - 1)
-  const bearings = fanBearings(ctx.stub.bearing, budget, ctx.growth)
+  // Each child exit samples one "layout" draw for its orientation — the fan is
+  // no longer a fixed geometric spread, so two seeds grow different shapes and
+  // exits reach walls beyond the parent's heading (UNN-642 tuning). Consumed
+  // only after a successful placement (a no-space dead end touched no layout).
+  const bearings = fanBearings(
+    ctx.stub.bearing,
+    budget,
+    ctx.growth,
+    layoutStream.next
+  )
   const footprint = footprintOf(undefined)
   const childStubs: GenerationStub[] = bearings.map((bearing) => {
     const id = ctx.newId()
@@ -381,6 +393,11 @@ export function rollExpansion(
     "templates",
     ledger.streamCursors["templates"] ?? 0
   )
+  const layoutStream = makeStream(
+    ledger.seed,
+    "layout",
+    ledger.streamCursors["layout"] ?? 0
+  )
 
   // ————— Forced path: no closure draw, no pick draw.
   if (options?.forcedTemplateKey !== undefined) {
@@ -395,8 +412,9 @@ export function rollExpansion(
       ctx,
       key,
       template,
-      { templates: templatesStream },
-      templatesStream
+      { templates: templatesStream, layout: layoutStream },
+      templatesStream,
+      layoutStream
     )
   }
 
@@ -406,7 +424,11 @@ export function rollExpansion(
     "closure",
     ledger.streamCursors["closure"] ?? 0
   )
-  const streams = { closure: closureStream, templates: templatesStream }
+  const streams = {
+    closure: closureStream,
+    templates: templatesStream,
+    layout: layoutStream,
+  }
 
   // Closure stage — one unconditional draw (fixed consumption; the closure
   // cursor counts expansion attempts). Fires iff the draw lands under the
@@ -490,7 +512,8 @@ export function rollExpansion(
       picked.key,
       picked.template,
       streams,
-      templatesStream
+      templatesStream,
+      layoutStream
     )
     // The bounded layout search came up empty — for the random path that is a
     // dead end (never a dead click), not an error.
@@ -515,7 +538,8 @@ export function rollExpansion(
       connectorKey,
       connector,
       streams,
-      templatesStream
+      templatesStream,
+      layoutStream
     )
     return ok(minted.ok ? minted.value : deadEnd(ctx, streams))
   }

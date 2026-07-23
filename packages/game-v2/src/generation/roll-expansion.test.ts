@@ -163,8 +163,14 @@ describe("rollExpansion — the mint outcome", () => {
     })
     const cursors = result.value.dungeonEvents[2]!
     if (cursors.kind !== "advanceCursors") throw new Error("no cursors")
-    // One unconditional closure draw + one pick draw (no optional exits).
-    expect(cursors.consumed).toStrictEqual({ closure: 1, templates: 1 })
+    // Closure draw + pick draw (no optional exits) + one layout draw per child
+    // exit fanned (hall's two non-optional exits − the incoming = one child).
+    expect(cursors.consumed).toStrictEqual({
+      closure: 1,
+      templates: 1,
+      layout: mint.stubs.length,
+    })
+    expect(mint.stubs.length).toBe(1)
   })
 
   it("excludes weight-0, tombstoned, spent-unique, and socket-illegal templates from the pool", () => {
@@ -252,10 +258,16 @@ describe("rollExpansion — the mint outcome", () => {
     })
     const result = rollExpansion(deps({ set }))
     if (!result.ok) throw new Error(result.error)
+    const mint = result.value.instanceEvents[0]!
+    if (mint.kind !== "mintZone") throw new Error(`got ${mint.kind}`)
     const cursors = result.value.dungeonEvents.at(-1)!
     if (cursors.kind !== "advanceCursors") throw new Error("no cursors")
-    // 1 pick + 3 optional-exit culls.
-    expect(cursors.consumed).toStrictEqual({ closure: 1, templates: 4 })
+    // 1 pick + 3 optional-exit culls (templates), one layout draw per child.
+    expect(cursors.consumed).toStrictEqual({
+      closure: 1,
+      templates: 4,
+      layout: mint.stubs.length,
+    })
   })
 })
 
@@ -330,10 +342,15 @@ describe("rollExpansion — loop closure", () => {
       deps({ set: makeSet({}, { closureChance: 1 }) })
     )
     if (!result.ok) throw new Error(result.error)
-    expect(result.value.instanceEvents[0]!.kind).toBe("mintZone")
+    const mint = result.value.instanceEvents[0]!
+    if (mint.kind !== "mintZone") throw new Error(`got ${mint.kind}`)
     const cursors = result.value.dungeonEvents.at(-1)!
     if (cursors.kind !== "advanceCursors") throw new Error("no cursors")
-    expect(cursors.consumed).toStrictEqual({ closure: 1, templates: 1 })
+    expect(cursors.consumed).toStrictEqual({
+      closure: 1,
+      templates: 1,
+      layout: mint.stubs.length,
+    })
   })
 
   it("skips a socket-illegal closure candidate", () => {

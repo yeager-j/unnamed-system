@@ -16,6 +16,7 @@ import {
 
 import {
   anchorFromBearing,
+  EDGE_ARC_MARGIN,
   edgeHalfPlane,
   fanBearings,
   inHalfPlane,
@@ -149,25 +150,40 @@ describe("anchorFromBearing laws", () => {
 })
 
 describe("fanBearings laws", () => {
-  it("edge fans stay strictly inside the half-circle; open fans cover the circle; counts match", () => {
+  it("edge fans stay inside the inset half-circle; sectors keep bearings ordered; counts match", () => {
     fc.assert(
       fc.property(
         record({
           base: arbitraryBearing,
           count: fc.integer({ min: 0, max: 8 }),
           growth: fc.constantFrom<"edge" | "open">("edge", "open"),
+          // One draw per exit (extra entries are unused) — the injected jitter.
+          draws: fc.array(fc.double({ min: 0, max: 0.999999, noNaN: true }), {
+            minLength: 8,
+            maxLength: 8,
+          }),
         }),
-        ({ base, count, growth }) => {
-          const bearings = fanBearings(base, count, growth)
+        ({ base, count, growth, draws }) => {
+          let i = 0
+          const bearings = fanBearings(base, count, growth, () => draws[i++]!)
           expect(bearings).toHaveLength(count)
+          // One draw consumed per exit.
+          expect(i).toBe(count)
+          // Sectors never cross: bearings are strictly increasing.
+          for (let k = 1; k < bearings.length; k++) {
+            expect(bearings[k]!).toBeGreaterThan(bearings[k - 1]!)
+          }
           if (growth === "edge") {
             for (const bearing of bearings) {
-              // Angular distance from base stays under π/2 (interior points).
+              // Every exit stays forward of the boundary, inset by the margin —
+              // never behind the half-plane, but reaching near-horizontal.
               const delta = Math.atan2(
                 Math.sin(bearing - base),
                 Math.cos(bearing - base)
               )
-              expect(Math.abs(delta)).toBeLessThan(Math.PI / 2 + 1e-9)
+              expect(Math.abs(delta)).toBeLessThanOrEqual(
+                Math.PI / 2 - EDGE_ARC_MARGIN + 1e-9
+              )
             }
           }
         }

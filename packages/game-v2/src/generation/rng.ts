@@ -21,14 +21,18 @@ export type Rng = () => number
 
 /**
  * The canonical stream purposes (D6): template draws, zone-contents rolls, loop
- * closure, and site declarations' due draws. The cursor record is deliberately
- * open (`Record<string, number>`) — these constants are the vocabulary, not a
- * closed set.
+ * closure, **exit-fan orientation jitter** (UNN-642 tuning — the angular spread
+ * that keeps two seeds from growing the same shape), and site declarations' due
+ * draws. Each purpose hashes independently, so widening the fan never shifts the
+ * template sequence. The cursor record is deliberately open
+ * (`Record<string, number>`) — these constants are the vocabulary, not a closed
+ * set.
  */
 export const RNG_PURPOSES = [
   "templates",
   "contents",
   "closure",
+  "layout",
   "draws",
 ] as const
 export type RngPurpose = (typeof RNG_PURPOSES)[number]

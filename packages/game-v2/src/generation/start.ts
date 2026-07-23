@@ -79,6 +79,9 @@ export function sproutStartStubs(input: {
 } {
   const { geometry } = input.state
   const templatesStream = makeStream(input.seed, "templates")
+  // The exit-fan orientation jitter (UNN-642) — its own stream, so the number
+  // of exits a zone fans never shifts the template sequence.
+  const layoutStream = makeStream(input.seed, "layout")
   const stubs: Record<string, GenerationStub> = {}
 
   const boundZones = Object.values(geometry.zones)
@@ -109,7 +112,7 @@ export function sproutStartStubs(input: {
 
     const growth = geometry.pages[zone.pageId]?.growth ?? "edge"
     const base = baseBearing(geometry, zone.id, input.startingZoneIds, growth)
-    const bearings = fanBearings(base, budget, growth)
+    const bearings = fanBearings(base, budget, growth, layoutStream.next)
     const footprint = footprintOf(zone.size)
     for (const bearing of bearings) {
       const id = input.newId()
@@ -124,10 +127,14 @@ export function sproutStartStubs(input: {
 
   return {
     stubs,
-    cursors:
-      templatesStream.consumed() > 0
+    cursors: {
+      ...(templatesStream.consumed() > 0
         ? { templates: templatesStream.consumed() }
-        : {},
+        : {}),
+      ...(layoutStream.consumed() > 0
+        ? { layout: layoutStream.consumed() }
+        : {}),
+    },
   }
 }
 

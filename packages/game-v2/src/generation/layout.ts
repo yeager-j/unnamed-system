@@ -15,10 +15,13 @@ import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The **layout** algorithm (procedural-dungeons tech design D6, UNN-590) —
- * directional fan, page-local, positions immutable. All pure and RNG-free: the
- * roll picks the template; placement is deterministic search. Coordinates are
- * canvas world units, canvas convention (x right, y down); bearings are radians
- * in that frame, so "screen-up" is −π/2.
+ * directional fan, page-local, positions immutable. All pure: placement
+ * (`placeMintedZone`) is a deterministic overlap search; the fan
+ * (`fanBearings`, UNN-642) takes an injected `draw` for its per-exit
+ * orientation jitter, so it stays a pure function of its arguments while the
+ * *randomness* lives in the caller's ledger stream. Coordinates are canvas
+ * world units, canvas convention (x right, y down); bearings are radians in
+ * that frame, so "screen-up" is −π/2.
  *
  * Invariants the laws pin:
  * - a placed footprint rect never overlaps a same-page zone footprint;
@@ -42,6 +45,15 @@ export const CLOSURE_RADIUS_FACTOR = 1.5
 
 /** Collision-nudge steps, degrees off the stub bearing, tried in order. */
 export const NUDGE_STEPS_DEG = [0, 15, -15, 30, -30, 45, -45] as const
+
+/**
+ * Off-boundary inset for the `edge` fan's usable arc (radians, UNN-642 tuning).
+ * The fan spans the forward half-circle inset by this at each end, so an exit
+ * never lands exactly on the half-plane boundary (where placement would
+ * border-reject it) while the arc still reaches near-horizontal — the east/west
+ * walls. A feel parameter, not schema.
+ */
+export const EDGE_ARC_MARGIN = Math.PI / 12
 
 /** Distance-extension factor between nudge rounds, and the round cap. The cap is
  *  defensive — ~7 × 6 candidates over growing radii; a real page runs out of
@@ -175,28 +187,28 @@ export function edgeHalfPlane(
 }
 
 /**
- * Fans `count` bearings around `base`: evenly across the **half-circle** centred
- * on `base` under `edge` (interior points, so no stub sits exactly on the
- * boundary), the **full circle** under `open` (descended-into fiction, D6).
- * Deterministic order (left-to-right across the fan / around the circle).
+ * Fans `count` bearings around `base`, **one RNG draw each** (UNN-642). The
+ * legal arc — the forward half-circle inset by {@link EDGE_ARC_MARGIN} under
+ * `edge`, the full circle under `open` — is split into `count` equal sectors,
+ * and each bearing is sampled uniformly *within its own sector*. Sectors keep
+ * the exits ordered and non-crossing (so their zones don't fight for the same
+ * spot); the in-sector draw is what gives orientation variety no two seeds
+ * share, lets a lone exit leave its parent's exact heading, and lets the outer
+ * exits reach the near-horizontal east/west walls. `draw` returns a value in
+ * [0, 1); tests inject constants (the fan is otherwise pure). Left-to-right /
+ * around-the-circle order preserved.
  */
 export function fanBearings(
   base: number,
   count: number,
-  growth: "edge" | "open"
+  growth: "edge" | "open",
+  draw: () => number
 ): number[] {
   if (count <= 0) return []
-  if (count === 1) return [base]
-  if (growth === "open") {
-    return Array.from(
-      { length: count },
-      (_, i) => base + (2 * Math.PI * i) / count
-    )
-  }
-  return Array.from(
-    { length: count },
-    (_, i) => base - Math.PI / 2 + (Math.PI * (i + 1)) / (count + 1)
-  )
+  const arc = growth === "open" ? 2 * Math.PI : Math.PI - 2 * EDGE_ARC_MARGIN
+  const start = growth === "open" ? base : base - arc / 2
+  const sector = arc / count
+  return Array.from({ length: count }, (_, i) => start + (i + draw()) * sector)
 }
 
 /** Keep an anchor offset off the very corners of its wall. */

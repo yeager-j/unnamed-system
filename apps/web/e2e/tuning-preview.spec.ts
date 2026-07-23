@@ -1,13 +1,16 @@
 import { expect, test } from "@playwright/test"
 import { eq } from "drizzle-orm"
 
-import { rollExpansion } from "@workspace/game-v2/generation"
+import {
+  rollExpansion,
+  templateSetContentSchema,
+} from "@workspace/game-v2/generation"
 import {
   reduceMapInstance as createReduceMapInstance,
   reduceDungeon,
 } from "@workspace/game-v2/spatial"
 
-import { dungeons, getDb, mapInstances, templateSets } from "@/lib/db"
+import { dungeons, getDb, mapInstances } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -58,15 +61,62 @@ test("grow a ~25-zone expedition and screenshot the board", async ({
 
   const [expedition] = await target.getExpeditions()
   const db = getDb()
-  const [setRow] = await db
-    .select({ content: templateSets.content })
-    .from(templateSets)
-    .where(eq(templateSets.id, target.templateSet.id))
+
+  // A branching set (preview-only — the gesture spec keeps the minimal one):
+  // varied exit counts so the board forks, all sharing one tag so adjacency
+  // never limits the layout under test. A light closure chance to show loops.
+  const previewSet = templateSetContentSchema.parse({
+    templates: {
+      hall: {
+        key: "hall",
+        tags: ["street"],
+        accepts: ["street"],
+        weight: 3,
+        exits: [{ optional: false }, { optional: true }, { optional: true }],
+      },
+      junction: {
+        key: "junction",
+        tags: ["street"],
+        accepts: ["street"],
+        weight: 2,
+        exits: [
+          { optional: false },
+          { optional: false },
+          { optional: false },
+          { optional: true },
+        ],
+      },
+      vault: {
+        key: "vault",
+        tags: ["street"],
+        accepts: ["street"],
+        weight: 1,
+        exits: [{ optional: false }],
+      },
+    },
+    connectorTemplateKey: "hall",
+    closureChance: 0.12,
+  })
+  const setRow = { content: previewSet }
+  // Rebind the Entry zone to a template in the preview set so its start-stubs
+  // and every mint speak the same tag vocabulary.
+  const [entryInstance] = await db
+    .select({ state: mapInstances.state, version: mapInstances.version })
+    .from(mapInstances)
+    .where(eq(mapInstances.id, expedition!.mapInstanceId))
     .limit(1)
+  const rebound = structuredClone(entryInstance!.state)
+  for (const zone of Object.values(rebound.geometry.zones)) {
+    if (zone.templateKey !== undefined) zone.templateKey = "junction"
+  }
+  await db
+    .update(mapInstances)
+    .set({ state: rebound, version: entryInstance!.version + 1 })
+    .where(eq(mapInstances.id, expedition!.mapInstanceId))
 
   // Grow the expedition with the pure engine, exactly as the executor folds.
   const reduceInstance = createReduceMapInstance(() => crypto.randomUUID())
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 28; i++) {
     const [instanceRow] = await db
       .select({ state: mapInstances.state, version: mapInstances.version })
       .from(mapInstances)
