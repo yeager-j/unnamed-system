@@ -39,9 +39,9 @@ import { advanceEntityAxisGuarded } from "./version-guard"
  * reruns against fresh state — never a client-visible stale.
  *
  * It records the advanced axis on the stamp accumulator and returns the committed
- * facts; it fires **no realtime ping and no revalidation** — post-acceptance
- * finalization is the caller's job (the executor's axis invalidation for the
- * Headcanon action, or an external caller's own ping + route refresh). Passing a
+ * facts; it fires **no transport or route-cache side effects itself** — the
+ * registered Headcanon action finalizes the stamp and axis invalidation, then
+ * invokes the command's explicit projection callback. Passing a
  * client-composed patch is unrepresentable (descriptor-in, UNN-226): the patch is
  * composed server-side here from the loaded state.
  *

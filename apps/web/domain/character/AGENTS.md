@@ -1,7 +1,7 @@
 # `domain/character` — the character read side (ADR §2.6)
 
-The v2 character surfaces' read layer: **one load boundary per route** and,
-when S2 lands, the pure per-surface view builders.
+The v2 character surfaces' read layer: **one load boundary per route** and
+pure per-surface view builders.
 
 - `load.ts` — `loadCharacterByShortId(shortId)` fetches the `entity` row once,
   assembles + `resolveEntity`s once, and returns the
@@ -34,11 +34,11 @@ through `lib/actions/entity/`.
 A surface reads from exactly three places, each answering a different
 question:
 
-| Home                | Question it answers                  | Example reads                                  |
-| ------------------- | ------------------------------------ | ---------------------------------------------- |
-| `profile`           | app-owned row facts                  | name, status, builderStep, version tokens      |
-| `entity.components` | what the player **authored**         | `path.choice`, `archetypes.origin`, narrative  |
-| `resolved`          | what the engine **derived** from it  | `vitals.maxHP/currentHP`, resolved skills      |
+| Home                | Question it answers                 | Example reads                                 |
+| ------------------- | ----------------------------------- | --------------------------------------------- |
+| `profile`           | app-owned row facts                 | name, status, builderStep, version tokens     |
+| `entity.components` | what the player **authored**        | `path.choice`, `archetypes.origin`, narrative |
+| `resolved`          | what the engine **derived** from it | `vitals.maxHP/currentHP`, resolved skills     |
 
 `toCharacterCanon` (UNN-673/UNN-675) is **not** a fourth home and not a merge: it
 is the same three answers re-projected for the write protocol, carrying only what
@@ -46,10 +46,9 @@ the four entity axes govern — the authored components, their resolved derivati
 and the four identity columns the `identity` axis owns. It deliberately excludes
 `profile`'s ids (immutable) and its `status`/`builderStep` (unversioned subtype
 facts) precisely because no axis revision speaks for them, which is the same
-discipline as the table above rather than an exception to it. Until the P2d
-provider cutover the identity columns are projected both here and onto `profile`;
-they are built in one function from one row read, so they cannot diverge, and P2d
-removes the duplicate by sourcing `profile` from the predicted value.
+discipline as the table above rather than an exception to it. The provider now
+sources identity columns from the predicted canon, so the profile overlay and
+entity frame stay aligned while a write is pending.
 
 The standing temptation — it will look like a harmless convenience — is to
 spread these into one merged view-model ("`CharacterView`", "`SheetData`",
@@ -59,5 +58,5 @@ namespace, readers stop knowing which is which, writes start targeting
 derived fields, and the shadow flattener the whole v2 read model exists to
 kill (ADR §2.6, anti-goal 2) grows back one field at a time. If a component
 needs values from two homes, it takes two props (or a per-surface `view/`
-builder shapes them) — the *builder* may combine, because it is pure,
-per-surface, and content-named; a *shared* merged type may not exist.
+builder shapes them) — the _builder_ may combine, because it is pure,
+per-surface, and content-named; a _shared_ merged type may not exist.

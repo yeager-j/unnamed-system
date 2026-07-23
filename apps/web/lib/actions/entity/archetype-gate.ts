@@ -11,8 +11,8 @@ import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-charact
 /**
  * The viewer-identity authorization for an Archetype rank-spend — the one entity
  * write whose legality depends on *who* the viewer is and the *campaign story*,
- * not just stored state. Shared by both entity-write doors (the legacy
- * `applyEntityWriteAction` and the Headcanon `applyEntityMutationAction`) so the
+ * not just stored state. Shared by the registered entity mutation command and
+ * combat's durable command so the
  * rule has one home: the pure Writer is catalog-only (it runs on the optimistic
  * client too), so this gate is the authority's responsibility.
  *

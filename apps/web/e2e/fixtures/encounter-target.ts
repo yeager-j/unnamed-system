@@ -281,14 +281,11 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  */
 /**
  * A monotonically-increasing `version` baseline stamped onto the seeded rows by
- * every reset. The setup specs assert on the **optimistic** UI, so a per-edit
- * write can still be in flight at test teardown — and post-UNN-459 the roster
- * add/remove are slower `guardMany` **cross-writes**, so one can straddle into
- * the next serial test. Giving each reset a fresh baseline higher than any
- * in-flight write expected makes that stale write fail its version guard
- * (`"stale"`, a no-op) instead of colliding with a shared `version: 0` and
- * applying onto the freshly-reset row — which would empty it. The step exceeds
- * the handful of edits any single test issues, and the counter is per-process so
+ * every reset. The baseline keeps reset snapshots distinct for any already-mounted
+ * canon. Headcanon clients do not send `expectedVersion`; the authority reloads
+ * and retries contention, so this is only a fixture freshness/isolation marker,
+ * not stale-write suppression. The step exceeds the handful of edits any single
+ * test issues, and the counter is per-process so
  * it never overflows the `integer` column across a run.
  */
 let resetVersionBaseline = 0

@@ -106,8 +106,8 @@ async function expectOriginPersisted(shortId: string): Promise<void> {
  * Movement 2's Continue is gated on a valid creation Virtue allocation:
  * exactly one +2, two +1s, one 0. Helper for specs that walk past Ortus.
  * Each click dispatches a whole-allocation descriptor; we poll the `virtues`
- * component between clicks so the shared progression token is fresh for the
- * next dispatch.
+ * component between clicks so each UI action is backed by the accepted
+ * Headcanon mutation before the next dependent dispatch.
  */
 async function setValidVirtueAllocation(
   page: import("@playwright/test").Page,
@@ -381,8 +381,8 @@ test.describe("movement 2 — ortus", () => {
     })
     await expect(continueButton).toBeDisabled()
 
-    // Allocate 1×+2 + 2×+1, sequentially so optimistic state settles between
-    // clicks (each click dispatches through the provider's progression queue).
+    // Allocate 1×+2 + 2×+1, sequentially so each accepted Headcanon mutation is
+    // persisted before the next dependent click.
     await page
       .locator('[data-virtue="expression"]')
       .getByRole("button", { name: "+2" })
@@ -621,12 +621,12 @@ test.describe("movement 4 — persona", () => {
 
     const nameInput = page.getByRole("textbox", { name: "Character name" })
     await nameInput.fill("Garron Vey")
-    // Blur and click immediately: Finalize must queue behind the identity
-    // auto-save rather than racing it with the pre-blur version token.
+    // Blur and click immediately: Finalize and identity auto-save share the
+    // Headcanon root queue, exercising ordered lifecycle delivery.
     await nameInput.blur()
     await page.getByRole("button", { name: "Finalize character" }).click()
 
-    // Finalize lands on My Characters (the v2 sheet route arrives with S2a)
+    // Finalize lands on My Characters (the current character sheet route)
     // and the new card renders from the repointed entity list query.
     await expect(page).toHaveURL(/\/(\?.*)?$/)
     await expect(page.getByText("Garron Vey")).toBeVisible()
