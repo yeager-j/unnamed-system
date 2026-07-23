@@ -4,6 +4,7 @@ import { MAX_CURRENCY } from "@workspace/game-v2/items"
 
 import { entityWriteSchema } from "../write.schema"
 import { applyEntityWrite } from "../writers"
+import { equipmentWriter } from "./inventory"
 
 /**
  * The equipment write family (S2c — UNN-559). The Writer statically imports the
@@ -26,6 +27,18 @@ const bag = (
 })
 
 const SEED = "0f37bd58-9f9a-4bb1-b34d-6f7f0e2f8f11"
+
+describe("equipmentWriter", () => {
+  it("guards inventory row operations with the inventory durable class", () => {
+    expect(equipmentWriter.durableClass).toBe("inventory")
+    expect(
+      equipmentWriter.applyOp(
+        {},
+        { component: "equipment", op: "equip", itemId: "a" }
+      )
+    ).toEqual({ ok: false, error: "capability-missing" })
+  })
+})
 
 describe("entityWriteSchema — the equipment arms", () => {
   it.each([
