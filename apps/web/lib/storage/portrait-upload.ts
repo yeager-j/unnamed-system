@@ -104,9 +104,9 @@ export function messageForPortraitUploadError(error: string): string {
  * with the old one.
  *
  * Exported because the write protocol admits only URLs of this shape
- * ({@link import("@/domain/entity/commit/identity.schema").isStoredPortraitUrl}) —
+ * ({@link import("@/domain/character/commit/identity.schema").isStoredPortraitUrl}) —
  * the descriptor cannot import this module (depcheck's domain-purity rule), so
- * `domain/entity/commit/identity.test.ts` pins the correspondence instead. Change
+ * `domain/character/commit/identity.test.ts` pins the correspondence instead. Change
  * this path and that test tells you the grammar moved out from under it.
  */
 export function portraitBlobPathname(mime: string): string {

@@ -19,7 +19,7 @@ import {
   indexOfStep,
   type MovementSlug,
 } from "@/domain/character/builder-steps"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/builder-step"
 import { guardWriteTransition } from "@/lib/actions/guard-write-transition"
 import { characterBuilderPath } from "@/lib/paths"
@@ -199,7 +199,7 @@ function ContinueLink({
   canAdvance: boolean
   disabledReason?: string
 }) {
-  const { profile } = useLoadedCharacter()
+  const { profile } = CharacterRoot.useRoot().value
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canAdvance

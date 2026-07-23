@@ -22,10 +22,10 @@ import { DetailSection } from "@/components/shared/detail-section"
 import { Prose } from "@/components/shared/prose"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
+import { CharacterRoot } from "@/domain/character/client"
 import { affinityCells } from "@/domain/character/view/affinity-strip"
 import { buildArchetypesTabView } from "@/domain/character/view/archetypes-tab"
 import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import { characterAtlasPath } from "@/lib/paths"
 
 import { AttributesBlock } from "../rail/attributes-block"
@@ -40,7 +40,7 @@ import { InheritanceSlots } from "./inheritance-slots"
  * in the rail re-folds and this whole surface follows in the same frame.
  */
 export function ArchetypesTab() {
-  const { profile, resolved } = useLoadedCharacter()
+  const { profile, resolved } = CharacterRoot.useRoot().value
   const { activeEntry } = buildArchetypesTabView(resolved)
   const attributes = resolved.components.attributes
   const isOrigin =

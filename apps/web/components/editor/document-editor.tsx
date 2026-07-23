@@ -17,7 +17,7 @@ import { MarkdownField } from "@/components/editor/markdown-field"
 /**
  * The slice of an autosave field a document surface hands the shell — the
  * structural subset of `UseDebouncedAutoSaveReturn<string>`, which both
- * persistence pipelines already produce (`useEntityAutoSave` for the entity
+ * persistence pipelines already produce (`useCharacterEntityAutoSave` for the entity
  * door, the planner's LWW composition for beats). A caller that needs a
  * side effect per keystroke (the Notes tree's title mirror) wraps `setValue`
  * before passing the state in.

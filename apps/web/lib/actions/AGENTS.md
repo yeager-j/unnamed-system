@@ -200,15 +200,14 @@ tables, UNN-562). The pure per-mechanic transition lives with its
 `MechanicDefinition` in `packages/game-v2/src/mechanics/<lineage>/<kind>.ts`, where
 the engine tests exercise it; the widget
 (`components/shared/mechanics/<kind>-widget.tsx`) dispatches through
-`useEntityWrite`. Adding a mechanic write is: pure transition (game-v2), a
+`CharacterRoot`. Adding a mechanic write is: pure transition (game-v2), a
 descriptor op + Writer case (`domain/entity/commit`), a widget.
 
 ## Client patterns
 
-Character surfaces mount **`EntityWriteProvider`** (over `{ profile, canon }`,
-the Headcanon mount since UNN-676) and write through **`useEntityWrite`** /
-**`useIdentityWrite`**
-([`domain/entity/use-entity-write.tsx`](../../domain/entity/use-entity-write.tsx)).
+Character surfaces mount **`CharacterProvider`** over their character canon,
+then read and mutate the generated **`CharacterRoot`** directly
+([`domain/character/client.ts`](../../domain/character/client.ts)).
 The registered mutation predictors run the **same pure Writers** the server
 validates with (`ENTITY_WRITERS`) and re-fold `resolveEntity` client-side, so the
 predicted frame is structurally identical to the persisted result — engine

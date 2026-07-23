@@ -41,7 +41,7 @@ import {
  * One `describe` per family, not one aggregate property: each family needs its own
  * entity-dependent write generator, and a shrunk counterexample from thirteen
  * unioned arms is unreadable. The `resolveContext` is drawn once and handed to both
- * sides — exactly as `useEntityWrite` re-folds with the context its base was folded
+ * sides — exactly as the character predictor re-folds with the context its base was folded
  * with, never a fresh one.
  */
 function assertIsomorphic(

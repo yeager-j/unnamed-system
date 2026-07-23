@@ -7,7 +7,6 @@ import type { MapGeometryEvent } from "@workspace/game-v2/spatial"
 import type { Canon } from "@workspace/headcanon"
 import { err, ok } from "@workspace/result"
 
-import { useDebouncedAutoSave } from "@/domain/entity/use-debounced-auto-save"
 import {
   mapGeometryEvents,
   mapRename,
@@ -15,8 +14,14 @@ import {
   type MapCanonValue,
 } from "@/domain/map/commit/protocol"
 import { useMapPredictions } from "@/domain/map/use-map-predictions"
+import { mutationRecoveryToasts } from "@/lib/sync/mutation-recovery-toasts"
+import { useDebouncedAutoSave } from "@/lib/sync/use-debounced-auto-save"
 
 const DEBOUNCE_MS = 600
+const MAP_RECOVERY_MESSAGES = {
+  delivery: "Connection lost mid-save — your map change is kept.",
+  freshness: "Couldn't confirm the latest map changes.",
+} as const
 
 export type MapSaveStatus = "saved" | "saving" | "error"
 
@@ -29,7 +34,13 @@ export function useMapAutoSave({
   mapId: string
   canon: Canon<MapCanonValue>
 }) {
-  const root = useMapPredictions({ canon })
+  const root = useMapPredictions({
+    canon,
+    recoveryListeners: mutationRecoveryToasts({
+      scope: `map:${mapId}`,
+      messages: MAP_RECOVERY_MESSAGES,
+    }),
+  })
   const [geometry, setGeometry] = useState(canon.value.geometry)
   const [settledStatus, setSettledStatus] = useState<MapSaveStatus>("saved")
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
@@ -130,30 +141,6 @@ export function useMapAutoSave({
     }
   })
   useEffect(() => syncFromRoot(), [canon, root.status.pending])
-
-  useEffect(() => {
-    if (root.status.delivery === "uncertain") {
-      toast.error("Connection lost mid-save — your map change is kept.", {
-        id: `map-delivery-uncertain:${mapId}`,
-        duration: Infinity,
-        action: { label: "Retry", onClick: root.retryDelivery },
-      })
-    } else {
-      toast.dismiss(`map-delivery-uncertain:${mapId}`)
-    }
-  }, [mapId, root.retryDelivery, root.status.delivery])
-
-  useEffect(() => {
-    if (root.status.freshness === "stalled") {
-      toast.error("Couldn't confirm the latest map changes.", {
-        id: `map-refresh-stalled:${mapId}`,
-        duration: Infinity,
-        action: { label: "Refresh", onClick: root.retryRefresh },
-      })
-    } else {
-      toast.dismiss(`map-refresh-stalled:${mapId}`)
-    }
-  }, [mapId, root.retryRefresh, root.status.freshness])
 
   const flushOnUnmount = useEffectEvent(() => flushGeometryEvents())
   useEffect(() => () => flushOnUnmount(), [])

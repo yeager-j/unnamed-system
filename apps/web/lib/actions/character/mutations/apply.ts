@@ -6,11 +6,11 @@ import {
 } from "@workspace/headcanon/next/server"
 
 import {
-  entityFinalize,
-  entityIdentity,
-  entityProtocol,
-  entityWrite,
-} from "@/domain/entity/commit/protocol"
+  characterEntityWrite,
+  characterFinalize,
+  characterIdentityWrite,
+  characterProtocol,
+} from "@/domain/character/commit/protocol"
 import { showtimeMutationEnvironment } from "@/lib/actions/mutations/environment"
 
 import {
@@ -22,12 +22,12 @@ import {
 /** The app's complete server binding: definitions are registered once and the
  * package derives parsing, admission order, receipt execution, denial handling,
  * finalization, and same-ID projection recovery from this list. */
-export const applyEntityMutationAction = createNextMutationAction({
+export const applyCharacterMutationAction = createNextMutationAction({
   ...showtimeMutationEnvironment(),
-  protocol: entityProtocol,
+  protocol: characterProtocol,
   commands: [
-    bindMutation(entityWrite, entityWriteCommand),
-    bindMutation(entityIdentity, entityIdentityCommand),
-    bindMutation(entityFinalize, entityFinalizeCommand),
+    bindMutation(characterEntityWrite, entityWriteCommand),
+    bindMutation(characterIdentityWrite, entityIdentityCommand),
+    bindMutation(characterFinalize, entityFinalizeCommand),
   ],
 })

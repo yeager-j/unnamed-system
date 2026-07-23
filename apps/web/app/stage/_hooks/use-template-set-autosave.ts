@@ -6,7 +6,6 @@ import { toast } from "sonner"
 import type { Canon } from "@workspace/headcanon"
 import { err, ok } from "@workspace/result"
 
-import { useDebouncedAutoSave } from "@/domain/entity/use-debounced-auto-save"
 import {
   templateSetEvents,
   templateSetRename,
@@ -15,8 +14,14 @@ import {
 } from "@/domain/template-set/commit/protocol"
 import { reduceTemplateSetEvent } from "@/domain/template-set/events"
 import { useTemplateSetPredictions } from "@/domain/template-set/use-template-set-predictions"
+import { mutationRecoveryToasts } from "@/lib/sync/mutation-recovery-toasts"
+import { useDebouncedAutoSave } from "@/lib/sync/use-debounced-auto-save"
 
 const DEBOUNCE_MS = 600
+const TEMPLATE_SET_RECOVERY_MESSAGES = {
+  delivery: "Connection lost mid-save — your set change is kept.",
+  freshness: "Couldn't confirm the latest set changes.",
+} as const
 
 export type TemplateSetSaveStatus = "saved" | "saving" | "error"
 
@@ -29,7 +34,13 @@ export function useTemplateSetAutoSave({
   templateSetId: string
   canon: Canon<TemplateSetCanonValue>
 }) {
-  const root = useTemplateSetPredictions({ canon })
+  const root = useTemplateSetPredictions({
+    canon,
+    recoveryListeners: mutationRecoveryToasts({
+      scope: `template-set:${templateSetId}`,
+      messages: TEMPLATE_SET_RECOVERY_MESSAGES,
+    }),
+  })
   const [content, setContent] = useState(canon.value.content)
   const [settledStatus, setSettledStatus] =
     useState<TemplateSetSaveStatus>("saved")
@@ -128,30 +139,6 @@ export function useTemplateSetAutoSave({
     }
   })
   useEffect(() => syncFromRoot(), [canon, root.status.pending])
-
-  useEffect(() => {
-    if (root.status.delivery === "uncertain") {
-      toast.error("Connection lost mid-save — your set change is kept.", {
-        id: `template-set-delivery-uncertain:${templateSetId}`,
-        duration: Infinity,
-        action: { label: "Retry", onClick: root.retryDelivery },
-      })
-    } else {
-      toast.dismiss(`template-set-delivery-uncertain:${templateSetId}`)
-    }
-  }, [root.retryDelivery, root.status.delivery, templateSetId])
-
-  useEffect(() => {
-    if (root.status.freshness === "stalled") {
-      toast.error("Couldn't confirm the latest set changes.", {
-        id: `template-set-refresh-stalled:${templateSetId}`,
-        duration: Infinity,
-        action: { label: "Refresh", onClick: root.retryRefresh },
-      })
-    } else {
-      toast.dismiss(`template-set-refresh-stalled:${templateSetId}`)
-    }
-  }, [root.retryRefresh, root.status.freshness, templateSetId])
 
   const flushOnUnmount = useEffectEvent(() => flushEvents())
   useEffect(() => () => flushOnUnmount(), [])

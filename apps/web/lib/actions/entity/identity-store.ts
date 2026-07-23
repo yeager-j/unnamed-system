@@ -1,8 +1,8 @@
 import { type StampAccumulator } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
-import { identityWritePatch } from "@/domain/entity/commit/identity"
-import type { EntityIdentityArgs } from "@/domain/entity/commit/protocol"
+import { identityWritePatch } from "@/domain/character/commit/identity"
+import type { EntityIdentityArgs } from "@/domain/character/commit/protocol"
 import type { Actor } from "@/lib/auth/actor"
 import type { WriteExecutor } from "@/lib/db/client"
 import {

@@ -2,7 +2,8 @@ import { z } from "zod/v4"
 
 /**
  * The **serializable identity-write descriptor** (Headcanon P2c — UNN-675) — the
- * app-column species' answer to {@link import("./write.schema").entityWriteSchema}.
+ * app-column species' answer to
+ * {@link import("@/domain/entity/commit/write.schema").entityWriteSchema}.
  *
  * Name, pronouns, portrait, and notes are app-owned `entity` **columns**, not
  * engine components, so they have no game-v2 Writer and no `durableClass` to

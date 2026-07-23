@@ -1,7 +1,7 @@
 import { type StampAccumulator } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
-import type { EntityWriteArgs } from "@/domain/entity/commit/protocol"
+import type { EntityWriteArgs } from "@/domain/character/commit/protocol"
 import {
   applyEntityWrite,
   ENTITY_WRITERS,

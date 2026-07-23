@@ -1,6 +1,6 @@
 "use client"
 
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 import { resolveInventory } from "@/domain/game-engine-v2"
 
 import { EquippedCard } from "./equipped-card"
@@ -13,7 +13,7 @@ import { InventoryCard } from "./inventory-card"
  * (CH18).
  */
 export function InventoryTab() {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
   const equipment = entity.components.equipment
 
   const inventory = resolveInventory(equipment?.items ?? [])

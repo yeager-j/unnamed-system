@@ -82,7 +82,7 @@ apps/web/
 │   ├── character/                    Read side: load.ts (one load boundary) + view/ + animus/documents.ts
 │   ├── combat/                       Predicted commit protocol + neutral console/view/snapshot/load vocabulary
 │   ├── dungeon/                      Predicted commit protocol/root + explore view shaping
-│   ├── entity/                       Durable-entity write vocab: commit/ (schema + predictors) + use-entity-write
+│   ├── entity/                       Generic entity transaction vocabulary: descriptors, Writers, patches
 │   ├── game-v2/                      entity-row-to-bag: entity row → runtime Entity
 │   ├── map/                          Map canon, intent protocol/predicted root, and pure renderer vocabulary
 │   ├── template-set/                 Template Set authoring/events, canon, intent protocol, and predicted root

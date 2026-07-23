@@ -7,8 +7,8 @@ import { CombatStateDisplay } from "@/components/combat/conditions/state-display
 import { AffinityStrip } from "@/components/shared/affinity-strip"
 import { MechanicWidget } from "@/components/shared/mechanics/mechanic-widget"
 import { SkillCastSection } from "@/components/shared/skill-cast-section"
+import { CharacterRoot } from "@/domain/character/client"
 import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
 
 import { OwnedSheetTabs, type OwnedSheet } from "./owned-sheet-tabs"
@@ -68,7 +68,7 @@ export function CombatSheetColumn({
 }
 
 function CombatSheetBody({ overlay }: { overlay: CombatantOverlay }) {
-  const { resolved } = useLoadedCharacter()
+  const { resolved } = CharacterRoot.useRoot().value
 
   return (
     <div className="flex flex-col gap-5">

@@ -11,7 +11,7 @@ import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
@@ -21,10 +21,19 @@ import { WidgetHeader, WidgetStepper } from "./widget-chrome"
  * owner's step/reset controls.
  */
 export function PerfectionWidget({ state }: { state: PerfectionState }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const write = (transition: unknown) =>
-    dispatch({ component: "mechanics", mechanic: "perfection", transition })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "mechanics",
+          mechanic: "perfection",
+          transition,
+        },
+      })
+    )
 
   const bonus = attackBonusForRank(state.rank)
 

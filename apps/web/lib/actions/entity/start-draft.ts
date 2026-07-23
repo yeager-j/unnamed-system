@@ -5,7 +5,7 @@ import { unauthorized } from "next/navigation"
 
 import { ok, type Result } from "@workspace/result"
 
-import { draftEntityComponents } from "@/domain/entity/draft"
+import { draftEntityComponents } from "@/domain/character/draft"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db/client"
 import { entity } from "@/lib/db/schema/entity"

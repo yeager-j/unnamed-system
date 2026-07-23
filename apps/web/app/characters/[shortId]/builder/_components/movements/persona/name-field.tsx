@@ -3,9 +3,9 @@
 import { cn } from "@workspace/ui/lib/utils"
 
 import {
-  useEntityColumnSave,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+  CharacterRoot,
+  useCharacterProfileAutoSave,
+} from "@/domain/character/client"
 
 const MAX_LENGTH = 64
 
@@ -21,13 +21,14 @@ const MAX_LENGTH = 64
  * the `entity.identity` mutation (UNN-675; predicted since UNN-676).
  */
 export function NameField() {
-  const { profile } = useLoadedCharacter()
-  const { value, setValue, revert, onFocusChange } = useEntityColumnSave({
-    serverValue: profile.name,
-    isEmpty: (next) => next.trim().length === 0,
-    isEqual: (a, b) => a.trim() === b.trim(),
-    makeWrite: (next) => ({ field: "name", value: next.trim() }),
-  })
+  const { profile } = CharacterRoot.useRoot().value
+  const { value, setValue, revert, onFocusChange } =
+    useCharacterProfileAutoSave({
+      serverValue: profile.name,
+      isEmpty: (next) => next.trim().length === 0,
+      isEqual: (a, b) => a.trim() === b.trim(),
+      makeWrite: (next) => ({ field: "name", value: next.trim() }),
+    })
 
   return (
     <input

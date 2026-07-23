@@ -17,7 +17,7 @@ import {
 import { Button, ButtonProps } from "@workspace/ui/components/button"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 const NO_RANKS_REASON = "No Saved Archetype Ranks to spend."
 
@@ -51,7 +51,7 @@ export function ArchetypeActionButton({
   savedRanks: number
 } & ButtonProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   if (state.kind === "mastered") {
     return (
@@ -83,13 +83,15 @@ export function ArchetypeActionButton({
   const noRanks = savedRanks <= 0
 
   function confirm() {
-    dispatch(
-      {
-        component: "archetypes",
-        op: "spendArchetypeRank",
-        archetypeKey: archetype.key,
-      },
-      { messages: { error: `Couldn't ${verb} ${archetype.name}. Try again.` } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "archetypes",
+          op: "spendArchetypeRank",
+          archetypeKey: archetype.key,
+        },
+      })
     )
     setConfirmOpen(false)
   }

@@ -25,7 +25,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { allItems } from "@/domain/game-engine-v2"
 import { ITEM_GROUP_LABELS } from "@/domain/labels"
 
@@ -37,7 +37,7 @@ import { ITEM_GROUP_LABELS } from "@/domain/labels"
  * determinism — the optimistic rows carry the ids the server will persist).
  */
 export function AddItemDialog() {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Item | null>(null)
   const [quantityDraft, setQuantityDraft] = useState("1")
@@ -66,15 +66,17 @@ export function AddItemDialog() {
   const add = () => {
     if (!selected || !valid) return
     setOpen(false)
-    dispatch(
-      {
-        component: "equipment",
-        op: "add",
-        catalogItemKey: selected.key,
-        quantity,
-        idSeed: crypto.randomUUID(),
-      },
-      { messages: { error: "Couldn't add the item. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "equipment",
+          op: "add",
+          catalogItemKey: selected.key,
+          quantity,
+          idSeed: crypto.randomUUID(),
+        },
+      })
     )
   }
 

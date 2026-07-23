@@ -19,12 +19,12 @@ const revalidateCharacterList = vi.fn()
 const revalidateEntity = vi.fn()
 
 vi.mock("server-only", () => ({}))
-vi.mock("../entity-row-store", () => ({
+vi.mock("../../entity/entity-row-store", () => ({
   admitEntityWrite: (...args: unknown[]) => admitEntityWrite(...args),
   commitAdmittedEntityWrite: (...args: unknown[]) =>
     commitAdmittedEntityWrite(...args),
 }))
-vi.mock("../identity-store", () => ({
+vi.mock("../../entity/identity-store", () => ({
   admitIdentityWrite: (...args: unknown[]) => admitIdentityWrite(...args),
   commitAdmittedIdentityWrite: (...args: unknown[]) =>
     commitAdmittedIdentityWrite(...args),
@@ -36,18 +36,18 @@ vi.mock("@/lib/db/queries/load-player-character", () => ({
 vi.mock("@/domain/game-v2/entity-row-to-bag", () => ({
   loadEntityRow: (...args: unknown[]) => loadEntityRow(...args),
 }))
-vi.mock("@/domain/entity/finalize", () => ({
+vi.mock("@/domain/character/commit/finalize", () => ({
   buildFinalizePatch: (...args: unknown[]) => buildFinalizePatch(...args),
 }))
 vi.mock("@/domain/game-engine-v2", () => ({
   getArchetype: vi.fn(),
   startingWeaponForLineage: vi.fn(),
 }))
-vi.mock("../version-guard", () => ({
+vi.mock("../../entity/version-guard", () => ({
   advanceEntityAxisGuarded: (...args: unknown[]) =>
     advanceEntityAxisGuarded(...args),
 }))
-vi.mock("../revalidate", () => ({
+vi.mock("../../entity/revalidate", () => ({
   revalidateCharacterList: () => revalidateCharacterList(),
   revalidateEntity: (...args: unknown[]) => revalidateEntity(...args),
 }))

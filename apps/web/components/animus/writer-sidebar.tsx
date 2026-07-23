@@ -2,6 +2,7 @@
 
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
+import { toast } from "sonner"
 
 import {
   SidebarContent,
@@ -22,10 +23,7 @@ import {
   type DocumentGroup,
   type DocumentRef,
 } from "@/domain/character/animus/documents"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 
 import { useAnimusDocument } from "./animus-context"
 
@@ -58,7 +56,7 @@ export function WriterSidebar({
   header?: ReactNode
   includeNotes?: boolean
 }) {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
   const groups = buildDocumentGroups(entity.components.narrative, {
     includeNotes,
   })
@@ -77,8 +75,8 @@ export function WriterSidebar({
 
 function SidebarSection({ group }: { group: DocumentGroup }) {
   const { activeRef, selectDocument, resetToDefault } = useAnimusDocument()
-  const { entity } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { entity } = root.value
 
   const showCount = group.kind === "knives" || group.kind === "chains"
   // Single-row sections (Backstory, Notes) label themselves via the row; the
@@ -88,21 +86,33 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
   function handleAdd() {
     const kind = group.kind
     if (kind !== "knives" && kind !== "chains") return
-    const message =
+    const errorMessage =
       kind === "knives"
         ? "Couldn't add the Knife. Try again."
         : "Couldn't add the Chain. Try again."
     const newIndex = entity.components.narrative?.[kind].length ?? 0
-    dispatch(
-      { component: "narrative", op: "addListEntry", list: kind },
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "narrative", op: "addListEntry", list: kind },
+      }),
       {
-        messages: { error: message },
-        onSuccess: () =>
+        onAcceptance: (result) => {
+          if (!result.ok) {
+            if (
+              result.error.kind === "domain" ||
+              result.error.kind === "replay-refused"
+            ) {
+              toast.error(errorMessage)
+            }
+            return
+          }
           selectDocument({
             kind: kind === "knives" ? "knife" : "chain",
             id: String(newIndex),
             label: "",
-          }),
+          })
+        },
       }
     )
   }
@@ -113,21 +123,31 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
 
     const list = ref.kind === "knife" ? "knives" : "chains"
     const removedIndex = Number(ref.id)
-    const message =
+    const errorMessage =
       ref.kind === "knife"
         ? "Couldn't remove the Knife. Try again."
         : "Couldn't remove the Chain. Try again."
-
-    dispatch(
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "narrative",
+          op: "removeListEntry",
+          list,
+          index: removedIndex,
+        },
+      }),
       {
-        component: "narrative",
-        op: "removeListEntry",
-        list,
-        index: removedIndex,
-      },
-      {
-        messages: { error: message },
-        onSuccess: () => {
+        onAcceptance: (result) => {
+          if (!result.ok) {
+            if (
+              result.error.kind === "domain" ||
+              result.error.kind === "replay-refused"
+            ) {
+              toast.error(errorMessage)
+            }
+            return
+          }
           if (activeRef.kind !== ref.kind) return
           const activeIndex = Number(activeRef.id)
           if (activeIndex === removedIndex) {

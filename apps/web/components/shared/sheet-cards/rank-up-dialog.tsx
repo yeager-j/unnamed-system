@@ -10,8 +10,8 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { VirtuesCardView } from "@/domain/character/view/virtues-card"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { VIRTUE_LABELS } from "@/domain/labels"
 
 /**
@@ -30,12 +30,14 @@ export function RankUpDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const rankUp = (virtue: VirtueKey) => {
-    dispatch(
-      { component: "virtues", op: "rankUp", virtue },
-      { messages: { error: "Couldn't rank up. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "virtues", op: "rankUp", virtue },
+      })
     )
     onOpenChange(false)
   }

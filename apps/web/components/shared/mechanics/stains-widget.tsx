@@ -17,7 +17,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { elementTone } from "@/components/shared/element-tokens"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { DAMAGE_TYPE_LABELS } from "@/domain/labels"
 
 import { WidgetHeader } from "./widget-chrome"
@@ -29,10 +29,15 @@ import { WidgetHeader } from "./widget-chrome"
  */
 export function StainsWidget({ state }: { state: StainsState }) {
   const role = useViewerRole()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const write = (transition: unknown) =>
-    dispatch({ component: "mechanics", mechanic: "stains", transition })
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "mechanics", mechanic: "stains", transition },
+      })
+    )
 
   const filled = state.tokens.filter((token) => token !== null).length
 

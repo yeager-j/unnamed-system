@@ -2,6 +2,7 @@
 
 import { SparkleIcon } from "@phosphor-icons/react"
 import { useState } from "react"
+import { toast } from "sonner"
 
 import type { VirtueKey } from "@workspace/game-v2/kernel/vocab"
 import { Button } from "@workspace/ui/components/button"
@@ -13,11 +14,8 @@ import {
 import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import { buildVirtuesCardView } from "@/domain/character/view/virtues-card"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
 import { VIRTUE_LABELS } from "@/domain/labels"
 
 import { RankUpDialog } from "./rank-up-dialog"
@@ -33,8 +31,8 @@ import { SheetCard } from "./sheet-card"
  * same dialog as the backstop.
  */
 export function VirtuesCard() {
-  const { entity } = useLoadedCharacter()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
+  const { entity } = root.value
   const [rankUpOpen, setRankUpOpen] = useState(false)
   const [sparkPickerOpen, setSparkPickerOpen] = useState(false)
 
@@ -42,15 +40,37 @@ export function VirtuesCard() {
 
   const addSpark = (virtue: VirtueKey) => {
     setSparkPickerOpen(false)
-    dispatch(
-      { component: "virtues", op: "addSpark", virtue },
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "virtues", op: "addSpark", virtue },
+      }),
       {
-        onError: (error) => {
-          if (error !== "log-full") return false
-          setRankUpOpen(true)
-          return true
+        onPrediction: (result) => {
+          if (result.ok) return
+          if (result.error === "log-full") {
+            setRankUpOpen(true)
+            return
+          }
+          toast.error("Couldn't add the Spark. Try again.")
         },
-        messages: { error: "Couldn't add the Spark. Try again." },
+        onAcceptance: (result) => {
+          if (result.ok) return
+          if (
+            (result.error.kind === "domain" ||
+              result.error.kind === "replay-refused") &&
+            result.error.error === "log-full"
+          ) {
+            setRankUpOpen(true)
+            return
+          }
+          if (
+            result.error.kind === "domain" ||
+            result.error.kind === "replay-refused"
+          ) {
+            toast.error("Couldn't add the Spark. Try again.")
+          }
+        },
       }
     )
   }

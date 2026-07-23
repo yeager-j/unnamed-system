@@ -309,10 +309,12 @@ The genuinely interesting fact the survey surfaced: the recovery surface is
 consumed through **three near-identical toast-wiring blocks** (uncertain →
 retry toast, stalled → refresh toast, conflicts-length watch → jossed toast) in
 `use-entity-write.tsx`, `use-dungeon-console.ts`, and `use-combatant-write.ts`.
-The available contraction is an app-owned `useMutationRecoveryToasts(root)`
-hook deciding that distinction once — UI policy (Sonner copy, action labels)
-that belongs in the app, not the package. Filed as a follow-up candidate below;
-it would shrink adopter code far more than any regrouping of the result object.
+The available contraction was app-owned recovery-toast policy plus
+package-owned root-lifetime observation. The landed shape puts
+`recoveryListeners` on the predicted root, keeps Sonner copy and action labels
+in a pure app adapter, and hides entry/cleanup/conflict-deduplication inside the
+package. It shrinks adopter code far more than any regrouping of the result
+object.
 
 Ordinary consumers already experience the dominance the ticket wants: `value`
 and `mutate` lead the interface, and providers (not leaf components) absorb the
@@ -464,9 +466,9 @@ where state lives — see the protocol and adapter sections below.
    opening (proposal 6) with the forbidden-inference list, and delete the
    client `*.spike.ts` twins. `createNextMutationSender` stays exported for
    the explicit form.
-2. **UNN-690 — app-side recovery toasts:** extract the triplicated
-   recovery-toast wiring into one `useMutationRecoveryToasts(root)` app hook
-   (finding under proposal 4).
+2. **UNN-690 — recovery listeners and app-side toasts:** completed with
+   package-owned `recoveryListeners` and the app's pure
+   `mutationRecoveryToasts(options)` adapter (finding under proposal 4).
 3. **UNN-681 — P4 publication decision:** this document is linked from the
    P4a ticket; the no-realtime server mode (proposal 5) is the one deferred
    item an external adopter would likely request first.

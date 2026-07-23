@@ -29,13 +29,13 @@ import {
 } from "@workspace/ui/components/toggle-group"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import {
   rowMatchesGroups,
   rowMatchesQuery,
   type InventoryGroup,
   type InventoryRow,
 } from "@/domain/character/view/inventory-table"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { ITEM_CATEGORY_LABELS, ITEM_GROUP_LABELS } from "@/domain/labels"
 
 /**
@@ -216,16 +216,23 @@ const OWNER_COLUMNS: ColumnDef<InventoryRow>[] = [
  *  the owner's stackables (never pending-disabled). */
 function QuantityCell({ row }: { row: InventoryRow }) {
   const role = useViewerRole()
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   if (role !== "owner" || !row.stackable) {
     return <span className="tabular-nums">{row.quantity}</span>
   }
 
   const step = (quantity: number) =>
-    dispatch(
-      { component: "equipment", op: "setQuantity", itemId: row.id, quantity },
-      { messages: { error: "Couldn't update the quantity. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "equipment",
+          op: "setQuantity",
+          itemId: row.id,
+          quantity,
+        },
+      })
     )
 
   return (
@@ -254,22 +261,26 @@ function QuantityCell({ row }: { row: InventoryRow }) {
 }
 
 function RowActions({ row }: { row: InventoryRow }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   const toggleEquip = () =>
-    dispatch(
-      {
-        component: "equipment",
-        op: row.equipped ? "unequip" : "equip",
-        itemId: row.id,
-      },
-      { messages: { error: "Couldn't update the equipment. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: {
+          component: "equipment",
+          op: row.equipped ? "unequip" : "equip",
+          itemId: row.id,
+        },
+      })
     )
 
   const remove = () =>
-    dispatch(
-      { component: "equipment", op: "remove", itemId: row.id },
-      { messages: { error: "Couldn't remove the item. Try again." } }
+    root.mutate(
+      characterEntityWrite({
+        entityId: root.value.profile.id,
+        write: { component: "equipment", op: "remove", itemId: row.id },
+      })
     )
 
   return (

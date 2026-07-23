@@ -2,6 +2,7 @@
 
 import { CheckCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
@@ -12,8 +13,8 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import type { EntityMutationError } from "@/domain/entity/commit/protocol"
-import { useFinalizeEntity } from "@/domain/entity/use-entity-write"
+import { characterFinalize, CharacterRoot } from "@/domain/character/client"
+import type { CharacterMutationError } from "@/domain/character/commit/protocol"
 
 /**
  * Movement 4's commit button (ADR-002 §"Movement 4 — The Person"). Flips the
@@ -35,27 +36,45 @@ export function FinalizeButton({
   disabledReason?: string
 }) {
   const router = useRouter()
-  const finalize = useFinalizeEntity()
-  const disabled = finalize.pending || !canFinalize
+  const root = CharacterRoot.useRoot()
+  const [pending, setPending] = useState(false)
+  const disabled = pending || !canFinalize
 
   function onClick() {
     if (!canFinalize) return
-    finalize.dispatch({
-      onSuccess: () => {
-        toast.success("Character finalized.")
-        router.push("/")
-      },
-      onError: (error) => {
-        surfaceError(error)
-        router.refresh()
-        return true
-      },
-    })
+    const result = root.mutate(
+      characterFinalize({ entityId: root.value.profile.id }),
+      {
+        onPrediction: (prediction) => {
+          if (prediction.ok) return
+          surfaceError(prediction.error)
+          router.refresh()
+        },
+        onAcceptance: (acceptance) => {
+          if (acceptance.ok) {
+            toast.success("Character finalized.")
+            router.push("/")
+            return
+          }
+          if (
+            acceptance.error.kind === "domain" ||
+            acceptance.error.kind === "replay-refused"
+          ) {
+            surfaceError(acceptance.error.error)
+            router.refresh()
+          }
+        },
+      }
+    )
+    if (!result.ok) return
+
+    setPending(true)
+    void result.value.accepted.then(() => setPending(false))
   }
 
   const button = (
     <Button size="lg" onClick={onClick} disabled={disabled}>
-      {finalize.pending ? <Spinner /> : <CheckCircleIcon weight="fill" />}
+      {pending ? <Spinner /> : <CheckCircleIcon weight="fill" />}
       Finalize character
     </Button>
   )
@@ -70,7 +89,7 @@ export function FinalizeButton({
   )
 }
 
-function surfaceError(error: EntityMutationError): void {
+function surfaceError(error: CharacterMutationError): void {
   if (typeof error === "object") {
     toast.error(error.reason)
     return

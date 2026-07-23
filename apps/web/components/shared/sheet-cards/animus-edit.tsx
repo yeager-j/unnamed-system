@@ -11,7 +11,7 @@ import {
   documentRefToParam,
   type DocumentRef,
 } from "@/domain/character/animus/documents"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 import { characterAnimusPath } from "@/lib/paths"
 
 /**
@@ -29,7 +29,7 @@ export function useAnimusEditHref(
   enabled = true
 ): (ref: DocumentRef) => string | null {
   const role = useViewerRole()
-  const { profile } = useLoadedCharacter()
+  const { profile } = CharacterRoot.useRoot().value
   const shortId = profile.shortId
 
   if (!enabled || role !== "owner") return () => null
@@ -44,7 +44,7 @@ export function useAnimusEditHref(
  */
 export function useAnimusWriterHref(): string | null {
   const role = useViewerRole()
-  const { profile } = useLoadedCharacter()
+  const { profile } = CharacterRoot.useRoot().value
   if (role !== "owner") return null
   return characterAnimusPath(profile.shortId)
 }

@@ -1,6 +1,7 @@
 import { z } from "zod/v4"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 import {
   defineMutation,
   defineProtocol,
@@ -8,31 +9,33 @@ import {
 } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
+import type { CharacterProfile } from "@/domain/character/types"
+import { mergeComponentPatch } from "@/domain/entity/commit/merge-patch"
+import { entityWriteRefusalSchema } from "@/domain/entity/commit/refusal.schema"
+import { entityWriteSchema } from "@/domain/entity/commit/write.schema"
 import {
-  validateFinalize,
-  type FinalizeRefusal,
-} from "@/domain/entity/finalize"
+  applyEntityWrite,
+  type EntityWriteRefusal,
+} from "@/domain/entity/commit/writers"
 import {
   getArchetype,
   resolveEntity,
   startingWeaponForLineage,
 } from "@/domain/game-engine-v2"
 
-import { applyIdentityWrite, type EntityIdentity } from "./identity"
+import { validateFinalize, type FinalizeRefusal } from "./finalize"
+import { applyIdentityWrite } from "./identity"
 import { identityWriteSchema } from "./identity.schema"
-import { mergeComponentPatch } from "./merge-patch"
-import { entityWriteSchema } from "./write.schema"
-import { applyEntityWrite, type EntityWriteRefusal } from "./writers"
 
 /**
- * The Headcanon entity protocol binding (P2a–P2e): three user-facing durable
+ * The Headcanon character protocol binding: three user-facing durable
  * write species — `entity.write` for engine components, `entity.identity` for
  * app-owned identity columns, and the preconditioned `entity.finalize` lifecycle
  * command.
  *
  * This is the shared, client-safe half — stable wire names, Standard
  * Schema-compatible argument parsers, and the pure predictors. `entity.write`
- * reuses the exact pipeline `useEntityWrite`'s optimistic reducer already runs
+ * reuses the generic entity pipeline
  * (`applyEntityWrite → mergeComponentPatch → resolveEntity`), so the isomorphism
  * law (`__laws__/isomorphism.laws.test.ts`) that governs that pipeline governs
  * this predictor unchanged. The authority-only handlers, deduplication, cache and
@@ -40,22 +43,16 @@ import { applyEntityWrite, type EntityWriteRefusal } from "./writers"
  */
 
 /**
- * What the character predicted root projects: the authored {@link Entity} (the
- * component predictor's fold base), the {@link ResolvedEntity} the engine derives
- * from it, and the {@link EntityIdentity} columns.
- *
- * The value is exactly what the four entity axes govern — deliberately **not** the
- * whole `profile` (UNN-673). `profile`'s other fields are either immutable (ids)
- * or unversioned subtype lifecycle facts (`status`, `builderStep`), so an axis
- * revision says nothing about them and the canon must not claim to carry them.
- * The identity columns *are* identity-axis facts, so P2c folds them in: their
- * mutation predicts a per-field update, and canonization is judged against the
- * same axis that governs them.
+ * What one character root projects: the character profile, its authored entity
+ * substrate, and the engine-derived read model. The optional resolve context is
+ * mount-local input for an owned encounter sheet; carrying it in the root keeps
+ * every optimistic re-fold in the same party and zone context.
  */
-export interface EntityCanonValue {
+export interface CharacterCanonValue {
+  profile: CharacterProfile
   entity: Entity
   resolved: ResolvedEntity
-  identity: EntityIdentity
+  resolveContext?: ResolveContext
 }
 
 /**
@@ -77,34 +74,6 @@ export type EntityWriteArgs = z.infer<typeof entityWriteArgs>
  *  the authoritative Writer speaks. */
 export type EntityWritePredictionError = EntityWriteRefusal
 
-/** Public receipt refusals for this mutation. Authorization, missing targets,
- * contention, and malformed envelopes are deliberately absent: they become
- * package denial, redelivery, or programmer failure rather than domain UX. */
-export const entityWriteRefusalSchema = z.enum([
-  "capability-missing",
-  "no-prisma-charges",
-  "no-transitions",
-  "allocation-cap-exceeded",
-  "entry-not-found",
-  "not-unlocked",
-  "insufficient-skill-dice",
-  "insufficient-hit-dice",
-  "invalid-input",
-  "insufficient-victories",
-  "max-level",
-  "log-full",
-  "log-not-full",
-  "virtue-not-eligible",
-  "rank-capped",
-  "no-saved-ranks",
-  "prerequisites-not-met",
-  "item-not-found",
-  "catalog-item-unknown",
-  "invalid-quantity",
-  "duplicate-item-id",
-  "entity-load-failed",
-]) satisfies z.ZodType<EntityWriteRefusal | "entity-load-failed">
-
 const identityWriteRefusal = z.never()
 
 const finalizeRefusal = z.union([
@@ -123,24 +92,23 @@ const finalizeRefusal = z.union([
   FinalizeRefusal | "entity-load-failed" | "entity-not-draft"
 >
 
-const entityWrite = defineMutation({
+const characterEntityWrite = defineMutation({
   name: "entity.write",
   args: entityWriteArgs,
   refusal: entityWriteRefusalSchema,
   predict(
-    state: EntityCanonValue,
+    state: CharacterCanonValue,
     { write }
-  ): Result<EntityCanonValue, EntityWritePredictionError> {
+  ): Result<CharacterCanonValue, EntityWritePredictionError> {
     const patch = applyEntityWrite(state.entity.components, write)
     if (!patch.ok) return patch
 
     const entity = mergeComponentPatch(state.entity, patch.value)
-    // Context-free (partyless) resolve — matches the character loader's
-    // `resolveEntity(loaded.value)` (domain/character/load.ts). A future combat
-    // binding that resolves in a party/zone context carries that context in its
-    // canon value; this predictor stays the character case. The identity columns
-    // carry through untouched — a component write never sets one.
-    return ok({ ...state, entity, resolved: resolveEntity(entity) })
+    return ok({
+      ...state,
+      entity,
+      resolved: resolveEntity(entity, state.resolveContext),
+    })
   },
 })
 
@@ -165,12 +133,21 @@ export type EntityIdentityArgs = z.infer<typeof entityIdentityArgs>
  * ownership — the one remaining gate — is authority knowledge the client cannot
  * evaluate. Its refusal codec is `never`; a failed admission becomes 403.
  */
-const entityIdentity = defineMutation({
+const characterIdentityWrite = defineMutation({
   name: "entity.identity",
   args: entityIdentityArgs,
   refusal: identityWriteRefusal,
-  predict(state: EntityCanonValue, { write }): Result<EntityCanonValue, never> {
-    return ok({ ...state, identity: applyIdentityWrite(state.identity, write) })
+  predict(
+    state: CharacterCanonValue,
+    { write }
+  ): Result<CharacterCanonValue, never> {
+    return ok({
+      ...state,
+      profile: {
+        ...state.profile,
+        ...applyIdentityWrite(state.profile, write),
+      },
+    })
   },
 })
 
@@ -180,13 +157,15 @@ const entityIdentity = defineMutation({
 export const entityFinalizeArgs = z.object({ entityId: z.string().min(1) })
 export type EntityFinalizeArgs = z.infer<typeof entityFinalizeArgs>
 
-const entityFinalize = defineMutation({
+const characterFinalize = defineMutation({
   name: "entity.finalize",
   args: entityFinalizeArgs,
   refusal: finalizeRefusal,
-  predict(state: EntityCanonValue): Result<EntityCanonValue, FinalizeRefusal> {
+  predict(
+    state: CharacterCanonValue
+  ): Result<CharacterCanonValue, FinalizeRefusal> {
     const valid = validateFinalize(
-      state.identity.name,
+      state.profile.name,
       state.entity.components,
       {
         getArchetype,
@@ -197,16 +176,18 @@ const entityFinalize = defineMutation({
   },
 })
 
-/** The registered entity mutation protocol. The versioned `id` is a deployed
+/** The registered character mutation protocol. The versioned `id` is a deployed
  *  protocol string — a stale tab may call a newer server. */
-export const entityProtocol = defineProtocol({
+export const characterProtocol = defineProtocol({
   id: "showtime.entity.v1",
-  mutations: [entityWrite, entityIdentity, entityFinalize],
+  mutations: [characterEntityWrite, characterIdentityWrite, characterFinalize],
 })
 
 /** The exact public refusal union derived from the registered mutation codecs. */
-export type EntityMutationError = MutationRefusalOf<
-  typeof entityWrite | typeof entityIdentity | typeof entityFinalize
+export type CharacterMutationError = MutationRefusalOf<
+  | typeof characterEntityWrite
+  | typeof characterIdentityWrite
+  | typeof characterFinalize
 >
 
-export { entityFinalize, entityIdentity, entityWrite }
+export { characterEntityWrite, characterFinalize, characterIdentityWrite }

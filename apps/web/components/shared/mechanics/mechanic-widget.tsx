@@ -2,7 +2,7 @@
 
 import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
 
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 
 import { DisplayOnlyWidget } from "./display-only-widget"
 import { FrenzyWidget } from "./frenzy-widget"
@@ -23,7 +23,7 @@ import { ValorWidget } from "./valor-widget"
  * (the registry's 9 kinds), so it stays a `switch`, not a lookup registry.
  */
 export function MechanicWidget() {
-  const { resolved } = useLoadedCharacter()
+  const { resolved } = CharacterRoot.useRoot().value
   const active = resolved.components.activeMechanics ?? []
 
   if (active.length === 0) return null

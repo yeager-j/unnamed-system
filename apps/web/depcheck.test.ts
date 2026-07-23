@@ -283,7 +283,7 @@ describe("domain purity", () => {
   it("exempts marked-impure files (use-*, load-*, bare load) and non-domain files", () => {
     const libImport = `import { x } from "@/lib/db/client"`
     expect(
-      scanDomainPurity("domain/entity/use-entity-write.tsx", libImport)
+      scanDomainPurity("domain/character/use-character-root.ts", libImport)
     ).toEqual([])
     expect(
       scanDomainPurity("domain/combat/load-encounter-for-dm.ts", libImport)

@@ -13,23 +13,12 @@ import {
 import { useDungeonPredictions } from "@/domain/dungeon/use-dungeon-predictions"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
-import { useMutationRecoveryToasts } from "@/lib/sync/use-mutation-recovery-toasts"
-
-const DUNGEON_RECOVERY_TOASTS = {
-  scope: "dungeon",
-  messages: {
-    delivery: "Connection lost mid-save — your dungeon change is kept.",
-    freshness: "Couldn't confirm the latest dungeon changes.",
-    conflict: "A dungeon change was rolled back because the delve changed.",
-  },
-} as const
 
 export function useDungeonConsole(
   dungeon: Pick<DungeonRow, "id" | "shortId" | "regionId">,
   canon: Canon<DungeonCanonValue>
 ) {
   const root = useDungeonPredictions({ canon })
-  useMutationRecoveryToasts(root, DUNGEON_RECOVERY_TOASTS)
 
   function surface(error: DungeonCommandRefusal): void {
     toast.error(dungeonErrorMessage(error))

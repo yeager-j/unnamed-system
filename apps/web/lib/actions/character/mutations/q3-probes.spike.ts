@@ -3,7 +3,7 @@ import "server-only"
 import type { DrizzleMutationTx } from "@workspace/headcanon/drizzle"
 import { createMutationCommandDefiner } from "@workspace/headcanon/next/server"
 
-import { entityIdentity } from "@/domain/entity/commit/protocol"
+import { characterIdentityWrite } from "@/domain/character/commit/protocol"
 import type { Actor } from "@/lib/auth/actor"
 import type { getDb } from "@/lib/db/client"
 
@@ -45,7 +45,7 @@ const defineEntityMutationCommand = createMutationCommandDefiner<
 // The load-bearing negative typecheck survives the definer: a command written
 // for one definition cannot be re-bound to another.
 export const q3WrongPairing = defineEntityMutationCommand(
-  entityIdentity,
-  // @ts-expect-error — entityWrite's command does not fit entityIdentity.
+  characterIdentityWrite,
+  // @ts-expect-error — characterEntityWrite's command does not fit characterIdentityWrite.
   entityWriteCommand.command
 )

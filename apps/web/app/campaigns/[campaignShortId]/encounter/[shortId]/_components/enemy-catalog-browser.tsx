@@ -17,7 +17,6 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { useEncounterEnemyQueue } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_hooks/use-encounter-enemy-queue"
 import { dispatchCombatEvent } from "@/components/combat/console/dispatch-event"
-import { useCombatFeedback } from "@/components/combat/console/use-combat-feedback"
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
 import { buildReinforcements } from "@/domain/combat/reinforcements"
@@ -58,7 +57,6 @@ export function EnemyCatalogBrowser({
   const [isPending, startTransition] = useTransition()
   const queue = useEncounterEnemyQueue(encounterId)
   const root = useCombatPredictions({ canon })
-  useCombatFeedback(root)
 
   const backHref = encounterConsolePath(campaignShortId, shortId)
 

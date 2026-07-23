@@ -8,9 +8,9 @@ import {
 import { Input } from "@workspace/ui/components/input"
 
 import {
-  useEntityAutoSave,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+  CharacterRoot,
+  useCharacterEntityAutoSave,
+} from "@/domain/character/client"
 
 /**
  * Movement 2's two short setting-defined slots — Ancestry and Background
@@ -25,7 +25,7 @@ const ANCESTRY_MAX = 160
 const BACKGROUND_MAX = 160
 
 export function NarrativePair() {
-  const { entity } = useLoadedCharacter()
+  const { entity } = CharacterRoot.useRoot().value
   const narrative = entity.components.narrative
 
   return (
@@ -65,16 +65,18 @@ function SingleLineField({
   maxLength: number
   serverValue: string
 }) {
-  const { value, setValue, revert, onFocusChange } = useEntityAutoSave({
-    serverValue,
-    isEqual: (a, b) => a.trim() === b.trim(),
-    makeWrite: (next) => ({
-      component: "narrative",
-      op: "setField",
-      field,
-      value: next,
-    }),
-  })
+  const { value, setValue, revert, onFocusChange } = useCharacterEntityAutoSave(
+    {
+      serverValue,
+      isEqual: (a, b) => a.trim() === b.trim(),
+      makeWrite: (next) => ({
+        component: "narrative",
+        op: "setField",
+        field,
+        value: next,
+      }),
+    }
+  )
 
   const inputId = `character-${field}`
 

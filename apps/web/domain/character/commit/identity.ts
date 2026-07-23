@@ -2,7 +2,8 @@ import type { IdentityWrite } from "./identity.schema"
 
 /**
  * The identity-column patch algebra (Headcanon P2c — UNN-675) — the app-column
- * species' peer of {@link import("./merge-patch").mergeComponentPatch}, and the
+ * species' peer of
+ * {@link import("@/domain/entity/commit/merge-patch").mergeComponentPatch}, and the
  * **one** place a descriptor field becomes a stored column value.
  *
  * Both sides of the protocol run it: the `entity.identity` predictor folds it over
@@ -19,7 +20,7 @@ import type { IdentityWrite } from "./identity.schema"
 
 /** The identity-axis columns a character surface renders and writes — the
  *  app-owned half of the character canon's value. */
-export interface EntityIdentity {
+export interface CharacterIdentity {
   name: string
   pronouns: string | null
   portraitUrl: string | null
@@ -27,9 +28,11 @@ export interface EntityIdentity {
 }
 
 /** Exactly the column one identity write sets. */
-export type EntityIdentityPatch = Partial<EntityIdentity>
+export type CharacterIdentityPatch = Partial<CharacterIdentity>
 
-export function identityWritePatch(write: IdentityWrite): EntityIdentityPatch {
+export function identityWritePatch(
+  write: IdentityWrite
+): CharacterIdentityPatch {
   switch (write.field) {
     case "name":
       // Already trimmed and length-checked by the descriptor's parser.
@@ -43,10 +46,10 @@ export function identityWritePatch(write: IdentityWrite): EntityIdentityPatch {
   }
 }
 
-/** The predictor's fold: the identity slice with one column replaced. */
+/** The predictor's fold: the character profile fields with one column replaced. */
 export function applyIdentityWrite(
-  identity: EntityIdentity,
+  identity: CharacterIdentity,
   write: IdentityWrite
-): EntityIdentity {
+): CharacterIdentity {
   return { ...identity, ...identityWritePatch(write) }
 }

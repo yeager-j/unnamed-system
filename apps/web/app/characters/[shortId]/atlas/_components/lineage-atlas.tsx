@@ -15,7 +15,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
+import { CharacterRoot } from "@/domain/character/client"
 import {
   buildLineageAtlas,
   getAtlasRecommendations,
@@ -64,7 +64,7 @@ export function LineageAtlas({
   hiddenArchetypeKeys?: readonly string[]
   narrativeGate?: readonly (readonly [Lineage, number])[]
 }) {
-  const { profile, entity, resolved } = useLoadedCharacter()
+  const { profile, entity, resolved } = CharacterRoot.useRoot().value
   const view = buildLineageAtlas(resolved, {
     hiddenArchetypeKeys,
     narrativeGate: narrativeGate ? new Map(narrativeGate) : undefined,

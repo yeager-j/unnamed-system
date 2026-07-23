@@ -4,12 +4,12 @@ import { useRef } from "react"
 
 import { ok, type Result } from "@workspace/result"
 
+import { saveArticleProseAction } from "@/lib/actions/campaign-world/article-prose"
+import type { SaveArticleProseError } from "@/lib/actions/campaign-world/article-prose.schema"
 import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveReturn,
-} from "@/domain/entity/use-debounced-auto-save"
-import { saveArticleProseAction } from "@/lib/actions/campaign-world/article-prose"
-import type { SaveArticleProseError } from "@/lib/actions/campaign-world/article-prose.schema"
+} from "@/lib/sync/use-debounced-auto-save"
 
 import { WORLD_PROSE_DEBOUNCE_MS } from "./world-prose"
 

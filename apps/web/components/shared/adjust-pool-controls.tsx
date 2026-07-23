@@ -18,7 +18,7 @@ import {
  * callbacks, so the same form drives both HP and SP adjustments.
  *
  * Cross-feature primitive (`components/shared/`): the sheet and watch owner
- * controls drive it through `useEntityWrite`; the combat drawer supplies its
+ * controls drive it through the character root; the combat drawer supplies its
  * DM-authorized component-write callbacks.
  */
 

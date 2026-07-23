@@ -4,9 +4,9 @@ import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
 import {
-  useEntityColumnSave,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
+  CharacterRoot,
+  useCharacterProfileAutoSave,
+} from "@/domain/character/client"
 
 const MAX_LENGTH = 64
 
@@ -18,12 +18,13 @@ const MAX_LENGTH = 64
  * `EditablePronouns`.
  */
 export function PronounsField() {
-  const { profile } = useLoadedCharacter()
-  const { value, setValue, revert, onFocusChange } = useEntityColumnSave({
-    serverValue: profile.pronouns ?? "",
-    isEqual: (a, b) => a.trim() === b.trim(),
-    makeWrite: (next) => ({ field: "pronouns", value: next.trim() }),
-  })
+  const { profile } = CharacterRoot.useRoot().value
+  const { value, setValue, revert, onFocusChange } =
+    useCharacterProfileAutoSave({
+      serverValue: profile.pronouns ?? "",
+      isEqual: (a, b) => a.trim() === b.trim(),
+      makeWrite: (next) => ({ field: "pronouns", value: next.trim() }),
+    })
 
   return (
     <Field>

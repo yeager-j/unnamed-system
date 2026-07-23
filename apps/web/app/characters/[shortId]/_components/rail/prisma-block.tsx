@@ -6,8 +6,8 @@ import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { characterEntityWrite, CharacterRoot } from "@/domain/character/client"
 import type { RailPrisma } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 /**
  * The rail's Prisma flask (design handoff + rulebook 2.6): heal-per-charge,
@@ -16,7 +16,7 @@ import { useEntityWrite } from "@/domain/entity/use-entity-write"
  * the button also disables there.
  */
 export function PrismaBlock({ view }: { view: RailPrisma }) {
-  const { dispatch } = useEntityWrite()
+  const root = CharacterRoot.useRoot()
 
   return (
     <section
@@ -57,7 +57,12 @@ export function PrismaBlock({ view }: { view: RailPrisma }) {
             variant="outline"
             disabled={view.current === 0}
             onClick={() =>
-              dispatch({ component: "resources", op: "usePrisma" })
+              root.mutate(
+                characterEntityWrite({
+                  entityId: root.value.profile.id,
+                  write: { component: "resources", op: "usePrisma" },
+                })
+              )
             }
           >
             Use

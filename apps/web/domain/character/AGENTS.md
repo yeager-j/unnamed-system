@@ -1,7 +1,8 @@
-# `domain/character` — the character read side (ADR §2.6)
+# `domain/character` — the character aggregate (ADR §2.6)
 
-The v2 character surfaces' read layer: **one load boundary per route** and
-pure per-surface view builders.
+The v2 character surfaces' read and Headcanon composition layer: **one load
+boundary and one predicted root per mounted character**, plus pure per-surface
+view builders.
 
 - `load.ts` — `loadCharacterByShortId(shortId)` fetches the `entity` row once,
   assembles + `resolveEntity`s once, and returns the
@@ -24,10 +25,17 @@ pure per-surface view builders.
   is named for its content, never its storage (the F1 tripwire: a view type
   with a `durable`/`row` discriminant is the kind branch resurfacing).
 
-**Nothing in this folder computes.** Derivation happens in the engine
-(`resolveEntity`), shaping in `view/`, rendering in components (anti-goal 1).
-Writes never live here — they are `domain/entity/commit` descriptors dispatched
-through `lib/actions/entity/`.
+Game derivation happens in the engine (`resolveEntity`), shaping in `view/`,
+and rendering in components (anti-goal 1). `commit/` owns the character
+aggregate's Headcanon protocol: it composes the generic entity descriptor and
+Writer vocabulary from `domain/entity/commit` with character-owned profile
+fields and finalization. Keep these mutations on one root so a pending profile
+edit cannot race finalization.
+
+`use-character-root.ts` and `use-character-provider.tsx` mount that root and attach
+application recovery effects. Descendants read
+`CharacterRoot.useRoot().value` and mutate that same root. Do not introduce a
+second character read or write hook over it.
 
 ## ⚠️ The three read homes are deliberate — do not merge them
 
@@ -40,15 +48,12 @@ question:
 | `entity.components` | what the player **authored**        | `path.choice`, `archetypes.origin`, narrative |
 | `resolved`          | what the engine **derived** from it | `vitals.maxHP/currentHP`, resolved skills     |
 
-`toCharacterCanon` (UNN-673/UNN-675) is **not** a fourth home and not a merge: it
-is the same three answers re-projected for the write protocol, carrying only what
-the four entity axes govern — the authored components, their resolved derivation,
-and the four identity columns the `identity` axis owns. It deliberately excludes
-`profile`'s ids (immutable) and its `status`/`builderStep` (unversioned subtype
-facts) precisely because no axis revision speaks for them, which is the same
-discipline as the table above rather than an exception to it. The provider now
-sources identity columns from the predicted canon, so the profile overlay and
-entity frame stay aligned while a write is pending.
+`toCharacterCanon` is **not** a fourth home and does not flatten these
+distinctions. It carries the three named homes as one character root value so
+all descendants observe one optimistic frame. The entity axes still govern
+canonization; immutable profile identity and unversioned lifecycle fields travel
+with the aggregate because they are character facts, while only mutations that
+stamp a modeled axis can produce Headcanon receipts.
 
 The standing temptation — it will look like a harmless convenience — is to
 spread these into one merged view-model ("`CharacterView`", "`SheetData`",
