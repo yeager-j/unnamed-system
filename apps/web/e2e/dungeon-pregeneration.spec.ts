@@ -10,12 +10,12 @@ import {
 import { cleanup, createTracker } from "./fixtures/factory"
 
 /**
- * The UNN-642 "replace" experience, end to end: starting an expedition
- * **pre-generates the whole map** (the pure roller carves to a target size and
- * seals the frontier server-side), so play begins with a complete board the
- * party reveals as it explores — no per-room click, no per-carve turn cost.
- * This spec drives a real start through the console and asserts the persisted
- * map is fully carved (DB polling per the write-then-read doctrine).
+ * The UNN-642 pre-generation, end to end: starting an expedition
+ * **pre-generates the map out to the depth limit** server-side (no per-room
+ * click, no per-carve turn cost), then **leaves the outer ring's frontier
+ * open** so the DM can still expand further live via the ghost buttons. This
+ * spec drives a real start through the console and asserts the persisted map
+ * (DB polling per the write-then-read doctrine) plus the open frontier.
  */
 
 test.use({ storageState: STORAGE_STATE })
@@ -51,7 +51,7 @@ async function mintAndStartExpedition(page: Page, name: string) {
   await expect(page.getByRole("button", { name: "Advance turn" })).toBeVisible()
 }
 
-test("starting an expedition pre-generates a complete, sealed map at turn 0", async ({
+test("starting an expedition pre-generates the map to depth with an open frontier at turn 0", async ({
   page,
 }) => {
   await mintAndStartExpedition(page, "Pre-generated Expedition")
@@ -79,17 +79,24 @@ test("starting an expedition pre-generates a complete, sealed map at turn 0", as
     expect(dungeonState.generation.mints[zoneId]).toBeDefined()
   }
 
-  // The frontier is sealed — no open stubs, so no ghosts and no phantom exits.
-  expect(started.generation.stubs).toEqual({})
+  // The frontier stays open — the outer ring's stubs are the live edge, each
+  // hanging off a max-depth zone.
+  const openStubs = Object.values(started.generation.stubs)
+  expect(openStubs.length).toBeGreaterThan(0)
+  for (const stub of openStubs) {
+    expect(started.generation.zones[stub.zoneId]?.depth).toBe(
+      Math.max(...depths)
+    )
+  }
 
   // Pre-generation cost no dungeon turns — play begins at turn 0.
   expect(dungeonState.turnCounter).toBe(0)
 
-  // The board renders the carved rooms and shows no "expand" ghosts.
+  // The board renders the carved rooms and the frontier ghosts are expandable.
   await expect(page.locator('[data-id="' + ENTRY.id + '"]')).toBeVisible()
   const generatedNode = page.locator(`[data-id="${generated[0]![0]}"]`)
   await expect(generatedNode).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Expand passage off/ })
-  ).toHaveCount(0)
+    page.getByRole("button", { name: /Expand passage off/ }).first()
+  ).toBeVisible()
 })

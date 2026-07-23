@@ -86,8 +86,10 @@ export function DungeonStubGhostNode({ data }: NodeProps<StubGhostNode>) {
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         {/* The button owns both gestures (left-click expands, right-click opens
             the menu), so the trigger is only the menu's positioning anchor —
-            inert to the pointer, spanning the node. */}
+            inert to the pointer, spanning the node. `nativeButton={false}`
+            because the render element is a <span>, not a <button>. */}
         <DropdownMenuTrigger
+          nativeButton={false}
           render={
             <span
               aria-hidden

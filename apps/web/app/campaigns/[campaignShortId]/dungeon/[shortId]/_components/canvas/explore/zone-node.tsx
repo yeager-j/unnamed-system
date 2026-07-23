@@ -172,8 +172,10 @@ export function DungeonZoneNode({
       {setPiece}
       <DropdownMenu open={retractMenuOpen} onOpenChange={setRetractMenuOpen}>
         {/* Positioning anchor only — the wrapper's onContextMenu opens the
-            menu (the stub-ghost node documents the same idiom). */}
+            menu (the stub-ghost node documents the same idiom).
+            `nativeButton={false}` because the render element is a <span>. */}
         <DropdownMenuTrigger
+          nativeButton={false}
           render={
             <span
               aria-hidden

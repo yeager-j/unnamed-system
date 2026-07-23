@@ -101,7 +101,7 @@ const counterIds = (prefix: string) => {
 }
 
 describe("pregenerateExpedition", () => {
-  it("carves to the depth limit, stamps no zone deeper, then seals the frontier", () => {
+  it("carves to the depth limit, stamps no zone deeper, and leaves the outer ring's frontier open", () => {
     const { instanceState, ledger } = seeded("pregen-seed")
     const maxDepth = 5
     const result = pregenerateExpedition({
@@ -112,15 +112,22 @@ describe("pregenerateExpedition", () => {
       newId: counterIds("z"),
     })
 
-    const zoneCount = Object.keys(result.instanceState.geometry.zones).length
+    const state = result.instanceState
+    const zoneCount = Object.keys(state.geometry.zones).length
     expect(zoneCount).toBeGreaterThan(1)
     // No zone is deeper than the limit, and the map actually reached it.
-    const depths = Object.values(result.instanceState.generation.zones).map(
+    const depths = Object.values(state.generation.zones).map(
       (provenance) => provenance.depth
     )
     expect(Math.max(...depths)).toBe(maxDepth)
-    // Frontier sealed — no open stubs, so no phantom exits in the snapshot.
-    expect(result.instanceState.generation.stubs).toEqual({})
+    // The frontier stays open (hybrid): the DM can expand further live, and
+    // every open stub hangs off a max-depth zone — the outermost ring, the
+    // only rooms whose exits pre-gen left uncarved.
+    const openStubs = Object.values(state.generation.stubs)
+    expect(openStubs.length).toBeGreaterThan(0)
+    for (const stub of openStubs) {
+      expect(state.generation.zones[stub.zoneId]?.depth).toBe(maxDepth)
+    }
     // Every carved zone recorded a mint (retract still works at prep).
     const generated = Object.entries(
       result.instanceState.generation.zones
