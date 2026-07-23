@@ -13,7 +13,7 @@ import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 
 /**
  * The encounter's `campaignId` only, or `null` when no encounter matches. Lets
- * the impure shell (`applyCombatEvent`, UNN-332) authorize the caller against the
+ * the impure combat command (UNN-332) authorize the caller against the
  * owning campaign (`requireCampaignDM`) *before* loading the `session` blob, so a
  * non-DM is rejected without the session ever being read. Selects one column, so
  * the read is index-light.

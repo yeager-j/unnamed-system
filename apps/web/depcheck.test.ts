@@ -148,7 +148,7 @@ describe("tier gate", () => {
     expect(classifyTier("app/characters/[shortId]/page.tsx")).toBe("app")
     expect(classifyTier("components/shared/prose.tsx")).toBe("components")
     expect(classifyTier("domain/combat/participant-meta.ts")).toBe("domain")
-    expect(classifyTier("lib/sync/write-queue.ts")).toBe("lib")
+    expect(classifyTier("lib/db/client.ts")).toBe("lib")
     expect(classifyTier("e2e/join.spec.ts")).toBeNull()
     expect(classifyTier("vitest.config.ts")).toBeNull()
   })
@@ -157,7 +157,7 @@ describe("tier gate", () => {
     expect(
       resolveSpecifier("components/shared/x.tsx", "@/domain/combat/y")
     ).toBe("domain/combat/y")
-    expect(resolveSpecifier("lib/sync/a/b.ts", "../c/d")).toBe("lib/sync/c/d")
+    expect(resolveSpecifier("lib/db/a/b.ts", "../c/d")).toBe("lib/db/c/d")
     expect(
       resolveSpecifier("app/page.tsx", "@workspace/game-v2/resolve")
     ).toBeNull()
@@ -226,7 +226,7 @@ describe("tier gate", () => {
 
   it("catches a deliberate upward tier import (scanTierViolations)", () => {
     const source = `import { X } from "@/app/characters/[shortId]/page"`
-    const found = scanTierViolations("lib/sync/x.ts", source)
+    const found = scanTierViolations("lib/db/x.ts", source)
     expect(found).toHaveLength(1)
     expect(found[0]).toMatchObject({ kind: "direction" })
   })

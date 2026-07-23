@@ -72,7 +72,7 @@ prediction and the stored column agree by construction.
 `useEntityWrite` (character routes) and `useCombatantWrite` (encounters) both
 predict via the same Writers and both bind registered Headcanon mutations. The
 character root re-folds `resolveEntity`; the combat root predicts against the
-encounter container and then feeds that value into the legacy encounter-event
+encounter container and then feeds that value into the encounter-event
 reducer. Both catch up through opaque canon-axis invalidations. That
 **container** split stays deliberate because the two roots own different
 values, while character and combat writes to the same durable entity share the

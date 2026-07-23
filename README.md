@@ -5,8 +5,8 @@ tabletop RPG. It provides a step-by-step character builder, an owner-editable an
 publicly shareable character sheet, campaign management, and a live DM combat console
 with a real-time player watch view.
 
-The game rules are the source of truth and live in `packages/rules` — an Obsidian vault
-with the full mechanics and the product spec (`PRD.md`).
+The game rules are the source of truth and live in the sibling Obsidian vault at
+`../rules` (see its `CLAUDE.md` index). The vault is outside this repository.
 
 ## Tech Stack
 
@@ -26,12 +26,14 @@ A Turborepo monorepo with npm workspaces:
 
 ```
 apps/web/          Next.js app (App Router, RSC, Server Actions)
-packages/game/     Pure game engine + data (@workspace/game): foundation / data / engine layers
+packages/game-v2/  Pure game engine + data (@workspace/game-v2)
+packages/headcanon/ Optimistic mutation protocol (@workspace/headcanon)
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS v4)
-packages/rules/    Obsidian vault — game mechanics rules + PRD (source of truth)
+packages/result/   Dependency-free typed result values (@workspace/result)
+packages/editor/   Vendored atomic markdown editor mirror
 packages/eslint-config/
 packages/typescript-config/
-docs/              Long-form feature specs (PRD/ADR), one folder per feature
+docs/              Long-form feature specs, one folder per feature
 ```
 
 See [`CLAUDE.md`](./CLAUDE.md) for the detailed, per-directory map.
@@ -84,22 +86,22 @@ The app runs at http://localhost:3000.
 
 Run from the repo root (Turborepo fans these out across packages):
 
-| Command             | Description                              |
-| ------------------- | ---------------------------------------- |
-| `npm run dev`       | Start all packages in watch mode         |
-| `npm run build`     | Production build                         |
-| `npm run lint`      | ESLint across all packages               |
-| `npm run format`    | Prettier across all packages             |
-| `npm run typecheck` | `tsc --noEmit` across all packages       |
-| `npm run test`      | Vitest across all packages               |
-| `npm run test:e2e`  | Playwright E2E                           |
+| Command             | Description                        |
+| ------------------- | ---------------------------------- |
+| `npm run dev`       | Start all packages in watch mode   |
+| `npm run build`     | Production build                   |
+| `npm run lint`      | ESLint across all packages         |
+| `npm run format`    | Prettier across all packages       |
+| `npm run typecheck` | `tsc --noEmit` across all packages |
+| `npm run test`      | Vitest across all packages         |
+| `npm run test:e2e`  | Playwright E2E                     |
 
 App- and database-specific commands (`db:migrate`, `db:seed`, `db:studio`, …) run from
 `apps/web`. shadcn/ui primitives are installed from `packages/ui`.
 
 ## Testing
 
-- **Unit (Vitest):** pure game mechanics in `packages/game/src` — no DB, no network.
+- **Unit (Vitest):** pure game mechanics in `packages/game-v2/src` — no DB, no network.
 - **E2E (Playwright):** `apps/web/e2e` — DB-backed routes require a seeded database.
 
 See the Testing section of [`CLAUDE.md`](./CLAUDE.md) for the engine test-signal tooling
@@ -108,5 +110,4 @@ See the Testing section of [`CLAUDE.md`](./CLAUDE.md) for the engine test-signal
 ## Further Reading
 
 - [`CLAUDE.md`](./CLAUDE.md) — repo conventions, architecture, and contributor guidance
-- [`packages/rules/PRD.md`](./packages/rules/PRD.md) — product spec
-- [`packages/rules/CLAUDE.md`](./packages/rules/CLAUDE.md) — game mechanics index
+- [Rules vault index](../rules/CLAUDE.md) — game mechanics and product-spec navigation

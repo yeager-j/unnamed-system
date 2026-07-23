@@ -8,6 +8,12 @@
 > **headcanon — optimistic mutations for Next.js: believe your writes until
 > canon says otherwise.**
 
+> **Implemented outcome (UNN-696).** Headcanon has since been implemented in the
+> workspace and the Showtime migration is complete through the current rollout.
+> See the [deletion ledger](./deletion-ledger.md) and [current implementation
+> overview](./README.md). The proposal and decision sections below are retained
+> as the historical design record, not as current repository instructions.
+
 ## Summary
 
 Build an opinionated package for React applications using the Next.js 16+ App
@@ -2126,7 +2132,7 @@ now:
 ## Sources and related documents
 
 - [Zero's current interface and stealable decisions](./zero-interface.md)
-- [Showtime's current entity read/write architecture](./current-architecture.md)
+- [Showtime's pre-Headcanon entity read/write architecture](./current-architecture.md)
 - [Deep multi-agent design assessment](./deep-review-outcome.md)
 - [Next.js Server Actions and mutations](https://nextjs.org/docs/app/getting-started/updating-data)
 - [Next.js `use server` directive](https://nextjs.org/docs/app/api-reference/directives/use-server)

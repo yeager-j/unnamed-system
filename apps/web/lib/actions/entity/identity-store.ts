@@ -38,7 +38,8 @@ import { advanceEntityAxisGuarded } from "./version-guard"
  * {@link import("./authorize-write").isEntityWriteAuthRejection}.
  *
  * It records the advanced axis on the stamp accumulator and fires **no realtime
- * ping and no revalidation** — post-acceptance finalization is the caller's.
+ * ping or route-cache side effects itself** — the registered Headcanon action
+ * owns accepted-stamp finalization and invokes the command's projection callback.
  */
 
 /** A terminal domain refusal for `entity.identity`. Contention is deliberately

@@ -1,6 +1,6 @@
 # Headcanon
 
-**Status:** Research baseline plus finalized package design<br>
+**Status:** Implemented workspace migration; publication decision pending<br>
 **Started:** 2026-07-20
 
 > **headcanon — optimistic mutations for Next.js: believe your writes until
@@ -16,15 +16,15 @@ write feel instant?” It already does. The useful question is:
 > Which protocol and interface decisions did Zero make around that idea, why,
 > and which of them should Showtime adopt without adopting Zero?
 
-This folder contains the factual baselines, finalized proposal, independent
+This folder contains the factual baselines, historical design record, independent
 assessments, and rollout evidence:
 
 1. [Zero's current interface and stealable decisions](./zero-interface.md) — a
    primary-source survey of Zero 1.x, including corrections to assumptions based
    on older Zero APIs.
-2. [Showtime's current entity read/write architecture](./current-architecture.md)
-   — the present implementation, its authorities, guarantees, and deliberate
-   limitations.
+2. [Showtime's pre-Headcanon entity read/write architecture](./current-architecture.md)
+   — the historical implementation snapshot, its authorities, guarantees, and
+   deliberate limitations before the migration.
 3. [Headcanon: optimistic mutations for React and Next.js](./technical-design.md)
    — a technical design for a Zero-like mutation package built around
    server-authoritative rebase, global storage-owned revision axes, complete
@@ -41,13 +41,24 @@ assessments, and rollout evidence:
    implemented command-manifest prototype, falsification results, and `go`
    decision for Phase 3.
 
-The proposal is intentionally a spike design, not an adoption decision. Its
-contract fixture, Drizzle/Ably adapters, and character/combat/dungeon bindings
-should provide the evidence for a later decision record.
+## Implemented outcome
+
+The `@workspace/headcanon` package and its registered Showtime mutation commands
+are implemented in the workspace. Headcanon owns mutation protocol, receipts,
+contention retries, revision stamps, accepted-stamp finalization, and axis
+invalidation. The application owns trusted actor and authorization checks,
+domain operations, storage homes, projections, and lock order. The [deletion
+ledger](./deletion-ledger.md) records the application coordination removed by the
+cutover.
+
+The documents below retain the research and design history that led to this
+implementation. They are not current repository instructions; use the package,
+application guidance, and this outcome summary for current behavior.
 
 The [original framework-independent replica proposal](./OLD-replica-module-design.md)
-is retained as historical input. The current design keeps its mutation-protocol
-ideas but replaces its generic read transport and view-scoped version model.
+is retained as historical input. The implemented package keeps its
+mutation-protocol ideas but replaces its generic read transport and view-scoped
+version model.
 
 ## Working thesis
 

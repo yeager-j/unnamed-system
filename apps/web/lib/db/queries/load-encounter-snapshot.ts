@@ -136,8 +136,7 @@ interface SnapshotInputs extends LoadedEncounterForSnapshot {
  *  pairing check (`campaign.shortId === campaignShortId`) is what stops the watch
  *  URL of one campaign from resolving another campaign's encounter; a mismatch
  *  collapses to the `encounter-not-found` 404. Pairing is enforced only when a
- *  campaign frames the read (the nested watch page passes it); the flat poll API
- *  (`/api/encounter/[shortId]/…`) is keyed on the unique shortId and omits it. */
+ *  campaign frames the read (the nested watch page passes it). */
 async function projectSnapshotCore(
   shortId: string,
   fog: boolean,

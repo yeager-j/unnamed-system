@@ -106,7 +106,7 @@ describe("getDungeonSnapshot — campaign pairing (UNN-608)", () => {
     )
   })
 
-  it("skips the pairing check for the flat poll API (no campaign passed)", async () => {
+  it("allows an unpaired shortId read when no campaign frames it", async () => {
     expect((await getDungeonSnapshot("dungeon-a"))?.value).toBe(SENTINEL)
   })
 

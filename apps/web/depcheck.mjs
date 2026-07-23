@@ -18,7 +18,7 @@ const ROOT = fileURLToPath(new URL(".", import.meta.url))
 // omission): the domain layer binds the catalog and re-exports engine reads;
 // plumbing may reach the engine directly. Presentation reads through domain view
 // builders instead. (`hooks/` retired in UNN-610 — every hook homed in a feature
-// `_hooks/`, `domain/`, or `lib/sync/`.)
+// `_hooks/`, `domain/`, or another feature-owned `lib/` module.)
 const GATED_ROOTS = ["app", "components"]
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
 
@@ -656,7 +656,7 @@ function run() {
   }
   for (const file of versionArchitecture.writerAllowlist.newViolations) {
     console.error(
-      `  Unapproved entity-axis writer: ${file}\n    └─ route it through a registered mutation handler or an approved external-commit module that calls the finalizer.`
+      `  Unapproved entity-axis writer: ${file}\n    └─ route it through a registered mutation handler and its stamped Store.`
     )
   }
   for (const file of versionArchitecture.writerAllowlist.staleEntries) {

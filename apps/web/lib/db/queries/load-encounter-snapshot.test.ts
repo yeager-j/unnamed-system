@@ -350,7 +350,7 @@ describe("getEncounterSnapshot — campaign pairing (UNN-608)", () => {
     expect(result.ok).toBe(true)
   })
 
-  it("skips the pairing check for the flat poll API (no campaign passed)", async () => {
+  it("allows an unpaired shortId read when no campaign frames it", async () => {
     signedInAs(null)
 
     const result = await getEncounterSnapshot(SHORT_ID)

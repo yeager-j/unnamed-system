@@ -58,13 +58,12 @@ function buildRoster(
  * The fog **redaction lives in the projector**, so it is unconditional and
  * server-side — this loader never ships DM notes, undiscovered Zones, or unrevealed
  * connections to the client, and deleting the view can't re-expose them. Keyed by
- * `shortId`, never the internal dungeon id, so the public surface (page + poll API)
- * leaks no internal UUID. shortIds are globally unique, so the optional
+ * `shortId`, never the internal dungeon id, so the public surface leaks no
+ * internal UUID. shortIds are globally unique, so the optional
  * `campaignShortId` **pairing check** (`campaign.shortId === campaignShortId`)
  * stops one campaign's watch URL from resolving another's dungeon; a mismatch
  * collapses to `null` (404). Pairing runs only when a campaign frames the read
- * (the nested watch page passes it); the flat poll API (`/api/dungeon/[shortId]/…`)
- * is keyed on the unique shortId and omits it. `mapInstanceId` is non-null (restrict
+ * (the nested watch page passes it). `mapInstanceId` is non-null (restrict
  * FK), so a missing Instance is a data-integrity fault and collapses to `null` too.
  */
 export async function getDungeonSnapshot(

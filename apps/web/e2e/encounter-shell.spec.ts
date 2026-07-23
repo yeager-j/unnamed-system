@@ -63,8 +63,8 @@ test("create → import a placed PC → Start → live console", async ({ page }
   await expect(start).toBeDisabled()
 
   // The import panel lists the campaign's placed PC; adding it fills the roster
-  // (a v2 PC add lands with the revalidation — no optimistic mirror — so the
-  // enabled Start button is the "roster persisted" signal).
+  // (a durable PC add is accepted by the combat command; the root does not
+  // invent a participant entity, so enabled Start is the persisted-roster signal).
   await expect(page.getByText(PLACED_PC_NAME)).toBeVisible()
   await page.getByRole("button", { name: "Add", exact: true }).click()
   await expect(start).toBeEnabled()
@@ -184,9 +184,9 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
     .toBe(pcHpBefore - 5)
 
   // The durable write's optimistic transition defers the adjust-pool popover's
-  // close (it settles when the round-trip completes, ~0.5s); wait for it before
+  // close (it settles when the Headcanon receipt completes, ~0.5s); wait for it before
   // Escaping the drawer, else Escape closes the still-open popover, not the
-  // drawer. (Cosmetic combat-only delay, revisited with the S2 optimistic model.)
+  // drawer. (The predicted transition keeps the popover open until its receipt settles.)
   await expect(page.getByRole("button", { name: "Take damage" })).toBeHidden()
 
   // End the encounter → the read-only ended stub.
