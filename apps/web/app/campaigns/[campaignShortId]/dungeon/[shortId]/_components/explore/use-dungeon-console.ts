@@ -122,7 +122,17 @@ export function useDungeonConsole(
     void receipt.accepted.then((accepted) => {
       // Refusals toast via dispatchMutation; the benign no-op is an accept and
       // stays silent by construction.
-      if (!accepted.ok) unmark()
+      if (!accepted.ok) {
+        unmark()
+        return
+      }
+      // A benign no-op accept records no revisions (the stub was already
+      // consumed elsewhere, so the server did nothing). Clear the spinner now
+      // rather than wait on an unrelated canon invalidation — the ghost
+      // returns to clickable, not stuck. A real outcome stamps both axes;
+      // leave those for the prune, which clears when the refetched canon drops
+      // the now-consumed stub.
+      if (Object.keys(accepted.value.revisions).length === 0) unmark()
     })
   }
 

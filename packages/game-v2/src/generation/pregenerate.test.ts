@@ -138,6 +138,79 @@ describe("pregenerateExpedition", () => {
     }
   })
 
+  it("under the zone cap, seals interior stubs so no below-depth passage stays open", () => {
+    // A hyper-branching set + a deep limit blows past PREGEN_MAX_ZONES before
+    // the depth limit is reached, so the carve stops mid-map. The seal pass
+    // must leave no interior (below-max-depth) stub open — those would be
+    // free-carve passages that wrongly cost turns to finish live.
+    const branchy = templateSetContentSchema.parse({
+      templates: {
+        fork: {
+          key: "fork",
+          tags: ["x"],
+          accepts: ["x"],
+          weight: 1,
+          exits: Array.from({ length: 6 }, () => ({ optional: false })),
+        },
+      },
+      connectorTemplateKey: "fork",
+      closureChance: 0,
+    })
+    const base = makeMapInstanceState({
+      geometry: {
+        pages: { default: { id: "default", name: "P" } },
+        zones: {
+          entry: {
+            id: "entry",
+            name: "Entry",
+            description: "",
+            dmNotes: "",
+            position: { x: 0, y: 0 },
+            pageId: "default",
+            templateKey: "fork",
+          },
+        },
+        connections: {},
+      },
+      generation: {
+        zones: { entry: { source: "authored", depth: 0 } },
+        stubs: {},
+        connections: {},
+        grafts: {},
+        startingZoneIds: ["entry"],
+      },
+    })
+    let counter = 0
+    const { stubs, cursors } = sproutStartStubs({
+      state: base,
+      set: branchy,
+      startingZoneIds: ["entry"],
+      seed: "cap-seed",
+      newId: () => `start-${counter++}`,
+    })
+    const { instanceState: grown } = pregenerateExpedition({
+      set: branchy,
+      instanceState: { ...base, generation: { ...base.generation, stubs } },
+      ledger: {
+        ...emptyGenerationLedger(),
+        seed: "cap-seed",
+        streamCursors: cursors,
+      },
+      maxDepth: 20,
+      newId: counterIds("z"),
+    })
+
+    // The cap bounded the map well short of the depth limit.
+    const maxSeen = Math.max(
+      ...Object.values(grown.generation.zones).map((p) => p.depth)
+    )
+    expect(Object.keys(grown.geometry.zones).length).toBeGreaterThan(100)
+    expect(maxSeen).toBeLessThan(20)
+    // Nothing reached the intended depth, so every stub is interior → all
+    // sealed: a capped map is complete, with no below-depth passage left open.
+    expect(grown.generation.stubs).toEqual({})
+  })
+
   it("never overlaps footprints and keeps every mint adjacency-legal", () => {
     const { instanceState, ledger } = seeded("pregen-seed")
     const { instanceState: grown } = pregenerateExpedition({

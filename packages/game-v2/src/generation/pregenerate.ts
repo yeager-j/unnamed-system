@@ -92,7 +92,25 @@ export function pregenerateExpedition(input: {
     }
   }
 
-  // The frontier stays open — the max-depth ring's stubs are the live edge the
-  // DM can still expand during play.
-  return { instanceState: instance, ledger: dungeon.generation }
+  // The frontier stays open — but only the max-depth ring. If the zone cap cut
+  // the carve short, interior stubs (parent depth < maxDepth) can remain open;
+  // those are passages *inside* the area pre-gen was meant to carve for free,
+  // so completing them live would wrongly cost turns. Seal them, leaving only
+  // the intended outer frontier expandable. (When the loop finishes normally it
+  // leaves no interior stub, so this filter is a no-op.)
+  const openFrontier = Object.fromEntries(
+    Object.entries(instance.generation.stubs).filter(
+      ([, stub]) =>
+        (instance.generation.zones[stub.zoneId]?.depth ?? 0) >= input.maxDepth
+    )
+  )
+  const sealed =
+    Object.keys(openFrontier).length ===
+    Object.keys(instance.generation.stubs).length
+      ? instance
+      : {
+          ...instance,
+          generation: { ...instance.generation, stubs: openFrontier },
+        }
+  return { instanceState: sealed, ledger: dungeon.generation }
 }
