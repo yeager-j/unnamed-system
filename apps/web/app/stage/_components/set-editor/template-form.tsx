@@ -21,12 +21,9 @@ import type {
   TemplateSetContent,
   ZoneTemplate,
 } from "@/domain/template-set/authoring"
-import {
-  removeTemplate,
-  restoreTemplate,
-  tombstoneTemplate,
-  updateTemplate,
-} from "@/domain/template-set/edit"
+import type { TemplateSetEvent } from "@/domain/template-set/commit/protocol"
+import { referencedTemplateKeys } from "@/domain/template-set/edit"
+import type { TemplatePatch } from "@/domain/template-set/events"
 
 import type { SetEditorSelection } from "./selection"
 import type { PortalMapOption } from "./set-editor"
@@ -34,22 +31,21 @@ import { TokenCombobox } from "./token-combobox"
 
 /**
  * One zone template's form — "a small form, not a canvas" (PRD). Every change
- * flows through `updateTemplate` into the whole-blob autosave; there is no
- * Save button. The delete control routes through `removeTemplate`, which
- * tombstones instead of removing when the template is referenced (in P1:
- * designated as the connector) — the ticket's liveness guard.
+ * emits a target-scoped `updateTemplate` intent; there is no Save button. The
+ * delete intent tombstones instead of removing when the template is referenced
+ * (in P1: designated as the connector) — the ticket's liveness guard.
  */
 export function TemplateForm({
   template,
   content,
   mapOptions,
-  onApplyContent,
+  onApplyEvent,
   onSelect,
 }: {
   template: ZoneTemplate
   content: TemplateSetContent
   mapOptions: PortalMapOption[]
-  onApplyContent: (content: TemplateSetContent) => void
+  onApplyEvent: (event: TemplateSetEvent) => void
   onSelect: (selection: SetEditorSelection) => void
 }) {
   const key = template.key
@@ -65,8 +61,8 @@ export function TemplateForm({
     return [...tokens].sort()
   }, [content.templates])
 
-  function patch(update: Partial<ZoneTemplate>) {
-    onApplyContent(updateTemplate(content, key, update))
+  function patch(update: TemplatePatch) {
+    onApplyEvent({ kind: "updateTemplate", key, patch: update })
   }
 
   const isConnector = content.connectorTemplateKey === key
@@ -261,7 +257,7 @@ export function TemplateForm({
           optionValue={(option) => option.id}
           optionLabel={(option) => option.name}
           value={template.portalMapId ?? ""}
-          onValueChange={(value) => patch({ portalMapId: value || undefined })}
+          onValueChange={(value) => patch({ portalMapId: value || null })}
         />
         <FieldDescription>
           A portal template grafts the targeted static Map when the party enters
@@ -381,7 +377,7 @@ export function TemplateForm({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onApplyContent(restoreTemplate(content, key))}
+            onClick={() => onApplyEvent({ kind: "restoreTemplate", key })}
           >
             Restore template
           </Button>
@@ -389,7 +385,7 @@ export function TemplateForm({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onApplyContent(tombstoneTemplate(content, key))}
+            onClick={() => onApplyEvent({ kind: "tombstoneTemplate", key })}
           >
             Tombstone template
           </Button>
@@ -399,10 +395,9 @@ export function TemplateForm({
           size="sm"
           className="text-destructive"
           onClick={() => {
-            const next = removeTemplate(content, key)
-            onApplyContent(next)
-            if (next.templates[key] === undefined)
-              onSelect({ kind: "settings" })
+            const remainsReferenced = referencedTemplateKeys(content).has(key)
+            onApplyEvent({ kind: "removeTemplate", key })
+            if (!remainsReferenced) onSelect({ kind: "settings" })
           }}
         >
           Delete template
@@ -425,7 +420,7 @@ function SiteSection({
   onPatch,
 }: {
   template: ZoneTemplate
-  onPatch: (update: Partial<ZoneTemplate>) => void
+  onPatch: (update: TemplatePatch) => void
 }) {
   const site = template.site
 
@@ -450,7 +445,7 @@ function SiteSection({
                     defaultMinDepth: 0,
                     defaultUrgency: "eventually",
                   }
-                : undefined,
+                : null,
             })
           }
         />

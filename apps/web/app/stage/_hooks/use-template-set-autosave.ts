@@ -3,179 +3,177 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { ok } from "@workspace/result"
+import type { Canon } from "@workspace/headcanon"
+import { err, ok } from "@workspace/result"
 
-import type { TemplateSetContent } from "@/domain/template-set/authoring"
-import { saveTemplateSetAction } from "@/lib/actions/template-set/save"
+import { useDebouncedAutoSave } from "@/domain/entity/use-debounced-auto-save"
+import {
+  templateSetEvents,
+  templateSetRename,
+  type TemplateSetCanonValue,
+  type TemplateSetEvent,
+} from "@/domain/template-set/commit/protocol"
+import { reduceTemplateSetEvent } from "@/domain/template-set/events"
+import { useTemplateSetPredictions } from "@/domain/template-set/use-template-set-predictions"
 
-import { useQueuedWrite } from "./use-queued-write"
+const DEBOUNCE_MS = 600
 
-const NAME_DEBOUNCE_MS = 600
-const CONTENT_DEBOUNCE_MS = 600
-
-/**
- * The editor's save indicator state: `saved` once the server has the latest edit,
- * `saving` while a write is in flight, `error` after a failed write (the local
- * edits stay; see the content note above).
- */
 export type TemplateSetSaveStatus = "saved" | "saving" | "error"
 
-/**
- * Debounced auto-save coordinator for the Template Set editor (UNN-588 name +
- * content) — the no-Save-button editor. The Set's **name and content share one
- * `version` token** (`templateSet.version`), so they must round-trip it through
- * **one** version ref and **one** serialized queue: two independent refs would
- * false-`stale` each other when a name edit and a template edit land back-to-back.
- *
- * That serialized version-token queue is not hand-rolled here: both fields route
- * their saves through one {@link useQueuedWrite} — the single-row façade over the
- * shared `createWriteQueue` core (`write-queue.ts`). It owns the
- * monotonic version ref (synced from `serverVersion`), the serialized spine, and
- * the forward-only token bump. `refetchVersion` is **omitted** on purpose: the Set
- * does *not* do the character autosave's silent refetch-and-retry — a `"stale"`
- * just reverts/toasts (see `saveTemplateSetAction`).
- *
- * This hook keeps only the per-field lifecycle glue. The name keeps its own draft
- * `value` + revert-on-failure (the field's server value is authoritative).
- * **Content does not hard-revert on failure:** each save persists the *whole*
- * `content` blob, so a transient failure self-heals on the next edit, and
- * discarding a library of work on a blip is worse than keeping it — a failure
- * toasts (refresh-prompt on `"stale"`) and leaves the local edits in place. Name
- * and content debounce on **independent timers** (a keystroke must not cancel a
- * pending template-edit save) but serialize through the one queue, each reading the
- * freshly-bumped token inside the chain. Both flush on unmount so a client-side
- * nav mid-debounce doesn't drop the last edit.
- *
- * Unlike the Map hook, no `serverContent` is threaded: the editor owns the
- * `content` state and hands the whole re-derived blob to `saveContent`, so the
- * last-saved no-op skip primes off the first successful save rather than the server
- * baseline.
- */
+type TemplateSetAutoSaveError = "change-refused" | "save-interrupted"
+
 export function useTemplateSetAutoSave({
   templateSetId,
-  serverName,
-  serverVersion,
+  canon,
 }: {
   templateSetId: string
-  serverName: string
-  serverVersion: number
+  canon: Canon<TemplateSetCanonValue>
 }) {
-  const { enqueue } = useQueuedWrite({ serverVersion })
-  const [value, setValue] = useState(serverName)
-  const [status, setStatus] = useState<TemplateSetSaveStatus>("saved")
+  const root = useTemplateSetPredictions({ canon })
+  const [content, setContent] = useState(canon.value.content)
+  const [settledStatus, setSettledStatus] =
+    useState<TemplateSetSaveStatus>("saved")
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
-  const lastSavedNameRef = useRef(serverName)
-  const lastSavedContentRef = useRef<string | null>(null)
-  const pendingContentRef = useRef<TemplateSetContent | null>(null)
-  const nameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const contentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const eventTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingEventsRef = useRef<TemplateSetEvent[]>([])
 
-  function onSaveFailure(stale: boolean): void {
+  function surfaceFailure(error: TemplateSetAutoSaveError): void {
+    setSettledStatus("error")
     toast.error(
-      stale
-        ? "Couldn't sync the set — refresh to see the latest changes."
+      error === "change-refused"
+        ? "The set changed elsewhere, so that edit couldn't be applied."
         : "Couldn't save the set. Try again."
     )
   }
 
-  function enqueueNameSave(next: string): void {
-    const trimmed = next.trim()
+  const name = useDebouncedAutoSave<string, TemplateSetAutoSaveError>({
+    serverValue: canon.value.name,
+    debounceMs: DEBOUNCE_MS,
+    isEmpty: (value) => value.trim().length === 0,
+    isEqual: (left, right) => left.trim() === right.trim(),
+    onError: surfaceFailure,
+    async save(value) {
+      setSettledStatus("saving")
+      const trimmed = value.trim()
+      const mutation = root.mutate(
+        templateSetRename({ templateSetId, name: trimmed })
+      )
+      if (!mutation.ok) return err("change-refused")
 
-    void enqueue(async (expectedVersion) => {
-      if (trimmed.length === 0 || trimmed === lastSavedNameRef.current.trim())
-        return ok({ version: expectedVersion })
-
-      setStatus("saving")
-      const result = await saveTemplateSetAction({
-        templateSetId,
-        expectedVersion,
-        patch: { field: "name", name: trimmed },
-      })
-      if (result.ok) {
-        lastSavedNameRef.current = trimmed
-        setStatus("saved")
-        setLastSavedAt(Date.now())
-        return result
+      const accepted = await mutation.value.accepted
+      if (!accepted.ok) {
+        return err(
+          accepted.error.kind === "domain" ||
+            accepted.error.kind === "replay-refused"
+            ? "change-refused"
+            : "save-interrupted"
+        )
       }
-      setValue(lastSavedNameRef.current)
-      setStatus("error")
-      onSaveFailure(result.error === "stale")
-      return result
-    })
-  }
 
-  function enqueueContentSave(content: TemplateSetContent): void {
-    pendingContentRef.current = null
-
-    void enqueue(async (expectedVersion) => {
-      const serialized = JSON.stringify(content)
-      if (serialized === lastSavedContentRef.current)
-        return ok({ version: expectedVersion })
-
-      setStatus("saving")
-      const result = await saveTemplateSetAction({
-        templateSetId,
-        expectedVersion,
-        patch: { field: "content", content },
-      })
-      if (result.ok) {
-        lastSavedContentRef.current = serialized
-        setStatus("saved")
-        setLastSavedAt(Date.now())
-        return result
-      }
-      setStatus("error")
-      onSaveFailure(result.error === "stale")
-      return result
-    })
-  }
-
-  function onChange(next: string): void {
-    setValue(next)
-    if (nameTimerRef.current) clearTimeout(nameTimerRef.current)
-    nameTimerRef.current = setTimeout(
-      () => enqueueNameSave(next),
-      NAME_DEBOUNCE_MS
-    )
-  }
-
-  function flush(): void {
-    if (nameTimerRef.current) {
-      clearTimeout(nameTimerRef.current)
-      nameTimerRef.current = null
-    }
-    enqueueNameSave(value)
-  }
-
-  function revert(): void {
-    setValue(lastSavedNameRef.current)
-  }
-
-  function saveContent(content: TemplateSetContent): void {
-    pendingContentRef.current = content
-    if (contentTimerRef.current) clearTimeout(contentTimerRef.current)
-    contentTimerRef.current = setTimeout(
-      () => enqueueContentSave(content),
-      CONTENT_DEBOUNCE_MS
-    )
-  }
-
-  const flushOnUnmount = useEffectEvent(() => {
-    if (nameTimerRef.current) {
-      clearTimeout(nameTimerRef.current)
-      enqueueNameSave(value)
-    }
-    if (contentTimerRef.current && pendingContentRef.current) {
-      clearTimeout(contentTimerRef.current)
-      enqueueContentSave(pendingContentRef.current)
-    }
+      setSettledStatus("saved")
+      setLastSavedAt(Date.now())
+      return ok({ value: trimmed })
+    },
   })
 
+  function flushEvents(): void {
+    if (eventTimerRef.current) {
+      clearTimeout(eventTimerRef.current)
+      eventTimerRef.current = null
+    }
+    const events = pendingEventsRef.current
+    if (events.length === 0) return
+    pendingEventsRef.current = []
+
+    setSettledStatus("saving")
+    const mutation = root.mutate(templateSetEvents({ templateSetId, events }))
+    if (!mutation.ok) {
+      setContent(root.value.content)
+      surfaceFailure("change-refused")
+      return
+    }
+    void mutation.value.accepted.then((accepted) => {
+      if (!accepted.ok) {
+        if (
+          accepted.error.kind === "domain" ||
+          accepted.error.kind === "replay-refused"
+        ) {
+          surfaceFailure("change-refused")
+        }
+        return
+      }
+      setSettledStatus("saved")
+      setLastSavedAt(Date.now())
+    })
+  }
+
+  function applyEvent(event: TemplateSetEvent): void {
+    setContent((current) => reduceTemplateSetEvent(current, event))
+    pendingEventsRef.current.push(event)
+    if (eventTimerRef.current) clearTimeout(eventTimerRef.current)
+    eventTimerRef.current = setTimeout(flushEvents, DEBOUNCE_MS)
+  }
+
+  const syncFromRoot = useEffectEvent(() => {
+    try {
+      setContent(
+        pendingEventsRef.current.reduce(
+          reduceTemplateSetEvent,
+          root.value.content
+        )
+      )
+    } catch {
+      // Keep the responsive local draft until its pending batch receives the
+      // authority's explicit refusal; the failure path then restores canon.
+    }
+  })
+  useEffect(() => syncFromRoot(), [canon, root.status.pending])
+
+  useEffect(() => {
+    if (root.status.delivery === "uncertain") {
+      toast.error("Connection lost mid-save — your set change is kept.", {
+        id: `template-set-delivery-uncertain:${templateSetId}`,
+        duration: Infinity,
+        action: { label: "Retry", onClick: root.retryDelivery },
+      })
+    } else {
+      toast.dismiss(`template-set-delivery-uncertain:${templateSetId}`)
+    }
+  }, [root.retryDelivery, root.status.delivery, templateSetId])
+
+  useEffect(() => {
+    if (root.status.freshness === "stalled") {
+      toast.error("Couldn't confirm the latest set changes.", {
+        id: `template-set-refresh-stalled:${templateSetId}`,
+        duration: Infinity,
+        action: { label: "Refresh", onClick: root.retryRefresh },
+      })
+    } else {
+      toast.dismiss(`template-set-refresh-stalled:${templateSetId}`)
+    }
+  }, [root.retryRefresh, root.status.freshness, templateSetId])
+
+  const flushOnUnmount = useEffectEvent(() => flushEvents())
   useEffect(() => () => flushOnUnmount(), [])
 
   return {
-    name: { value, onChange, flush, revert },
-    saveContent,
-    save: { status, lastSavedAt },
+    content,
+    name: {
+      value: name.value,
+      onChange: name.setValue,
+      flush: name.flush,
+      revert: name.revert,
+      onFocusChange: name.onFocusChange,
+    },
+    applyEvent,
+    save: {
+      status:
+        root.status.delivery === "uncertain"
+          ? ("error" as const)
+          : root.status.pending > 0
+            ? ("saving" as const)
+            : settledStatus,
+      lastSavedAt,
+    },
   }
 }

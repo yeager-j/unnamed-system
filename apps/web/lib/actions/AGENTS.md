@@ -37,12 +37,14 @@ folder already says it (same rule as `lib/db/writes/`): `encounter/create.ts`,
 not `encounter/encounter-create.ts`. Each aggregate brings its own auth gate,
 concurrency token, and envelope:
 
-| Aggregate    | Auth gate                                                                                                                                                                                                                                             | Envelope                                                                                                                                   | Concurrency                                                                                                                                                                             |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `entity/`    | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates) for `entity.write`, strict owner for `entity.identity` — rerun inside the Store's transaction + pre-checked at the one door (UNN-674/675/676) | the Headcanon wire: `{ protocol, mutationId, invocation }` — **no expected revision, class, axis, or actor**                               | per-write-class on the `entity` row, **server-authoritative** (the Store reads the class version and guards on it; a lost race is authority contention, never a client-visible `stale`) |
-| `dungeon/`   | campaign DM screening before receipt ownership, then a locked reload + authorization in every authority attempt                                                                                                                                       | `showtime.dungeon.v1` intent descriptors — **no expected revisions, axes, actor, variant, or storage claims**                              | dungeon-first transactions over dungeon → map-instance → encounter → region; every actual bump is stamped and lost guards rerun the whole command                                       |
-| `encounter/` | `requireCampaignDM`                                                                                                                                                                                                                                   | `encounterMutationBase` (`{ encounterId, expectedVersion }`)                                                                               | single `version` per encounter                                                                                                                                                          |
-| `combat/`    | campaign DM screening + per-attempt admission for `combat.write`/`combat.end`; legacy event actions retain `requireCampaignDM`                                                                                                                        | Headcanon intent descriptors for writes/end; remaining generic event actions temporarily retain their version-bearing envelope through P3c | `combat.end` derives dungeon ownership and stamps encounter + map-instance, plus dungeon when present; durable writes compose the entity Store                                          |
+| Aggregate       | Auth gate                                                                                                                                                                                                                                             | Envelope                                                                                                                                   | Concurrency                                                                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity/`       | contextual authZ (`authorize-write`: owner/owner-or-DM by class + restricted-Archetype/narrative gates) for `entity.write`, strict owner for `entity.identity` — rerun inside the Store's transaction + pre-checked at the one door (UNN-674/675/676) | the Headcanon wire: `{ protocol, mutationId, invocation }` — **no expected revision, class, axis, or actor**                               | per-write-class on the `entity` row, **server-authoritative** (the Store reads the class version and guards on it; a lost race is authority contention, never a client-visible `stale`) |
+| `dungeon/`      | campaign DM screening before receipt ownership, then a locked reload + authorization in every authority attempt                                                                                                                                       | `showtime.dungeon.v1` intent descriptors — **no expected revisions, axes, actor, variant, or storage claims**                              | dungeon-first transactions over dungeon → map-instance → encounter → region; every actual bump is stamped and lost guards rerun the whole command                                       |
+| `map/`          | owner screening before receipt ownership, then a transactional live-row ownership recheck                                                                                                                                                             | `showtime.map.v1` rename or geometry-event intent — **no expected version or replacement blob**                                            | the authority reduces events over the row loaded in its attempt, guards the current `version`, stamps `map/{id}`, and retries contention                                                |
+| `template-set/` | live-set owner screening before receipt ownership, then a transactional live-row ownership recheck                                                                                                                                                    | `showtime.template-set.v1` rename or target-scoped event batch — **no expected version or replacement blob**                               | the authority reduces events over current content, guards the current `version`, stamps `template-set/{id}`, and retries contention                                                     |
+| `encounter/`    | `requireCampaignDM`                                                                                                                                                                                                                                   | `encounterMutationBase` (`{ encounterId, expectedVersion }`)                                                                               | single `version` per encounter                                                                                                                                                          |
+| `combat/`       | campaign DM screening + per-attempt admission for `combat.write`/`combat.end`; legacy event actions retain `requireCampaignDM`                                                                                                                        | Headcanon intent descriptors for writes/end; remaining generic event actions temporarily retain their version-bearing envelope through P3c | `combat.end` derives dungeon ownership and stamps encounter + map-instance, plus dungeon when present; durable writes compose the entity Store                                          |
 
 > **The `entity/` aggregate (UNN-551; transactional refactor UNN-674)** is the
 > descriptor → Writer → Store pipeline for durable component writes. `commitEntityWrite`
@@ -103,8 +105,7 @@ protocol, same receipt ledger, no Writer for the columns. PC lifecycle state
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 
-**The other aggregates** (`encounter/`, campaign, map; plus the combat event
-runtime until P3c) are classic
+**The remaining legacy aggregates** (`encounter/` and campaign) are classic
 per-file Server Actions. The Zod schema lives in `<slice>.schema.ts` alongside the
 action (a `"use server"` module can only export async functions, so a client that
 pre-validates imports the schema file directly). The skeleton:
@@ -169,17 +170,18 @@ records the accepted revision on a stamp; registered handlers let the executor
 finalize it, while the one approved external combat arm calls
 `finalizeExternalActionCommit` explicitly.
 
-The other aggregates carry a single `version` per row (`encounter`,
-`map-instance`, …), bumped and guarded the same way. Dungeon commands and
-`combat.end` read those versions inside each authority attempt and translate a
-lost guard into whole-command contention. Every persistence wrapper:
+The other aggregates carry a single `version` per row (`encounter`, `map`,
+`template-set`, `map-instance`, …), bumped and guarded the same way. Map,
+Template Set, Dungeon, and Combat commands read those versions inside each
+authority attempt and translate a lost guard into whole-command contention.
+Every persistence wrapper:
 
 - Conditions the `UPDATE` on `WHERE id = ? AND <token> = ?` and increments the
   token atomically in the same `SET`.
 - Returns `err("stale")` on zero rows (disambiguated to `"entity-not-found"` /
   `"<aggregate>-not-found"` by a follow-up existence check).
-- Returns the new `version` in the success value so the client can chain
-  follow-up saves without a re-fetch.
+- Returns the new `version` to its caller. Headcanon commands record it in the
+  accepted stamp; only legacy actions return it to a client.
 
 Per-class scoping is the load-bearing property: a debounced narrative save in
 flight is not falsely staled by a vitals-counter blur. Two writes in the _same_

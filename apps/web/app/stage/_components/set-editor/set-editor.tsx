@@ -1,16 +1,15 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo } from "react"
 
+import type { Canon } from "@workspace/headcanon"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 
 import { useTemplateSetAutoSave } from "@/app/stage/_hooks/use-template-set-autosave"
-import {
-  lintTemplateSet,
-  type TemplateSetContent,
-} from "@/domain/template-set/authoring"
+import { lintTemplateSet } from "@/domain/template-set/authoring"
 import { enemyKeys, itemKeys } from "@/domain/template-set/catalog-options"
+import type { TemplateSetCanonValue } from "@/domain/template-set/commit/protocol"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
 import { stageSetPath } from "@/lib/paths"
 
@@ -36,28 +35,29 @@ export interface PortalMapOption {
  * an inset sidebar lists Templates / Tables / Set settings, the selected item's
  * form renders in the inset, and a persistent lint rail advises on the right.
  *
- * One client tree, mounted once: `content` is the single source of truth for
- * the whole blob, every edit flows `content → setContent → saveContent`
- * (whole-blob autosave through the shared version token), and selection rides
- * the `?item=` search param so items are URL-addressable without remounting
- * the editor (see `selection.ts`). Lint re-runs as a pure `useMemo` on every
- * content change — advisory only, never save-blocking.
+ * One client tree, mounted once: forms emit serializable `TemplateSetEvent`
+ * intents into a responsive local draft; the autosave boundary batches them and
+ * Headcanon orders delivery, retries contention, and hands predictions back to
+ * the covering canon. Selection rides the `?item=` search param so items are
+ * URL-addressable without remounting the editor (see `selection.ts`). Lint
+ * re-runs as a pure `useMemo` on every content change — advisory only, never
+ * save-blocking.
  */
 export function SetEditor({
   set,
+  canon,
   mapOptions,
 }: {
   set: TemplateSetRow
+  canon: Canon<TemplateSetCanonValue>
   mapOptions: PortalMapOption[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [content, setContent] = useState<TemplateSetContent>(set.content)
 
-  const { name, saveContent, save } = useTemplateSetAutoSave({
+  const { content, name, applyEvent, save } = useTemplateSetAutoSave({
     templateSetId: set.id,
-    serverName: set.name,
-    serverVersion: set.version,
+    canon,
   })
 
   const selection = selectionFromParam(searchParams.get("item"))
@@ -71,14 +71,6 @@ export function SetEditor({
       router.replace(target, { scroll: false })
     },
     [router, set.shortId]
-  )
-
-  const applyContent = useCallback(
-    (next: TemplateSetContent) => {
-      setContent(next)
-      saveContent(next)
-    },
-    [saveContent]
   )
 
   const vocab = useMemo(
@@ -120,7 +112,7 @@ export function SetEditor({
         selection={selection}
         findings={findings}
         onSelect={select}
-        onApplyContent={applyContent}
+        onApplyEvent={applyEvent}
       />
 
       <SidebarInset className="min-w-0">
@@ -135,7 +127,7 @@ export function SetEditor({
                   set={set}
                   setName={name.value}
                   content={content}
-                  onApplyContent={applyContent}
+                  onApplyEvent={applyEvent}
                 />
               ) : selectedTemplate ? (
                 <TemplateForm
@@ -143,7 +135,7 @@ export function SetEditor({
                   template={selectedTemplate}
                   content={content}
                   mapOptions={mapOptions}
-                  onApplyContent={applyContent}
+                  onApplyEvent={applyEvent}
                   onSelect={select}
                 />
               ) : selectedTable ? (
@@ -151,7 +143,7 @@ export function SetEditor({
                   key={selectedTable.key}
                   table={selectedTable}
                   content={content}
-                  onApplyContent={applyContent}
+                  onApplyEvent={applyEvent}
                   onSelect={select}
                 />
               ) : (

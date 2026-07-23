@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { cache } from "react"
 
 import { SetEditor } from "@/app/stage/_components/set-editor/set-editor"
+import { toTemplateSetCanon } from "@/domain/template-set/load-canon"
 import { auth } from "@/lib/auth"
 import { loadMapOptionsByUserId } from "@/lib/db/queries/load-map"
 import { loadTemplateSetByShortId } from "@/lib/db/queries/load-template-set"
@@ -49,5 +50,11 @@ export default async function SetEditorPage({ params }: PageProps) {
 
   const mapOptions = await loadMapOptionsByUserId(set.userId)
 
-  return <SetEditor set={set} mapOptions={mapOptions} />
+  return (
+    <SetEditor
+      set={set}
+      canon={toTemplateSetCanon(set)}
+      mapOptions={mapOptions}
+    />
+  )
 }

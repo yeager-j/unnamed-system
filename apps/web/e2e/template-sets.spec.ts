@@ -13,8 +13,8 @@ import {
 
 /**
  * E2E for Template Sets (UNN-588): the authoring loop the unit layers can't
- * reach end-to-end — create → redirect into the editor, whole-blob autosave
- * through the shared version token (rename + template/table edits), the
+ * reach end-to-end — create → redirect into the editor, intent-batched autosave
+ * through one predicted root (rename + template/table edits), the
  * **advisory** contract (a lint finding renders while the save still lands),
  * the connector-tombstone liveness guard, soft delete (row survives with
  * `deletedAt`), and the owner gate (a non-owner 404s).
@@ -65,7 +65,7 @@ test("the Sets library item is live and lists the viewer's sets", async ({
   await expect(page.getByRole("link", { name: set.name })).toBeVisible()
 })
 
-test("create → redirect → rename autosaves through the version token", async ({
+test("create → redirect → rename autosaves through the predicted root", async ({
   page,
 }) => {
   await page.goto(stageSetsPath())

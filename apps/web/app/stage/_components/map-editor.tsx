@@ -1,13 +1,13 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useState } from "react"
 
-import type { MapGeometry } from "@workspace/game-v2/spatial"
+import type { Canon } from "@workspace/headcanon"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { useMapAutoSave } from "@/app/stage/_hooks/use-map-autosave"
 import type { MapAuthoringOptions } from "@/components/shared/canvas/map-canvas-context"
+import type { MapCanonValue } from "@/domain/map/commit/protocol"
 import type { MapRow } from "@/lib/db/schema/map"
 
 import { MapSettingsPanel } from "./map-settings-panel"
@@ -18,9 +18,9 @@ import { MapSettingsPanel } from "./map-settings-panel"
  * over the top-left and the tool palette along the bottom — no header bars (the
  * site header is hidden on this route). The canvas is a `"use client"` React Flow
  * island, lazy-loaded (`ssr: false`) so it renders only against a measured DOM and
- * non-map routes don't pay for it. Name and geometry autosave through one shared
- * version token ({@link useMapAutoSave}); a local geometry mirror feeds the panel's
- * live zone/connection counts.
+ * non-map routes don't pay for it. Name and geometry-event batches mutate one
+ * Headcanon root ({@link useMapAutoSave}); a presentation-only geometry mirror
+ * feeds the panel's live zone/connection counts.
  */
 const MapCanvas = dynamic(
   () =>
@@ -39,33 +39,26 @@ const MapCanvas = dynamic(
 
 export function MapEditor({
   map,
+  canon,
   authoring,
 }: {
   map: MapRow
+  canon: Canon<MapCanonValue>
   authoring: MapAuthoringOptions
 }) {
-  const { name, saveGeometry, save } = useMapAutoSave({
+  const { name, geometry, saveGeometryEvent, save } = useMapAutoSave({
     mapId: map.id,
-    serverName: map.name,
-    serverGeometry: map.geometry,
-    serverVersion: map.version,
+    canon,
   })
-  const [geometry, setGeometry] = useState(map.geometry)
-
-  function handleGeometryChange(next: MapGeometry) {
-    setGeometry(next)
-    saveGeometry(next)
-  }
-
   return (
     <main aria-label="Map builder" className="relative min-h-0 flex-1">
       <div className="absolute inset-0">
         <MapCanvas
-          geometry={map.geometry}
-          onGeometryChange={handleGeometryChange}
+          geometry={geometry}
+          onGeometryEvent={saveGeometryEvent}
           cartoucheTitle={name.value}
           // The editor pages itself — the canvas owns activePageId and the
-          // floating tab strip (UNN-586); pages ride the whole-blob autosave.
+          // floating tab strip (UNN-586); pages ride geometry-event intents.
           showPageTabs
           // The generation-binding pickers (UNN-590) — /stage is the one
           // authoring surface, so only this host passes options.

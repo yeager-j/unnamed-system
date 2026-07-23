@@ -5,6 +5,7 @@ import {
   GearSixIcon,
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr"
+import { nanoid } from "nanoid"
 import Link from "next/link"
 
 import { Badge } from "@workspace/ui/components/badge"
@@ -32,7 +33,7 @@ import type {
   LintFinding,
   TemplateSetContent,
 } from "@/domain/template-set/authoring"
-import { addTable, addTemplate } from "@/domain/template-set/edit"
+import type { TemplateSetEvent } from "@/domain/template-set/commit/protocol"
 import { stageSetsPath } from "@/lib/paths"
 
 import type { SetEditorSelection } from "./selection"
@@ -54,20 +55,20 @@ export function SetEditorSidebar({
   selection,
   findings,
   onSelect,
-  onApplyContent,
+  onApplyEvent,
 }: {
   content: TemplateSetContent
   name: {
     value: string
     onChange: (value: string) => void
-    flush: () => void
     revert: () => void
+    onFocusChange: (focused: boolean) => void
   }
   save: { status: StageSaveStatus; lastSavedAt: number | null }
   selection: SetEditorSelection
   findings: LintFinding[]
   onSelect: (selection: SetEditorSelection) => void
-  onApplyContent: (content: TemplateSetContent) => void
+  onApplyEvent: (event: TemplateSetEvent) => void
 }) {
   const flaggedTemplates = new Set(
     findings
@@ -84,14 +85,14 @@ export function SetEditorSidebar({
   )
 
   function handleAddTemplate() {
-    const { content: next, key } = addTemplate(content)
-    onApplyContent(next)
+    const key = nanoid(8)
+    onApplyEvent({ kind: "addTemplate", key })
     onSelect({ kind: "template", key })
   }
 
   function handleAddTable() {
-    const { content: next, key } = addTable(content)
-    onApplyContent(next)
+    const key = nanoid(8)
+    onApplyEvent({ kind: "addTable", key })
     onSelect({ kind: "table", key })
   }
 
@@ -113,7 +114,8 @@ export function SetEditorSidebar({
           value={name.value}
           maxLength={100}
           onChange={(event) => name.onChange(event.target.value)}
-          onBlur={name.flush}
+          onFocus={() => name.onFocusChange(true)}
+          onBlur={() => name.onFocusChange(false)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault()

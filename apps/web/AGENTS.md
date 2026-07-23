@@ -74,7 +74,8 @@ apps/web/
 │   ├── dungeon/                      Predicted commit protocol/root + explore view shaping
 │   ├── entity/                       Durable-entity write vocab: commit/ (schema + predictors) + use-entity-write
 │   ├── game-v2/                      entity-row-to-bag: entity row → runtime Entity
-│   ├── map/                          Pure renderer vocab: footprints, set-piece-view, zone size/motif/mood aliases
+│   ├── map/                          Map canon, intent protocol/predicted root, and pure renderer vocabulary
+│   ├── template-set/                 Template Set authoring/events, canon, intent protocol, and predicted root
 │   ├── planner/                      Campaign Planner pure selectors (clock-time, slot materialization)
 │   ├── labels.ts                     Canonical display-label maps (Record<gameKey, string>)
 │   ├── pool.ts                       Neutral `{ current, max }` Pool shaper
@@ -82,7 +83,7 @@ apps/web/
 ├── e2e/                              Playwright specs
 │   └── fixtures/                     factory.ts (ephemeral test data) + per-thing -target.ts wrappers
 └── lib/                              Plumbing data tier, peer of domain
-├── actions/                      Server Actions + schemas (write-side seam); entity/ is the durable-entity write door
+├── actions/                      Server Actions + command authorities; entity/, map/, and template-set/ are Headcanon doors
 ├── auth/                         Auth.js v5 (Google OAuth, Drizzle adapter)
 ├── db/                           client/schema/migrations/queries/writes — see lib/db/CLAUDE.md
 ├── realtime/                     Headcanon axis invalidation transport + degraded polling binding

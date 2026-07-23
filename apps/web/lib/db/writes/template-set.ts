@@ -6,7 +6,7 @@ import {
 } from "@workspace/game-v2/generation"
 import { type Result } from "@workspace/result"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { templateSets } from "@/lib/db/schema/template-set"
 import { insertWithShortId } from "@/lib/db/short-id"
 import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
@@ -18,8 +18,8 @@ import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
  * Server Action boundary that calls it.
  *
  * A single `version` token guards every content/name mutation through the shared
- * {@link guardedVersionUpdate}. These run on the base `db` — Set authoring is
- * single-owner with no cross-row atomic gesture (no `guardMany`).
+ * {@link guardedVersionUpdate}. The Headcanon command supplies its attempt
+ * transaction and the version it just loaded; standalone callers may use `db`.
  */
 
 type TemplateSetWriteError = "template-set-not-found" | "stale"
@@ -51,32 +51,42 @@ export async function createTemplateSet(input: {
 }
 
 /**
- * The guarded content write: replaces the whole `content` blob and bumps
- * `version`, conditioned on the caller's `expectedVersion`. Returns the new
- * version on success. This is the write the Set editor's autosave calls on every
- * template/table/knob edit.
+ * Stores content produced by reducing target-scoped events over the authority
+ * attempt's current row, guarded by that row's observed version. A lost guard is
+ * command contention, never a client-visible stale result.
  */
 export async function saveTemplateSetContent(
   templateSetId: string,
   content: TemplateSetContent,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, TemplateSetWriteError>> {
-  return bumpTemplateSetVersionGuarded(templateSetId, expectedVersion, {
-    content,
-  })
+  return bumpTemplateSetVersionGuarded(
+    templateSetId,
+    expectedVersion,
+    {
+      content,
+    },
+    executor
+  )
 }
 
 /**
- * The guarded name write — the autosaved Set name (no Save button). Same guarded
- * primitive as {@link saveTemplateSetContent}, different patch: name and content
- * share the one `version` token, each round-tripping it on its own save.
+ * The guarded name Store. Name and content share one row version, while the
+ * Headcanon root owns client ordering and the authority owns contention retry.
  */
 export async function renameTemplateSet(
   templateSetId: string,
   name: string,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, TemplateSetWriteError>> {
-  return bumpTemplateSetVersionGuarded(templateSetId, expectedVersion, { name })
+  return bumpTemplateSetVersionGuarded(
+    templateSetId,
+    expectedVersion,
+    { name },
+    executor
+  )
 }
 
 /**
@@ -104,7 +114,8 @@ export async function softDeleteTemplateSet(
 async function bumpTemplateSetVersionGuarded(
   templateSetId: string,
   expectedVersion: number,
-  patch: Partial<typeof templateSets.$inferInsert>
+  patch: Partial<typeof templateSets.$inferInsert>,
+  executor: WriteExecutor
 ): Promise<Result<{ version: number }, TemplateSetWriteError>> {
   return guardedVersionUpdate({
     table: templateSets,
@@ -112,5 +123,6 @@ async function bumpTemplateSetVersionGuarded(
     expectedVersion,
     patch,
     notFound: "template-set-not-found",
+    executor,
   })
 }

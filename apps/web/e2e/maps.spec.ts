@@ -224,7 +224,7 @@ test("pages: tabs render, chips replace cross-page edges, chip navigates, new pa
       .filter({ visible: true })
   ).toHaveCount(1)
 
-  // Page CRUD rides the existing whole-blob autosave.
+  // Page CRUD rides the debounced geometry-event batch.
   await page.getByRole("button", { name: "New page" }).click()
   await expect(
     page.getByRole("button", { name: "Page 2", exact: true })

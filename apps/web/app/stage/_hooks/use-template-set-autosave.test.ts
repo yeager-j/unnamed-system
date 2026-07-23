@@ -3,254 +3,279 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok, type Result } from "@workspace/result"
+import {
+  defineCanon,
+  revisionVector,
+  type AcceptedStamp,
+  type Canon,
+  type MutationEnvelope,
+  type ProtocolInvocation,
+} from "@workspace/headcanon"
+import { ok } from "@workspace/result"
 
-import type { TemplateSetContent } from "@/domain/template-set/authoring"
-import type {
-  SaveTemplateSetError,
-  SaveTemplateSetInput,
-} from "@/lib/actions/template-set/save.schema"
+import { templateSetContentSchema } from "@/domain/template-set/authoring"
+import {
+  templateSetProtocol,
+  type TemplateSetCanonValue,
+} from "@/domain/template-set/commit/protocol"
+import { applyTemplateSetMutationAction } from "@/lib/actions/template-set/mutations/apply"
+import { templateSetAxis } from "@/lib/db/axes"
 
 import { useTemplateSetAutoSave } from "./use-template-set-autosave"
 
-vi.mock("@/lib/actions/template-set/save", () => ({
-  saveTemplateSetAction: vi.fn(),
+const { routerRefresh } = vi.hoisted(() => ({ routerRefresh: vi.fn() }))
+
+vi.mock("@/lib/actions/template-set/mutations/apply", () => ({
+  applyTemplateSetMutationAction: vi.fn(),
 }))
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
+vi.mock("@/lib/realtime/axis-invalidations", () => ({
+  axisInvalidations: {
+    initialStatus: "disabled" as const,
+    subscribe: () => () => {},
+  },
+}))
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), dismiss: vi.fn() },
+}))
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefresh }),
+  unstable_rethrow: () => {},
+}))
 
-// Imported after the mocks so these bindings are the mocked ones.
-const { saveTemplateSetAction } =
-  await import("@/lib/actions/template-set/save")
+const door = vi.mocked(applyTemplateSetMutationAction)
 const { toast } = await import("sonner")
+const axis = templateSetAxis("set-1")
 
-type TemplateSetSaveResult = Result<{ version: number }, SaveTemplateSetError>
-
-type SaveCall = {
-  input: SaveTemplateSetInput
-  resolve: (result: TemplateSetSaveResult) => void
+function stampAt(version: number): AcceptedStamp {
+  const parsed = revisionVector({ [axis]: version })
+  if (!parsed.ok) throw new Error("invalid test stamp")
+  return { revisions: parsed.value }
 }
 
-/**
- * Installs a manually-controlled `saveTemplateSetAction`: each invocation records
- * the `input` it was handed and parks until the test fires its `resolve`, so the
- * serialized-queue races reproduce deterministically without real timers on the
- * network side.
- */
-function installControlledSave(): SaveCall[] {
-  const calls: SaveCall[] = []
-  vi.mocked(saveTemplateSetAction).mockImplementation(
-    (input: SaveTemplateSetInput) =>
-      new Promise<TemplateSetSaveResult>((resolve) => {
-        calls.push({ input, resolve })
-      })
-  )
-  return calls
+type DoorOutcome = Awaited<ReturnType<typeof applyTemplateSetMutationAction>>
+type TemplateSetEnvelope = MutationEnvelope<
+  ProtocolInvocation<typeof templateSetProtocol>
+>
+
+function accepted(version: number): DoorOutcome {
+  return ok({ kind: "accepted", stamp: stampAt(version) }) as DoorOutcome
 }
 
-/** The queued save chains through a `.then`, so the request only goes out on the
- *  next microtask. Wrap any assertion about a dispatched call in this. */
+function canonAt(
+  version = 0,
+  value: TemplateSetCanonValue = {
+    name: "Grammar",
+    content: templateSetContentSchema.parse({}),
+  }
+): Canon<TemplateSetCanonValue> {
+  return defineCanon({ value, revisions: { [axis]: version } })
+}
+
 async function flushMicrotasks(): Promise<void> {
   await act(async () => {
+    await Promise.resolve()
     await Promise.resolve()
   })
 }
 
-const CONTENT_B: TemplateSetContent = {
-  templates: {
-    t1: {
-      key: "t1",
-      name: "T1",
-      description: "",
-      dmNotes: "",
-      tags: [],
-      accepts: [],
-      exits: [],
-      weight: 1,
-      unique: false,
-      contentRolls: [],
-    },
-  },
-  tables: {},
-  templateOrder: ["t1"],
-  tableOrder: [],
-  closureChance: 0.1,
-}
-
-function render(serverVersion = 0) {
+function renderTemplateSetHook() {
+  const canon = canonAt()
   return renderHook(() =>
-    useTemplateSetAutoSave({
-      templateSetId: "set-1",
-      serverName: "Grammar",
-      serverVersion,
-    })
+    useTemplateSetAutoSave({ templateSetId: "set-1", canon })
   )
 }
 
 describe("useTemplateSetAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.mocked(saveTemplateSetAction).mockReset()
+    door.mockReset()
     vi.mocked(toast.error).mockReset()
+    vi.mocked(toast.dismiss).mockReset()
+    routerRefresh.mockReset()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+  afterEach(() => vi.useRealTimers())
 
-  it("skips the server call and status flip for a no-op name edit", async () => {
-    installControlledSave()
-    const { result } = render()
+  it("keeps a focused name draft across an incoming canon", () => {
+    const { result, rerender } = renderHook(
+      ({ canon }) => useTemplateSetAutoSave({ templateSetId: "set-1", canon }),
+      { initialProps: { canon: canonAt() } }
+    )
 
-    // Blur with the unchanged name — trimmed value equals last-saved.
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-
-    expect(saveTemplateSetAction).not.toHaveBeenCalled()
-    expect(result.current.save.status).toBe("saved")
-  })
-
-  it("skips the server call for a re-saved (unchanged) content blob", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
-
-    // First save dispatches and succeeds, recording last-saved. No `serverContent`
-    // is threaded, so the skip primes off this first landed save, not a baseline.
-    act(() => result.current.saveContent(CONTENT_B))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-    expect(calls).toHaveLength(1)
-    await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+    act(() => {
+      result.current.name.onFocusChange(true)
+      result.current.name.onChange("Grammar draft")
     })
-    await flushMicrotasks()
+    rerender({
+      canon: canonAt(1, {
+        name: "Grammar saved",
+        content: templateSetContentSchema.parse({}),
+      }),
+    })
 
-    // The SAME blob is now a no-op — last-saved matches, so nothing dispatches.
-    act(() => result.current.saveContent(CONTENT_B))
+    expect(result.current.name.value).toBe("Grammar draft")
+  })
+
+  it("predicts locally and batches serializable events", async () => {
+    door.mockResolvedValue(accepted(1))
+    const { result } = renderTemplateSetHook()
+
+    act(() => {
+      result.current.applyEvent({ kind: "addTemplate", key: "template-a" })
+      result.current.applyEvent({
+        kind: "updateTemplate",
+        key: "template-a",
+        patch: { name: "Atrium" },
+      })
+    })
+    expect(result.current.content.templates["template-a"]?.name).toBe("Atrium")
+
     act(() => vi.advanceTimersByTime(600))
     await flushMicrotasks()
 
-    expect(calls).toHaveLength(1)
-    expect(result.current.save.status).toBe("saved")
+    expect(door).toHaveBeenCalledTimes(1)
+    const envelope = door.mock.calls[0]![0] as TemplateSetEnvelope
+    expect(envelope.invocation).toMatchObject({
+      name: "template-set.events",
+      args: {
+        templateSetId: "set-1",
+        events: [
+          { kind: "addTemplate", key: "template-a" },
+          {
+            kind: "updateTemplate",
+            key: "template-a",
+            patch: { name: "Atrium" },
+          },
+        ],
+      },
+    })
+    expect(JSON.stringify(envelope)).not.toMatch(/expectedVersion|content":/)
   })
 
-  it("reverts the name draft to last-saved on a failed name save", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
+  it("flushes pending name and events in root order", async () => {
+    const outcomes: Array<(outcome: DoorOutcome) => void> = []
+    door.mockImplementation(
+      () => new Promise<DoorOutcome>((resolve) => outcomes.push(resolve))
+    )
+    const { result } = renderTemplateSetHook()
 
     act(() => result.current.name.onChange("Codex"))
     act(() => result.current.name.flush())
     await flushMicrotasks()
-    expect(result.current.name.value).toBe("Codex")
-    expect(calls).toHaveLength(1)
-
-    await act(async () => {
-      calls[0]!.resolve(err("invalid-input"))
+    act(() => {
+      result.current.applyEvent({ kind: "addTable", key: "table-a" })
+      vi.advanceTimersByTime(600)
     })
     await flushMicrotasks()
+    await flushMicrotasks()
 
-    expect(result.current.name.value).toBe("Grammar")
-    expect(result.current.save.status).toBe("error")
+    expect(door).toHaveBeenCalledTimes(1)
+    expect(
+      (door.mock.calls[0]![0] as TemplateSetEnvelope).invocation.name
+    ).toBe("template-set.rename")
+
+    await act(async () => outcomes[0]!(accepted(1)))
+    await flushMicrotasks()
+    expect(door).toHaveBeenCalledTimes(2)
+    expect(
+      (door.mock.calls[1]![0] as TemplateSetEnvelope).invocation.name
+    ).toBe("template-set.events")
   })
 
-  it("keeps content edits on failure and self-heals on the next identical save", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
+  it("flushes a pending event batch on unmount", async () => {
+    door.mockResolvedValue(accepted(1))
+    const { result, unmount } = renderTemplateSetHook()
 
-    // First content save fails.
-    act(() => result.current.saveContent(CONTENT_B))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-    expect(calls).toHaveLength(1)
-    await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    expect(result.current.save.status).toBe("error")
-
-    // The SAME content blob re-dispatches — last-saved was never advanced, so the
-    // transient failure self-heals rather than being skipped as a no-op.
-    act(() => result.current.saveContent(CONTENT_B))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-    expect(calls).toHaveLength(2)
-  })
-
-  it("toasts the stale-specific copy on a stale failure, generic otherwise", async () => {
-    const calls = installControlledSave()
-    const { result } = render()
-
-    act(() => result.current.name.onChange("Motif"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[0]!.resolve(err("stale"))
-    })
-    await flushMicrotasks()
-    expect(toast.error).toHaveBeenLastCalledWith(
-      "Couldn't sync the set — refresh to see the latest changes."
+    act(() =>
+      result.current.applyEvent({ kind: "addTemplate", key: "template-a" })
     )
-
-    act(() => result.current.name.onChange("Weave"))
-    act(() => result.current.name.flush())
-    await flushMicrotasks()
-    await act(async () => {
-      calls[1]!.resolve(err("template-set-not-found"))
-    })
-    await flushMicrotasks()
-    expect(toast.error).toHaveBeenLastCalledWith(
-      "Couldn't save the set. Try again."
-    )
-  })
-
-  it("serializes name + content on one shared token: the second reads the bumped version", async () => {
-    const calls = installControlledSave()
-    const { result } = render(0)
-
-    // Blur the name, then immediately queue a content save — they share one token
-    // and one queue, so the content save chains behind the name save.
-    act(() => result.current.name.onChange("Meridian"))
-    act(() => result.current.name.flush())
-    act(() => result.current.saveContent(CONTENT_B))
-    act(() => vi.advanceTimersByTime(600))
-    await flushMicrotasks()
-
-    // Only the name save has dispatched, at the initial version 0.
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.input.expectedVersion).toBe(0)
-    expect(calls[0]!.input.patch.field).toBe("name")
-
-    // Name succeeds and bumps the shared token to 1.
-    await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
-    })
-    await flushMicrotasks()
-
-    // Now content dispatches — reading the freshly-bumped version 1, not 0.
-    expect(calls).toHaveLength(2)
-    expect(calls[1]!.input.expectedVersion).toBe(1)
-    expect(calls[1]!.input.patch.field).toBe("content")
-  })
-
-  it("flushes a pending name and content edit on unmount", async () => {
-    const calls = installControlledSave()
-    const { result, unmount } = render()
-
-    // Both edits are mid-debounce — nothing dispatched yet.
-    act(() => result.current.name.onChange("Draft"))
-    act(() => result.current.saveContent(CONTENT_B))
-    expect(calls).toHaveLength(0)
-
     unmount()
     await flushMicrotasks()
-    // The name flush dispatches first (chained ahead of content).
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.input.patch).toEqual({ field: "name", name: "Draft" })
 
-    await act(async () => {
-      calls[0]!.resolve(ok({ version: 1 }))
+    expect(door).toHaveBeenCalledTimes(1)
+  })
+
+  it("hands accepted events to a covering canon without dropping the edit", async () => {
+    door.mockResolvedValue(accepted(1))
+    const { result, rerender } = renderHook(
+      ({ canon }) => useTemplateSetAutoSave({ templateSetId: "set-1", canon }),
+      { initialProps: { canon: canonAt() } }
+    )
+
+    act(() => {
+      result.current.applyEvent({ kind: "addTemplate", key: "template-a" })
+      vi.advanceTimersByTime(600)
     })
     await flushMicrotasks()
-    expect(calls).toHaveLength(2)
-    expect(calls[1]!.input.patch.field).toBe("content")
+
+    const content = templateSetContentSchema.parse({
+      templates: {
+        "template-a": { key: "template-a", name: "New template" },
+      },
+      templateOrder: ["template-a"],
+    })
+    rerender({ canon: canonAt(1, { name: "Grammar", content }) })
+    await flushMicrotasks()
+
+    expect(result.current.content.templates["template-a"]).toBeDefined()
+    expect(result.current.save.lastSavedAt).not.toBeNull()
+  })
+
+  it("holds an invalidated pending draft until predictor refusal restores the root", async () => {
+    const initialContent = templateSetContentSchema.parse({
+      templates: { a: { key: "a", name: "Atrium" } },
+      templateOrder: ["a"],
+    })
+    const { result, rerender } = renderHook(
+      ({ canon }) => useTemplateSetAutoSave({ templateSetId: "set-1", canon }),
+      {
+        initialProps: {
+          canon: canonAt(0, { name: "Grammar", content: initialContent }),
+        },
+      }
+    )
+
+    act(() =>
+      result.current.applyEvent({
+        kind: "updateTemplate",
+        key: "a",
+        patch: { name: "Local draft" },
+      })
+    )
+    rerender({
+      canon: canonAt(1, {
+        name: "Grammar",
+        content: templateSetContentSchema.parse({}),
+      }),
+    })
+
+    expect(result.current.content.templates.a?.name).toBe("Local draft")
+
+    act(() => vi.advanceTimersByTime(600))
+    await flushMicrotasks()
+
+    expect(door).not.toHaveBeenCalled()
+    expect(result.current.content.templates.a).toBeUndefined()
+    expect(toast.error).toHaveBeenCalledWith(
+      "The set changed elsewhere, so that edit couldn't be applied."
+    )
+  })
+
+  it("surfaces uncertain delivery with an actionable retry", async () => {
+    door.mockRejectedValue(new Error("connection lost"))
+    const { result } = renderTemplateSetHook()
+
+    act(() => result.current.name.onChange("Codex"))
+    act(() => result.current.name.flush())
+    await flushMicrotasks()
+    await flushMicrotasks()
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Connection lost mid-save — your set change is kept.",
+      expect.objectContaining({
+        duration: Infinity,
+        action: expect.objectContaining({ label: "Retry" }),
+      })
+    )
   })
 })

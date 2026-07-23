@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
 import { type Result } from "@workspace/result"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { maps } from "@/lib/db/schema/map"
 import { insertWithShortId } from "@/lib/db/short-id"
 import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
@@ -15,8 +15,8 @@ import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
  * Action boundary that calls it.
  *
  * A single `version` token guards every mutation through the shared
- * {@link guardedVersionUpdate}. These run on the base `db` — Map authoring is
- * single-owner with no cross-row atomic gesture (no `guardMany`).
+ * {@link guardedVersionUpdate}. The Headcanon command supplies its attempt
+ * transaction and the version it just loaded; standalone callers may use `db`.
  */
 
 type MapWriteError = "map-not-found" | "stale"
@@ -47,30 +47,30 @@ export async function createMap(input: {
 }
 
 /**
- * The guarded geometry write: replaces the whole `geometry` blob and bumps
- * `version`, conditioned on the caller's `expectedVersion`. Returns the new
- * version on success. **This is the write UNN-461's canvas node-drag /
- * adjacency edits call.**
+ * Stores the geometry produced by reducing intent over the authority attempt's
+ * current row, guarded by that row's observed version. A lost guard is command
+ * contention, so Headcanon reruns the entire load/reduce/write attempt.
  */
 export async function saveMapGeometry(
   mapId: string,
   geometry: MapGeometry,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, MapWriteError>> {
-  return bumpMapVersionGuarded(mapId, expectedVersion, { geometry })
+  return bumpMapVersionGuarded(mapId, expectedVersion, { geometry }, executor)
 }
 
 /**
- * The guarded name write — the autosaved Map name (no Save button). Same guarded
- * primitive as {@link saveMapGeometry}, different patch: name and geometry share
- * the one `version` token, each round-tripping it on its own save.
+ * The guarded name Store. Name and geometry share one row version, while the
+ * Headcanon root owns client ordering and the authority owns contention retry.
  */
 export async function renameMap(
   mapId: string,
   name: string,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, MapWriteError>> {
-  return bumpMapVersionGuarded(mapId, expectedVersion, { name })
+  return bumpMapVersionGuarded(mapId, expectedVersion, { name }, executor)
 }
 
 /**
@@ -88,7 +88,8 @@ export async function deleteMap(mapId: string): Promise<void> {
 async function bumpMapVersionGuarded(
   mapId: string,
   expectedVersion: number,
-  patch: Partial<typeof maps.$inferInsert>
+  patch: Partial<typeof maps.$inferInsert>,
+  executor: WriteExecutor
 ): Promise<Result<{ version: number }, MapWriteError>> {
   return guardedVersionUpdate({
     table: maps,
@@ -96,5 +97,6 @@ async function bumpMapVersionGuarded(
     expectedVersion,
     patch,
     notFound: "map-not-found",
+    executor,
   })
 }
