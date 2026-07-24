@@ -107,10 +107,13 @@ function unionSorted(
  * through from `prior` unchanged.
  *
  * `discoveredSiteKeys` is the second knowledge fold. A revealed Zone contributes
- * its template key iff the key names a live site and its provenance is authored or
- * generated. Manual and provenance-missing Zones are visit-scoped and never become
- * Region knowledge. Prior keys remain in their existing order; newly discovered
- * keys append in deterministic code-unit order.
+ * its provenance-stamped template key iff the key names a live site and its
+ * provenance is authored or generated. The stamp is immutable when the DM later
+ * clears or rebinds the editable geometry key. Legacy authored stamps without a
+ * key fall back to their geometry binding; generated stamps fail safe instead.
+ * Manual and provenance-missing Zones are visit-scoped and never become Region
+ * knowledge. Prior keys remain in their existing order; newly discovered keys
+ * append in deterministic code-unit order.
  */
 export function foldExpedition(input: {
   instance: MapInstanceState
@@ -129,15 +132,14 @@ export function foldExpedition(input: {
   for (const zoneId of reveal.revealedZoneIds) {
     const zone = geometry.zones[zoneId]
     const provenance = generation.zones[zoneId]
-    if (
-      zone?.templateKey === undefined ||
-      provenance === undefined ||
-      (provenance.source !== "authored" && provenance.source !== "generated") ||
-      !siteTemplateKeys.has(zone.templateKey)
-    ) {
-      continue
-    }
-    discoveredSiteKeys.add(zone.templateKey)
+    if (zone === undefined || provenance === undefined) continue
+    if (provenance.source === "manual") continue
+    const templateKey =
+      provenance.templateKey ??
+      (provenance.source === "authored" ? zone.templateKey : undefined)
+    if (templateKey === undefined) continue
+    if (!siteTemplateKeys.has(templateKey)) continue
+    discoveredSiteKeys.add(templateKey)
   }
 
   // page id → source mapId. A grafted page attributes to the Map that grafted it;

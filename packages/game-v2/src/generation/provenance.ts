@@ -27,7 +27,12 @@ export function withAuthoredProvenance(
   const depths = authoredDepths(state.geometry, startingZoneIds)
   const zones: GenerationState["zones"] = {}
   for (const zoneId of Object.keys(state.geometry.zones)) {
-    zones[zoneId] = { source: "authored", depth: depths[zoneId] ?? 0 }
+    const templateKey = state.geometry.zones[zoneId]?.templateKey
+    zones[zoneId] = {
+      source: "authored",
+      depth: depths[zoneId] ?? 0,
+      ...(templateKey === undefined ? {} : { templateKey }),
+    }
   }
   return {
     ...state,

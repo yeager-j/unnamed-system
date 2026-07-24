@@ -13,10 +13,12 @@ import type {
   MapInstanceState,
   RevealState,
 } from "@workspace/game-v2/spatial/map-instance.schema"
+import { reduceMapInstance as createReduceMapInstance } from "@workspace/game-v2/spatial/reduce-map-instance"
 
 import { applyStaticReveal, foldExpedition, type StaticReveal } from "./fold"
 
 const SEED = "seed-map"
+const reduceMapInstance = createReduceMapInstance(() => "unused-id")
 
 const foldStaticReveal = (input: {
   instance: MapInstanceState
@@ -235,7 +237,6 @@ describe("foldExpedition discoveredSiteKeys", () => {
           authored: {
             source: "authored",
             depth: 0,
-            templateKey: "authored-site",
           },
           generated: {
             source: "generated",
@@ -293,6 +294,62 @@ describe("foldExpedition discoveredSiteKeys", () => {
       "stale-site",
       "authored-site",
       "generated-site",
+    ])
+  })
+
+  it("uses immutable generated provenance after the DM clears or rebinds the editable Zone binding", () => {
+    const instance = makeMapInstanceState({
+      geometry: makeGeometry([
+        makeZone("rebound", { templateKey: "generated-site-a" }),
+        makeZone("cleared", { templateKey: "generated-site-b" }),
+      ]),
+      generation: makeGenerationState({
+        zones: {
+          rebound: {
+            source: "generated",
+            depth: 1,
+            templateKey: "generated-site-a",
+          },
+          cleared: {
+            source: "generated",
+            depth: 2,
+            templateKey: "generated-site-b",
+          },
+        },
+      }),
+      reveal: {
+        revealedZoneIds: ["rebound", "cleared"],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+    })
+    const rebound = reduceMapInstance(instance, {
+      kind: "editGeometry",
+      event: {
+        kind: "setZoneBinding",
+        zoneId: "rebound",
+        binding: { templateKey: "wrong-site" },
+      },
+    })
+    const edited = reduceMapInstance(rebound, {
+      kind: "editGeometry",
+      event: {
+        kind: "setZoneBinding",
+        zoneId: "cleared",
+        binding: { templateKey: null },
+      },
+    })
+
+    const result = foldExpedition({
+      instance: edited,
+      seedMapId: SEED,
+      siteTemplateKeys: ["generated-site-a", "generated-site-b", "wrong-site"],
+      prior: { discoveredSiteKeys: [], staticReveal: {} },
+    })
+
+    expect(result.discoveredSiteKeys).toEqual([
+      "generated-site-a",
+      "generated-site-b",
     ])
   })
 })

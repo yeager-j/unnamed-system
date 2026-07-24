@@ -152,12 +152,21 @@ describe("foldExpedition / applyStaticReveal laws", () => {
               zone: instance.geometry.zones[zoneId],
               provenance: instance.generation.zones[zoneId],
             }))
-            .find(
-              ({ zone, provenance }) =>
-                zone?.templateKey === templateKey &&
-                (provenance?.source === "authored" ||
-                  provenance?.source === "generated")
-            )
+            .find(({ zone, provenance }) => {
+              if (
+                zone === undefined ||
+                provenance === undefined ||
+                provenance.source === "manual"
+              ) {
+                return false
+              }
+              const provenanceKey =
+                provenance.templateKey ??
+                (provenance.source === "authored"
+                  ? zone.templateKey
+                  : undefined)
+              return provenanceKey === templateKey
+            })
           expect(source).toBeDefined()
         }
       })
