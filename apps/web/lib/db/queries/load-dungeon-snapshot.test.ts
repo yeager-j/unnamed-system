@@ -83,7 +83,13 @@ beforeEach(() => {
       },
       // The real loader zod-parses the blob, so `generation` always exists —
       // the fixture mirrors the load-schema fixed point (UNN-590).
-      generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
+      generation: {
+        zones: {},
+        stubs: {},
+        connections: {},
+        grafts: {},
+        startingZoneIds: [],
+      },
     },
     version: 0,
   })

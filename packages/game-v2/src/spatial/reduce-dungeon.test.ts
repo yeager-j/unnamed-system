@@ -96,6 +96,12 @@ describe("dungeonReminders (pure selectors over the turn counter)", () => {
 })
 
 describe("reduceDungeon — draw ledger (UNN-590)", () => {
+  const consumedStub = {
+    id: "stub-consumed",
+    zoneId: "zone-parent",
+    bearing: 0,
+    anchor: { side: "e" as const, offset: 0.5 },
+  }
   const declaration = (
     id: string,
     overrides: Partial<DungeonState["generation"]["declarations"][number]> = {}
@@ -148,6 +154,8 @@ describe("reduceDungeon — draw ledger (UNN-590)", () => {
       sequence: 1,
       templateKey: "castle-entrance",
       unique: true,
+      stub: consumedStub,
+      childStubIds: [],
       effects: [{ declarationId: "d1", incremented: true, resolved: true }],
     }
 
@@ -200,6 +208,8 @@ describe("reduceDungeon — draw ledger (UNN-590)", () => {
       sequence: 1,
       templateKey: "castle-entrance",
       unique: true,
+      stub: consumedStub,
+      childStubIds: [],
       effects: [{ declarationId: "d1", incremented: true, resolved: true }],
     }
 
@@ -253,6 +263,8 @@ describe("reduceDungeon — draw ledger (UNN-590)", () => {
           sequence: 1,
           templateKey: "hall",
           unique: false,
+          stub: consumedStub,
+          childStubIds: [],
           effects: [
             { declarationId: "d1", incremented: true, resolved: false },
           ],
@@ -265,6 +277,8 @@ describe("reduceDungeon — draw ledger (UNN-590)", () => {
           sequence: 2,
           templateKey: "vault",
           unique: false,
+          stub: consumedStub,
+          childStubIds: [],
           effects: [{ declarationId: "d1", incremented: true, resolved: true }],
         },
       })

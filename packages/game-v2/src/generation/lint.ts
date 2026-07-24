@@ -49,7 +49,9 @@ interface KeyedTemplate {
   template: ZoneTemplate
 }
 
-const isTombstoned = (template: ZoneTemplate): boolean =>
+/** Tombstone gates random appearance and the checklist; existing references
+ *  still resolve. Shared with the roller (UNN-642). */
+export const isTombstoned = (template: ZoneTemplate): boolean =>
   template.tombstoned === true
 
 /** A template is a **site** — the checklist's unique-and-portal templates
@@ -65,12 +67,17 @@ const intersects = (a: readonly string[], b: readonly string[]): boolean => {
 /**
  * **Two-way** pair legality (the socket rule flattened to template granularity):
  * a template `a` may sit adjacent to `b` iff each side's `tags` satisfies the
- * other's `accepts`. Symmetric by construction.
+ * other's `accepts`. Symmetric by construction. Exported (UNN-642) as the one
+ * adjacency authority — the roller's candidate pool and closure predicate must
+ * agree with the lint, or an "unmintable" finding and a real roll could diverge.
  */
-const pairLegal = (a: ZoneTemplate, b: ZoneTemplate): boolean =>
+export const pairLegal = (a: ZoneTemplate, b: ZoneTemplate): boolean =>
   intersects(a.tags, b.accepts) && intersects(b.tags, a.accepts)
 
-const templateLabel = (key: string, template: ZoneTemplate): string =>
+/** The display/name-fallback authority: a template's trimmed name, else its key.
+ *  Exported (UNN-642) so the minted Zone's `name` (schema requires min(1)) can't
+ *  drift from the label the lint and editor show. */
+export const templateLabel = (key: string, template: ZoneTemplate): string =>
   template.name.trim() || key
 
 /**

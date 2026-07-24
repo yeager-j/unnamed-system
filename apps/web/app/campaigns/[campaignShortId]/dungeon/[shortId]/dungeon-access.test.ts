@@ -124,7 +124,13 @@ const instanceRow: MapInstanceRow = {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: { zones: {}, stubs: {}, connections: {}, grafts: {} },
+    generation: {
+      zones: {},
+      stubs: {},
+      connections: {},
+      grafts: {},
+      startingZoneIds: [],
+    },
     lastMovedTokenKey: null,
   },
   version: 0,
@@ -174,6 +180,7 @@ describe("getDungeonForDM", () => {
       dungeon: dungeonRow("ok-dm"),
       instance: instanceRow,
       placedCharacters: [placedCharacter],
+      expandTemplates: [],
       canon: {
         value: {
           dungeon: dungeonRow("ok-dm").state,

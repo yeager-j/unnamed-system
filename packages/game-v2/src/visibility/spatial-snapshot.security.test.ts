@@ -369,6 +369,7 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
       },
       connections: { c1: { source: "generated" } },
       grafts: {},
+      startingZoneIds: [],
     },
   })
 
@@ -410,6 +411,13 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
             sequence: 0,
             templateKey: "hall",
             unique: false,
+            stub: {
+              id: "stub-consumed",
+              zoneId: "z1",
+              bearing: 1.25,
+              anchor: { side: "e", offset: 0.5 },
+            },
+            childStubIds: ["child-stub-1"],
             effects: [],
           },
         },
@@ -482,5 +490,12 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
     expect(wire).not.toContain("mintedUniqueKeys")
     expect(wire).not.toContain("mints")
     expect(wire).not.toContain("z-minted")
+    // UNN-642's record growth: the retract inverse (the consumed stub payload
+    // + sprouted child ids) and the instance's startingZoneIds must stay as
+    // dark as the rest of the ledger/slice they live in.
+    expect(wire).not.toContain("stub-consumed")
+    expect(wire).not.toContain("child-stub-1")
+    expect(wire).not.toContain("childStubIds")
+    expect(wire).not.toContain("startingZoneIds")
   })
 })

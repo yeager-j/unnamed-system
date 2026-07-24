@@ -7,9 +7,16 @@ import {
   UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
+import { useState } from "react"
 
 import type { MapZone } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { Separator } from "@workspace/ui/components/separator"
 
 import type { DungeonPageLink } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
@@ -37,6 +44,9 @@ export type DungeonZoneData = {
   /** "Leads to ⇢" chips for this Zone's cross-page connections (UNN-586), with
    *  far-zone party counts so a split party stays loud. */
   crossPageLinks: DungeonPageLink[]
+  /** Generated provenance ⇒ the retract context-menu affordance shows
+   *  (UNN-642). Visibility only; the server re-checks every precondition. */
+  retractable: boolean
 }
 export type DungeonZoneNode = Node<DungeonZoneData, "dungeonZone">
 
@@ -63,8 +73,9 @@ export function DungeonZoneNode({
     hopFor,
     isParty,
     navigateToPage,
+    retractZone,
   } = useDungeonCanvas()
-  const { zone, revealed, tokens, crossPageLinks } = data
+  const { zone, revealed, tokens, crossPageLinks, retractable } = data
   const view = exploreZoneView({
     zone,
     revealed,
@@ -73,8 +84,11 @@ export function DungeonZoneNode({
     hop: hopFor(zone.id),
   })
   const partnerHighlighted = useConnectionHighlight(zone.id)
+  // Retract is context-menu-only (UNN-642, D8: no hot-path accident) — never a
+  // toolbar button, and no confirm dialog: retract *is* the undo.
+  const [retractMenuOpen, setRetractMenuOpen] = useState(false)
 
-  return (
+  const setPiece = (
     <ZoneSetPiece
       view={view}
       selected={selected}
@@ -142,5 +156,45 @@ export function DungeonZoneNode({
         ) : undefined
       }
     />
+  )
+
+  if (!retractable) return setPiece
+
+  return (
+    <div
+      className="relative h-full w-full"
+      onContextMenu={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        setRetractMenuOpen(true)
+      }}
+    >
+      {setPiece}
+      <DropdownMenu open={retractMenuOpen} onOpenChange={setRetractMenuOpen}>
+        {/* Positioning anchor only — the wrapper's onContextMenu opens the
+            menu (the stub-ghost node documents the same idiom).
+            `nativeButton={false}` because the render element is a <span>. */}
+        <DropdownMenuTrigger
+          nativeButton={false}
+          render={
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+            />
+          }
+        />
+        <DropdownMenuContent align="start">
+          {/* No pending gate: retract is non-optimistic with a benign no-op
+              on a raced double-fire, so a gate would only re-add the wait
+              (2026-07-23 lesson). */}
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => retractZone(zone.id)}
+          >
+            Retract room
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }

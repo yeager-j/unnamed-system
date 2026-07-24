@@ -37,6 +37,8 @@ export type DungeonRunMode =
       instance: MapInstanceRow
       roster: Record<string, DungeonRosterEntry>
       placedCharacters: CharacterSummary[]
+      /** Force-pick menu entries (UNN-642); empty on ordinary delves. */
+      expandTemplates: ReadonlyArray<{ key: string; name: string }>
     }
   | {
       kind: "combat"
@@ -85,6 +87,7 @@ export function DungeonRunConsole({
           canon={canon}
           roster={mode.roster}
           placedCharacters={mode.placedCharacters}
+          expandTemplates={mode.expandTemplates}
           campaignShortId={campaignShortId}
         />
       )}

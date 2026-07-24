@@ -12,7 +12,11 @@ import {
 } from "@workspace/game-v2/encounter"
 import {
   applyStaticReveal,
+  buildRetraction,
+  DEFAULT_PREGEN_MAX_DEPTH,
   foldExpedition,
+  pregenerateExpedition,
+  rollExpansion,
   seedMintedUniqueKeys,
   sproutStartStubs,
   withAuthoredProvenance,
@@ -293,10 +297,13 @@ async function executeStart(
       seed,
       newId,
     })
-    nextInstance = placeRoster(
-      { ...snapshot, generation: { ...snapshot.generation, stubs } },
-      args.command.placements
-    )
+    // startingZoneIds persist on the instance (UNN-642): the edge growth
+    // mode's half-plane needs them at every expansion, and the placements
+    // they derive from are transient to this command. Deduped + sorted for a
+    // deterministic blob; the Set-based bearing math is duplicate-insensitive.
+    const startingZoneIds = [
+      ...new Set(args.command.placements.map((placement) => placement.zoneId)),
+    ].sort()
     const ledger: GenerationLedger = {
       seed,
       streamCursors: cursors,
@@ -304,7 +311,22 @@ async function executeStart(
       mintedUniqueKeys: seedMintedUniqueKeys(snapshot.geometry, set.content),
       mints: {},
     }
-    nextDungeonState = { ...dungeon.state, generation: ledger }
+    // Pre-generate the whole map up front (UNN-642 "replace" experience): the
+    // pure roller carves out to the depth limit and seals the frontier, so the
+    // expedition begins with a complete board the DM can review and the party
+    // reveals as it explores — no per-room click, no per-carve turn cost.
+    const pregen = pregenerateExpedition({
+      set: set.content,
+      instanceState: {
+        ...snapshot,
+        generation: { ...snapshot.generation, stubs, startingZoneIds },
+      },
+      ledger,
+      maxDepth: DEFAULT_PREGEN_MAX_DEPTH,
+      newId,
+    })
+    nextInstance = placeRoster(pregen.instanceState, args.command.placements)
+    nextDungeonState = { ...dungeon.state, generation: pregen.ledger }
   }
 
   const savedInstance = await saveMapInstanceState(
@@ -327,6 +349,165 @@ async function executeStart(
   if (!savedInstance.ok || !activated.ok) throwMutationContention()
   stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
   stamp.record(dungeonAxis(dungeon.id), activated.value.version)
+  return acceptMutation()
+}
+
+/**
+ * The expand gesture (UNN-642, D1/D8): the one non-optimistic spatial write.
+ * The pure roller resolves mint / closure / dead end server-side against the
+ * ledger; this executor is the thin impure shell — load, roll, fold through
+ * the shared reducers, persist both rows version-guarded, stamp both axes.
+ */
+async function executeExpandStub(
+  tx: WriteExecutor,
+  args: DungeonCommandArgs,
+  dungeon: DungeonRow,
+  stamp: StampAccumulator
+): Promise<MutationCommandDecision<DungeonCommandRefusal>> {
+  if (args.command.kind !== "expandStub") {
+    throw new Error("expand stub command expected")
+  }
+  if (dungeon.status !== "active") return refuseMutation("delve-not-active")
+  // Variant sealing (D11): generation exists only on Region expeditions.
+  if (dungeon.regionId === null) return refuseMutation("not-an-expedition")
+  const instance = await loadMapInstanceById(dungeon.mapInstanceId, tx)
+  if (!instance) return refuseMutation("map-instance-not-found")
+
+  // The D8 retry contract's benign no-op: a NEW mutation aimed at a consumed
+  // stub (double-click race, a second console, a committed-but-response-lost
+  // retry under a fresh mutationId) accepts with no writes and an empty
+  // revision vector — never an error toast. Same-mutationId retries never
+  // reach here (receipt dedup replays the recorded outcome), and the engine
+  // reducers mirror this no-op as defense in depth.
+  if (instance.state.generation.stubs[args.command.stubId] === undefined) {
+    return acceptMutation()
+  }
+
+  const region = await loadRegionRowById(dungeon.regionId, tx)
+  if (!region) return refuseMutation("region-not-found")
+  const set = await loadTemplateSetRowById(region.templateSetId, tx)
+  if (!set) return refuseMutation("template-set-not-found")
+
+  const rolled = rollExpansion(
+    {
+      set: set.content,
+      instanceState: instance.state,
+      ledger: dungeon.state.generation,
+      stubId: args.command.stubId,
+      newId,
+    },
+    args.command.forcedTemplateKey === undefined
+      ? undefined
+      : { forcedTemplateKey: args.command.forcedTemplateKey }
+  )
+  if (!rolled.ok) {
+    // The stub was screened present above, so the context arms indicate
+    // corrupt state; everything else is a forced-pick refusal.
+    return refuseMutation(
+      rolled.error === "unknown-stub" || rolled.error === "unknown-parent-zone"
+        ? "expansion-failed"
+        : "forced-template-not-mintable"
+    )
+  }
+
+  const savedDungeon = await saveDungeonState(
+    dungeon.id,
+    rolled.value.dungeonEvents.reduce(reduceDungeon, dungeon.state),
+    dungeon.version,
+    tx
+  )
+  requireStored(savedDungeon)
+  const savedInstance = await saveMapInstanceState(
+    tx,
+    instance.id,
+    rolled.value.instanceEvents.reduce(
+      createReduceMapInstance(newId),
+      instance.state
+    ),
+    instance.version
+  )
+  requireStored(savedInstance)
+  if (!savedDungeon.ok || !savedInstance.ok) throwMutationContention()
+  stamp.record(dungeonAxis(dungeon.id), savedDungeon.value.version)
+  stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
+  return acceptMutation()
+}
+
+/**
+ * Retract (UNN-642, D4/D8): the DM's escape hatch, context-menu-only. The
+ * engine's `buildRetraction` owns every instance-state precondition (generated
+ * provenance, mint record, unrevealed, unoccupied, strict leaf) and the
+ * byte-identical restored stub; this executor adds the two DB facts — status
+ * active and no live encounter on the instance. No turn cost.
+ */
+async function executeRetractZone(
+  tx: WriteExecutor,
+  args: DungeonCommandArgs,
+  dungeon: DungeonRow,
+  stamp: StampAccumulator
+): Promise<MutationCommandDecision<DungeonCommandRefusal>> {
+  if (args.command.kind !== "retractZone") {
+    throw new Error("retract zone command expected")
+  }
+  if (dungeon.status !== "active") return refuseMutation("delve-not-active")
+  const instance = await loadMapInstanceById(dungeon.mapInstanceId, tx)
+  if (!instance) return refuseMutation("map-instance-not-found")
+
+  // Benign no-op: the zone is already gone (a lost-response retry under a
+  // fresh mutationId found its work done) — accept with no writes.
+  if (instance.state.geometry.zones[args.command.zoneId] === undefined) {
+    return acceptMutation()
+  }
+
+  // Coarse but sound: any live encounter on this instance blocks retract.
+  // Live combatants also stand in occupancy (caught engine-side), but session
+  // zone references have no cheap index — refusing outright is safe and
+  // matches the delve-has-live-encounter idiom.
+  const live = await loadLiveEncounterForMapInstance(instance.id, tx)
+  if (live) return refuseMutation("retract-zone-in-encounter")
+
+  const retraction = buildRetraction({
+    instanceState: instance.state,
+    ledger: dungeon.state.generation,
+    zoneId: args.command.zoneId,
+  })
+  if (!retraction.ok) {
+    switch (retraction.error) {
+      case "unknown-zone":
+        // Screened present above — racing deletes rerun as contention.
+        return refuseMutation("expansion-failed")
+      case "not-generated":
+      case "no-mint-record":
+        return refuseMutation("retract-zone-not-generated")
+      case "revealed":
+        return refuseMutation("retract-zone-revealed")
+      case "occupied":
+        return refuseMutation("retract-zone-occupied")
+      case "not-leaf":
+        return refuseMutation("retract-zone-not-leaf")
+    }
+  }
+
+  const savedDungeon = await saveDungeonState(
+    dungeon.id,
+    retraction.value.dungeonEvents.reduce(reduceDungeon, dungeon.state),
+    dungeon.version,
+    tx
+  )
+  requireStored(savedDungeon)
+  const savedInstance = await saveMapInstanceState(
+    tx,
+    instance.id,
+    retraction.value.instanceEvents.reduce(
+      createReduceMapInstance(newId),
+      instance.state
+    ),
+    instance.version
+  )
+  requireStored(savedInstance)
+  if (!savedDungeon.ok || !savedInstance.ok) throwMutationContention()
+  stamp.record(dungeonAxis(dungeon.id), savedDungeon.value.version)
+  stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
   return acceptMutation()
 }
 
@@ -494,6 +675,10 @@ export const dungeonCommandHandler = {
         return executeSearchReveal(tx, args, evidence.dungeon, stamp)
       case "start":
         return executeStart(tx, args, evidence.dungeon, stamp)
+      case "expandStub":
+        return executeExpandStub(tx, args, evidence.dungeon, stamp)
+      case "retractZone":
+        return executeRetractZone(tx, args, evidence.dungeon, stamp)
       case "finish":
         return executeFinish(tx, evidence.dungeon, stamp)
       case "startEncounter":

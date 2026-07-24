@@ -35,6 +35,7 @@ describe("withAuthoredProvenance", () => {
         stubs: {},
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -57,6 +58,7 @@ describe("withAuthoredProvenance", () => {
         stubs: {},
         connections: {},
         grafts: { "map-x": { pageIds: ["p1"] } },
+        startingZoneIds: [],
       },
     })
 

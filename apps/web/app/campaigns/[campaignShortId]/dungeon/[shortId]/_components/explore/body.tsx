@@ -69,6 +69,7 @@ export function DungeonExploreBody({
   canon,
   roster,
   placedCharacters,
+  expandTemplates,
   campaignShortId,
 }: {
   dungeon: DungeonRow
@@ -76,6 +77,8 @@ export function DungeonExploreBody({
   canon: Canon<DungeonCanonValue>
   roster: Record<string, DungeonRosterEntry>
   placedCharacters: CharacterSummary[]
+  /** Force-pick menu entries (UNN-642); empty on ordinary delves. */
+  expandTemplates: ReadonlyArray<{ key: string; name: string }>
   campaignShortId: string
 }) {
   const router = useRouter()
@@ -87,6 +90,9 @@ export function DungeonExploreBody({
     placeToken,
     searchReveal,
     finishDelve,
+    expandStub,
+    retractZone,
+    isStubPending,
   } = useDungeonConsole(dungeon, canon)
 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
@@ -253,6 +259,12 @@ export function DungeonExploreBody({
               mode,
               onModeChange: setMode,
               disabled: isPending,
+              expandStub,
+              forcePickStub: (stubId, templateKey) =>
+                expandStub(stubId, templateKey),
+              retractZone,
+              isStubPending,
+              expandTemplates,
             }}
           >
             <div className="absolute inset-0">

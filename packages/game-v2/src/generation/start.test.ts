@@ -7,6 +7,7 @@ import {
   makeZone,
 } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
+import { inwardBearing } from "./layout"
 import { seedMintedUniqueKeys, sproutStartStubs } from "./start"
 import { templateSetContentSchema } from "./template-set.schema"
 
@@ -142,10 +143,18 @@ describe("sproutStartStubs (D5 step 6)", () => {
     const first = run("seed-x")
     const second = run("seed-x")
     expect(second.stubs).toStrictEqual(first.stubs)
-    // One draw per optional exit per bound zone, kept or culled: 2 bound zones
-    // × 1 optional exit each = 2 templates draws, regardless of outcomes.
-    expect(first.cursors).toEqual({ templates: 2 })
-    expect(run("another-seed").cursors).toEqual({ templates: 2 })
+    // One templates draw per optional exit per bound zone, kept or culled: 2
+    // bound zones × 1 optional exit each = 2, regardless of outcomes. The
+    // layout stream draws once per fanned exit — a count of the sprouted stubs.
+    expect(first.cursors).toEqual({
+      templates: 2,
+      layout: Object.keys(first.stubs).length,
+    })
+    const another = run("another-seed")
+    expect(another.cursors).toEqual({
+      templates: 2,
+      layout: Object.keys(another.stubs).length,
+    })
   })
 
   it("a sprouted stub's anchor sits on the wall its bearing faces", () => {
@@ -176,7 +185,7 @@ describe("sproutStartStubs (D5 step 6)", () => {
   })
 
   it("starting zones under edge growth fan into the inward half-circle", () => {
-    // Entrance at the top, site body below → inward is +y (screen-down).
+    // Entrance at the top, site body below-right → inward points into the site.
     const geometry = makeGeometry([
       makeZone("a", {
         templateKey: "castle-entrance",
@@ -193,9 +202,13 @@ describe("sproutStartStubs (D5 step 6)", () => {
       newId: sequentialIds(),
     })
     expect(Object.values(stubs)).toHaveLength(3)
+    const inward = inwardBearing(geometry, "default", ["a"])
     for (const stub of Object.values(stubs)) {
-      // Every fanned bearing stays within the half-circle around inward (+y).
-      expect(Math.sin(stub.bearing)).toBeGreaterThan(0)
+      // Every fanned bearing stays forward of the inward direction — within its
+      // half-circle, never behind the half-plane boundary. (The wider fan now
+      // reaches the arc edges, so the old "sin > 0" proxy — only true when
+      // inward was exactly vertical — no longer describes the invariant.)
+      expect(Math.cos(stub.bearing - inward)).toBeGreaterThan(0)
     }
   })
 })

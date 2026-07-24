@@ -1153,6 +1153,7 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         stubs: {},
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -1234,6 +1235,7 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         stubs: {},
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -1273,6 +1275,7 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         stubs: {},
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -1302,6 +1305,7 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         stubs: {},
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -1325,6 +1329,7 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         stubs: {},
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -1354,6 +1359,7 @@ describe("generation events (UNN-590)", () => {
         stubs: { "stub-1": stub("stub-1", "zone-a") },
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -1435,6 +1441,7 @@ describe("generation events (UNN-590)", () => {
           stubs: { "stub-1": stub("stub-1", "zone-a") },
           connections: {},
           grafts: {},
+          startingZoneIds: [],
         },
       })
 

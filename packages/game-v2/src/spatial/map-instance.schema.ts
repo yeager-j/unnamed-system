@@ -3,6 +3,7 @@ import { z } from "zod/v4"
 import { engagementSchema } from "@workspace/game-v2/kernel/vocab/engagement"
 import { zoneEnchantmentSchema } from "@workspace/game-v2/mechanics/zone-enchantment.schema"
 
+import { generationStubSchema } from "./generation-stub.schema"
 import { mapGeometrySchema } from "./geometry.schema"
 
 /**
@@ -89,38 +90,15 @@ export const zoneProvenanceSchema = z.object({
 })
 export type ZoneProvenance = z.infer<typeof zoneProvenanceSchema>
 
-/**
- * A stub's stored rim anchor — the wall of its parent Zone the stub opens through
- * plus the along-wall coordinate normalized to that edge (0..1). **Stored, not
- * derived** (D10): an authored exit's anchor derives from *both* endpoint
- * footprints, which a stub cannot supply (it has no far Zone — the shipped
- * derivation would silently fall back to `{side:"n", offset:0.5}` and give the
- * stub away). Computed once at sprout from the parent's footprint + the stub's
- * bearing, projected verbatim into the snapshot, and restored byte-identical on
- * retract.
- */
-export const stubAnchorSchema = z.object({
-  side: z.enum(["n", "e", "s", "w"]),
-  offset: z.number().min(0).max(1),
-})
-export type StubAnchor = z.infer<typeof stubAnchorSchema>
-
-/**
- * One **stub** — an open generated exit hanging off `zoneId`, the expandable
- * frontier of procedural space (D4). `bearing` is the outward direction the mint
- * will grow along (radians, canvas convention: x right, y down); `anchor` is the
- * stored rim placement ({@link stubAnchorSchema}). The stub's `id` becomes the
- * minted connection's id at expansion (exit-id continuity, D10), and the player
- * snapshot projects a stub as a {@link import("../visibility/spatial-snapshot").SnapshotExit}
- * byte-shape-identical to an authored unexplored exit.
- */
-export const generationStubSchema = z.object({
-  id: z.string(),
-  zoneId: z.string(),
-  bearing: z.number(),
-  anchor: stubAnchorSchema,
-})
-export type GenerationStub = z.infer<typeof generationStubSchema>
+// The stub primitive lives in its own neutral module (UNN-642) so the Dungeon
+// ledger's MintRecord can carry it without importing this aggregate's schema;
+// re-exported here to keep the historical import surface intact.
+export {
+  stubAnchorSchema,
+  generationStubSchema,
+  type StubAnchor,
+  type GenerationStub,
+} from "./generation-stub.schema"
 
 /**
  * The Instance's **generation** slice (procedural-dungeons tech design D4) — a
@@ -141,6 +119,13 @@ export type GenerationStub = z.infer<typeof generationStubSchema>
  *   the `staticReveal` fold's zone→source-Map attribution signature is stable: the
  *   fold reads `grafts` to decide which Map a folded Zone attributes to, and seed
  *   pages (claimed by no graft) attribute to the seed Map.
+ * - **`startingZoneIds`** — where the party entered, stamped once at expedition
+ *   start from the roster placements (UNN-642). The `edge` growth mode's
+ *   half-plane and inward bearing need them at *expansion* time, and start's
+ *   derivation (roster placements) is transient — this is the fact's only
+ *   persistent home. Empty (pre-P3b blob) degrades to layout's screen-up
+ *   fallback. DM-only like the whole slice; the projector strips `generation`
+ *   wholesale.
  *
  * Every field `.default()`s empty so an old stored blob (no `generation` key, or a
  * pre-P3 one without `stubs`/`connections`) heals on read — the file's own
@@ -155,6 +140,7 @@ export const generationStateSchema = z.object({
   grafts: z
     .record(z.string(), z.object({ pageIds: z.array(z.string()).default([]) }))
     .default({}),
+  startingZoneIds: z.array(z.string()).default([]),
 })
 export type GenerationState = z.infer<typeof generationStateSchema>
 
@@ -183,6 +169,7 @@ export const mapInstanceStateSchema = z.object({
     stubs: {},
     connections: {},
     grafts: {},
+    startingZoneIds: [],
   }),
   lastMovedTokenKey: z.string().nullable().default(null),
 })

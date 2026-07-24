@@ -1,5 +1,6 @@
 import { cache } from "react"
 
+import { isTombstoned, templateLabel } from "@workspace/game-v2/generation"
 import { defineCanon, type AxisId, type Canon } from "@workspace/headcanon"
 
 import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
@@ -19,6 +20,7 @@ import { loadCampaignByShortId } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadRegionRowById } from "@/lib/db/queries/load-region"
+import { loadTemplateSetRowById } from "@/lib/db/queries/load-template-set"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -32,6 +34,11 @@ export interface DungeonForDM {
   instance: MapInstanceRow
   placedCharacters: CharacterSummary[]
   canon: Canon<DungeonCanonValue>
+  /** The force-pick menu's template list (UNN-642): the Region's set projected
+   *  to `{key, name}`, tombstoned hidden (a deleted room shouldn't be offered),
+   *  label-sorted. Empty for an ordinary delve — which grows no stubs anyway.
+   *  DM-only surface, so no redaction concern. */
+  expandTemplates: Array<{ key: string; name: string }>
 }
 
 /**
@@ -84,6 +91,19 @@ export const getDungeonForDM = cache(
           : null
         if (dungeon.regionId && !region) return null
 
+        const templateSet = region
+          ? await loadTemplateSetRowById(region.templateSetId, tx)
+          : null
+        const expandTemplates = templateSet
+          ? Object.entries(templateSet.content.templates)
+              .filter(([, template]) => !isTombstoned(template))
+              .map(([key, template]) => ({
+                key,
+                name: templateLabel(key, template),
+              }))
+              .sort((a, b) => a.name.localeCompare(b.name))
+          : []
+
         const placedCharacters = await loadPlacedCharactersForCampaign(
           dungeon.campaignId,
           tx
@@ -112,6 +132,7 @@ export const getDungeonForDM = cache(
             value: { dungeon: dungeon.state, instance: instance.state },
             revisions,
           }),
+          expandTemplates,
         }
       },
       { isolationLevel: "repeatable read", accessMode: "read only" }

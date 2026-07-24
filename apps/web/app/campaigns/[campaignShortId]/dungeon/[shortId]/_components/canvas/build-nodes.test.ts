@@ -54,6 +54,7 @@ describe("buildNodes — stub ghosts", () => {
       },
       connections: {},
       grafts: {},
+      startingZoneIds: [],
     },
     lastMovedTokenKey: null,
   }

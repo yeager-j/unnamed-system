@@ -53,6 +53,19 @@ export interface DungeonCanvasContextValue {
   /** Switches the board to another page, optionally centering a Zone once there —
    *  the cross-page chip's affordance (UNN-586). */
   navigateToPage: (pageId: string, focusZoneId?: string) => void
+  /** Expands a generation stub — the one non-optimistic spatial write (UNN-642,
+   *  D8 seam 2). The ghost spins via {@link isStubPending} until the refetched
+   *  canon paints the outcome. */
+  expandStub: (stubId: string) => void
+  /** Force-picks a template for the stub (context menu; same server path). */
+  forcePickStub: (stubId: string, templateKey: string) => void
+  /** Retracts a generated leaf Zone back to its stub (context-menu-only, D8). */
+  retractZone: (zoneId: string) => void
+  /** True while this stub's expand round-trip is in flight. */
+  isStubPending: (stubId: string) => boolean
+  /** The force-pick menu's template list (non-tombstoned, name-sorted);
+   *  empty on ordinary delves, which have no ghosts anyway. */
+  expandTemplates: ReadonlyArray<{ key: string; name: string }>
 }
 
 const DungeonCanvasContext = createContext<DungeonCanvasContextValue | null>(

@@ -15,10 +15,13 @@ import { err, ok, type Result } from "@workspace/result"
 
 /**
  * The **layout** algorithm (procedural-dungeons tech design D6, UNN-590) —
- * directional fan, page-local, positions immutable. All pure and RNG-free: the
- * roll picks the template; placement is deterministic search. Coordinates are
- * canvas world units, canvas convention (x right, y down); bearings are radians
- * in that frame, so "screen-up" is −π/2.
+ * directional fan, page-local, positions immutable. All pure: placement
+ * (`placeMintedZone`) is a deterministic overlap search; the fan
+ * (`fanBearings`, UNN-642) takes an injected `draw` for its per-exit
+ * orientation jitter, so it stays a pure function of its arguments while the
+ * *randomness* lives in the caller's ledger stream. Coordinates are canvas
+ * world units, canvas convention (x right, y down); bearings are radians in
+ * that frame, so "screen-up" is −π/2.
  *
  * Invariants the laws pin:
  * - a placed footprint rect never overlaps a same-page zone footprint;
@@ -37,17 +40,29 @@ import { err, ok, type Result } from "@workspace/result"
 /** Fallback spacing when a page has fewer than two connected authored zones. */
 export const DEFAULT_SPACING = 360
 
-/** Loop-closure candidate radius = this × spacing (D6). */
-export const CLOSURE_RADIUS_FACTOR = 1.5
+/** Loop-closure candidate radius = this × spacing (D6). Kept below 1 (UNN-642
+ *  tuning) so closure only fires for a zone essentially *at* the spot the new
+ *  room would occupy — an adjacency, not a long cross-map corridor. */
+export const CLOSURE_RADIUS_FACTOR = 0.9
 
 /** Collision-nudge steps, degrees off the stub bearing, tried in order. */
 export const NUDGE_STEPS_DEG = [0, 15, -15, 30, -30, 45, -45] as const
 
-/** Distance-extension factor between nudge rounds, and the round cap. The cap is
- *  defensive — ~7 × 6 candidates over growing radii; a real page runs out of
- *  authored density long before placement runs out of rings. */
-const DISTANCE_FACTOR = 1.25
-const MAX_DISTANCE_ROUNDS = 6
+/**
+ * Off-boundary inset for the `edge` fan's usable arc (radians, UNN-642 tuning).
+ * The fan spans the forward half-circle inset by this at each end, so an exit
+ * never lands exactly on the half-plane boundary (where placement would
+ * border-reject it) while the arc still reaches near-horizontal — the east/west
+ * walls. A feel parameter, not schema.
+ */
+export const EDGE_ARC_MARGIN = Math.PI / 12
+
+/** Distance-extension factor between nudge rounds, and the round cap (UNN-642
+ *  tuning: tightened so a crowded placement lands ~1.5× the base spacing away
+ *  at most — `1.15^4 ≈ 1.75×` — instead of ~3×, keeping minted rooms close.
+ *  A placement that still can't fit dead-ends as collapsed rubble). */
+const DISTANCE_FACTOR = 1.15
+const MAX_DISTANCE_ROUNDS = 5
 
 export type LayoutError = "no-space"
 
@@ -84,14 +99,26 @@ const median = (values: number[]): number => {
 }
 
 /**
- * The page's **spacing** — the median center-to-center gap of its *connected*
- * same-page zone pairs (connected pairs measure the author's intended room
- * rhythm; unconnected pairs measure nothing), falling back to
+ * The page's **spacing** — the median center-to-center gap of its *authored*
+ * connected same-page zone pairs (connected pairs measure the author's intended
+ * room rhythm; unconnected pairs measure nothing), falling back to
  * {@link DEFAULT_SPACING} when the page has no such pair.
+ *
+ * **Generated connections are excluded** (`generatedConnections`, keyed by
+ * connection id — the Instance's `generation.connections` record, UNN-642). A
+ * mint or closure that landed at an extended distance would otherwise raise the
+ * median, which raises the next placement's base *and* the closure radius — a
+ * feedback loop that inflates the whole page as it grows. Measuring only the
+ * seed's authored rhythm keeps spacing fixed for the life of the expedition.
  */
-export function pageSpacing(geometry: MapGeometry, pageId: string): number {
+export function pageSpacing(
+  geometry: MapGeometry,
+  pageId: string,
+  generatedConnections: Readonly<Record<string, unknown>> = {}
+): number {
   const gaps: number[] = []
   for (const connection of Object.values(geometry.connections)) {
+    if (generatedConnections[connection.id] !== undefined) continue
     const from = geometry.zones[connection.fromZoneId]
     const to = geometry.zones[connection.toZoneId]
     if (
@@ -175,28 +202,28 @@ export function edgeHalfPlane(
 }
 
 /**
- * Fans `count` bearings around `base`: evenly across the **half-circle** centred
- * on `base` under `edge` (interior points, so no stub sits exactly on the
- * boundary), the **full circle** under `open` (descended-into fiction, D6).
- * Deterministic order (left-to-right across the fan / around the circle).
+ * Fans `count` bearings around `base`, **one RNG draw each** (UNN-642). The
+ * legal arc — the forward half-circle inset by {@link EDGE_ARC_MARGIN} under
+ * `edge`, the full circle under `open` — is split into `count` equal sectors,
+ * and each bearing is sampled uniformly *within its own sector*. Sectors keep
+ * the exits ordered and non-crossing (so their zones don't fight for the same
+ * spot); the in-sector draw is what gives orientation variety no two seeds
+ * share, lets a lone exit leave its parent's exact heading, and lets the outer
+ * exits reach the near-horizontal east/west walls. `draw` returns a value in
+ * [0, 1); tests inject constants (the fan is otherwise pure). Left-to-right /
+ * around-the-circle order preserved.
  */
 export function fanBearings(
   base: number,
   count: number,
-  growth: "edge" | "open"
+  growth: "edge" | "open",
+  draw: () => number
 ): number[] {
   if (count <= 0) return []
-  if (count === 1) return [base]
-  if (growth === "open") {
-    return Array.from(
-      { length: count },
-      (_, i) => base + (2 * Math.PI * i) / count
-    )
-  }
-  return Array.from(
-    { length: count },
-    (_, i) => base - Math.PI / 2 + (Math.PI * (i + 1)) / (count + 1)
-  )
+  const arc = growth === "open" ? 2 * Math.PI : Math.PI - 2 * EDGE_ARC_MARGIN
+  const start = growth === "open" ? base : base - arc / 2
+  const sector = arc / count
+  return Array.from({ length: count }, (_, i) => start + (i + draw()) * sector)
 }
 
 /** Keep an anchor offset off the very corners of its wall. */

@@ -104,6 +104,12 @@ function buildPlayNodes(
             zone.id,
             (farZoneId) => byZone[farZoneId]?.length ?? 0
           ),
+          // Affordance visibility only (UNN-642) — the server re-checks every
+          // retract precondition; deliberately loose so refusal toasts teach
+          // the finer rules (unrevealed, leaf, unoccupied) instead of the
+          // client replicating them.
+          retractable:
+            instance.generation.zones[zone.id]?.source === "generated",
         },
       }
     })

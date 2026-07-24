@@ -2,7 +2,10 @@ import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
 import { record } from "@workspace/game-v2/__fixtures__/arbitraries/record"
-import { arbitraryMapGeometry } from "@workspace/game-v2/__fixtures__/arbitraries/spatial"
+import {
+  arbitraryPlacedGeometry,
+  arbitraryZoneSize,
+} from "@workspace/game-v2/__fixtures__/arbitraries/spatial"
 import {
   footprintOf,
   rectOfZone,
@@ -10,13 +13,10 @@ import {
   sideBetween,
   type Rect,
 } from "@workspace/game-v2/spatial/footprints"
-import type {
-  MapGeometry,
-  MapZoneSize,
-} from "@workspace/game-v2/spatial/geometry.schema"
 
 import {
   anchorFromBearing,
+  EDGE_ARC_MARGIN,
   edgeHalfPlane,
   fanBearings,
   inHalfPlane,
@@ -41,47 +41,7 @@ const arbitraryBearing = fc.double({
   noDefaultInfinity: true,
 })
 
-const arbitrarySize = fc.option(
-  fc.constantFrom<MapZoneSize>("S", "M", "L", "XL"),
-  { nil: undefined }
-)
-
-/** A geometry whose zones carry random positions/sizes (the base generator pins
- *  every position at the origin, which is a degenerate stack). */
-const arbitraryPlacedGeometry: fc.Arbitrary<MapGeometry> =
-  arbitraryMapGeometry.chain((geometry) => {
-    const zoneIds = Object.keys(geometry.zones)
-    if (zoneIds.length === 0) return fc.constant(geometry)
-    return fc
-      .tuple(
-        ...zoneIds.map(() =>
-          record({
-            x: fc.integer({ min: -1500, max: 1500 }),
-            y: fc.integer({ min: -1500, max: 1500 }),
-            size: arbitrarySize,
-          })
-        )
-      )
-      .map((placements) => ({
-        ...geometry,
-        zones: Object.fromEntries(
-          zoneIds.map((zoneId, index) => {
-            const placement = placements[index]!
-            const zone = geometry.zones[zoneId]!
-            return [
-              zoneId,
-              {
-                ...zone,
-                position: { x: placement.x, y: placement.y },
-                ...(placement.size === undefined
-                  ? {}
-                  : { size: placement.size }),
-              },
-            ]
-          })
-        ),
-      }))
-  })
+const arbitrarySize = arbitraryZoneSize
 
 const arbitraryPlacementCase = arbitraryPlacedGeometry
   .filter((geometry) => Object.keys(geometry.zones).length > 0)
@@ -190,25 +150,40 @@ describe("anchorFromBearing laws", () => {
 })
 
 describe("fanBearings laws", () => {
-  it("edge fans stay strictly inside the half-circle; open fans cover the circle; counts match", () => {
+  it("edge fans stay inside the inset half-circle; sectors keep bearings ordered; counts match", () => {
     fc.assert(
       fc.property(
         record({
           base: arbitraryBearing,
           count: fc.integer({ min: 0, max: 8 }),
           growth: fc.constantFrom<"edge" | "open">("edge", "open"),
+          // One draw per exit (extra entries are unused) — the injected jitter.
+          draws: fc.array(fc.double({ min: 0, max: 0.999999, noNaN: true }), {
+            minLength: 8,
+            maxLength: 8,
+          }),
         }),
-        ({ base, count, growth }) => {
-          const bearings = fanBearings(base, count, growth)
+        ({ base, count, growth, draws }) => {
+          let i = 0
+          const bearings = fanBearings(base, count, growth, () => draws[i++]!)
           expect(bearings).toHaveLength(count)
+          // One draw consumed per exit.
+          expect(i).toBe(count)
+          // Sectors never cross: bearings are strictly increasing.
+          for (let k = 1; k < bearings.length; k++) {
+            expect(bearings[k]!).toBeGreaterThan(bearings[k - 1]!)
+          }
           if (growth === "edge") {
             for (const bearing of bearings) {
-              // Angular distance from base stays under π/2 (interior points).
+              // Every exit stays forward of the boundary, inset by the margin —
+              // never behind the half-plane, but reaching near-horizontal.
               const delta = Math.atan2(
                 Math.sin(bearing - base),
                 Math.cos(bearing - base)
               )
-              expect(Math.abs(delta)).toBeLessThan(Math.PI / 2 + 1e-9)
+              expect(Math.abs(delta)).toBeLessThanOrEqual(
+                Math.PI / 2 - EDGE_ARC_MARGIN + 1e-9
+              )
             }
           }
         }

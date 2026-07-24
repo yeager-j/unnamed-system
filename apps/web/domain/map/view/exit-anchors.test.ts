@@ -37,6 +37,7 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         stubs: { "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.4 }) },
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -53,6 +54,7 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         stubs: { "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.4 }) },
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -79,6 +81,7 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         stubs: { "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.5 }) },
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
@@ -109,6 +112,7 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         },
         connections: {},
         grafts: {},
+        startingZoneIds: [],
       },
     })
 
