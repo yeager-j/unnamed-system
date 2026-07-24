@@ -32,7 +32,6 @@ const tupleOf = <T>(arms: fc.Arbitrary<T>[]): fc.Arbitrary<T[]> =>
   arms.length === 0 ? fc.constant([]) : fc.tuple(...arms)
 
 const arbitraryDeclarationSpec = record({
-  templateKey: fc.constantFrom("vault", "shrine", "throne"),
   minDepth: fc.nat({ max: 3 }),
   k: fc.integer({ min: 1, max: 6 }),
   secretSeed: fc.nat({ max: 97 }),
@@ -48,7 +47,7 @@ export const arbitraryDeclarations: fc.Arbitrary<Declaration[]> = fc
     specs.map((spec, index) => ({
       id: `decl-${index}`,
       sequence: index,
-      templateKey: spec.templateKey,
+      templateKey: ["vault", "shrine", "throne"][index]!,
       minDepth: spec.minDepth,
       k: spec.k,
       secretIndex: (spec.secretSeed % spec.k) + 1,

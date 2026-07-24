@@ -50,7 +50,14 @@ export default async function DungeonPage({ params }: PageProps) {
   const result = await getDungeonForDM(campaignShortId, shortId)
 
   if (!result) notFound()
-  const { dungeon, instance, placedCharacters, canon } = result
+  const {
+    dungeon,
+    clientDungeon,
+    instance,
+    placedCharacters,
+    canon,
+    siteTemplates,
+  } = result
 
   switch (dungeon.status) {
     case "draft": {
@@ -68,10 +75,11 @@ export default async function DungeonPage({ params }: PageProps) {
         : []
       return (
         <DungeonPrep
-          dungeon={dungeon}
+          dungeon={clientDungeon}
           canon={canon}
           placedCharacters={placedCharacters}
           zones={zones}
+          sites={siteTemplates}
           campaignShortId={campaignShortId}
         />
       )
@@ -85,11 +93,12 @@ export default async function DungeonPage({ params }: PageProps) {
         dungeon,
         instance,
         placedCharacters,
-        result.expandTemplates
+        result.expandTemplates,
+        siteTemplates
       )
       return (
         <DungeonRunConsole
-          dungeon={dungeon}
+          dungeon={clientDungeon}
           canon={canon}
           campaignShortId={campaignShortId}
           mode={mode}
@@ -129,7 +138,8 @@ async function resolveRunMode(
   dungeon: DungeonForDM["dungeon"],
   instance: DungeonForDM["instance"],
   placedCharacters: DungeonForDM["placedCharacters"],
-  expandTemplates: DungeonForDM["expandTemplates"]
+  expandTemplates: DungeonForDM["expandTemplates"],
+  siteTemplates: DungeonForDM["siteTemplates"]
 ): Promise<DungeonRunMode> {
   const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
   if (live) {
@@ -168,5 +178,6 @@ async function resolveRunMode(
     roster,
     placedCharacters,
     expandTemplates,
+    siteTemplates,
   }
 }

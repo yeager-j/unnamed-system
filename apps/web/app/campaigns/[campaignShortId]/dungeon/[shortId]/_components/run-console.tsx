@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react"
 
+import type { SiteChecklistItem } from "@workspace/game-v2/generation"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { Canon } from "@workspace/headcanon"
 import { Spinner } from "@workspace/ui/components/spinner"
@@ -12,9 +13,9 @@ import { DungeonExploreBody } from "@/app/campaigns/[campaignShortId]/dungeon/[s
 import { DungeonConsoleShell } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import type { DungeonClientView } from "@/domain/dungeon/client-state"
 import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
 /**
@@ -38,7 +39,12 @@ export type DungeonRunMode =
       roster: Record<string, DungeonRosterEntry>
       placedCharacters: CharacterSummary[]
       /** Force-pick menu entries (UNN-642); empty on ordinary delves. */
-      expandTemplates: ReadonlyArray<{ key: string; name: string }>
+      expandTemplates: ReadonlyArray<{
+        key: string
+        name: string
+        unique: boolean
+      }>
+      siteTemplates: ReadonlyArray<SiteChecklistItem>
     }
   | {
       kind: "combat"
@@ -52,7 +58,7 @@ export function DungeonRunConsole({
   campaignShortId,
   mode,
 }: {
-  dungeon: DungeonRow
+  dungeon: DungeonClientView
   canon: Canon<DungeonCanonValue>
   campaignShortId: string
   mode: DungeonRunMode
@@ -88,6 +94,7 @@ export function DungeonRunConsole({
           roster={mode.roster}
           placedCharacters={mode.placedCharacters}
           expandTemplates={mode.expandTemplates}
+          siteTemplates={mode.siteTemplates}
           campaignShortId={campaignShortId}
         />
       )}

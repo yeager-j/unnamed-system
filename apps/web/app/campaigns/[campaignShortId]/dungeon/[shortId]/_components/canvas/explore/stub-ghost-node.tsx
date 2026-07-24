@@ -45,8 +45,10 @@ export function DungeonStubGhostNode({ data }: NodeProps<StubGhostNode>) {
   const {
     expandStub,
     forcePickStub,
+    forcePlaceStub,
     isStubPending,
     expandTemplates,
+    siteTemplates,
     disabled,
   } = useDungeonCanvas()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -111,10 +113,27 @@ export function DungeonStubGhostNode({ data }: NodeProps<StubGhostNode>) {
                 {expandTemplates.map((template) => (
                   <DropdownMenuItem
                     key={template.key}
-                    disabled={inert}
+                    disabled={inert || template.disabled}
                     onClick={() => forcePickStub(data.stubId, template.key)}
                   >
                     {template.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : null}
+          {siteTemplates.length > 0 ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Force place site…</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                {siteTemplates.map((site) => (
+                  <DropdownMenuItem
+                    key={site.key}
+                    disabled={inert || site.spent}
+                    onClick={() => forcePlaceStub(data.stubId, site.key)}
+                  >
+                    {site.name}
+                    {site.pending ? " (queued)" : ""}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuSubContent>

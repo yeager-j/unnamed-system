@@ -101,7 +101,13 @@ export function useDungeonConsole(
     )
   }
 
-  function expandStub(stubId: string, forcedTemplateKey?: string) {
+  function dispatchExpansion(
+    stubId: string,
+    selection:
+      | { forcedTemplateKey: string }
+      | { forcePlaceTemplateKey: string }
+      | undefined
+  ) {
     if (pendingStubIds.has(stubId)) return
     setPendingStubIds((current) => new Set(current).add(stubId))
     const unmark = () =>
@@ -113,7 +119,7 @@ export function useDungeonConsole(
     const receipt = dispatchMutation({
       kind: "expandStub",
       stubId,
-      ...(forcedTemplateKey === undefined ? {} : { forcedTemplateKey }),
+      ...selection,
     })
     if (!receipt) {
       unmark()
@@ -136,6 +142,22 @@ export function useDungeonConsole(
     })
   }
 
+  function expandStub(stubId: string) {
+    dispatchExpansion(stubId, undefined)
+  }
+
+  function forcePickStub(stubId: string, templateKey: string) {
+    dispatchExpansion(stubId, { forcedTemplateKey: templateKey })
+  }
+
+  function forcePlaceStub(stubId: string, templateKey: string) {
+    dispatchExpansion(stubId, { forcePlaceTemplateKey: templateKey })
+  }
+
+  function queueForcePlace(templateKey: string, minDepth: number) {
+    dispatchMutation({ kind: "declareSite", templateKey, minDepth })
+  }
+
   function retractZone(zoneId: string) {
     dispatchMutation({ kind: "retractZone", zoneId })
   }
@@ -149,6 +171,9 @@ export function useDungeonConsole(
     searchReveal,
     finishDelve,
     expandStub,
+    forcePickStub,
+    forcePlaceStub,
+    queueForcePlace,
     retractZone,
     isStubPending: (stubId: string) => pendingStubIds.has(stubId),
   }

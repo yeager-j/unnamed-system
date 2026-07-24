@@ -59,13 +59,31 @@ export interface DungeonCanvasContextValue {
   expandStub: (stubId: string) => void
   /** Force-picks a template for the stub (context menu; same server path). */
   forcePickStub: (stubId: string, templateKey: string) => void
+  /** Declares and immediately force-places a site on this exact stub. */
+  forcePlaceStub: (stubId: string, templateKey: string) => void
+  /** Queues a site for the next qualifying expansion at or below a depth. */
+  queueForcePlace: (templateKey: string, minDepth: number) => void
+  /** Whether any frontier stub remains to receive a queued site. */
+  canQueueSite: boolean
   /** Retracts a generated leaf Zone back to its stub (context-menu-only, D8). */
   retractZone: (zoneId: string) => void
   /** True while this stub's expand round-trip is in flight. */
   isStubPending: (stubId: string) => boolean
   /** The force-pick menu's template list (non-tombstoned, name-sorted);
    *  empty on ordinary delves, which have no ghosts anyway. */
-  expandTemplates: ReadonlyArray<{ key: string; name: string }>
+  expandTemplates: ReadonlyArray<{
+    key: string
+    name: string
+    disabled: boolean
+  }>
+  /** Declarable Region sites with only public status needed by the menus. */
+  siteTemplates: ReadonlyArray<{
+    key: string
+    name: string
+    defaultMinDepth: number
+    spent: boolean
+    pending: boolean
+  }>
 }
 
 const DungeonCanvasContext = createContext<DungeonCanvasContextValue | null>(

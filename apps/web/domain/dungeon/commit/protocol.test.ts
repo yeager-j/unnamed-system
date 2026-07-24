@@ -78,7 +78,7 @@ describe("showtime.dungeon.v1", () => {
     })
   })
 
-  it("leaves expandStub and retractZone unpredicted — the same state reference back (D1)", () => {
+  it("leaves generation commands unpredicted — the same state reference back (D1)", () => {
     // The roll (and the retract inverse it recorded) is server-owned; there is
     // nothing sound to predict. The pending affordance comes from the root's
     // pending count; catch-up is stamp → axis invalidation → refetch.
@@ -93,6 +93,15 @@ describe("showtime.dungeon.v1", () => {
           kind: "expandStub",
           stubId: "stub-1",
           forcedTemplateKey: "vault",
+        },
+      })
+    ).toEqual({ ok: true, value: state })
+    expect(
+      predictDungeonCommand(state, {
+        command: {
+          kind: "declareSite",
+          templateKey: "vault",
+          minDepth: 3,
         },
       })
     ).toEqual({ ok: true, value: state })
@@ -127,6 +136,54 @@ describe("showtime.dungeon.v1", () => {
     expect(retract.args).toEqual({
       dungeonId: "dungeon-1",
       command: { kind: "retractZone", zoneId: "z1" },
+    })
+  })
+
+  it("puts only declaration intent on start and active force-place wires", () => {
+    const start = dungeonCommand({
+      dungeonId: "dungeon-1",
+      command: {
+        kind: "start",
+        placements: [],
+        siteDeclarations: [
+          { templateKey: "vault", minDepth: 2, urgency: "session" },
+        ],
+      },
+    })
+    expect(start.args.command).toEqual({
+      kind: "start",
+      placements: [],
+      siteDeclarations: [
+        { templateKey: "vault", minDepth: 2, urgency: "session" },
+      ],
+    })
+    expect(JSON.stringify(start.args)).not.toMatch(
+      /secretIndex|qualifyingCount|sequence|"k"|"id"/
+    )
+
+    expect(
+      dungeonCommand({
+        dungeonId: "dungeon-1",
+        command: { kind: "declareSite", templateKey: "vault", minDepth: 4 },
+      }).args.command
+    ).toEqual({
+      kind: "declareSite",
+      templateKey: "vault",
+      minDepth: 4,
+    })
+    expect(
+      dungeonCommand({
+        dungeonId: "dungeon-1",
+        command: {
+          kind: "expandStub",
+          stubId: "stub-1",
+          forcePlaceTemplateKey: "vault",
+        },
+      }).args.command
+    ).toEqual({
+      kind: "expandStub",
+      stubId: "stub-1",
+      forcePlaceTemplateKey: "vault",
     })
   })
 

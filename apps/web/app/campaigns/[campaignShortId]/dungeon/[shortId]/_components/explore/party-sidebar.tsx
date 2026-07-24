@@ -17,7 +17,6 @@ import {
   deriveDungeonRoster,
   orderedPages,
   pageDeleteImpact,
-  type DungeonState,
   type MapGeometryEvent,
   type MapInstanceState,
   type MapPage,
@@ -63,11 +62,14 @@ import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dunge
 import { AddToDelveDialog } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/add-to-delve-dialog"
 import { DungeonSidebarHeader } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/sidebar-header"
 import { RenamePageDialog } from "@/components/shared/canvas/canvas-page-tabs"
+import type {
+  DungeonClientState,
+  DungeonClientView,
+} from "@/domain/dungeon/client-state"
 import {
   groupZonesByPage,
   type PageZoneGroup,
 } from "@/domain/map/view/page-groups"
-import type { DungeonRow } from "@/lib/db"
 
 /**
  * The DM run console's sidebar contents for the Play phase (UNN-464 chrome pass;
@@ -103,8 +105,8 @@ export function DungeonPartySidebar({
 }: {
   roster: Record<string, DungeonRosterEntry>
   instanceState: MapInstanceState
-  dungeonState: DungeonState
-  dungeon: DungeonRow
+  dungeonState: DungeonClientState
+  dungeon: DungeonClientView
   campaignShortId: string
   absentCharacters: { id: string; name: string }[]
   disabled?: boolean

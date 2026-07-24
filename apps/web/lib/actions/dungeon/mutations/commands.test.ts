@@ -24,6 +24,7 @@ import type { DungeonRow } from "@/lib/db/schema/dungeon"
 const loadDungeonRowById = vi.fn()
 const loadTemplateSetRowById = vi.fn()
 const loadCampaignRowById = vi.fn()
+const loadMapRowById = vi.fn()
 const lockDungeonRowForMutation = vi.fn()
 const loadMapInstanceById = vi.fn()
 const loadActiveDungeonForCampaign = vi.fn()
@@ -47,6 +48,9 @@ vi.mock("@/lib/db/queries/load-dungeon", () => ({
 }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
   loadCampaignRowById: (...args: unknown[]) => loadCampaignRowById(...args),
+}))
+vi.mock("@/lib/db/queries/load-map", () => ({
+  loadMapRowById: (...args: unknown[]) => loadMapRowById(...args),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (...args: unknown[]) => loadMapInstanceById(...args),
@@ -320,7 +324,20 @@ describe("dungeon.command authority", () => {
           weight: 1,
           exits: [{ optional: false }, { optional: false }],
         },
-        relic: { key: "relic", tags: ["hub"], accepts: ["hub"], weight: 0 },
+        relic: {
+          key: "relic",
+          tags: ["hub"],
+          accepts: ["hub"],
+          weight: 0,
+          unique: true,
+        },
+        shrine: {
+          key: "shrine",
+          tags: ["hub"],
+          accepts: ["hub"],
+          weight: 0,
+          unique: true,
+        },
       },
       closureChance: 0,
     })
@@ -402,6 +419,85 @@ describe("dungeon.command authority", () => {
         content: setContent,
       })
       loadMapInstanceById.mockResolvedValue(expeditionInstance())
+    })
+
+    it("creates ordered declarations, resolves authored sites, and schedules selected sites during free pregeneration", async () => {
+      const draft = { ...expedition(), status: "draft" as const }
+      loadMapRowById.mockResolvedValue({
+        id: region.seedMapId,
+        geometry: {
+          pages: { default: { id: "default", name: "Page 1" } },
+          zones: {
+            entry: {
+              id: "entry",
+              name: "Entry",
+              description: "",
+              dmNotes: "",
+              position: { x: 0, y: 0 },
+              pageId: "default",
+              templateKey: "hall",
+            },
+            "authored-relic": {
+              id: "authored-relic",
+              name: "Relic",
+              description: "",
+              dmNotes: "",
+              position: { x: 2000, y: 0 },
+              pageId: "default",
+              templateKey: "relic",
+            },
+          },
+          connections: {},
+        },
+      })
+
+      const decision = await execute(
+        {
+          kind: "start",
+          placements: [{ characterId: "pc-1", zoneId: "entry" }],
+          siteDeclarations: [
+            { templateKey: "relic", minDepth: 0, urgency: "eventually" },
+            { templateKey: "shrine", minDepth: 1, urgency: "session" },
+          ],
+        },
+        draft
+      )
+
+      expect(decision).toEqual({ kind: "accepted" })
+      const activated = activateDungeonWithState.mock
+        .calls[0]![2] as DungeonState
+      expect(activated.turnCounter).toBe(0)
+      expect(
+        activated.generation.declarations.map((item) => ({
+          sequence: item.sequence,
+          templateKey: item.templateKey,
+          resolved: item.resolvedZoneId,
+        }))
+      ).toEqual([
+        {
+          sequence: 0,
+          templateKey: "relic",
+          resolved: "authored-relic",
+        },
+        {
+          sequence: 1,
+          templateKey: "shrine",
+          resolved: expect.any(String),
+        },
+      ])
+      expect(activated.generation.streamCursors.draws).toBe(2)
+      expect(activated.generation.mintedUniqueKeys).toEqual(
+        expect.arrayContaining(["relic", "shrine"])
+      )
+
+      const generatedInstance = saveMapInstanceState.mock
+        .calls[0]![2] as MapInstanceState
+      expect(
+        Object.values(generatedInstance.geometry.zones).some(
+          (zone) => zone.templateKey === "shrine"
+        )
+      ).toBe(true)
+      expect(generatedInstance.occupancy["pc-1"]?.zoneId).toBe("entry")
     })
 
     it("expands a stub: mint folded through the real reducers, both rows guarded, both axes stamped", async () => {
@@ -543,6 +639,92 @@ describe("dungeon.command authority", () => {
         error: "forced-template-not-mintable",
       })
       expect(saveDungeonState).not.toHaveBeenCalled()
+    })
+
+    it("queues a K=1 site declaration without touching the map instance", async () => {
+      const decision = await execute({
+        kind: "declareSite",
+        templateKey: "relic",
+        minDepth: 4,
+      })
+
+      expect(decision).toEqual({ kind: "accepted" })
+      const saved = saveDungeonState.mock.calls[0]![1] as DungeonState
+      expect(saved.generation.declarations).toEqual([
+        expect.objectContaining({
+          sequence: 0,
+          templateKey: "relic",
+          minDepth: 4,
+          k: 1,
+          secretIndex: 1,
+          qualifyingCount: 0,
+        }),
+      ])
+      expect(saved.generation.streamCursors.draws).toBe(1)
+      expect(saveMapInstanceState).not.toHaveBeenCalled()
+    })
+
+    it("refuses duplicate queued sites and spent unique sites", async () => {
+      const pending = expedition()
+      pending.state.generation.declarations = [
+        {
+          id: "declaration-1",
+          sequence: 0,
+          templateKey: "relic",
+          minDepth: 0,
+          k: 1,
+          secretIndex: 1,
+          qualifyingCount: 0,
+        },
+      ]
+      await expect(
+        execute(
+          { kind: "declareSite", templateKey: "relic", minDepth: 0 },
+          pending
+        )
+      ).resolves.toEqual({
+        kind: "refused",
+        error: "site-already-pending",
+      })
+
+      const spent = expedition()
+      spent.state.generation.mintedUniqueKeys = ["relic"]
+      await expect(
+        execute(
+          { kind: "declareSite", templateKey: "relic", minDepth: 0 },
+          spent
+        )
+      ).resolves.toEqual({
+        kind: "refused",
+        error: "site-already-placed",
+      })
+    })
+
+    it("force-places a site on the exact stub and resolves its K=1 declaration", async () => {
+      const decision = await execute({
+        kind: "expandStub",
+        stubId: "stub-1",
+        forcePlaceTemplateKey: "relic",
+      })
+
+      expect(decision).toEqual({ kind: "accepted" })
+      const savedDungeon = saveDungeonState.mock.calls[0]![1] as DungeonState
+      const declaration = savedDungeon.generation.declarations[0]!
+      expect(declaration).toMatchObject({
+        templateKey: "relic",
+        k: 1,
+        secretIndex: 1,
+        qualifyingCount: 1,
+      })
+      expect(declaration.resolvedZoneId).toBeDefined()
+      expect(savedDungeon.turnCounter).toBe(1)
+
+      const savedInstance = saveMapInstanceState.mock
+        .calls[0]![2] as MapInstanceState
+      const minted = Object.values(savedInstance.geometry.zones).find(
+        (zone) => zone.id !== "entry"
+      )
+      expect(minted?.templateKey).toBe("relic")
     })
 
     it("rolls an expand second-row race into contention without a partial stamp", async () => {

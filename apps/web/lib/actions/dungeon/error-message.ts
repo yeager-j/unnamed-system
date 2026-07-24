@@ -24,6 +24,9 @@ export type DungeonActionError =
   | "generation-event-not-supported"
   | "expansion-failed"
   | "forced-template-not-mintable"
+  | "site-already-pending"
+  | "site-already-placed"
+  | "site-not-declarable"
   | "retract-zone-not-generated"
   | "retract-zone-revealed"
   | "retract-zone-not-leaf"
@@ -68,6 +71,12 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
       return "The expansion roll failed. Reload and try again."
     case "forced-template-not-mintable":
       return "That template can't be placed from this passage."
+    case "site-already-pending":
+      return "That site is already queued."
+    case "site-already-placed":
+      return "That unique site has already been placed."
+    case "site-not-declarable":
+      return "That site is no longer available in this Region."
     case "retract-zone-not-generated":
       return "Only generated rooms can be retracted."
     case "retract-zone-revealed":

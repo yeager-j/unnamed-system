@@ -1,8 +1,18 @@
 import { cache } from "react"
 
-import { isTombstoned, templateLabel } from "@workspace/game-v2/generation"
+import {
+  isTombstoned,
+  siteChecklistItems,
+  templateLabel,
+  type SiteChecklistItem,
+} from "@workspace/game-v2/generation"
 import { defineCanon, type AxisId, type Canon } from "@workspace/headcanon"
 
+import {
+  projectDungeonClientState,
+  projectDungeonClientView,
+  type DungeonClientView,
+} from "@/domain/dungeon/client-state"
 import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import { auth } from "@/lib/auth"
 import {
@@ -19,6 +29,7 @@ import {
 import { loadCampaignByShortId } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
+import { loadMapRowById } from "@/lib/db/queries/load-map"
 import { loadRegionRowById } from "@/lib/db/queries/load-region"
 import { loadTemplateSetRowById } from "@/lib/db/queries/load-template-set"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
@@ -31,6 +42,7 @@ import { VERSION_CLASSES } from "@/lib/db/version-classes"
  *  reveal-state). Mirrors `EncounterForDM`. */
 export interface DungeonForDM {
   dungeon: DungeonRow
+  clientDungeon: DungeonClientView
   instance: MapInstanceRow
   placedCharacters: CharacterSummary[]
   canon: Canon<DungeonCanonValue>
@@ -38,7 +50,8 @@ export interface DungeonForDM {
    *  to `{key, name}`, tombstoned hidden (a deleted room shouldn't be offered),
    *  label-sorted. Empty for an ordinary delve — which grows no stubs anyway.
    *  DM-only surface, so no redaction concern. */
-  expandTemplates: Array<{ key: string; name: string }>
+  expandTemplates: Array<{ key: string; name: string; unique: boolean }>
+  siteTemplates: SiteChecklistItem[]
 }
 
 /**
@@ -94,12 +107,17 @@ export const getDungeonForDM = cache(
         const templateSet = region
           ? await loadTemplateSetRowById(region.templateSetId, tx)
           : null
+        const sourceMap =
+          templateSet && instance.mapId
+            ? await loadMapRowById(instance.mapId, tx)
+            : null
         const expandTemplates = templateSet
           ? Object.entries(templateSet.content.templates)
               .filter(([, template]) => !isTombstoned(template))
               .map(([key, template]) => ({
                 key,
                 name: templateLabel(key, template),
+                unique: template.unique,
               }))
               .sort((a, b) => a.name.localeCompare(b.name))
           : []
@@ -126,13 +144,20 @@ export const getDungeonForDM = cache(
 
         return {
           dungeon,
+          clientDungeon: projectDungeonClientView(dungeon),
           instance,
           placedCharacters,
           canon: defineCanon({
-            value: { dungeon: dungeon.state, instance: instance.state },
+            value: {
+              dungeon: projectDungeonClientState(dungeon.state),
+              instance: instance.state,
+            },
             revisions,
           }),
           expandTemplates,
+          siteTemplates: templateSet
+            ? siteChecklistItems(templateSet.content, sourceMap?.geometry)
+            : [],
         }
       },
       { isolationLevel: "repeatable read", accessMode: "read only" }

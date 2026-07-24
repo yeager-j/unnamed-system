@@ -100,17 +100,25 @@ const counterIds = (prefix: string) => {
   return () => `${prefix}-${n++}`
 }
 
+function unwrapPregen(result: ReturnType<typeof pregenerateExpedition>) {
+  expect(result.ok).toBe(true)
+  if (!result.ok) throw new Error(result.error)
+  return result.value
+}
+
 describe("pregenerateExpedition", () => {
   it("carves to the depth limit, stamps no zone deeper, and leaves the outer ring's frontier open", () => {
     const { instanceState, ledger } = seeded("pregen-seed")
     const maxDepth = 5
-    const result = pregenerateExpedition({
-      set,
-      instanceState,
-      ledger,
-      maxDepth,
-      newId: counterIds("z"),
-    })
+    const result = unwrapPregen(
+      pregenerateExpedition({
+        set,
+        instanceState,
+        ledger,
+        maxDepth,
+        newId: counterIds("z"),
+      })
+    )
 
     const state = result.instanceState
     const zoneCount = Object.keys(state.geometry.zones).length
@@ -185,17 +193,19 @@ describe("pregenerateExpedition", () => {
       seed: "cap-seed",
       newId: () => `start-${counter++}`,
     })
-    const { instanceState: grown } = pregenerateExpedition({
-      set: branchy,
-      instanceState: { ...base, generation: { ...base.generation, stubs } },
-      ledger: {
-        ...emptyGenerationLedger(),
-        seed: "cap-seed",
-        streamCursors: cursors,
-      },
-      maxDepth: 20,
-      newId: counterIds("z"),
-    })
+    const { instanceState: grown } = unwrapPregen(
+      pregenerateExpedition({
+        set: branchy,
+        instanceState: { ...base, generation: { ...base.generation, stubs } },
+        ledger: {
+          ...emptyGenerationLedger(),
+          seed: "cap-seed",
+          streamCursors: cursors,
+        },
+        maxDepth: 20,
+        newId: counterIds("z"),
+      })
+    )
 
     // The cap bounded the map well short of the depth limit.
     const maxSeen = Math.max(
@@ -210,13 +220,15 @@ describe("pregenerateExpedition", () => {
 
   it("never overlaps footprints and keeps every mint adjacency-legal", () => {
     const { instanceState, ledger } = seeded("pregen-seed")
-    const { instanceState: grown } = pregenerateExpedition({
-      set,
-      instanceState,
-      ledger,
-      maxDepth: 5,
-      newId: counterIds("z"),
-    })
+    const { instanceState: grown } = unwrapPregen(
+      pregenerateExpedition({
+        set,
+        instanceState,
+        ledger,
+        maxDepth: 5,
+        newId: counterIds("z"),
+      })
+    )
     const zones = Object.values(grown.geometry.zones)
     for (let a = 0; a < zones.length; a++) {
       for (let b = a + 1; b < zones.length; b++) {
@@ -243,40 +255,48 @@ describe("pregenerateExpedition", () => {
   it("is a deterministic function of the seed (identical ids and geometry)", () => {
     const a = seeded("same-seed")
     const b = seeded("same-seed")
-    const grownA = pregenerateExpedition({
-      set,
-      instanceState: a.instanceState,
-      ledger: a.ledger,
-      maxDepth: 5,
-      newId: counterIds("z"),
-    })
-    const grownB = pregenerateExpedition({
-      set,
-      instanceState: b.instanceState,
-      ledger: b.ledger,
-      maxDepth: 5,
-      newId: counterIds("z"),
-    })
+    const grownA = unwrapPregen(
+      pregenerateExpedition({
+        set,
+        instanceState: a.instanceState,
+        ledger: a.ledger,
+        maxDepth: 5,
+        newId: counterIds("z"),
+      })
+    )
+    const grownB = unwrapPregen(
+      pregenerateExpedition({
+        set,
+        instanceState: b.instanceState,
+        ledger: b.ledger,
+        maxDepth: 5,
+        newId: counterIds("z"),
+      })
+    )
     expect(grownA).toStrictEqual(grownB)
   })
 
   it("a different seed grows a different map", () => {
     const a = seeded("seed-a")
     const b = seeded("seed-b")
-    const grownA = pregenerateExpedition({
-      set,
-      instanceState: a.instanceState,
-      ledger: a.ledger,
-      maxDepth: 5,
-      newId: counterIds("z"),
-    })
-    const grownB = pregenerateExpedition({
-      set,
-      instanceState: b.instanceState,
-      ledger: b.ledger,
-      maxDepth: 5,
-      newId: counterIds("z"),
-    })
+    const grownA = unwrapPregen(
+      pregenerateExpedition({
+        set,
+        instanceState: a.instanceState,
+        ledger: a.ledger,
+        maxDepth: 5,
+        newId: counterIds("z"),
+      })
+    )
+    const grownB = unwrapPregen(
+      pregenerateExpedition({
+        set,
+        instanceState: b.instanceState,
+        ledger: b.ledger,
+        maxDepth: 5,
+        newId: counterIds("z"),
+      })
+    )
     // The carved geometry differs (positions/templates), not just the ids.
     const shape = (s: MapInstanceState) =>
       Object.values(s.geometry.zones)

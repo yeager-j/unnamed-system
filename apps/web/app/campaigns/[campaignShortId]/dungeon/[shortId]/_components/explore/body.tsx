@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import type { SiteChecklistItem } from "@workspace/game-v2/generation"
 import {
   dungeonReminders,
   firstPageId,
@@ -23,12 +24,12 @@ import { DungeonPartySidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[
 import { useDungeonConsole } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/use-dungeon-console"
 import { DungeonZoneSheet } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/zone-sheet"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
+import type { DungeonClientView } from "@/domain/dungeon/client-state"
 import type { DungeonCanonValue } from "@/domain/dungeon/commit/protocol"
 import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { DUNGEON_REMINDER_COPY } from "@/domain/labels"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { dungeonSetupPath } from "@/lib/paths"
 
@@ -70,15 +71,17 @@ export function DungeonExploreBody({
   roster,
   placedCharacters,
   expandTemplates,
+  siteTemplates,
   campaignShortId,
 }: {
-  dungeon: DungeonRow
+  dungeon: DungeonClientView
   instance: MapInstanceRow
   canon: Canon<DungeonCanonValue>
   roster: Record<string, DungeonRosterEntry>
   placedCharacters: CharacterSummary[]
   /** Force-pick menu entries (UNN-642); empty on ordinary delves. */
-  expandTemplates: ReadonlyArray<{ key: string; name: string }>
+  expandTemplates: ReadonlyArray<{ key: string; name: string; unique: boolean }>
+  siteTemplates: readonly SiteChecklistItem[]
   campaignShortId: string
 }) {
   const router = useRouter()
@@ -91,6 +94,9 @@ export function DungeonExploreBody({
     searchReveal,
     finishDelve,
     expandStub,
+    forcePickStub,
+    forcePlaceStub,
+    queueForcePlace,
     retractZone,
     isStubPending,
   } = useDungeonConsole(dungeon, canon)
@@ -190,6 +196,24 @@ export function DungeonExploreBody({
   // is unchanged, so the canvas's node-sync effect doesn't re-derive — no manual
   // memo (matching dungeon-combat-body).
   const canvasMode = { kind: "play" as const, roster }
+  const pendingSiteKeys = new Set(
+    dungeonState.generation.declarations
+      .filter((declaration) => declaration.resolvedZoneId === undefined)
+      .map((declaration) => declaration.templateKey)
+  )
+  const spentUniqueKeys = new Set(dungeonState.generation.mintedUniqueKeys)
+  const forcePickTemplates = expandTemplates.map((template) => ({
+    key: template.key,
+    name: template.name,
+    disabled: template.unique && spentUniqueKeys.has(template.key),
+  }))
+  const forcePlaceTemplates = siteTemplates.map((site) => ({
+    key: site.templateKey,
+    name: site.name,
+    defaultMinDepth: site.defaultMinDepth,
+    spent: site.unique && spentUniqueKeys.has(site.templateKey),
+    pending: pendingSiteKeys.has(site.templateKey),
+  }))
 
   // Surface the turn-driven reminders as toasts — once per turn the counter
   // reaches a threshold. Persistent (top-right, clear of the bottom bar).
@@ -260,11 +284,15 @@ export function DungeonExploreBody({
               onModeChange: setMode,
               disabled: isPending,
               expandStub,
-              forcePickStub: (stubId, templateKey) =>
-                expandStub(stubId, templateKey),
+              forcePickStub,
+              forcePlaceStub,
+              queueForcePlace,
+              canQueueSite:
+                Object.keys(instanceState.generation.stubs).length > 0,
               retractZone,
               isStubPending,
-              expandTemplates,
+              expandTemplates: forcePickTemplates,
+              siteTemplates: forcePlaceTemplates,
             }}
           >
             <div className="absolute inset-0">

@@ -3,6 +3,7 @@ import type { GenerationLedger } from "@workspace/game-v2/spatial/generation-led
 import type { MapInstanceState } from "@workspace/game-v2/spatial/map-instance.schema"
 import { reduceDungeon } from "@workspace/game-v2/spatial/reduce-dungeon"
 import { reduceMapInstance } from "@workspace/game-v2/spatial/reduce-map-instance"
+import { err, ok, type Result } from "@workspace/result"
 
 import { rollExpansion } from "./roll-expansion"
 import type { TemplateSetContent } from "./template-set.schema"
@@ -55,7 +56,10 @@ export function pregenerateExpedition(input: {
   ledger: GenerationLedger
   maxDepth: number
   newId: () => string
-}): { instanceState: MapInstanceState; ledger: GenerationLedger } {
+}): Result<
+  { instanceState: MapInstanceState; ledger: GenerationLedger },
+  "scheduled-template-unavailable"
+> {
   const reduceInstance = reduceMapInstance(input.newId)
   let instance = input.instanceState
   let dungeon = { ...createDungeonState(), generation: input.ledger }
@@ -79,6 +83,9 @@ export function pregenerateExpedition(input: {
       newId: input.newId,
     })
     if (!rolled.ok) {
+      if (rolled.error === "scheduled-template-unavailable") {
+        return err(rolled.error)
+      }
       // Only reachable on corrupt state (a dangling stub); drop it as a dead
       // end so the loop can't spin on the same stub.
       instance = reduceInstance(instance, { kind: "resolveDeadEnd", stubId })
@@ -112,5 +119,5 @@ export function pregenerateExpedition(input: {
           ...instance,
           generation: { ...instance.generation, stubs: openFrontier },
         }
-  return { instanceState: sealed, ledger: dungeon.generation }
+  return ok({ instanceState: sealed, ledger: dungeon.generation })
 }

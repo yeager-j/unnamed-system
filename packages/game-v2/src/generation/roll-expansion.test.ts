@@ -271,6 +271,134 @@ describe("rollExpansion — the mint outcome", () => {
       layout: mint.stubs.length,
     })
   })
+
+  it("withdraws a pending site until due, then overrides weight and sockets", () => {
+    const set = makeSet({
+      vault: {
+        key: "vault",
+        tags: ["sealed"],
+        accepts: [],
+        weight: 100,
+        unique: true,
+      },
+    })
+    const waiting = {
+      ...emptyGenerationLedger(),
+      seed: "test-seed",
+      declarations: [
+        {
+          id: "decl",
+          sequence: 0,
+          templateKey: "vault",
+          minDepth: 0,
+          k: 6,
+          secretIndex: 2,
+          qualifyingCount: 0,
+        },
+      ],
+    }
+    const beforeDue = rollExpansion(deps({ set, ledger: waiting }))
+    if (!beforeDue.ok) throw new Error(beforeDue.error)
+    const randomMint = beforeDue.value.instanceEvents[0]!
+    if (randomMint.kind !== "mintZone") throw new Error(randomMint.kind)
+    expect(randomMint.zone.templateKey).toBe("hall")
+
+    const due = {
+      ...waiting,
+      declarations: [{ ...waiting.declarations[0]!, qualifyingCount: 1 }],
+    }
+    const result = rollExpansion(deps({ set, ledger: due }))
+    if (!result.ok) throw new Error(result.error)
+    const mint = result.value.instanceEvents[0]!
+    if (mint.kind !== "mintZone") throw new Error(mint.kind)
+    expect(mint.zone.templateKey).toBe("vault")
+    const record = result.value.dungeonEvents.find(
+      (event) => event.kind === "recordMint"
+    )
+    if (record?.kind !== "recordMint") throw new Error("missing record")
+    expect(record.record.effects).toStrictEqual([
+      { declarationId: "decl", incremented: true, resolved: true },
+    ])
+  })
+
+  it("resolves a durable tombstoned declaration and gives K=1 collision priority", () => {
+    const set = makeSet({
+      vault: {
+        key: "vault",
+        tags: [],
+        accepts: [],
+        weight: 0,
+        unique: true,
+        tombstoned: true,
+      },
+      shrine: {
+        key: "shrine",
+        tags: [],
+        accepts: [],
+        weight: 0,
+        unique: true,
+      },
+    })
+    const ledger = {
+      ...emptyGenerationLedger(),
+      seed: "test-seed",
+      declarations: [
+        {
+          id: "ordinary",
+          sequence: 0,
+          templateKey: "shrine",
+          minDepth: 0,
+          k: 6,
+          secretIndex: 1,
+          qualifyingCount: 0,
+        },
+        {
+          id: "force",
+          sequence: 1,
+          templateKey: "vault",
+          minDepth: 0,
+          k: 1,
+          secretIndex: 1,
+          qualifyingCount: 0,
+        },
+      ],
+    }
+    const result = rollExpansion(deps({ set, ledger }))
+    if (!result.ok) throw new Error(result.error)
+    const mint = result.value.instanceEvents[0]!
+    if (mint.kind !== "mintZone") throw new Error(mint.kind)
+    expect(mint.zone.templateKey).toBe("vault")
+    const record = result.value.dungeonEvents.find(
+      (event) => event.kind === "recordMint"
+    )
+    if (record?.kind !== "recordMint") throw new Error("missing record")
+    expect(record.record.effects).toStrictEqual([
+      { declarationId: "ordinary", incremented: true, resolved: false },
+      { declarationId: "force", incremented: true, resolved: true },
+    ])
+  })
+
+  it("fails rather than silently skipping a missing due declaration target", () => {
+    const ledger = {
+      ...emptyGenerationLedger(),
+      seed: "test-seed",
+      declarations: [
+        {
+          id: "gone",
+          sequence: 0,
+          templateKey: "missing",
+          minDepth: 0,
+          k: 1,
+          secretIndex: 1,
+          qualifyingCount: 0,
+        },
+      ],
+    }
+    expect(rollExpansion(deps({ ledger }))).toStrictEqual({
+      ok: false,
+      error: "scheduled-template-unavailable",
+    })
+  })
 })
 
 describe("rollExpansion — loop closure", () => {
@@ -312,6 +440,21 @@ describe("rollExpansion — loop closure", () => {
       deps({
         set: makeSet({}, { closureChance: 1 }),
         instanceState: withNeighbor(),
+        ledger: {
+          ...emptyGenerationLedger(),
+          seed: "test-seed",
+          declarations: [
+            {
+              id: "due-site",
+              sequence: 0,
+              templateKey: "vault",
+              minDepth: 0,
+              k: 1,
+              secretIndex: 1,
+              qualifyingCount: 0,
+            },
+          ],
+        },
       })
     )
     if (!result.ok) throw new Error(result.error)
