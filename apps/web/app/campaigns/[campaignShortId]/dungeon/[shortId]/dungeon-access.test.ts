@@ -175,15 +175,35 @@ describe("getDungeonForDM", () => {
     loadDungeonRowByShortId.mockResolvedValue(dungeonRow("ok-dm"))
 
     const result = await getDungeonForDM("camp-1", "ok-dm")
+    const clientState = {
+      turnCounter: 0,
+      actedCharacterIds: [],
+      reminderSettings: {
+        randomEncounters: { enabled: false, intervalTurns: 6 as const },
+      },
+      generation: {
+        declarations: [],
+        mintedUniqueKeys: [],
+      },
+    }
 
     expect(result).toEqual({
       dungeon: dungeonRow("ok-dm"),
+      clientDungeon: {
+        id: "dungeon-ok-dm",
+        shortId: "ok-dm",
+        name: "Delve",
+        status: "active",
+        regionId: null,
+        state: clientState,
+      },
       instance: instanceRow,
       placedCharacters: [placedCharacter],
       expandTemplates: [],
+      siteTemplates: [],
       canon: {
         value: {
-          dungeon: dungeonRow("ok-dm").state,
+          dungeon: clientState,
           instance: instanceRow.state,
         },
         revisions: {

@@ -29,8 +29,14 @@ import {
 const DEV_USER_ID = "dev-user-claude"
 
 export const ENTRY = { id: "zone-entry", name: "Entry" } as const
+export const MONOLITH = { id: "zone-monolith", name: "Black Monolith" } as const
 export const HALL_TEMPLATE = { key: "hall", name: "Hall Chamber" } as const
 export const OSSUARY_TEMPLATE = { key: "ossuary", name: "Ossuary" } as const
+export const CRYPT_TEMPLATE = { key: "crypt", name: "Sunken Crypt" } as const
+export const MONOLITH_TEMPLATE = {
+  key: "monolith",
+  name: MONOLITH.name,
+} as const
 
 const EXPANSION_SET_CONTENT = templateSetContentSchema.parse({
   templates: {
@@ -53,6 +59,33 @@ const EXPANSION_SET_CONTENT = templateSetContentSchema.parse({
       accepts: ["hub"],
       // Never random — the site-by-choice profile; only force-pick mints it.
       weight: 0,
+      unique: true,
+      site: {
+        appearByDefault: true,
+        defaultMinDepth: 2,
+        defaultUrgency: "session",
+      },
+    },
+    [CRYPT_TEMPLATE.key]: {
+      key: CRYPT_TEMPLATE.key,
+      name: CRYPT_TEMPLATE.name,
+      tags: ["hub"],
+      accepts: ["hub"],
+      weight: 0,
+      unique: true,
+      site: {
+        appearByDefault: false,
+        defaultMinDepth: 3,
+        defaultUrgency: "eventually",
+      },
+    },
+    [MONOLITH_TEMPLATE.key]: {
+      key: MONOLITH_TEMPLATE.key,
+      name: MONOLITH_TEMPLATE.name,
+      tags: ["hub"],
+      accepts: ["hub"],
+      weight: 0,
+      unique: true,
     },
   },
   closureChance: 0,
@@ -76,6 +109,13 @@ export async function createDungeonExpansionTarget(tracker: CleanupTracker) {
           x: 0,
           y: 0,
           templateKey: HALL_TEMPLATE.key,
+        },
+        {
+          id: MONOLITH.id,
+          name: MONOLITH.name,
+          x: -2000,
+          y: 0,
+          templateKey: MONOLITH_TEMPLATE.key,
         },
       ],
     }),

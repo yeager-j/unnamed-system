@@ -25,10 +25,10 @@ import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import type { DungeonClientView } from "@/domain/dungeon/client-state"
 import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import { combatZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { COMBAT_DRAFT_HEADINGS } from "@/domain/labels"
-import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { dungeonWatchPath } from "@/lib/paths"
 
 /**
@@ -52,7 +52,7 @@ export function DungeonCombatBody({
   combatantSheetSliceById,
   campaignShortId,
 }: {
-  dungeon: DungeonRow
+  dungeon: DungeonClientView
   data: EncounterForDM
   combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
   campaignShortId: string

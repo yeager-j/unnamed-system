@@ -15,6 +15,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { Separator } from "@workspace/ui/components/separator"
@@ -74,6 +78,11 @@ export function DungeonZoneNode({
     isParty,
     navigateToPage,
     retractZone,
+    queueForcePlace,
+    siteTemplates,
+    isExpedition,
+    disabled,
+    canQueueSite,
   } = useDungeonCanvas()
   const { zone, revealed, tokens, crossPageLinks, retractable } = data
   const view = exploreZoneView({
@@ -86,7 +95,7 @@ export function DungeonZoneNode({
   const partnerHighlighted = useConnectionHighlight(zone.id)
   // Retract is context-menu-only (UNN-642, D8: no hot-path accident) — never a
   // toolbar button, and no confirm dialog: retract *is* the undo.
-  const [retractMenuOpen, setRetractMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const setPiece = (
     <ZoneSetPiece
@@ -158,7 +167,9 @@ export function DungeonZoneNode({
     />
   )
 
-  if (!retractable) return setPiece
+  if (!retractable && (!isExpedition || siteTemplates.length === 0)) {
+    return setPiece
+  }
 
   return (
     <div
@@ -166,11 +177,11 @@ export function DungeonZoneNode({
       onContextMenu={(event) => {
         event.preventDefault()
         event.stopPropagation()
-        setRetractMenuOpen(true)
+        setMenuOpen(true)
       }}
     >
       {setPiece}
-      <DropdownMenu open={retractMenuOpen} onOpenChange={setRetractMenuOpen}>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         {/* Positioning anchor only — the wrapper's onContextMenu opens the
             menu (the stub-ghost node documents the same idiom).
             `nativeButton={false}` because the render element is a <span>. */}
@@ -184,15 +195,54 @@ export function DungeonZoneNode({
           }
         />
         <DropdownMenuContent align="start">
+          {isExpedition && siteTemplates.length > 0 ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={disabled || !canQueueSite}>
+                Queue site…
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                {siteTemplates.map((site) => (
+                  <DropdownMenuSub key={site.key}>
+                    <DropdownMenuSubTrigger
+                      disabled={disabled || site.spent || site.pending}
+                    >
+                      {site.name}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem
+                        onClick={() => queueForcePlace(site.key, 0)}
+                      >
+                        Next qualifying expansion
+                      </DropdownMenuItem>
+                      {site.defaultMinDepth > 0 ? (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            queueForcePlace(site.key, site.defaultMinDepth)
+                          }
+                        >
+                          Next at depth {site.defaultMinDepth}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : null}
+          {retractable && isExpedition && siteTemplates.length > 0 ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {/* No pending gate: retract is non-optimistic with a benign no-op
               on a raced double-fire, so a gate would only re-add the wait
               (2026-07-23 lesson). */}
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => retractZone(zone.id)}
-          >
-            Retract room
-          </DropdownMenuItem>
+          {retractable ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => retractZone(zone.id)}
+            >
+              Retract room
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

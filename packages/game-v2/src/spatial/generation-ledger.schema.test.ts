@@ -75,6 +75,42 @@ describe("generationLedgerSchema", () => {
       generationLedgerSchema.parse({ streamCursors: { templates: -1 } })
     ).toThrow()
   })
+
+  it("rejects out-of-range hidden indices and duplicate live declaration keys", () => {
+    expect(() =>
+      generationLedgerSchema.parse({
+        declarations: [
+          {
+            id: "d1",
+            sequence: 0,
+            templateKey: "vault",
+            k: 2,
+            secretIndex: 3,
+          },
+        ],
+      })
+    ).toThrow()
+    expect(() =>
+      generationLedgerSchema.parse({
+        declarations: [
+          {
+            id: "d1",
+            sequence: 0,
+            templateKey: "vault",
+            k: 2,
+            secretIndex: 1,
+          },
+          {
+            id: "d2",
+            sequence: 1,
+            templateKey: "vault",
+            k: 2,
+            secretIndex: 1,
+          },
+        ],
+      })
+    ).toThrow()
+  })
 })
 
 describe("dungeonStateSchema — generation", () => {

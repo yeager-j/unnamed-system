@@ -5,7 +5,11 @@ import { DEFAULT_PREGEN_MAX_DEPTH } from "@workspace/game-v2/generation"
 import { STORAGE_STATE } from "./auth.setup"
 import {
   createDungeonExpansionTarget,
+  CRYPT_TEMPLATE,
   ENTRY,
+  MONOLITH,
+  MONOLITH_TEMPLATE,
+  OSSUARY_TEMPLATE,
 } from "./fixtures/dungeon-expansion-target"
 import { cleanup, createTracker } from "./fixtures/factory"
 
@@ -46,6 +50,29 @@ async function mintAndStartExpedition(page: Page, name: string) {
   await page.waitForLoadState("networkidle")
   await page.getByRole("combobox").first().click()
   await page.getByRole("option", { name: ENTRY.name }).click()
+
+  const ossuary = page
+    .getByRole("switch", { name: OSSUARY_TEMPLATE.name })
+    .locator("xpath=ancestor::li")
+  await expect(
+    ossuary.getByRole("switch", { name: OSSUARY_TEMPLATE.name })
+  ).toBeChecked()
+  await expect(ossuary.getByLabel("Minimum depth")).toHaveValue("2")
+  await expect(ossuary.getByRole("combobox")).toHaveText(/This session/)
+  await expect(
+    page.getByRole("switch", { name: CRYPT_TEMPLATE.name })
+  ).not.toBeChecked()
+  const authored = page
+    .getByRole("switch", { name: MONOLITH_TEMPLATE.name })
+    .locator("xpath=ancestor::li")
+  await expect(
+    authored.getByRole("switch", { name: MONOLITH_TEMPLATE.name })
+  ).toBeChecked()
+  await expect(
+    authored.getByRole("switch", { name: MONOLITH_TEMPLATE.name })
+  ).toBeDisabled()
+  await expect(authored.getByText("Already on map")).toBeVisible()
+
   await page.getByRole("button", { name: "Start expedition" }).click()
 
   await expect(page.getByRole("button", { name: "Advance turn" })).toBeVisible()
@@ -69,11 +96,12 @@ test("starting an expedition pre-generates the map to depth with an open frontie
   const depths = Object.values(started.generation.zones).map((p) => p.depth)
   expect(Math.max(...depths)).toBeLessThanOrEqual(DEFAULT_PREGEN_MAX_DEPTH)
 
-  // Every zone but the authored Entry was generated, and each recorded a mint.
+  // Every zone but the two authored seed zones was generated, and each recorded
+  // a mint.
   const generated = Object.entries(started.generation.zones).filter(
     ([, provenance]) => provenance.source === "generated"
   )
-  expect(generated.length).toBe(zones.length - 1)
+  expect(generated.length).toBe(zones.length - 2)
   const dungeonState = await target.getDungeonState(expedition!.id)
   for (const [zoneId] of generated) {
     expect(dungeonState.generation.mints[zoneId]).toBeDefined()
@@ -91,6 +119,16 @@ test("starting an expedition pre-generates the map to depth with an open frontie
 
   // Pre-generation cost no dungeon turns — play begins at turn 0.
   expect(dungeonState.turnCounter).toBe(0)
+  expect(
+    dungeonState.generation.declarations.find(
+      (item) => item.templateKey === MONOLITH_TEMPLATE.key
+    )?.resolvedZoneId
+  ).toBe(MONOLITH.id)
+  const ossuary = Object.values(started.geometry.zones).find(
+    (zone) => zone.templateKey === OSSUARY_TEMPLATE.key
+  )
+  expect(ossuary).toBeDefined()
+  expect(started.generation.zones[ossuary!.id]?.depth).toBeGreaterThanOrEqual(2)
 
   // The board renders the carved rooms and the frontier ghosts are expandable.
   await expect(page.locator('[data-id="' + ENTRY.id + '"]')).toBeVisible()
@@ -99,4 +137,51 @@ test("starting an expedition pre-generates the map to depth with an open frontie
   await expect(
     page.getByRole("button", { name: /Expand passage off/ }).first()
   ).toBeVisible()
+
+  // Queue the unused site from a Zone, then force-place that same pending
+  // declaration on an exact frontier stub. The queued gesture itself is
+  // turn-free; the forced carve costs the ordinary one expansion turn.
+  await page.locator(`[data-id="${ENTRY.id}"]`).click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Queue site…" }).hover()
+  await page.getByRole("menuitem", { name: CRYPT_TEMPLATE.name }).hover()
+  await page
+    .getByRole("menuitem", { name: "Next qualifying expansion" })
+    .click()
+  await expect
+    .poll(async () => {
+      const state = await target.getDungeonState(expedition!.id)
+      const declaration = state.generation.declarations.find(
+        (item) => item.templateKey === CRYPT_TEMPLATE.key
+      )
+      return {
+        exists: declaration !== undefined,
+        resolved: declaration?.resolvedZoneId ?? null,
+      }
+    })
+    .toEqual({ exists: true, resolved: null })
+
+  const frontier = page
+    .getByRole("button", { name: /Expand passage off/ })
+    .first()
+  await expect(frontier).toHaveAttribute("aria-disabled", "false")
+  await frontier.dispatchEvent("contextmenu")
+  await page.getByRole("menuitem", { name: "Force place site…" }).hover()
+  await expect(
+    page.getByRole("menuitem", { name: OSSUARY_TEMPLATE.name })
+  ).toHaveAttribute("aria-disabled", "true")
+  await page
+    .getByRole("menuitem", { name: `${CRYPT_TEMPLATE.name} (queued)` })
+    .click()
+
+  await expect
+    .poll(async () => {
+      const state = await target.getDungeonState(expedition!.id)
+      return {
+        turn: state.turnCounter,
+        resolved: state.generation.declarations.find(
+          (item) => item.templateKey === CRYPT_TEMPLATE.key
+        )?.resolvedZoneId,
+      }
+    })
+    .toEqual({ turn: 1, resolved: expect.any(String) })
 })

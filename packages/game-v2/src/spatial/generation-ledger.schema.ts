@@ -25,16 +25,21 @@ import { generationStubSchema } from "./generation-stub.schema"
  * slot — never serialized to any player surface, and the console shows only
  * eligibility, never N.
  */
-export const declarationSchema = z.object({
-  id: z.string(),
-  sequence: z.number().int().nonnegative(),
-  templateKey: z.string(),
-  minDepth: z.number().int().nonnegative().default(0),
-  k: z.number().int().positive(),
-  secretIndex: z.number().int().positive(),
-  qualifyingCount: z.number().int().nonnegative().default(0),
-  resolvedZoneId: z.string().optional(),
-})
+export const declarationSchema = z
+  .object({
+    id: z.string(),
+    sequence: z.number().int().nonnegative(),
+    templateKey: z.string(),
+    minDepth: z.number().int().nonnegative().default(0),
+    k: z.number().int().positive(),
+    secretIndex: z.number().int().positive(),
+    qualifyingCount: z.number().int().nonnegative().default(0),
+    resolvedZoneId: z.string().optional(),
+  })
+  .refine((declaration) => declaration.secretIndex <= declaration.k, {
+    path: ["secretIndex"],
+    message: "secretIndex must be within 1..k",
+  })
 export type Declaration = z.infer<typeof declarationSchema>
 
 /** One recorded effect a mint had on a declaration — the unit `revertMint` replays. */
@@ -90,15 +95,50 @@ export type MintRecord = z.infer<typeof mintRecordSchema>
  * (`mints` keyed by minted zoneId). Every field `.default()`s so a pre-P3 blob
  * (no `generation` key) heals on read.
  */
-export const generationLedgerSchema = z.object({
-  seed: z.string().default(""),
-  streamCursors: z
-    .record(z.string(), z.number().int().nonnegative())
-    .default({}),
-  declarations: z.array(declarationSchema).default([]),
-  mintedUniqueKeys: z.array(z.string()).default([]),
-  mints: z.record(z.string(), mintRecordSchema).default({}),
-})
+export const generationLedgerSchema = z
+  .object({
+    seed: z.string().default(""),
+    streamCursors: z
+      .record(z.string(), z.number().int().nonnegative())
+      .default({}),
+    declarations: z.array(declarationSchema).default([]),
+    mintedUniqueKeys: z.array(z.string()).default([]),
+    mints: z.record(z.string(), mintRecordSchema).default({}),
+  })
+  .superRefine((ledger, context) => {
+    const ids = new Set<string>()
+    const sequences = new Set<number>()
+    const pendingTemplateKeys = new Set<string>()
+    for (const [index, declaration] of ledger.declarations.entries()) {
+      if (ids.has(declaration.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["declarations", index, "id"],
+          message: "declaration ids must be unique",
+        })
+      }
+      ids.add(declaration.id)
+
+      if (sequences.has(declaration.sequence)) {
+        context.addIssue({
+          code: "custom",
+          path: ["declarations", index, "sequence"],
+          message: "declaration sequences must be unique",
+        })
+      }
+      sequences.add(declaration.sequence)
+
+      if (declaration.resolvedZoneId !== undefined) continue
+      if (pendingTemplateKeys.has(declaration.templateKey)) {
+        context.addIssue({
+          code: "custom",
+          path: ["declarations", index, "templateKey"],
+          message: "a template may have at most one pending declaration",
+        })
+      }
+      pendingTemplateKeys.add(declaration.templateKey)
+    }
+  })
 export type GenerationLedger = z.infer<typeof generationLedgerSchema>
 
 /** The zero ledger — what a fresh or pre-P3 dungeon blob parses to. */

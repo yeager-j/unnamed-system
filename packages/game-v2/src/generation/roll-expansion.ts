@@ -2,7 +2,6 @@ import type { DungeonEvent } from "@workspace/game-v2/spatial/dungeon-event"
 import { footprintOf, rectOfZone } from "@workspace/game-v2/spatial/footprints"
 import type {
   GenerationLedger,
-  MintEffect,
   MintRecord,
 } from "@workspace/game-v2/spatial/generation-ledger.schema"
 import type { MapZone } from "@workspace/game-v2/spatial/geometry.schema"
@@ -14,6 +13,11 @@ import type {
 import { err, ok, type Result } from "@workspace/result"
 
 import { findClosureCandidate } from "./closure"
+import {
+  isTemplateWithdrawn,
+  mintDeclarationEffects,
+  scheduledDeclaration,
+} from "./declarations"
 import {
   anchorFromBearing,
   CLOSURE_RADIUS_FACTOR,
@@ -81,6 +85,7 @@ export type ExpansionError =
   | "unknown-template"
   | "template-tombstoned"
   | "unique-already-minted"
+  | "scheduled-template-unavailable"
   // Forced path only — the bounded layout search found no room. The random path
   // resolves the same failure as a dead end (never a dead click); the forced
   // path surfaces it because silently consuming the stub the DM aimed a
@@ -105,18 +110,6 @@ export interface ExpansionOutcome {
    *  mint of a zero-optional-exit template consumes nothing and omits
    *  `advanceCursors` (its `consumed` record must be non-empty and positive). */
   dungeonEvents: DungeonEvent[]
-}
-
-/**
- * The P4 seam: which declarations this mint incremented/resolved. Nothing can
- * create a declaration until P4 (`declareSite` has no emitter), so the empty
- * list is vacuously correct — and if a declaration somehow existed, an empty
- * effects list merely under-qualifies it (fail-shallow, never a false resolve).
- * P4 replaces this one body with the qualifying/due-collision scheduler without
- * touching the mint emitter or the event assembly.
- */
-function computeMintEffects(_ledger: GenerationLedger): MintEffect[] {
-  return []
 }
 
 /** Max-plus-one over the surviving records — never a count: non-LIFO retract
@@ -321,7 +314,11 @@ function emitMint(
     // byte-identical, and the sprouted children the strict leaf rule audits.
     stub: ctx.stub,
     childStubIds: childStubs.map((child) => child.id),
-    effects: computeMintEffects(ctx.ledger),
+    effects: mintDeclarationEffects(
+      ctx.ledger,
+      ctx.parentDepth + 1,
+      templateKey
+    ),
   }
 
   const cursors = advanceCursorsEvent(streams)
@@ -479,6 +476,32 @@ export function rollExpansion(
     }
   }
 
+  // A successful mint at this stub would sit one level past the parent. After
+  // closure has had its chance (closures are explicitly non-qualifying), the
+  // due scheduler may replace the random pick. The target bypasses weight,
+  // tombstone, and socket legality: a declaration is a durable reference and
+  // the Haze bends adjacency to keep the guarantee. Missing or already-spent
+  // targets fail rather than silently violating it.
+  const due = scheduledDeclaration(ledger, ctx.parentDepth + 1)
+  if (due !== undefined) {
+    const template = set.templates[due.templateKey]
+    if (
+      template === undefined ||
+      !uniqueFresh(ledger, due.templateKey, template)
+    ) {
+      return err("scheduled-template-unavailable")
+    }
+    const minted = emitMint(
+      ctx,
+      due.templateKey,
+      template,
+      streams,
+      templatesStream,
+      layoutStream
+    )
+    return ok(minted.ok ? minted.value : deadEnd(ctx, streams))
+  }
+
   // Candidate pool — walk templateOrder (the schema-reconciled total order),
   // never Object.keys (jsonb order doctrine). An unresolvable/unbound parent
   // template yields an empty pool: graceful blob-boundary degradation through
@@ -490,6 +513,7 @@ export function rollExpansion(
     if (isTombstoned(template)) continue
     if (template.weight <= 0) continue
     if (!uniqueFresh(ledger, key, template)) continue
+    if (isTemplateWithdrawn(ledger, key)) continue
     if (ctx.parentTemplate === undefined) continue
     if (!pairLegal(ctx.parentTemplate, template)) continue
     pool.push({ key, template })
@@ -534,6 +558,7 @@ export function rollExpansion(
     connector !== undefined &&
     !isTombstoned(connector) &&
     uniqueFresh(ledger, connectorKey, connector) &&
+    !isTemplateWithdrawn(ledger, connectorKey) &&
     ctx.parentTemplate !== undefined &&
     pairLegal(ctx.parentTemplate, connector)
   ) {

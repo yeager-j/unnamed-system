@@ -38,7 +38,7 @@ export function reduceDungeon(
   switch (event.kind) {
     case "markActed":
     case "advanceTurn":
-      return reduceTurnLoopEvent(state, event)
+      return reduceDungeonTurnEvent(state, event)
 
     case "declareSite":
     case "recordMint":
@@ -48,7 +48,7 @@ export function reduceDungeon(
   }
 }
 
-type TurnLoopEvent = Extract<
+export type TurnLoopEvent = Extract<
   DungeonEvent,
   { kind: "markActed" | "advanceTurn" }
 >
@@ -57,26 +57,37 @@ type LedgerEvent = Extract<
   { kind: "declareSite" | "recordMint" | "revertMint" | "advanceCursors" }
 >
 
-/** Turn-loop slice — the original PR3 pair, unchanged in behavior. */
-function reduceTurnLoopEvent(
-  state: DungeonState,
-  event: TurnLoopEvent
-): DungeonState {
-  return produce(state, (draft) => {
-    switch (event.kind) {
-      case "markActed": {
-        if (draft.actedCharacterIds.includes(event.characterId)) return
-        draft.actedCharacterIds.push(event.characterId)
-        return
-      }
+/** The minimal state shape required by the exploration turn loop. */
+export interface DungeonTurnState {
+  turnCounter: number
+  actedCharacterIds: string[]
+}
 
-      case "advanceTurn": {
-        draft.turnCounter += 1
-        draft.actedCharacterIds = []
-        return
+/**
+ * Reduces a turn-loop event over any state carrying the two turn fields. The
+ * full dungeon reducer and the client-safe prediction projection share this
+ * authority, so hiding the generation ledger does not fork turn behavior.
+ */
+export function reduceDungeonTurnEvent<State extends DungeonTurnState>(
+  state: State,
+  event: TurnLoopEvent
+): State {
+  switch (event.kind) {
+    case "markActed": {
+      if (state.actedCharacterIds.includes(event.characterId)) return state
+      return {
+        ...state,
+        actedCharacterIds: [...state.actedCharacterIds, event.characterId],
       }
     }
-  })
+
+    case "advanceTurn":
+      return {
+        ...state,
+        turnCounter: state.turnCounter + 1,
+        actedCharacterIds: [],
+      }
+  }
 }
 
 /**
@@ -188,7 +199,7 @@ export function deriveDungeonRoster(mapInstance: MapInstanceState): string[] {
  * deriveDungeonRoster}.
  */
 export function activeActedCharacterIds(
-  state: DungeonState,
+  state: Pick<DungeonTurnState, "actedCharacterIds">,
   rosterIds: readonly string[]
 ): string[] {
   const roster = new Set(rosterIds)
@@ -218,7 +229,9 @@ export type DungeonReminder =
  * counter is *exactly* a threshold value, so advancing turn-by-turn surfaces each
  * nudge once.
  */
-export function dungeonReminders(state: DungeonState): DungeonReminder[] {
+export function dungeonReminders(
+  state: Pick<DungeonState, "turnCounter" | "reminderSettings">
+): DungeonReminder[] {
   const { turnCounter, reminderSettings } = state
   const reminders: DungeonReminder[] = []
 

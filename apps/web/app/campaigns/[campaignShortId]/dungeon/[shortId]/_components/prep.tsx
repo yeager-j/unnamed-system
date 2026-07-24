@@ -7,10 +7,17 @@ import { toast } from "sonner"
 import type { Canon } from "@workspace/headcanon"
 import { Button } from "@workspace/ui/components/button"
 import { DataSelect } from "@workspace/ui/components/data-select"
+import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { Switch } from "@workspace/ui/components/switch"
 
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
+import type {
+  DungeonClientView,
+  DungeonSiteTemplate,
+  DungeonSiteUrgency,
+} from "@/domain/dungeon/client-state"
 import {
   dungeonCommand,
   type DungeonCanonValue,
@@ -18,7 +25,6 @@ import {
 import { useDungeonPredictions } from "@/domain/dungeon/use-dungeon-predictions"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import type { DungeonRow } from "@/lib/db/schema/dungeon"
 
 /** A starting Zone the prep view offers, from the source Map template. */
 export interface PrepZone {
@@ -42,18 +48,37 @@ export function DungeonPrep({
   canon,
   placedCharacters,
   zones,
+  sites,
   campaignShortId,
 }: {
-  dungeon: DungeonRow
+  dungeon: DungeonClientView
   canon: Canon<DungeonCanonValue>
   placedCharacters: CharacterSummary[]
   zones: PrepZone[]
+  sites: ReadonlyArray<DungeonSiteTemplate>
   campaignShortId: string
 }) {
   const router = useRouter()
   const root = useDungeonPredictions({ canon })
   const isPending = root.status.pending > 0
   const [placements, setPlacements] = useState<Record<string, string>>({})
+  const [siteSelections, setSiteSelections] = useState<
+    Record<string, { minDepth: number; urgency: DungeonSiteUrgency }>
+  >(() =>
+    Object.fromEntries(
+      sites
+        .filter(
+          (site) => site.appearByDefault || site.authoredZoneId !== undefined
+        )
+        .map((site) => [
+          site.templateKey,
+          {
+            minDepth: site.defaultMinDepth,
+            urgency: site.defaultUrgency,
+          },
+        ])
+    )
+  )
   const runNoun = dungeon.regionId !== null ? "expedition" : "delve"
 
   function start() {
@@ -63,7 +88,22 @@ export function DungeonPrep({
     const result = root.mutate(
       dungeonCommand({
         dungeonId: dungeon.id,
-        command: { kind: "start", placements: list },
+        command: {
+          kind: "start",
+          placements: list,
+          siteDeclarations: sites.flatMap((site) => {
+            const selection = siteSelections[site.templateKey]
+            return selection === undefined
+              ? []
+              : [
+                  {
+                    templateKey: site.templateKey,
+                    minDepth: selection.minDepth,
+                    urgency: selection.urgency,
+                  },
+                ]
+          }),
+        },
       })
     )
     if (!result.ok) {
@@ -151,6 +191,119 @@ export function DungeonPrep({
               ))}
             </ul>
           )}
+
+          {dungeon.regionId !== null && sites.length > 0 ? (
+            <section className="flex flex-col gap-3 rounded-lg border p-4">
+              <div>
+                <h2 className="font-heading text-base font-medium">
+                  Expedition sites
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Choose which sites the Haze must place in this expedition.
+                </p>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {sites.map((site) => {
+                  const selection = siteSelections[site.templateKey]
+                  const selected = selection !== undefined
+                  const authored = site.authoredZoneId !== undefined
+                  return (
+                    <li
+                      key={site.templateKey}
+                      className="grid min-h-24 gap-4 rounded-md border px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                    >
+                      <label className="flex min-w-0 cursor-pointer items-center gap-3 text-sm">
+                        <Switch
+                          checked={selected}
+                          disabled={isPending || authored}
+                          onCheckedChange={(checked) =>
+                            setSiteSelections((current) => {
+                              if (checked) {
+                                return {
+                                  ...current,
+                                  [site.templateKey]: {
+                                    minDepth: site.defaultMinDepth,
+                                    urgency: site.defaultUrgency,
+                                  },
+                                }
+                              }
+                              const next = { ...current }
+                              delete next[site.templateKey]
+                              return next
+                            })
+                          }
+                        />
+                        <span className="truncate font-medium">
+                          {site.name}
+                        </span>
+                        {authored ? (
+                          <span className="text-xs text-muted-foreground">
+                            Already on map
+                          </span>
+                        ) : null}
+                      </label>
+                      {selected ? (
+                        <div className="grid w-full grid-cols-[7rem_10rem] gap-3 sm:w-auto sm:justify-self-end">
+                          <label className="grid gap-1 text-xs text-muted-foreground">
+                            Minimum depth
+                            <Input
+                              type="number"
+                              min={0}
+                              value={selection.minDepth}
+                              disabled={isPending || authored}
+                              className="h-8 w-full tabular-nums"
+                              onChange={(event) => {
+                                const minDepth = Number(event.target.value)
+                                if (!Number.isFinite(minDepth)) return
+                                setSiteSelections((current) => ({
+                                  ...current,
+                                  [site.templateKey]: {
+                                    ...selection,
+                                    minDepth: Math.max(0, Math.round(minDepth)),
+                                  },
+                                }))
+                              }}
+                            />
+                          </label>
+                          <label className="grid gap-1 text-xs text-muted-foreground">
+                            Urgency
+                            <DataSelect
+                              size="sm"
+                              align="end"
+                              className="w-full"
+                              disabled={isPending || authored}
+                              options={[
+                                {
+                                  value: "session" as const,
+                                  label: "This session",
+                                },
+                                {
+                                  value: "eventually" as const,
+                                  label: "Eventually",
+                                },
+                              ]}
+                              optionValue={(option) => option.value}
+                              optionLabel={(option) => option.label}
+                              value={selection.urgency}
+                              onValueChange={(urgency) =>
+                                setSiteSelections((current) => ({
+                                  ...current,
+                                  [site.templateKey]: {
+                                    ...selection,
+                                    urgency: urgency as DungeonSiteUrgency,
+                                  },
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ) : null}
 
           <Button onClick={start} disabled={isPending} className="self-start">
             {isPending && <Spinner />}

@@ -14,10 +14,12 @@ import {
   applyStaticReveal,
   buildRetraction,
   DEFAULT_PREGEN_MAX_DEPTH,
+  emitSiteDeclaration,
   foldExpedition,
   pregenerateExpedition,
   rollExpansion,
   seedMintedUniqueKeys,
+  siteChecklistItems,
   sproutStartStubs,
   withAuthoredProvenance,
 } from "@workspace/game-v2/generation"
@@ -263,6 +265,9 @@ async function executeStart(
   let nextInstance
   let nextDungeonState = dungeon.state
   if (dungeon.regionId === null) {
+    if (args.command.siteDeclarations.length > 0) {
+      return refuseMutation("site-not-declarable")
+    }
     if (!instance.mapId) return refuseMutation("map-not-found")
     const map = await loadMapRowById(instance.mapId, tx)
     if (!map) return refuseMutation("map-not-found")
@@ -311,6 +316,40 @@ async function executeStart(
       mintedUniqueKeys: seedMintedUniqueKeys(snapshot.geometry, set.content),
       mints: {},
     }
+    nextDungeonState = { ...dungeon.state, generation: ledger }
+    const sites = new Map(
+      siteChecklistItems(set.content, snapshot.geometry).map((site) => [
+        site.templateKey,
+        site,
+      ])
+    )
+    const selectedSiteKeys = new Set<string>()
+    for (const selection of args.command.siteDeclarations) {
+      if (selectedSiteKeys.has(selection.templateKey)) {
+        return refuseMutation("site-already-pending")
+      }
+      selectedSiteKeys.add(selection.templateKey)
+      const site = sites.get(selection.templateKey)
+      if (site === undefined) return refuseMutation("site-not-declarable")
+      const emitted = emitSiteDeclaration({
+        ledger: nextDungeonState.generation,
+        templateKey: selection.templateKey,
+        minDepth: selection.minDepth,
+        intent: selection.urgency,
+        ...(site.authoredZoneId === undefined
+          ? {}
+          : { resolvedZoneId: site.authoredZoneId }),
+        newId,
+      })
+      if (!emitted.ok) {
+        return refuseMutation(
+          emitted.error === "site-already-pending"
+            ? "site-already-pending"
+            : "site-not-declarable"
+        )
+      }
+      nextDungeonState = emitted.value.reduce(reduceDungeon, nextDungeonState)
+    }
     // Pre-generate the whole map up front (UNN-642 "replace" experience): the
     // pure roller carves out to the depth limit and seals the frontier, so the
     // expedition begins with a complete board the DM can review and the party
@@ -321,12 +360,19 @@ async function executeStart(
         ...snapshot,
         generation: { ...snapshot.generation, stubs, startingZoneIds },
       },
-      ledger,
+      ledger: nextDungeonState.generation,
       maxDepth: DEFAULT_PREGEN_MAX_DEPTH,
       newId,
     })
-    nextInstance = placeRoster(pregen.instanceState, args.command.placements)
-    nextDungeonState = { ...dungeon.state, generation: pregen.ledger }
+    if (!pregen.ok) return refuseMutation("site-not-declarable")
+    nextInstance = placeRoster(
+      pregen.value.instanceState,
+      args.command.placements
+    )
+    nextDungeonState = {
+      ...nextDungeonState,
+      generation: pregen.value.ledger,
+    }
   }
 
   const savedInstance = await saveMapInstanceState(
@@ -367,6 +413,7 @@ async function executeExpandStub(
   if (args.command.kind !== "expandStub") {
     throw new Error("expand stub command expected")
   }
+  const command = args.command
   if (dungeon.status !== "active") return refuseMutation("delve-not-active")
   // Variant sealing (D11): generation exists only on Region expeditions.
   if (dungeon.regionId === null) return refuseMutation("not-an-expedition")
@@ -379,7 +426,7 @@ async function executeExpandStub(
   // revision vector — never an error toast. Same-mutationId retries never
   // reach here (receipt dedup replays the recorded outcome), and the engine
   // reducers mirror this no-op as defense in depth.
-  if (instance.state.generation.stubs[args.command.stubId] === undefined) {
+  if (instance.state.generation.stubs[command.stubId] === undefined) {
     return acceptMutation()
   }
 
@@ -388,23 +435,69 @@ async function executeExpandStub(
   const set = await loadTemplateSetRowById(region.templateSetId, tx)
   if (!set) return refuseMutation("template-set-not-found")
 
+  let workingDungeonState = dungeon.state
+  if (command.forcePlaceTemplateKey !== undefined) {
+    const site = siteChecklistItems(set.content).find(
+      (candidate) => candidate.templateKey === command.forcePlaceTemplateKey
+    )
+    if (site === undefined) return refuseMutation("site-not-declarable")
+    if (
+      site.unique &&
+      workingDungeonState.generation.mintedUniqueKeys.includes(site.templateKey)
+    ) {
+      return refuseMutation("site-already-placed")
+    }
+    const pending = workingDungeonState.generation.declarations.some(
+      (declaration) =>
+        declaration.templateKey === site.templateKey &&
+        declaration.resolvedZoneId === undefined
+    )
+    if (!pending) {
+      const stub = instance.state.generation.stubs[command.stubId]
+      const parentDepth =
+        stub === undefined
+          ? 0
+          : (instance.state.generation.zones[stub.zoneId]?.depth ?? 0)
+      const emitted = emitSiteDeclaration({
+        ledger: workingDungeonState.generation,
+        templateKey: site.templateKey,
+        minDepth: parentDepth + 1,
+        intent: "force-place",
+        newId,
+      })
+      if (!emitted.ok) {
+        return refuseMutation(
+          emitted.error === "site-already-pending"
+            ? "site-already-pending"
+            : "site-not-declarable"
+        )
+      }
+      workingDungeonState = emitted.value.reduce(
+        reduceDungeon,
+        workingDungeonState
+      )
+    }
+  }
+
+  const forcedTemplateKey =
+    command.forcePlaceTemplateKey ?? command.forcedTemplateKey
   const rolled = rollExpansion(
     {
       set: set.content,
       instanceState: instance.state,
-      ledger: dungeon.state.generation,
-      stubId: args.command.stubId,
+      ledger: workingDungeonState.generation,
+      stubId: command.stubId,
       newId,
     },
-    args.command.forcedTemplateKey === undefined
-      ? undefined
-      : { forcedTemplateKey: args.command.forcedTemplateKey }
+    forcedTemplateKey === undefined ? undefined : { forcedTemplateKey }
   )
   if (!rolled.ok) {
     // The stub was screened present above, so the context arms indicate
     // corrupt state; everything else is a forced-pick refusal.
     return refuseMutation(
-      rolled.error === "unknown-stub" || rolled.error === "unknown-parent-zone"
+      rolled.error === "unknown-stub" ||
+        rolled.error === "unknown-parent-zone" ||
+        rolled.error === "scheduled-template-unavailable"
         ? "expansion-failed"
         : "forced-template-not-mintable"
     )
@@ -412,7 +505,7 @@ async function executeExpandStub(
 
   const savedDungeon = await saveDungeonState(
     dungeon.id,
-    rolled.value.dungeonEvents.reduce(reduceDungeon, dungeon.state),
+    rolled.value.dungeonEvents.reduce(reduceDungeon, workingDungeonState),
     dungeon.version,
     tx
   )
@@ -430,6 +523,58 @@ async function executeExpandStub(
   if (!savedDungeon.ok || !savedInstance.ok) throwMutationContention()
   stamp.record(dungeonAxis(dungeon.id), savedDungeon.value.version)
   stamp.record(mapInstanceAxis(instance.id), savedInstance.value.version)
+  return acceptMutation()
+}
+
+async function executeDeclareSite(
+  tx: WriteExecutor,
+  args: DungeonCommandArgs,
+  dungeon: DungeonRow,
+  stamp: StampAccumulator
+): Promise<MutationCommandDecision<DungeonCommandRefusal>> {
+  if (args.command.kind !== "declareSite") {
+    throw new Error("declare site command expected")
+  }
+  const command = args.command
+  if (dungeon.status !== "active") return refuseMutation("delve-not-active")
+  if (dungeon.regionId === null) return refuseMutation("not-an-expedition")
+  const region = await loadRegionRowById(dungeon.regionId, tx)
+  if (!region) return refuseMutation("region-not-found")
+  const set = await loadTemplateSetRowById(region.templateSetId, tx)
+  if (!set) return refuseMutation("template-set-not-found")
+  const site = siteChecklistItems(set.content).find(
+    (candidate) => candidate.templateKey === command.templateKey
+  )
+  if (site === undefined) return refuseMutation("site-not-declarable")
+  if (
+    site.unique &&
+    dungeon.state.generation.mintedUniqueKeys.includes(site.templateKey)
+  ) {
+    return refuseMutation("site-already-placed")
+  }
+  const emitted = emitSiteDeclaration({
+    ledger: dungeon.state.generation,
+    templateKey: site.templateKey,
+    minDepth: command.minDepth,
+    intent: "force-place",
+    newId,
+  })
+  if (!emitted.ok) {
+    return refuseMutation(
+      emitted.error === "site-already-pending"
+        ? "site-already-pending"
+        : "site-not-declarable"
+    )
+  }
+  const saved = await saveDungeonState(
+    dungeon.id,
+    emitted.value.reduce(reduceDungeon, dungeon.state),
+    dungeon.version,
+    tx
+  )
+  requireStored(saved)
+  if (!saved.ok) throwMutationContention()
+  stamp.record(dungeonAxis(dungeon.id), saved.value.version)
   return acceptMutation()
 }
 
@@ -677,6 +822,8 @@ export const dungeonCommandHandler = {
         return executeStart(tx, args, evidence.dungeon, stamp)
       case "expandStub":
         return executeExpandStub(tx, args, evidence.dungeon, stamp)
+      case "declareSite":
+        return executeDeclareSite(tx, args, evidence.dungeon, stamp)
       case "retractZone":
         return executeRetractZone(tx, args, evidence.dungeon, stamp)
       case "finish":

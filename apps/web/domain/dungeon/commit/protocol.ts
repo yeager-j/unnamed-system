@@ -10,17 +10,18 @@ import {
   GENERATION_DUNGEON_EVENT_KINDS,
   GENERATION_INSTANCE_EVENT_KINDS,
   mapInstanceEventSchema,
-  reduceDungeon,
+  reduceDungeonTurnEvent,
   type DungeonEvent,
-  type DungeonState,
   type MapInstanceEvent,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 import { defineMutation, defineProtocol } from "@workspace/headcanon"
 import { err, ok, type Result } from "@workspace/result"
 
+import type { DungeonClientState } from "@/domain/dungeon/client-state"
+
 export interface DungeonCanonValue {
-  dungeon: DungeonState
+  dungeon: DungeonClientState
   instance: MapInstanceState
 }
 
@@ -29,6 +30,14 @@ export const MAX_STAGED_ENEMY_COUNT = 20
 const placementSchema = z.object({
   characterId: z.string().min(1),
   zoneId: z.string().min(1),
+})
+
+const siteUrgencySchema = z.enum(["session", "eventually"])
+
+const siteDeclarationInputSchema = z.object({
+  templateKey: z.string().min(1),
+  minDepth: z.number().int().nonnegative(),
+  urgency: siteUrgencySchema,
 })
 
 const revealEventSchema = mapInstanceEventSchema.refine(
@@ -43,48 +52,68 @@ const revealEventSchema = mapInstanceEventSchema.refine(
   { message: "event must be a reveal-overlay event" }
 )
 
-const dungeonCommandSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("event"),
-    event: z.union([dungeonEventSchema, mapInstanceEventSchema]),
-  }),
-  z.object({
-    kind: z.literal("searchReveal"),
-    characterId: z.string().min(1),
-    event: revealEventSchema,
-  }),
-  z.object({
-    kind: z.literal("start"),
-    placements: z.array(placementSchema),
-  }),
-  z.object({ kind: z.literal("finish") }),
-  // The expand gesture (UNN-642, D8 seam 2): the one non-optimistic spatial
-  // write. `forcedTemplateKey` is the DM's force-pick — same kind, same
-  // executor, same engine emitter, so random and forced cannot diverge.
-  z.object({
-    kind: z.literal("expandStub"),
-    stubId: z.string().min(1),
-    forcedTemplateKey: z.string().min(1).optional(),
-  }),
-  z.object({
-    kind: z.literal("retractZone"),
-    zoneId: z.string().min(1),
-  }),
-  z.object({
-    kind: z.literal("startEncounter"),
-    name: z.string().trim().min(1).max(100),
-    advantage: z.enum(COMBAT_ADVANTAGES),
-    firstSide: z.enum(COMBAT_SIDES),
-    partyCharacterIds: z.array(z.string().min(1)),
-    enemies: z.array(
-      z.object({
-        enemyKey: z.string().min(1),
-        zoneId: z.string().min(1),
-        count: z.number().int().min(1).max(MAX_STAGED_ENEMY_COUNT),
+const dungeonCommandSchema = z
+  .discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("event"),
+      event: z.union([dungeonEventSchema, mapInstanceEventSchema]),
+    }),
+    z.object({
+      kind: z.literal("searchReveal"),
+      characterId: z.string().min(1),
+      event: revealEventSchema,
+    }),
+    z.object({
+      kind: z.literal("start"),
+      placements: z.array(placementSchema),
+      siteDeclarations: z.array(siteDeclarationInputSchema).default([]),
+    }),
+    z.object({ kind: z.literal("finish") }),
+    // The expand gesture (UNN-642, D8 seam 2): the one non-optimistic spatial
+    // write. `forcedTemplateKey` is the DM's force-pick — same kind, same
+    // executor, same engine emitter, so random and forced cannot diverge.
+    z.object({
+      kind: z.literal("expandStub"),
+      stubId: z.string().min(1),
+      forcedTemplateKey: z.string().min(1).optional(),
+      forcePlaceTemplateKey: z.string().min(1).optional(),
+    }),
+    z.object({
+      kind: z.literal("declareSite"),
+      templateKey: z.string().min(1),
+      minDepth: z.number().int().nonnegative(),
+    }),
+    z.object({
+      kind: z.literal("retractZone"),
+      zoneId: z.string().min(1),
+    }),
+    z.object({
+      kind: z.literal("startEncounter"),
+      name: z.string().trim().min(1).max(100),
+      advantage: z.enum(COMBAT_ADVANTAGES),
+      firstSide: z.enum(COMBAT_SIDES),
+      partyCharacterIds: z.array(z.string().min(1)),
+      enemies: z.array(
+        z.object({
+          enemyKey: z.string().min(1),
+          zoneId: z.string().min(1),
+          count: z.number().int().min(1).max(MAX_STAGED_ENEMY_COUNT),
+        })
+      ),
+    }),
+  ])
+  .superRefine((command, context) => {
+    if (
+      command.kind === "expandStub" &&
+      command.forcedTemplateKey !== undefined &&
+      command.forcePlaceTemplateKey !== undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "force-pick and force-place are mutually exclusive",
       })
-    ),
-  }),
-])
+    }
+  })
 
 export const dungeonCommandArgs = z.object({
   dungeonId: z.string().min(1),
@@ -108,6 +137,9 @@ export const dungeonCommandRefusalSchema = z.enum([
   "expansion-failed",
   // The forced pick was unknown, tombstoned, or a spent unique.
   "forced-template-not-mintable",
+  "site-already-pending",
+  "site-already-placed",
+  "site-not-declarable",
   "generation-event-not-supported",
   "locator-missing",
   "map-instance-not-found",
@@ -154,25 +186,34 @@ export function predictDungeonCommand(
     if (isGenerationDungeonCommandEvent(command.event)) {
       return err("generation-event-not-supported")
     }
-    return ok(
-      isDungeonEvent(command.event)
-        ? {
-            ...state,
-            dungeon: reduceDungeon(state.dungeon, command.event),
-          }
-        : {
-            ...state,
-            instance: createReduceMapInstance(newId)(
-              state.instance,
-              command.event
-            ),
-          }
-    )
+    if (
+      command.event.kind === "markActed" ||
+      command.event.kind === "advanceTurn"
+    ) {
+      const turnEvent =
+        command.event.kind === "markActed"
+          ? {
+              kind: "markActed" as const,
+              characterId: command.event.characterId,
+            }
+          : { kind: "advanceTurn" as const }
+      return ok({
+        ...state,
+        dungeon: reduceDungeonTurnEvent(state.dungeon, turnEvent),
+      })
+    }
+    if (isDungeonEvent(command.event)) {
+      return err("generation-event-not-supported")
+    }
+    return ok({
+      ...state,
+      instance: createReduceMapInstance(newId)(state.instance, command.event),
+    })
   }
 
   if (command.kind === "searchReveal") {
     return ok({
-      dungeon: reduceDungeon(state.dungeon, {
+      dungeon: reduceDungeonTurnEvent(state.dungeon, {
         kind: "markActed",
         characterId: command.characterId,
       }),
@@ -180,7 +221,7 @@ export function predictDungeonCommand(
     })
   }
 
-  // `expandStub` and `retractZone` fall through unpredicted (D1): the roll —
+  // Generation commands fall through unpredicted (D1): the roll —
   // and the retract inverse it recorded — resolves server-side against the
   // ledger, and a roll was never re-derivable. The pending affordance comes
   // from the root's pending count; the accepted stamp invalidates both axes
