@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
 
 import type {
+  RegionKnowledge,
   RegionSettings,
-  StaticReveal,
 } from "@workspace/game-v2/generation"
 import { type Result } from "@workspace/result"
 
@@ -16,7 +16,7 @@ import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
  * write wrapper; `requireCampaignDM` lives at the Server Action boundary.
  *
  * A single `version` token guards the settings/name/archive mutations. The one
- * cross-row composition is {@link foldRegionStaticReveal}, which
+ * cross-row composition is {@link foldRegionKnowledge}, which
  * `finishExpeditionAction` runs inside its `guardMany` — the region is the
  * **last** row in the lifecycle lock order (dungeon → mapInstance → encounter
  * → region), and its version is server-read inside that transaction (the
@@ -62,19 +62,21 @@ export async function updateRegionSettings(
 }
 
 /**
- * The finish-time fold commit (D5): replaces the `staticReveal` blob with the
- * fold `generation/fold.ts` computed, guarded on the version the transaction
- * read. Exported for composition inside `finishExpeditionAction`'s `guardMany`
- * — pass the `tx` so the write shares the lifecycle transaction.
+ * The finish-time knowledge commit (D5): replaces `discoveredSiteKeys` and
+ * `staticReveal` with the one {@link RegionKnowledge} fold computed by
+ * `generation/fold.ts`, guarded on the version the transaction read. Exported
+ * for composition inside `finishExpeditionAction`'s `guardMany` — pass the `tx`
+ * so both columns share the lifecycle transaction.
  */
-export async function foldRegionStaticReveal(
+export async function foldRegionKnowledge(
   executor: WriteExecutor,
   regionId: string,
   expectedVersion: number,
-  staticReveal: StaticReveal
+  knowledge: RegionKnowledge
 ): Promise<Result<{ version: number }, RegionWriteError>> {
   return bumpRegionVersionGuarded(executor, regionId, expectedVersion, {
-    staticReveal,
+    discoveredSiteKeys: knowledge.discoveredSiteKeys,
+    staticReveal: knowledge.staticReveal,
   })
 }
 

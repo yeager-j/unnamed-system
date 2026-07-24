@@ -23,7 +23,8 @@ import { templateSets } from "./template-set"
  *   operations live in game-v2's `generation/fold.ts`, its **only** touchpoint
  *   (ADR-0001 — a chart in escrow for the future Place model).
  * - `discoveredSiteKeys` — the site templates the party has found. The column
- *   ships now so P4's fold needs no migration; nothing writes it in P2.
+ *   is written alongside `staticReveal` when an expedition finishes and
+ *   annotates the next expedition's site checklist.
  *
  * `settings` carries **authored defaults** only (D7): the wandering-table
  * designation is stamped onto each expedition's dungeon row at mint; runtime

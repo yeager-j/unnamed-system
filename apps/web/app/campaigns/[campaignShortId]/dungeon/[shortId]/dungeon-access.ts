@@ -156,7 +156,11 @@ export const getDungeonForDM = cache(
           }),
           expandTemplates,
           siteTemplates: templateSet
-            ? siteChecklistItems(templateSet.content, sourceMap?.geometry)
+            ? siteChecklistItems(
+                templateSet.content,
+                sourceMap?.geometry,
+                region?.discoveredSiteKeys
+              )
             : [],
         }
       },

@@ -18,6 +18,21 @@ import { applyStaticReveal, foldExpedition, type StaticReveal } from "./fold"
 
 const SEED = "seed-map"
 
+const foldStaticReveal = (input: {
+  instance: MapInstanceState
+  seedMapId: string
+  prior: StaticReveal
+}): StaticReveal =>
+  foldExpedition({
+    instance: input.instance,
+    seedMapId: input.seedMapId,
+    siteTemplateKeys: [],
+    prior: {
+      discoveredSiteKeys: [],
+      staticReveal: input.prior,
+    },
+  }).staticReveal
+
 /** An Instance over a–b–c (a connected to b, b connected to c), with the given
  *  provenance and reveal overlaid; every zone sits on the default page. */
 const abcInstance = (
@@ -52,7 +67,7 @@ describe("foldExpedition", () => {
     const prior: StaticReveal = {
       [SEED]: { zoneIds: ["zone-a"], connectionIds: ["conn-ab"] },
     }
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(allAuthored),
       seedMapId: SEED,
       prior,
@@ -62,7 +77,7 @@ describe("foldExpedition", () => {
   })
 
   it("folds an authored, revealed Zone to the seed Map", () => {
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(allAuthored, { revealedZoneIds: ["zone-a"] }),
       seedMapId: SEED,
       prior: {},
@@ -72,7 +87,7 @@ describe("foldExpedition", () => {
   })
 
   it("folds nothing when every revealed Zone is manual", () => {
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(
         {
           "zone-a": { source: "manual", depth: 0 },
@@ -89,7 +104,7 @@ describe("foldExpedition", () => {
   })
 
   it("never folds a Zone with missing provenance (fail-safe under-fold)", () => {
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(
         { "zone-a": { source: "authored", depth: 0 } },
         { revealedZoneIds: ["zone-a", "zone-b"] }
@@ -102,7 +117,7 @@ describe("foldExpedition", () => {
   })
 
   it("folds a revealed connection only when both endpoints are authored", () => {
-    const bothAuthored = foldExpedition({
+    const bothAuthored = foldStaticReveal({
       instance: abcInstance(allAuthored, {
         revealedConnectionIds: ["conn-ab"],
       }),
@@ -111,7 +126,7 @@ describe("foldExpedition", () => {
     })
     expect(bothAuthored[SEED]?.connectionIds).toEqual(["conn-ab"])
 
-    const oneManual = foldExpedition({
+    const oneManual = foldStaticReveal({
       instance: abcInstance(
         {
           "zone-a": { source: "authored", depth: 0 },
@@ -127,7 +142,7 @@ describe("foldExpedition", () => {
   })
 
   it("never folds an unlocked connection — unlock is world state, not knowledge", () => {
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(allAuthored, {
         unlockedConnectionIds: ["conn-ab"],
       }),
@@ -139,7 +154,7 @@ describe("foldExpedition", () => {
   })
 
   it("unions with prior, de-duplicating and preserving prior order", () => {
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(allAuthored, {
         revealedZoneIds: ["zone-a", "zone-c"],
       }),
@@ -156,7 +171,7 @@ describe("foldExpedition", () => {
       [SEED]: { zoneIds: ["gone-zone"], connectionIds: ["gone-conn"] },
       "other-map": { zoneIds: ["m1"], connectionIds: [] },
     }
-    const result = foldExpedition({
+    const result = foldStaticReveal({
       instance: abcInstance(allAuthored, { revealedZoneIds: ["zone-a"] }),
       seedMapId: SEED,
       prior,
@@ -188,10 +203,97 @@ describe("foldExpedition", () => {
       },
     })
 
-    const result = foldExpedition({ instance, seedMapId: SEED, prior: {} })
+    const result = foldStaticReveal({
+      instance,
+      seedMapId: SEED,
+      prior: {},
+    })
 
     expect(result[SEED]?.zoneIds).toEqual(["zone-a"])
     expect(result["portal-map"]?.zoneIds).toEqual(["zone-g"])
+  })
+})
+
+describe("foldExpedition discoveredSiteKeys", () => {
+  it("folds revealed authored and generated sites, but no visit-scoped or unrelated space", () => {
+    const instance = makeMapInstanceState({
+      geometry: makeGeometry(
+        [
+          makeZone("authored", { templateKey: "authored-site" }),
+          makeZone("generated", { templateKey: "generated-site" }),
+          makeZone("manual", { templateKey: "manual-site" }),
+          makeZone("hidden", { templateKey: "hidden-site" }),
+          makeZone("ordinary", { templateKey: "ordinary-room" }),
+          makeZone("missing-provenance", {
+            templateKey: "missing-provenance-site",
+          }),
+        ],
+        []
+      ),
+      generation: makeGenerationState({
+        zones: {
+          authored: {
+            source: "authored",
+            depth: 0,
+            templateKey: "authored-site",
+          },
+          generated: {
+            source: "generated",
+            depth: 2,
+            templateKey: "generated-site",
+          },
+          manual: {
+            source: "manual",
+            depth: 0,
+            templateKey: "manual-site",
+          },
+          hidden: {
+            source: "generated",
+            depth: 3,
+            templateKey: "hidden-site",
+          },
+          ordinary: {
+            source: "generated",
+            depth: 1,
+            templateKey: "ordinary-room",
+          },
+        },
+      }),
+      reveal: {
+        revealedZoneIds: [
+          "authored",
+          "generated",
+          "manual",
+          "ordinary",
+          "missing-provenance",
+          "stale-zone-id",
+        ],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+    })
+
+    const result = foldExpedition({
+      instance,
+      seedMapId: SEED,
+      siteTemplateKeys: [
+        "authored-site",
+        "generated-site",
+        "manual-site",
+        "hidden-site",
+        "missing-provenance-site",
+      ],
+      prior: {
+        discoveredSiteKeys: ["stale-site", "authored-site"],
+        staticReveal: {},
+      },
+    })
+
+    expect(result.discoveredSiteKeys).toEqual([
+      "stale-site",
+      "authored-site",
+      "generated-site",
+    ])
   })
 })
 

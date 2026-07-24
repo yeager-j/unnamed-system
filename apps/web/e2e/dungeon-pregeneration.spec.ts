@@ -37,7 +37,7 @@ test.afterAll(async () => {
   await cleanup(tracker)
 })
 
-async function mintAndStartExpedition(page: Page, name: string) {
+async function mintExpeditionDraft(page: Page, name: string) {
   await page.goto(target.region.url)
   await page.waitForLoadState("networkidle")
   await page.getByRole("button", { name: "New expedition" }).click()
@@ -48,34 +48,48 @@ async function mintAndStartExpedition(page: Page, name: string) {
 
   await page.waitForURL(/\/dungeon\//)
   await page.waitForLoadState("networkidle")
+}
+
+async function mintAndStartExpedition(page: Page, name: string) {
+  await mintExpeditionDraft(page, name)
   await page.getByRole("combobox").first().click()
   await page.getByRole("option", { name: ENTRY.name }).click()
 
   const ossuary = page
-    .getByRole("switch", { name: OSSUARY_TEMPLATE.name })
+    .getByRole("checkbox", { name: OSSUARY_TEMPLATE.name })
     .locator("xpath=ancestor::li")
   await expect(
-    ossuary.getByRole("switch", { name: OSSUARY_TEMPLATE.name })
+    ossuary.getByRole("checkbox", { name: OSSUARY_TEMPLATE.name })
   ).toBeChecked()
   await expect(ossuary.getByLabel("Minimum depth")).toHaveValue("2")
   await expect(ossuary.getByRole("combobox")).toHaveText(/This session/)
   await expect(
-    page.getByRole("switch", { name: CRYPT_TEMPLATE.name })
+    page.getByRole("checkbox", { name: CRYPT_TEMPLATE.name })
   ).not.toBeChecked()
   const authored = page
-    .getByRole("switch", { name: MONOLITH_TEMPLATE.name })
+    .getByRole("checkbox", { name: MONOLITH_TEMPLATE.name })
     .locator("xpath=ancestor::li")
   await expect(
-    authored.getByRole("switch", { name: MONOLITH_TEMPLATE.name })
+    authored.getByRole("checkbox", { name: MONOLITH_TEMPLATE.name })
   ).toBeChecked()
   await expect(
-    authored.getByRole("switch", { name: MONOLITH_TEMPLATE.name })
+    authored.getByRole("checkbox", { name: MONOLITH_TEMPLATE.name })
   ).toBeDisabled()
   await expect(authored.getByText("Already on map")).toBeVisible()
 
   await page.getByRole("button", { name: "Start expedition" }).click()
 
   await expect(page.getByRole("button", { name: "Advance turn" })).toBeVisible()
+}
+
+async function openQueueSiteMenu(page: Page) {
+  await page.locator(`[data-id="${ENTRY.id}"]`).click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Queue site…" }).hover()
+}
+
+async function closeNestedMenu(page: Page) {
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("Escape")
 }
 
 test("starting an expedition pre-generates the map to depth with an open frontier at turn 0", async ({
@@ -137,12 +151,46 @@ test("starting an expedition pre-generates the map to depth with an open frontie
   await expect(
     page.getByRole("button", { name: /Expand passage off/ }).first()
   ).toBeVisible()
+  const objectivesTab = page.getByRole("tab", { name: /Objectives/ })
+  await expect(objectivesTab).toContainText("2")
+  await objectivesTab.click()
+  await expect(
+    page.getByText("Seeking · eligible past depth 0", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByText("Seeking · eligible past depth 2", { exact: true })
+  ).toBeVisible()
+
+  await target.revealZones(expedition!.mapInstanceId, [
+    MONOLITH.id,
+    ossuary!.id,
+  ])
+  await page.reload()
+  await expect(objectivesTab).toContainText("0")
+  await objectivesTab.click()
+  await expect(
+    page.getByText(`Found · ${MONOLITH.name}`, { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByText(`Found · ${ossuary!.name}`, { exact: true })
+  ).toBeVisible()
 
   // Queue the unused site from a Zone, then force-place that same pending
-  // declaration on an exact frontier stub. The queued gesture itself is
-  // turn-free; the forced carve costs the ordinary one expansion turn.
-  await page.locator(`[data-id="${ENTRY.id}"]`).click({ button: "right" })
-  await page.getByRole("menuitem", { name: "Queue site…" }).hover()
+  // declaration on an exact frontier stub. Placement resolves the private
+  // scheduler declaration but the objective remains Seeking until its Zone is
+  // revealed. The queued gesture itself is turn-free; the forced carve costs
+  // the ordinary one expansion turn.
+  await openQueueSiteMenu(page)
+  await expect(
+    page.getByRole("menuitem", {
+      name: `${MONOLITH_TEMPLATE.name} Already on map`,
+    })
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("menuitem", {
+      name: `${OSSUARY_TEMPLATE.name} Already on map`,
+    })
+  ).toBeDisabled()
   await page.getByRole("menuitem", { name: CRYPT_TEMPLATE.name }).hover()
   await page
     .getByRole("menuitem", { name: "Next qualifying expansion" })
@@ -159,6 +207,20 @@ test("starting an expedition pre-generates the map to depth with an open frontie
       }
     })
     .toEqual({ exists: true, resolved: null })
+  await expect(objectivesTab).toContainText("1")
+  await expect(
+    page.getByText(CRYPT_TEMPLATE.name, { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByText("Seeking · eligible past depth 0", { exact: true })
+  ).toBeVisible()
+  await openQueueSiteMenu(page)
+  await expect(
+    page.getByRole("menuitem", {
+      name: `${CRYPT_TEMPLATE.name} Already queued`,
+    })
+  ).toBeDisabled()
+  await closeNestedMenu(page)
 
   const frontier = page
     .getByRole("button", { name: /Expand passage off/ })
@@ -184,4 +246,45 @@ test("starting an expedition pre-generates the map to depth with an open frontie
       }
     })
     .toEqual({ turn: 1, resolved: expect.any(String) })
+  await expect(objectivesTab).toContainText("1")
+  await expect(
+    page.getByText("Seeking · eligible past depth 0", { exact: true })
+  ).toBeVisible()
+
+  const afterForcePlace = await target.getDungeonState(expedition!.id)
+  const cryptZoneId = afterForcePlace.generation.declarations.find(
+    (item) => item.templateKey === CRYPT_TEMPLATE.key
+  )?.resolvedZoneId
+  expect(cryptZoneId).toBeDefined()
+  await target.revealZones(expedition!.mapInstanceId, [cryptZoneId!])
+
+  await page.reload()
+  await expect(objectivesTab).toContainText("0")
+  await objectivesTab.click()
+  await expect(
+    page.getByText(new RegExp(`^Found · ${CRYPT_TEMPLATE.name}$`))
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Finish expedition" }).click()
+  await page.getByRole("button", { name: "Finish expedition" }).last().click()
+  await expect
+    .poll(async () => (await target.getExpeditions())[0]?.status)
+    .toBe("done")
+  await expect
+    .poll(() => target.getDiscoveredSiteKeys())
+    .toEqual(
+      expect.arrayContaining([
+        MONOLITH_TEMPLATE.key,
+        OSSUARY_TEMPLATE.key,
+        CRYPT_TEMPLATE.key,
+      ])
+    )
+
+  await mintExpeditionDraft(page, "Discovery-annotated Expedition")
+  for (const site of [MONOLITH_TEMPLATE, OSSUARY_TEMPLATE, CRYPT_TEMPLATE]) {
+    const row = page
+      .getByRole("checkbox", { name: site.name })
+      .locator("xpath=ancestor::li")
+    await expect(row.getByText("Discovered previously")).toBeVisible()
+  }
 })

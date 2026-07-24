@@ -36,7 +36,7 @@ const setDungeonStatus = vi.fn()
 const activateDungeonWithState = vi.fn()
 const saveMapInstanceState = vi.fn()
 const freezeMapInstance = vi.fn()
-const foldRegionStaticReveal = vi.fn()
+const foldRegionKnowledge = vi.fn()
 const createEncounter = vi.fn()
 
 vi.mock("server-only", () => ({}))
@@ -81,8 +81,7 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
   freezeMapInstance: (...args: unknown[]) => freezeMapInstance(...args),
 }))
 vi.mock("@/lib/db/writes/region", () => ({
-  foldRegionStaticReveal: (...args: unknown[]) =>
-    foldRegionStaticReveal(...args),
+  foldRegionKnowledge: (...args: unknown[]) => foldRegionKnowledge(...args),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   createEncounter: (...args: unknown[]) => createEncounter(...args),
@@ -134,7 +133,7 @@ beforeEach(() => {
   activateDungeonWithState.mockResolvedValue(ok({ version: 4 }))
   saveMapInstanceState.mockResolvedValue(ok({ version: 6 }))
   freezeMapInstance.mockResolvedValue(ok({ version: 6 }))
-  foldRegionStaticReveal.mockResolvedValue(ok({ version: 8 }))
+  foldRegionKnowledge.mockResolvedValue(ok({ version: 8 }))
   createEncounter.mockResolvedValue({ id: "encounter-1", shortId: "enc-1" })
 })
 
@@ -347,6 +346,7 @@ describe("dungeon.command authority", () => {
       version: 7,
       seedMapId: "map-1",
       templateSetId: "set-1",
+      discoveredSiteKeys: [],
       staticReveal: {},
     }
     const expeditionState = (): DungeonState => ({
@@ -931,9 +931,14 @@ describe("dungeon.command authority", () => {
       shortId: "region-short",
       version: 7,
       seedMapId: "map-1",
+      templateSetId: "set-1",
+      discoveredSiteKeys: ["known-site"],
       staticReveal: {},
     }
     loadRegionRowById.mockResolvedValue(region)
+    loadTemplateSetRowById.mockResolvedValue({
+      content: templateSetContentSchema.parse({}),
+    })
     const stamp = createStampAccumulator()
 
     const decision = await dungeonCommandHandler.execute({
@@ -951,5 +956,40 @@ describe("dungeon.command authority", () => {
       [mapInstanceAxis(instance.id)]: 6,
       [regionAxis(region.id)]: 8,
     })
+    expect(foldRegionKnowledge).toHaveBeenCalledWith(tx, region.id, 7, {
+      discoveredSiteKeys: ["known-site"],
+      staticReveal: {},
+    })
+  })
+
+  it("refuses expedition finish when its Template Set is unavailable", async () => {
+    const expedition = { ...baseDungeon, regionId: "region-1" }
+    loadRegionRowById.mockResolvedValue({
+      id: "region-1",
+      version: 7,
+      seedMapId: "map-1",
+      templateSetId: "missing-set",
+      discoveredSiteKeys: [],
+      staticReveal: {},
+    })
+    loadTemplateSetRowById.mockResolvedValue(null)
+    const stamp = createStampAccumulator()
+
+    const decision = await dungeonCommandHandler.execute({
+      tx,
+      actor,
+      args: { dungeonId: expedition.id, command: { kind: "finish" } },
+      evidence: { dungeon: expedition, campaign: campaign as never },
+      stamp,
+      mutationId,
+    })
+
+    expect(decision).toEqual({
+      kind: "refused",
+      error: "template-set-not-found",
+    })
+    expect(foldRegionKnowledge).not.toHaveBeenCalled()
+    expect(setDungeonStatus).not.toHaveBeenCalled()
+    expect(stamp.accepted().revisions).toEqual({})
   })
 })

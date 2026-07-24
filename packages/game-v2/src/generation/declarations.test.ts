@@ -75,6 +75,7 @@ describe("siteChecklistItems", () => {
         defaultMinDepth: 3,
         defaultUrgency: "session",
         unique: true,
+        discovered: false,
         authoredZoneId: "A",
       },
       {
@@ -84,7 +85,26 @@ describe("siteChecklistItems", () => {
         defaultMinDepth: 0,
         defaultUrgency: "eventually",
         unique: false,
+        discovered: false,
       },
+    ])
+  })
+
+  it("annotates only live checklist sites discovered on prior expeditions", () => {
+    const items = siteChecklistItems(set, undefined, [
+      "portal",
+      "retired",
+      "stale-site",
+    ])
+
+    expect(
+      items.map(({ templateKey, discovered }) => ({
+        templateKey,
+        discovered,
+      }))
+    ).toStrictEqual([
+      { templateKey: "vault", discovered: false },
+      { templateKey: "portal", discovered: true },
     ])
   })
 })

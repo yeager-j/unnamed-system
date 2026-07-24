@@ -89,7 +89,7 @@ import {
   freezeMapInstance,
   saveMapInstanceState,
 } from "@/lib/db/writes/map-instance"
-import { foldRegionStaticReveal } from "@/lib/db/writes/region"
+import { foldRegionKnowledge } from "@/lib/db/writes/region"
 import { campaignRegionPath } from "@/lib/paths"
 
 import { placeRoster } from "../place-roster"
@@ -688,12 +688,20 @@ async function executeFinish(
   if (live) return refuseMutation("delve-has-live-encounter")
   const region = await loadRegionRowById(dungeon.regionId, tx)
   if (!region) return refuseMutation("region-not-found")
+  const set = await loadTemplateSetRowById(region.templateSetId, tx)
+  if (!set) return refuseMutation("template-set-not-found")
   const folded = foldExpedition({
     instance: instance.state,
     seedMapId: region.seedMapId,
-    prior: region.staticReveal,
+    siteTemplateKeys: siteChecklistItems(set.content).map(
+      (site) => site.templateKey
+    ),
+    prior: {
+      discoveredSiteKeys: region.discoveredSiteKeys,
+      staticReveal: region.staticReveal,
+    },
   })
-  const savedRegion = await foldRegionStaticReveal(
+  const savedRegion = await foldRegionKnowledge(
     tx,
     region.id,
     region.version,

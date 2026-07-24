@@ -36,6 +36,19 @@ export const staticRevealEntrySchema = z.object({
 export const staticRevealSchema = z.record(z.string(), staticRevealEntrySchema)
 export type StaticReveal = z.infer<typeof staticRevealSchema>
 
+/** The Region's monotonic memory of site templates the party has revealed.
+ *  Stale keys remain valid knowledge; checklist derivation simply ignores keys
+ *  that no longer have a live site row. */
+export const discoveredSiteKeysSchema = z.array(z.string()).default([])
+export type DiscoveredSiteKeys = z.infer<typeof discoveredSiteKeysSchema>
+
+/** Both Region-sized knowledge folds committed together when an expedition
+ *  finishes. They are separate database columns, but one domain decision. */
+export interface RegionKnowledge {
+  discoveredSiteKeys: DiscoveredSiteKeys
+  staticReveal: StaticReveal
+}
+
 /** A total, environment-independent code-unit order for the *appended* portion of a
  *  union — the same comparator `spatial/pages.ts` pins for snapshot determinism, and
  *  for the same reason: `localeCompare` varies by environment and can collapse
@@ -67,11 +80,11 @@ function unionSorted(
 }
 
 /**
- * Folds an expedition's revealed, **authored** geography into the Region's
- * `staticReveal`, unioned with `prior` (procedural-dungeons tech design D5). Called
- * once by `finishExpeditionAction`; the result replaces the Region's fold.
+ * Folds an expedition's revealed knowledge into the Region, unioned with
+ * `prior` (procedural-dungeons tech design D5). Called once by
+ * `finishExpeditionAction`; the result replaces both Region knowledge columns.
  *
- * What folds:
+ * What folds into `staticReveal`:
  *
  * - A **Zone** folds iff it is authored-stamped **and** revealed. Generated, manual,
  *   and provenance-missing Zones never fold — visit-scoped space dies with the run,
@@ -89,20 +102,43 @@ function unionSorted(
  * a seed page and a grafted page; both endpoints are authored, so either side is a
  * legitimate chart home and the `from` side is chosen once.
  *
- * The union is **per source Map**: sources the party touched this run gain their new
- * ids (monotonically — knowledge only grows); sources untouched this run pass through
- * from `prior` unchanged.
+ * The union is **per source Map**: sources the party touched this run gain their
+ * new ids (monotonically — knowledge only grows); sources untouched this run pass
+ * through from `prior` unchanged.
+ *
+ * `discoveredSiteKeys` is the second knowledge fold. A revealed Zone contributes
+ * its template key iff the key names a live site and its provenance is authored or
+ * generated. Manual and provenance-missing Zones are visit-scoped and never become
+ * Region knowledge. Prior keys remain in their existing order; newly discovered
+ * keys append in deterministic code-unit order.
  */
 export function foldExpedition(input: {
   instance: MapInstanceState
   seedMapId: string
-  prior: StaticReveal
-}): StaticReveal {
+  siteTemplateKeys: readonly string[]
+  prior: RegionKnowledge
+}): RegionKnowledge {
   const { instance, seedMapId, prior } = input
   const { geometry, generation, reveal } = instance
+  const siteTemplateKeys = new Set(input.siteTemplateKeys)
 
   const isAuthored = (zoneId: string): boolean =>
     generation.zones[zoneId]?.source === "authored"
+
+  const discoveredSiteKeys = new Set<string>()
+  for (const zoneId of reveal.revealedZoneIds) {
+    const zone = geometry.zones[zoneId]
+    const provenance = generation.zones[zoneId]
+    if (
+      zone?.templateKey === undefined ||
+      provenance === undefined ||
+      (provenance.source !== "authored" && provenance.source !== "generated") ||
+      !siteTemplateKeys.has(zone.templateKey)
+    ) {
+      continue
+    }
+    discoveredSiteKeys.add(zone.templateKey)
+  }
 
   // page id → source mapId. A grafted page attributes to the Map that grafted it;
   // every other (seed) page attributes to `seedMapId`.
@@ -154,13 +190,16 @@ export function foldExpedition(input: {
 
   const result: StaticReveal = {}
   const sources = new Set<string>([
-    ...Object.keys(prior),
+    ...Object.keys(prior.staticReveal),
     ...foldedZones.keys(),
     ...foldedConnections.keys(),
   ])
   const empty = new Set<string>()
   for (const source of sources) {
-    const priorEntry = prior[source] ?? { zoneIds: [], connectionIds: [] }
+    const priorEntry = prior.staticReveal[source] ?? {
+      zoneIds: [],
+      connectionIds: [],
+    }
     result[source] = {
       zoneIds: unionSorted(
         priorEntry.zoneIds,
@@ -172,7 +211,13 @@ export function foldExpedition(input: {
       ),
     }
   }
-  return result
+  return {
+    discoveredSiteKeys: unionSorted(
+      prior.discoveredSiteKeys,
+      discoveredSiteKeys
+    ),
+    staticReveal: result,
+  }
 }
 
 /**
