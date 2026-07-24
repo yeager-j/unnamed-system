@@ -1,16 +1,18 @@
 "use client"
 
+import { CheckCircleIcon, MapPinIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Canon } from "@workspace/headcanon"
 import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import { DataSelect } from "@workspace/ui/components/data-select"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Spinner } from "@workspace/ui/components/spinner"
-import { Switch } from "@workspace/ui/components/switch"
+import { cn } from "@workspace/ui/lib/utils"
 
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type {
@@ -207,18 +209,28 @@ export function DungeonPrep({
                   const selection = siteSelections[site.templateKey]
                   const selected = selection !== undefined
                   const authored = site.authoredZoneId !== undefined
+                  const checkboxId = `site-${site.templateKey}`
                   return (
                     <li
                       key={site.templateKey}
                       className="grid min-h-24 gap-4 rounded-md border px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                     >
-                      <label className="flex min-w-0 cursor-pointer items-center gap-3 text-sm">
-                        <Switch
+                      <label
+                        htmlFor={checkboxId}
+                        className={cn(
+                          "flex min-h-11 min-w-0 items-center gap-3 text-sm",
+                          isPending || authored
+                            ? "cursor-not-allowed"
+                            : "cursor-pointer"
+                        )}
+                      >
+                        <Checkbox
+                          id={checkboxId}
                           checked={selected}
                           disabled={isPending || authored}
                           onCheckedChange={(checked) =>
                             setSiteSelections((current) => {
-                              if (checked) {
+                              if (checked === true) {
                                 return {
                                   ...current,
                                   [site.templateKey]: {
@@ -233,14 +245,33 @@ export function DungeonPrep({
                             })
                           }
                         />
-                        <span className="truncate font-medium">
-                          {site.name}
-                        </span>
-                        {authored ? (
-                          <span className="text-xs text-muted-foreground">
-                            Already on map
+                        <span className="flex min-w-0 flex-col gap-1">
+                          <span className="truncate font-medium">
+                            {site.name}
                           </span>
-                        ) : null}
+                          {site.discovered || authored ? (
+                            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              {site.discovered ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <CheckCircleIcon
+                                    aria-hidden
+                                    className="size-3.5 shrink-0"
+                                  />
+                                  Discovered previously
+                                </span>
+                              ) : null}
+                              {authored ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPinIcon
+                                    aria-hidden
+                                    className="size-3.5 shrink-0"
+                                  />
+                                  Already on map
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : null}
+                        </span>
                       </label>
                       {selected ? (
                         <div className="grid w-full grid-cols-[7rem_10rem] gap-3 sm:w-auto sm:justify-self-end">

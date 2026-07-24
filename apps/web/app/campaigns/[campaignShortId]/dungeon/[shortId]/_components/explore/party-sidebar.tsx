@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  CheckCircleIcon,
   CheckIcon,
   CopyIcon,
   DotsThreeIcon,
@@ -12,6 +13,7 @@ import {
 import Image from "next/image"
 import { useState } from "react"
 
+import type { SiteChecklistItem } from "@workspace/game-v2/generation"
 import {
   activeActedCharacterIds,
   deriveDungeonRoster,
@@ -31,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
@@ -62,9 +65,10 @@ import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dunge
 import { AddToDelveDialog } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/add-to-delve-dialog"
 import { DungeonSidebarHeader } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/sidebar-header"
 import { RenamePageDialog } from "@/components/shared/canvas/canvas-page-tabs"
-import type {
-  DungeonClientState,
-  DungeonClientView,
+import {
+  foundObjectiveZoneId,
+  type DungeonClientState,
+  type DungeonClientView,
 } from "@/domain/dungeon/client-state"
 import {
   groupZonesByPage,
@@ -87,6 +91,11 @@ import {
  *   Zones is occupied (the engine refuses that edit — no enabled dead buttons)
  *   or when it's the last page. All CRUD dispatches `editGeometry` events
  *   through the console's optimistic write lane.
+ * - **Objectives** — Region expeditions only (UNN-703): declaration status with
+ *   an aggregate pending count. A pre-generated declaration remains Seeking
+ *   until its resolved Zone is revealed; the browser projection deliberately
+ *   carries no hidden draw position or progress, so the panel can say what is
+ *   being sought without leaking when the scheduler will place it.
  */
 export function DungeonPartySidebar({
   roster,
@@ -96,6 +105,7 @@ export function DungeonPartySidebar({
   campaignShortId,
   absentCharacters,
   disabled,
+  siteTemplates,
   onMarkActed,
   onMoveToken,
   onPlaceToken,
@@ -110,6 +120,7 @@ export function DungeonPartySidebar({
   campaignShortId: string
   absentCharacters: { id: string; name: string }[]
   disabled?: boolean
+  siteTemplates: ReadonlyArray<SiteChecklistItem>
   onMarkActed: (characterId: string) => void
   onMoveToken: (characterId: string, toZoneId: string) => void
   onPlaceToken: (characterId: string, zoneId: string) => void
@@ -126,6 +137,12 @@ export function DungeonPartySidebar({
   )
   const acted = new Set(activeActedCharacterIds(dungeonState, rosterIds))
   const zoneGroups = groupZonesByPage(instanceState.geometry)
+  const isExpedition = dungeon.regionId !== null
+  const revealedZoneIds = new Set(instanceState.reveal.revealedZoneIds)
+  const pendingObjectiveCount = dungeonState.generation.declarations.filter(
+    (declaration) =>
+      foundObjectiveZoneId(declaration, revealedZoneIds) === undefined
+  ).length
 
   return (
     <Tabs defaultValue="players" className="flex min-h-0 flex-1 flex-col">
@@ -141,6 +158,17 @@ export function DungeonPartySidebar({
             <TabsTrigger value="pages" className="flex-1">
               Pages
             </TabsTrigger>
+            {isExpedition ? (
+              <TabsTrigger value="objectives" className="flex-1">
+                Objectives
+                <Badge
+                  variant="secondary"
+                  className="h-4 min-w-4 px-1 text-[0.625rem] tabular-nums"
+                >
+                  {pendingObjectiveCount}
+                </Badge>
+              </TabsTrigger>
+            ) : null}
           </TabsList>
           <p className="text-xs text-muted-foreground">
             {rosterIds.length} in the party · {acted.size} of {rosterIds.length}{" "}
@@ -200,7 +228,98 @@ export function DungeonPartySidebar({
           onGeometryEvent={onGeometryEvent}
         />
       </TabsContent>
+
+      {isExpedition ? (
+        <TabsContent
+          value="objectives"
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <ObjectivesTab
+            declarations={dungeonState.generation.declarations}
+            siteTemplates={siteTemplates}
+            instanceState={instanceState}
+            revealedZoneIds={revealedZoneIds}
+          />
+        </TabsContent>
+      ) : null}
     </Tabs>
+  )
+}
+
+/** The Region expedition's declaration ledger projected as honest DM-facing
+ *  status. Only public fields enter this component; scheduler progress remains
+ *  authority-private. */
+function ObjectivesTab({
+  declarations,
+  siteTemplates,
+  instanceState,
+  revealedZoneIds,
+}: {
+  declarations: DungeonClientState["generation"]["declarations"]
+  siteTemplates: ReadonlyArray<SiteChecklistItem>
+  instanceState: MapInstanceState
+  revealedZoneIds: ReadonlySet<string>
+}) {
+  const names = new Map(
+    siteTemplates.map((site) => [site.templateKey, site.name])
+  )
+
+  return (
+    <SidebarContent>
+      <SidebarGroup>
+        {declarations.length === 0 ? (
+          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">
+              No expedition objectives
+            </p>
+            <p className="mt-1">
+              Queue a site from a zone&apos;s menu when the party chooses
+              somewhere to seek.
+            </p>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {declarations.map((declaration) => {
+              const foundZoneId = foundObjectiveZoneId(
+                declaration,
+                revealedZoneIds
+              )
+              const zone =
+                foundZoneId === undefined
+                  ? undefined
+                  : instanceState.geometry.zones[foundZoneId]
+              return (
+                <li
+                  key={declaration.id}
+                  className="flex flex-col gap-1 rounded-md border px-3 py-2.5"
+                >
+                  <span className="truncate text-sm font-medium">
+                    {names.get(declaration.templateKey) ??
+                      declaration.templateKey}
+                  </span>
+                  {foundZoneId === undefined ? (
+                    <span className="text-xs text-muted-foreground">
+                      Seeking · eligible past depth{" "}
+                      <span className="tabular-nums">
+                        {declaration.minDepth}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <CheckCircleIcon
+                        aria-hidden
+                        className="size-3.5 shrink-0"
+                      />
+                      {zone === undefined ? "Found" : `Found · ${zone.name}`}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </SidebarGroup>
+    </SidebarContent>
   )
 }
 

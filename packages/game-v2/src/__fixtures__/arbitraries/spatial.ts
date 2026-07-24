@@ -246,7 +246,18 @@ export const arbitraryExpeditionInstance: fc.Arbitrary<MapInstanceState> =
         revealedConnectionIds,
         unlockedConnectionIds,
       }) => ({
-        geometry,
+        geometry: {
+          ...geometry,
+          zones: Object.fromEntries(
+            Object.entries(geometry.zones).map(([zoneId, zone]) => {
+              const templateKey = zones[zoneId]?.templateKey
+              return [
+                zoneId,
+                templateKey === undefined ? zone : { ...zone, templateKey },
+              ]
+            })
+          ),
+        },
         occupancy: {},
         enchantment: null,
         reveal: {

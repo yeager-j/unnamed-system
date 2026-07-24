@@ -11,6 +11,7 @@ import {
 import {
   applyStaticReveal,
   foldExpedition,
+  type RegionKnowledge,
   type StaticReveal,
 } from "@workspace/game-v2/generation/fold"
 import { withAuthoredProvenance } from "@workspace/game-v2/generation/provenance"
@@ -27,6 +28,11 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial/map-instance.s
  */
 
 type FoldImpl = typeof foldExpedition
+const SITE_TEMPLATE_KEYS = ["hall", "shrine", "vault"] as const
+const emptyKnowledge = (): RegionKnowledge => ({
+  discoveredSiteKeys: [],
+  staticReveal: {},
+})
 
 /**
  * **Absence** — the provenance gate holds: with an empty prior (so every output id
@@ -36,8 +42,13 @@ type FoldImpl = typeof foldExpedition
  */
 function foldOutputRespectsProvenance(fold: FoldImpl) {
   return fc.property(arbitraryExpeditionInstance, (instance) => {
-    const output = fold({ instance, seedMapId: SEED_MAP_ID, prior: {} })
-    for (const entry of Object.values(output)) {
+    const output = fold({
+      instance,
+      seedMapId: SEED_MAP_ID,
+      siteTemplateKeys: SITE_TEMPLATE_KEYS,
+      prior: emptyKnowledge(),
+    })
+    for (const entry of Object.values(output.staticReveal)) {
       for (const zoneId of entry.zoneIds) {
         expect(instance.generation.zones[zoneId]?.source).toBe("authored")
       }
@@ -64,6 +75,10 @@ const arbitraryPrior: fc.Arbitrary<StaticReveal> = record({
     zoneIds: fc.array(fc.string(), { maxLength: 5 }),
     connectionIds: fc.array(fc.string(), { maxLength: 5 }),
   }),
+})
+const arbitraryPriorKnowledge: fc.Arbitrary<RegionKnowledge> = record({
+  discoveredSiteKeys: fc.array(fc.string(), { maxLength: 5 }),
+  staticReveal: arbitraryPrior,
 })
 
 describe("foldExpedition / applyStaticReveal laws", () => {
@@ -96,12 +111,13 @@ describe("foldExpedition / applyStaticReveal laws", () => {
           const fold = foldExpedition({
             instance: explored,
             seedMapId: SEED_MAP_ID,
-            prior: {},
+            siteTemplateKeys: SITE_TEMPLATE_KEYS,
+            prior: emptyKnowledge(),
           })
           const applied = applyStaticReveal(
             mapInstanceFromGeometry(geometry),
             SEED_MAP_ID,
-            fold
+            fold.staticReveal
           )
 
           for (const id of revealedZoneIds) {
@@ -117,6 +133,44 @@ describe("foldExpedition / applyStaticReveal laws", () => {
 
   it("absence: the fold output never carries a non-authored id", () => {
     fc.assert(foldOutputRespectsProvenance(foldExpedition))
+  })
+
+  it("site discovery: every newly folded key came from a revealed authored or generated site", () => {
+    fc.assert(
+      fc.property(arbitraryExpeditionInstance, (instance) => {
+        const output = foldExpedition({
+          instance,
+          seedMapId: SEED_MAP_ID,
+          siteTemplateKeys: SITE_TEMPLATE_KEYS,
+          prior: emptyKnowledge(),
+        })
+
+        for (const templateKey of output.discoveredSiteKeys) {
+          expect(SITE_TEMPLATE_KEYS).toContain(templateKey)
+          const source = instance.reveal.revealedZoneIds
+            .map((zoneId) => ({
+              zone: instance.geometry.zones[zoneId],
+              provenance: instance.generation.zones[zoneId],
+            }))
+            .find(({ zone, provenance }) => {
+              if (
+                zone === undefined ||
+                provenance === undefined ||
+                provenance.source === "manual"
+              ) {
+                return false
+              }
+              const provenanceKey =
+                provenance.templateKey ??
+                (provenance.source === "authored"
+                  ? zone.templateKey
+                  : undefined)
+              return provenanceKey === templateKey
+            })
+          expect(source).toBeDefined()
+        }
+      })
+    )
   })
 
   it("stale filter: applyStaticReveal never throws, and reveal ⊆ geometry ids ∪ prior reveal", () => {
@@ -177,15 +231,19 @@ describe("foldExpedition / applyStaticReveal laws", () => {
     fc.assert(
       fc.property(
         arbitraryExpeditionInstance,
-        arbitraryPrior,
+        arbitraryPriorKnowledge,
         (instance, prior) => {
           const output = foldExpedition({
             instance,
             seedMapId: SEED_MAP_ID,
+            siteTemplateKeys: SITE_TEMPLATE_KEYS,
             prior,
           })
-          for (const [source, entry] of Object.entries(prior)) {
-            const outputEntry = output[source]
+          for (const key of prior.discoveredSiteKeys) {
+            expect(output.discoveredSiteKeys).toContain(key)
+          }
+          for (const [source, entry] of Object.entries(prior.staticReveal)) {
+            const outputEntry = output.staticReveal[source]
             expect(outputEntry).toBeDefined()
             for (const id of entry.zoneIds) {
               expect(outputEntry!.zoneIds).toContain(id)
@@ -207,14 +265,17 @@ describe("negative control — the absence law can go red", () => {
    * the exact leak `foldOutputRespectsProvenance` exists to catch — a manual or
    * generated room bleeding into the Region's permanent chart.
    */
-  const gateSkippingFold: FoldImpl = ({ instance, seedMapId }) => {
+  const gateSkippingFold: FoldImpl = ({ instance, seedMapId, prior }) => {
     const zoneIds = instance.reveal.revealedZoneIds.filter(
       (id) => instance.geometry.zones[id] !== undefined
     )
     const connectionIds = instance.reveal.revealedConnectionIds.filter(
       (id) => instance.geometry.connections[id] !== undefined
     )
-    return { [seedMapId]: { zoneIds, connectionIds } }
+    return {
+      discoveredSiteKeys: prior.discoveredSiteKeys,
+      staticReveal: { [seedMapId]: { zoneIds, connectionIds } },
+    }
   }
 
   it("fails for a fold that ignores provenance", () => {

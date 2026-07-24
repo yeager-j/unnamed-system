@@ -1,9 +1,13 @@
 import { eq } from "drizzle-orm"
 
 import { templateSetContentSchema } from "@workspace/game-v2/generation"
-import type { DungeonState, MapInstanceState } from "@workspace/game-v2/spatial"
+import {
+  reduceMapInstance as createReduceMapInstance,
+  type DungeonState,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
 
-import { dungeons, getDb, mapInstances } from "@/lib/db"
+import { dungeons, getDb, mapInstances, regions } from "@/lib/db"
 
 import {
   createTestCampaign,
@@ -27,6 +31,7 @@ import {
  */
 
 const DEV_USER_ID = "dev-user-claude"
+const reduceMapInstance = createReduceMapInstance(() => crypto.randomUUID())
 
 export const ENTRY = { id: "zone-entry", name: "Entry" } as const
 export const MONOLITH = { id: "zone-monolith", name: "Black Monolith" } as const
@@ -179,6 +184,42 @@ export async function createDungeonExpansionTarget(tracker: CleanupTracker) {
     return row.state
   }
 
+  async function revealZones(
+    mapInstanceId: string,
+    zoneIds: readonly string[]
+  ): Promise<void> {
+    const db = getDb()
+    const [row] = await db
+      .select({
+        state: mapInstances.state,
+        version: mapInstances.version,
+      })
+      .from(mapInstances)
+      .where(eq(mapInstances.id, mapInstanceId))
+      .limit(1)
+    if (!row) throw new Error("dungeon-expansion target instance missing")
+
+    const state = zoneIds.reduce(
+      (current, zoneId) =>
+        reduceMapInstance(current, { kind: "revealZone", zoneId }),
+      row.state
+    )
+    await db
+      .update(mapInstances)
+      .set({ state, version: row.version + 1 })
+      .where(eq(mapInstances.id, mapInstanceId))
+  }
+
+  async function getDiscoveredSiteKeys(): Promise<string[]> {
+    const [row] = await getDb()
+      .select({ discoveredSiteKeys: regions.discoveredSiteKeys })
+      .from(regions)
+      .where(eq(regions.id, region.id))
+      .limit(1)
+    if (!row) throw new Error("dungeon-expansion target Region missing")
+    return row.discoveredSiteKeys
+  }
+
   return {
     pc,
     campaign,
@@ -188,5 +229,7 @@ export async function createDungeonExpansionTarget(tracker: CleanupTracker) {
     getExpeditions,
     getInstanceState,
     getDungeonState,
+    revealZones,
+    getDiscoveredSiteKeys,
   }
 }

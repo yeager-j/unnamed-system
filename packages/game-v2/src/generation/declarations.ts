@@ -34,6 +34,7 @@ export interface SiteChecklistItem {
   defaultMinDepth: number
   defaultUrgency: SiteUrgency
   unique: boolean
+  discovered: boolean
   authoredZoneId?: string
 }
 
@@ -44,8 +45,10 @@ export interface SiteChecklistItem {
  */
 export function siteChecklistItems(
   set: TemplateSetContent,
-  geometry?: MapGeometry
+  geometry?: MapGeometry,
+  discoveredSiteKeys: readonly string[] = []
 ): SiteChecklistItem[] {
+  const discovered = new Set(discoveredSiteKeys)
   const authoredZoneIds = new Map<string, string[]>()
   if (geometry !== undefined) {
     for (const zone of Object.values(geometry.zones)) {
@@ -72,6 +75,7 @@ export function siteChecklistItems(
       defaultMinDepth: site.defaultMinDepth,
       defaultUrgency: site.defaultUrgency,
       unique: template.unique,
+      discovered: discovered.has(templateKey),
       ...(authoredZoneId === undefined ? {} : { authoredZoneId }),
     })
   }

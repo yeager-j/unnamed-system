@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm"
 
 import {
+  discoveredSiteKeysSchema,
   regionSettingsSchema,
   staticRevealSchema,
 } from "@workspace/game-v2/generation"
@@ -17,14 +18,16 @@ import { regions, type RegionRow } from "@/lib/db/schema/region"
  * columns' compile-time `$type` casts can't hand a caller a blob that predates
  * a schema field.
  *
- * `staticReveal` is parsed here but **interpreted** only by game-v2's
- * `generation/fold.ts` (ADR-0001 — the module is the fold's single touchpoint;
- * this loader just proves the stored shape).
+ * Both knowledge columns are parsed here but **interpreted** only by game-v2's
+ * generation modules: `fold.ts` owns their finish-time union and
+ * `declarations.ts` derives checklist annotations. This loader only proves the
+ * stored shapes.
  */
 function withParsedBlobs(row: RegionRow): RegionRow {
   return {
     ...row,
     settings: regionSettingsSchema.parse(row.settings),
+    discoveredSiteKeys: discoveredSiteKeysSchema.parse(row.discoveredSiteKeys),
     staticReveal: staticRevealSchema.parse(row.staticReveal),
   }
 }

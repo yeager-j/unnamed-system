@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { dungeonAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
+import {
+  dungeonAxis,
+  entityAxisFor,
+  mapInstanceAxis,
+  regionAxis,
+} from "@/lib/db/axes"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -17,6 +22,8 @@ const loadDungeonRowByShortId = vi.fn()
 const loadCampaignByShortId = vi.fn()
 const loadMapInstanceById = vi.fn()
 const loadRegionRowById = vi.fn()
+const loadTemplateSetRowById = vi.fn()
+const loadMapRowById = vi.fn()
 const loadPlacedCharactersForCampaign = vi.fn()
 const loadLiveEntityRowsByIds = vi.fn()
 const { tx, transaction } = vi.hoisted(() => {
@@ -48,6 +55,14 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
 vi.mock("@/lib/db/queries/load-region", () => ({
   loadRegionRowById: (id: string, executor: unknown) =>
     loadRegionRowById(id, executor),
+}))
+vi.mock("@/lib/db/queries/load-template-set", () => ({
+  loadTemplateSetRowById: (id: string, executor: unknown) =>
+    loadTemplateSetRowById(id, executor),
+}))
+vi.mock("@/lib/db/queries/load-map", () => ({
+  loadMapRowById: (id: string, executor: unknown) =>
+    loadMapRowById(id, executor),
 }))
 vi.mock("@/lib/db/queries/character-list", () => ({
   loadPlacedCharactersForCampaign: (id: string, executor: unknown) =>
@@ -163,6 +178,8 @@ beforeEach(() => {
   loadCampaignByShortId.mockReset().mockResolvedValue(campaignRow(DM_ID))
   loadMapInstanceById.mockReset().mockResolvedValue(instanceRow)
   loadRegionRowById.mockReset().mockResolvedValue(null)
+  loadTemplateSetRowById.mockReset().mockResolvedValue(null)
+  loadMapRowById.mockReset().mockResolvedValue(null)
   loadPlacedCharactersForCampaign
     .mockReset()
     .mockResolvedValue([placedCharacter])
@@ -261,5 +278,78 @@ describe("getDungeonForDM", () => {
     loadMapInstanceById.mockResolvedValue(null)
 
     expect(await getDungeonForDM("camp-1", "no-instance")).toBeNull()
+  })
+
+  it("derives discovered checklist annotations from the Region fold", async () => {
+    const dungeon = {
+      ...dungeonRow("discovered-sites"),
+      regionId: "region-1",
+    }
+    loadDungeonRowByShortId.mockResolvedValue(dungeon)
+    loadMapInstanceById.mockResolvedValue({
+      ...instanceRow,
+      mapId: "map-1",
+    })
+    loadRegionRowById.mockResolvedValue({
+      id: "region-1",
+      templateSetId: "set-1",
+      discoveredSiteKeys: ["vault", "stale-site"],
+      version: 5,
+    })
+    loadTemplateSetRowById.mockResolvedValue({
+      content: {
+        templates: {
+          vault: {
+            key: "vault",
+            name: "Reliquary",
+            description: "",
+            dmNotes: "",
+            tags: [],
+            accepts: [],
+            exits: [],
+            weight: 1,
+            unique: true,
+            contentRolls: [],
+          },
+        },
+        tables: {},
+        templateOrder: ["vault"],
+        tableOrder: [],
+        closureChance: 0.1,
+      },
+    })
+    loadMapRowById.mockResolvedValue({
+      geometry: {
+        pages: { default: { id: "default", name: "Page 1" } },
+        zones: {
+          vault: {
+            id: "vault",
+            name: "Reliquary",
+            description: "",
+            dmNotes: "",
+            position: { x: 0, y: 0 },
+            pageId: "default",
+            templateKey: "vault",
+          },
+        },
+        connections: {},
+      },
+    })
+
+    const result = await getDungeonForDM("camp-1", "discovered-sites")
+
+    expect(result?.siteTemplates).toEqual([
+      {
+        templateKey: "vault",
+        name: "Reliquary",
+        appearByDefault: false,
+        defaultMinDepth: 0,
+        defaultUrgency: "eventually",
+        unique: true,
+        discovered: true,
+        authoredZoneId: "vault",
+      },
+    ])
+    expect(result?.canon.revisions[regionAxis("region-1")]).toBe(5)
   })
 })

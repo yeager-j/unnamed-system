@@ -28,6 +28,20 @@ describe("withAuthoredProvenance", () => {
     })
   })
 
+  it("preserves the authored template binding in immutable provenance", () => {
+    const state = makeMapInstanceState({
+      geometry: makeGeometry([
+        makeZone("zone-a", { templateKey: "castle-entrance" }),
+      ]),
+    })
+
+    expect(withAuthoredProvenance(state).generation.zones["zone-a"]).toEqual({
+      source: "authored",
+      depth: 0,
+      templateKey: "castle-entrance",
+    })
+  })
+
   it("replaces any pre-existing provenance (a fresh snapshot is all-authored)", () => {
     const seeded = makeMapInstanceState({
       geometry: makeGeometry([makeZone("zone-a", { name: "A" })]),

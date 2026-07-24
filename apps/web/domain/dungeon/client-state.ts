@@ -12,6 +12,7 @@ export interface DungeonSiteTemplate {
   defaultMinDepth: number
   defaultUrgency: DungeonSiteUrgency
   unique: boolean
+  discovered: boolean
   authoredZoneId?: string
 }
 
@@ -21,6 +22,21 @@ export interface PublicSiteDeclaration {
   templateKey: string
   minDepth: number
   resolvedZoneId?: string
+}
+
+/**
+ * A declaration is found only after its resolved Zone has been revealed.
+ * Pre-generation may resolve a declaration before the party encounters it, so
+ * placement alone is not player knowledge.
+ */
+export function foundObjectiveZoneId(
+  declaration: PublicSiteDeclaration,
+  revealedZoneIds: ReadonlySet<string>
+): string | undefined {
+  const zoneId = declaration.resolvedZoneId
+  return zoneId !== undefined && revealedZoneIds.has(zoneId)
+    ? zoneId
+    : undefined
 }
 
 /**

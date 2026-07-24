@@ -444,8 +444,8 @@ export interface TestRegion {
  * Mints a Region (UNN-589) bound to an existing seed Map + Template Set (both
  * `restrict` FKs — mint them first via {@link createTestMap} /
  * {@link createTestTemplateSet}). The fold columns start empty (knowledge is
- * earned by finishing expeditions); pass `staticReveal` to seed a prior
- * expedition's chart directly.
+ * earned by finishing expeditions); pass either fold to seed prior expedition
+ * knowledge directly.
  */
 export async function createTestRegion(
   tracker: CleanupTracker,
@@ -457,6 +457,7 @@ export async function createTestRegion(
     templateSetId: string
     name?: string
     settings?: RegionSettings
+    discoveredSiteKeys?: string[]
     staticReveal?: StaticReveal
   }
 ): Promise<TestRegion> {
@@ -472,6 +473,7 @@ export async function createTestRegion(
       seedMapId: opts.seedMapId,
       templateSetId: opts.templateSetId,
       settings: opts.settings ?? {},
+      discoveredSiteKeys: opts.discoveredSiteKeys ?? [],
       staticReveal: opts.staticReveal ?? {},
       version: 0,
     })

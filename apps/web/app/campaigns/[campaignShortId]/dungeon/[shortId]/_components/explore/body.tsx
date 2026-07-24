@@ -242,6 +242,7 @@ export function DungeonExploreBody({
           campaignShortId={campaignShortId}
           absentCharacters={absentCharacters}
           disabled={isPending}
+          siteTemplates={siteTemplates}
           onMarkActed={(characterId) =>
             dispatch({ kind: "markActed", characterId })
           }

@@ -2,7 +2,30 @@ import { describe, expect, it } from "vitest"
 
 import { createDungeonState } from "@workspace/game-v2/spatial"
 
-import { projectDungeonClientState } from "./client-state"
+import {
+  foundObjectiveZoneId,
+  projectDungeonClientState,
+  type PublicSiteDeclaration,
+} from "./client-state"
+
+describe("foundObjectiveZoneId", () => {
+  const resolved = {
+    id: "declaration-1",
+    templateKey: "vault",
+    minDepth: 2,
+    resolvedZoneId: "zone-vault",
+  } satisfies PublicSiteDeclaration
+
+  it("does not count a pre-generated but unrevealed site as found", () => {
+    expect(foundObjectiveZoneId(resolved, new Set())).toBeUndefined()
+  })
+
+  it("returns the resolved Zone only after players reveal it", () => {
+    expect(foundObjectiveZoneId(resolved, new Set(["zone-vault"]))).toBe(
+      "zone-vault"
+    )
+  })
+})
 
 describe("projectDungeonClientState", () => {
   it("omits every private P4a generation value from serialized client canon", () => {

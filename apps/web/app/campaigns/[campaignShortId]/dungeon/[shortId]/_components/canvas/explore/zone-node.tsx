@@ -14,8 +14,10 @@ import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -195,40 +197,64 @@ export function DungeonZoneNode({
           }
         />
         <DropdownMenuContent align="start">
-          {isExpedition && siteTemplates.length > 0 ? (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={disabled || !canQueueSite}>
-                Queue site…
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
-                {siteTemplates.map((site) => (
-                  <DropdownMenuSub key={site.key}>
-                    <DropdownMenuSubTrigger
-                      disabled={disabled || site.spent || site.pending}
-                    >
-                      {site.name}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        onClick={() => queueForcePlace(site.key, 0)}
-                      >
-                        Next qualifying expansion
-                      </DropdownMenuItem>
-                      {site.defaultMinDepth > 0 ? (
-                        <DropdownMenuItem
-                          onClick={() =>
-                            queueForcePlace(site.key, site.defaultMinDepth)
-                          }
-                        >
-                          Next at depth {site.defaultMinDepth}
-                        </DropdownMenuItem>
-                      ) : null}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ) : null}
+          <DropdownMenuGroup>
+            {isExpedition && siteTemplates.length > 0 ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger disabled={disabled || !canQueueSite}>
+                  Queue site…
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                  <DropdownMenuGroup>
+                    {siteTemplates.map((site) => {
+                      const unavailableReason = site.pending
+                        ? "Already queued"
+                        : site.spent
+                          ? "Already on map"
+                          : undefined
+                      if (unavailableReason !== undefined) {
+                        return (
+                          <DropdownMenuItem key={site.key} disabled>
+                            {site.name}
+                            <DropdownMenuShortcut className="tracking-normal">
+                              {unavailableReason}
+                            </DropdownMenuShortcut>
+                          </DropdownMenuItem>
+                        )
+                      }
+                      return (
+                        <DropdownMenuSub key={site.key}>
+                          <DropdownMenuSubTrigger>
+                            {site.name}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={() => queueForcePlace(site.key, 0)}
+                              >
+                                Next qualifying expansion
+                              </DropdownMenuItem>
+                              {site.defaultMinDepth > 0 ? (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    queueForcePlace(
+                                      site.key,
+                                      site.defaultMinDepth
+                                    )
+                                  }
+                                >
+                                  Next at depth {site.defaultMinDepth}
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuGroup>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      )
+                    })}
+                  </DropdownMenuGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
+          </DropdownMenuGroup>
           {retractable && isExpedition && siteTemplates.length > 0 ? (
             <DropdownMenuSeparator />
           ) : null}
@@ -236,12 +262,14 @@ export function DungeonZoneNode({
               on a raced double-fire, so a gate would only re-add the wait
               (2026-07-23 lesson). */}
           {retractable ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => retractZone(zone.id)}
-            >
-              Retract room
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => retractZone(zone.id)}
+              >
+                Retract room
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
