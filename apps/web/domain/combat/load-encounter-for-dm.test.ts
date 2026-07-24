@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
 import {
   dungeonAxis,
@@ -114,13 +115,7 @@ const instanceRow: MapInstanceRow = {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: {
-      zones: {},
-      stubs: {},
-      connections: {},
-      grafts: {},
-      startingZoneIds: [],
-    },
+    generation: makeGenerationState(),
     lastMovedTokenKey: null,
   },
   version: 0,

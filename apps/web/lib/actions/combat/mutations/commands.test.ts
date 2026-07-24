@@ -6,6 +6,7 @@ import {
   type Session,
 } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 import { createStampAccumulator, revisionAt } from "@workspace/headcanon"
 import { MutationContentionError } from "@workspace/headcanon/drizzle"
 import { err, ok } from "@workspace/result"
@@ -166,13 +167,7 @@ beforeEach(() => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: {
-        zones: {},
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      generation: makeGenerationState(),
       lastMovedTokenKey: null,
     },
     version: 7,

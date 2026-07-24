@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { GenerationStub } from "@workspace/game-v2/spatial"
 import {
   makeConnection,
+  makeGenerationState,
   makeGeometry,
   makeMapInstanceState,
   makeZone,
@@ -32,13 +33,9 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: {
-        zones: {},
+      generation: makeGenerationState({
         stubs: { "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.4 }) },
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     expect(dungeonExitAnchors(instance)).toEqual({
@@ -49,13 +46,9 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
   it("skips a stub on an unrevealed parent", () => {
     const instance = makeMapInstanceState({
       geometry: makeGeometry([makeZone("z1")]),
-      generation: {
-        zones: {},
+      generation: makeGenerationState({
         stubs: { "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.4 }) },
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     expect(dungeonExitAnchors(instance)).toEqual({})
@@ -76,13 +69,9 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: {
-        zones: {},
+      generation: makeGenerationState({
         stubs: { "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.5 }) },
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     const anchors = dungeonExitAnchors(instance)
@@ -104,16 +93,12 @@ describe("dungeonExitAnchors — stubs (UNN-590)", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: {
-        zones: {},
+      generation: makeGenerationState({
         stubs: {
           "stub-1": stub("stub-1", "z1", { side: "e", offset: 0.25 }),
           "stub-2": stub("stub-2", "z1", { side: "e", offset: 0.75 }),
         },
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     expect(dungeonExitAnchors(instance)).toEqual({

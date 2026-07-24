@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 // "hall" with one open stub. Kept local (not shared) so each file's fixture
 // reads self-contained.
 import {
+  makeGenerationState,
   makeMapInstanceState,
   makeZone,
   reduceInstance,
@@ -47,7 +48,7 @@ const baseInstance = (): MapInstanceState =>
       },
       connections: {},
     },
-    generation: {
+    generation: makeGenerationState({
       zones: { entry: { source: "authored", depth: 0 } },
       stubs: {
         "stub-1": {
@@ -57,10 +58,8 @@ const baseInstance = (): MapInstanceState =>
           anchor: { side: "e", offset: 0.5 },
         },
       },
-      connections: {},
-      grafts: {},
       startingZoneIds: ["entry"],
-    },
+    }),
   })
 
 /** Rolls a real mint through the real roller + reducers and returns the

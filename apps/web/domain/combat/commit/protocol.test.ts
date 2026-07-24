@@ -7,6 +7,7 @@ import {
 } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
 import {
   combatEnd,
@@ -32,13 +33,7 @@ const mapInstance: MapInstanceState = {
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
-  generation: {
-    zones: {},
-    stubs: {},
-    connections: {},
-    grafts: {},
-    startingZoneIds: [],
-  },
+  generation: makeGenerationState(),
   lastMovedTokenKey: null,
 }
 

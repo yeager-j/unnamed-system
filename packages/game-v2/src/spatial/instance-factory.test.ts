@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { makeGeometry, makeZone } from "./__fixtures__/spatial"
+import {
+  makeGenerationState,
+  makeGeometry,
+  makeZone,
+} from "./__fixtures__/spatial"
 import { defaultPages } from "./geometry.schema"
 import { emptyMapInstance, mapInstanceFromGeometry } from "./instance-factory"
 
@@ -15,13 +19,7 @@ describe("emptyMapInstance", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: {
-        zones: {},
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      generation: makeGenerationState(),
       lastMovedTokenKey: null,
     })
   })

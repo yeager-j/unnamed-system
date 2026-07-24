@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   free,
   makeConnection,
+  makeGenerationState,
   makeGeometry,
   makeMapInstanceState,
   makeZone,
@@ -31,13 +32,7 @@ const abcInstance = (
         makeConnection("conn-bc", "zone-b", "zone-c"),
       ]
     ),
-    generation: {
-      zones,
-      stubs: {},
-      connections: {},
-      grafts: {},
-      startingZoneIds: [],
-    },
+    generation: makeGenerationState({ zones }),
     reveal: {
       revealedZoneIds: [],
       revealedConnectionIds: [],
@@ -179,16 +174,13 @@ describe("foldExpedition", () => {
         [makeZone("zone-a"), makeZone("zone-g", { pageId: "grafted-page" })],
         []
       ),
-      generation: {
+      generation: makeGenerationState({
         zones: {
           "zone-a": { source: "authored", depth: 0 },
           "zone-g": { source: "authored", depth: 0 },
         },
-        stubs: {},
-        connections: {},
         grafts: { "portal-map": { pageIds: ["grafted-page"] } },
-        startingZoneIds: [],
-      },
+      }),
       reveal: {
         revealedZoneIds: ["zone-a", "zone-g"],
         revealedConnectionIds: [],

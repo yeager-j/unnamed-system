@@ -12,6 +12,7 @@ import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema
 import {
   free,
   makeConnection,
+  makeGenerationState,
   makeGeometry,
   makeMapInstanceState,
   makeZone,
@@ -348,7 +349,7 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: {
+    generation: makeGenerationState({
       zones: {
         z1: { source: "authored", depth: 0, templateKey: SECRET_TEMPLATE_KEY },
         "z-secret": { source: "authored", depth: 1 },
@@ -368,9 +369,7 @@ describe("RELEASE GATE — generation never serializes; stubs ≡ authored exits
         },
       },
       connections: { c1: { source: "generated" } },
-      grafts: {},
-      startingZoneIds: [],
-    },
+    }),
   })
 
   const roster: Record<string, DungeonRosterEntry> = {

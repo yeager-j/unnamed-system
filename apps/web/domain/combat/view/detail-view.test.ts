@@ -5,6 +5,7 @@ import { makeParticipant, type Session } from "@workspace/game-v2/encounter"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import { resolveSession } from "@/domain/game-engine-v2"
@@ -26,13 +27,7 @@ const mapless: MapInstanceState = {
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
-  generation: {
-    zones: {},
-    stubs: {},
-    connections: {},
-    grafts: {},
-    startingZoneIds: [],
-  },
+  generation: makeGenerationState(),
   lastMovedTokenKey: null,
 }
 

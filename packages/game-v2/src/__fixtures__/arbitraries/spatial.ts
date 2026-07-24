@@ -1,6 +1,7 @@
 import fc from "fast-check"
 
 import { record } from "@workspace/game-v2/__fixtures__/arbitraries/record"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 import type {
   MapConnection,
   MapGeometry,
@@ -253,13 +254,7 @@ export const arbitraryExpeditionInstance: fc.Arbitrary<MapInstanceState> =
           revealedConnectionIds,
           unlockedConnectionIds,
         },
-        generation: {
-          zones,
-          stubs,
-          connections: {},
-          grafts: {},
-          startingZoneIds: [],
-        },
+        generation: makeGenerationState({ zones, stubs }),
         lastMovedTokenKey: null,
       })
     )

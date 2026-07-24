@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { makeMapInstanceState, makeZone } from "../spatial/__fixtures__/spatial"
+import {
+  makeGenerationState,
+  makeMapInstanceState,
+  makeZone,
+} from "../spatial/__fixtures__/spatial"
 import { emptyGenerationLedger } from "../spatial/generation-ledger.schema"
 import type { MapInstanceState } from "../spatial/map-instance.schema"
 import { DEFAULT_SPACING } from "./layout"
@@ -66,7 +70,7 @@ const makeInstance = (
       },
       connections: {},
     },
-    generation: {
+    generation: makeGenerationState({
       zones: { entry: { source: "authored", depth: 0 } },
       stubs: {
         "stub-1": {
@@ -76,10 +80,8 @@ const makeInstance = (
           anchor: { side: "e", offset: 0.5 },
         },
       },
-      connections: {},
-      grafts: {},
       startingZoneIds: ["entry"],
-    },
+    }),
     ...overrides,
   })
 
@@ -288,7 +290,7 @@ describe("rollExpansion — loop closure", () => {
         },
         connections: {},
       },
-      generation: {
+      generation: makeGenerationState({
         zones: {
           entry: { source: "authored", depth: 0 },
           near: { source: "authored", depth: 1 },
@@ -301,10 +303,8 @@ describe("rollExpansion — loop closure", () => {
             anchor: { side: "e", offset: 0.5 },
           },
         },
-        connections: {},
-        grafts: {},
         startingZoneIds: ["entry"],
-      },
+      }),
     })
 
   it("closes a loop at closureChance 1: connection to the candidate, cursors only, no turn", () => {
@@ -471,7 +471,7 @@ describe("rollExpansion — no-space", () => {
         },
         connections: {},
       },
-      generation: {
+      generation: makeGenerationState({
         zones: {
           entry: { source: "authored", depth: 0 },
           deeper: { source: "authored", depth: 1 },
@@ -486,10 +486,8 @@ describe("rollExpansion — no-space", () => {
             anchor: { side: "w", offset: 0.5 },
           },
         },
-        connections: {},
-        grafts: {},
         startingZoneIds: ["entry"],
-      },
+      }),
     })
     return instanceState
   }

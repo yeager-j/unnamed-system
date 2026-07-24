@@ -4,6 +4,7 @@ import {
   engaged,
   free,
   makeConnection,
+  makeGenerationState,
   makeGeometry,
   makeMapInstanceState,
   makeZone,
@@ -1145,16 +1146,12 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
   it("drops the provenance entry when a Zone is removed", () => {
     const state = makeMapInstanceState({
       ...twoZones(),
-      generation: {
+      generation: makeGenerationState({
         zones: {
           "zone-a": { source: "authored", depth: 0 },
           "zone-b": { source: "manual", depth: 0 },
         },
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     const next = reduceInstance(state, { kind: "removeZone", zoneId: "zone-a" })
@@ -1227,16 +1224,12 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
   it("leaves existing authored provenance untouched when adding a Zone", () => {
     const state = makeMapInstanceState({
       ...twoZones(),
-      generation: {
+      generation: makeGenerationState({
         zones: {
           "zone-a": { source: "authored", depth: 0 },
           "zone-b": { source: "authored", depth: 0 },
         },
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     const next = reduceInstance(
@@ -1267,16 +1260,12 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
     const state = makeMapInstanceState({
       ...twoZones(),
       occupancy: { c0: free("zone-b") },
-      generation: {
+      generation: makeGenerationState({
         zones: {
           "zone-a": { source: "authored", depth: 0 },
           "zone-b": { source: "authored", depth: 0 },
         },
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     const next = reduceInstance(
@@ -1297,16 +1286,12 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
         makeZone("zone-a", { name: "A" }),
         makeZone("zone-b", { name: "B", pageId: "p2" }),
       ]),
-      generation: {
+      generation: makeGenerationState({
         zones: {
           "zone-a": { source: "authored", depth: 0 },
           "zone-b": { source: "manual", depth: 0 },
         },
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     const next = reduceInstance(
@@ -1324,13 +1309,9 @@ describe("reduceMapInstance — generation provenance (UNN-589)", () => {
   it("preserves the no-op (same ref) contract for a no-op editGeometry", () => {
     const state = makeMapInstanceState({
       ...twoZones(),
-      generation: {
+      generation: makeGenerationState({
         zones: { "zone-a": { source: "authored", depth: 0 } },
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     expect(
@@ -1354,13 +1335,10 @@ describe("generation events (UNN-590)", () => {
   const withStub = () =>
     makeMapInstanceState({
       geometry: makeGeometry([makeZone("zone-a")]),
-      generation: {
+      generation: makeGenerationState({
         zones: { "zone-a": { source: "authored", depth: 0 } },
         stubs: { "stub-1": stub("stub-1", "zone-a") },
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
   const mintEvent = () => ({
@@ -1433,16 +1411,13 @@ describe("generation events (UNN-590)", () => {
     const twoZonesWithStub = () =>
       makeMapInstanceState({
         geometry: makeGeometry([makeZone("zone-a"), makeZone("zone-c")]),
-        generation: {
+        generation: makeGenerationState({
           zones: {
             "zone-a": { source: "authored", depth: 0 },
             "zone-c": { source: "authored", depth: 2 },
           },
           stubs: { "stub-1": stub("stub-1", "zone-a") },
-          connections: {},
-          grafts: {},
-          startingZoneIds: [],
-        },
+        }),
       })
 
     it("consumes the stub and joins the two zones, stamping connection provenance", () => {

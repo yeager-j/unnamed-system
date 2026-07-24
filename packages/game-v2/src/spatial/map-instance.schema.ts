@@ -164,13 +164,9 @@ export const mapInstanceStateSchema = z.object({
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   }),
-  generation: generationStateSchema.default({
-    zones: {},
-    stubs: {},
-    connections: {},
-    grafts: {},
-    startingZoneIds: [],
-  }),
+  generation: generationStateSchema.default(() =>
+    generationStateSchema.parse({})
+  ),
   lastMovedTokenKey: z.string().nullable().default(null),
 })
 export type MapInstanceState = z.infer<typeof mapInstanceStateSchema>

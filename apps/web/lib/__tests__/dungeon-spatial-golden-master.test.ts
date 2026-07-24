@@ -11,6 +11,7 @@ import {
   isZoneRevealed as v2Revealed,
   deriveDungeonRoster as v2Roster,
 } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
 /**
  * **Pinned golden master (UNN-529 → UNN-540).** The v1 spatial reducers + fog
@@ -87,13 +88,7 @@ const mapInstanceWith = (occupancy: Record<string, { zoneId: string }>) => ({
   ),
   enchantment: null,
   reveal: reveal(),
-  generation: {
-    zones: {},
-    stubs: {},
-    connections: {},
-    grafts: {},
-    startingZoneIds: [],
-  },
+  generation: makeGenerationState(),
   lastMovedTokenKey: null,
 })
 
