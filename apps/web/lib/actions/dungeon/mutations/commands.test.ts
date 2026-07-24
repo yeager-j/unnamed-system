@@ -8,6 +8,7 @@ import {
   type DungeonState,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 import { createStampAccumulator } from "@workspace/headcanon"
 import { MutationContentionError } from "@workspace/headcanon/drizzle"
 import { err, ok } from "@workspace/result"
@@ -363,7 +364,7 @@ describe("dungeon.command authority", () => {
         },
         connections: {},
       },
-      generation: {
+      generation: makeGenerationState({
         zones: { entry: { source: "authored" as const, depth: 0 } },
         stubs: {
           "stub-1": {
@@ -373,10 +374,8 @@ describe("dungeon.command authority", () => {
             anchor: { side: "e" as const, offset: 0.5 },
           },
         },
-        connections: {},
-        grafts: {},
         startingZoneIds: ["entry"],
-      },
+      }),
     })
     const expeditionInstance = () => ({
       ...instance,

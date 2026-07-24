@@ -12,6 +12,7 @@ import {
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 import { revisionAt } from "@workspace/headcanon"
 import { err, ok } from "@workspace/result"
 
@@ -142,13 +143,7 @@ function makeInstanceState(): MapInstanceState {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: {
-      zones: {},
-      stubs: {},
-      connections: {},
-      grafts: {},
-      startingZoneIds: [],
-    },
+    generation: makeGenerationState(),
     lastMovedTokenKey: null,
   }
 }

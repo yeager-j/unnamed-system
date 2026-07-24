@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
 import { placeRoster } from "./place-roster"
 
@@ -35,13 +36,7 @@ function baseState(
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: {
-      zones: {},
-      stubs: {},
-      connections: {},
-      grafts: {},
-      startingZoneIds: [],
-    },
+    generation: makeGenerationState(),
     lastMovedTokenKey: null,
   }
 }

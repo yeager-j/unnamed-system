@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 import { revisionAt } from "@workspace/headcanon"
 
 import { dungeonAxis, entityAxisFor, mapInstanceAxis } from "@/lib/db/axes"
@@ -83,13 +84,7 @@ beforeEach(() => {
       },
       // The real loader zod-parses the blob, so `generation` always exists —
       // the fixture mirrors the load-schema fixed point (UNN-590).
-      generation: {
-        zones: {},
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      generation: makeGenerationState(),
     },
     version: 0,
   })

@@ -12,7 +12,11 @@ import {
   type MapZone,
 } from "../geometry.schema"
 import type { MapInstanceEvent } from "../map-instance-event"
-import type { MapInstanceState, MapToken } from "../map-instance.schema"
+import type {
+  GenerationState,
+  MapInstanceState,
+  MapToken,
+} from "../map-instance.schema"
 import { reduceMapInstance } from "../reduce-map-instance"
 
 /**
@@ -27,6 +31,24 @@ import { reduceMapInstance } from "../reduce-map-instance"
 /** Brands a trusted test id as a {@link ParticipantId}. */
 export const pid = asParticipantId
 
+/**
+ * The Instance's {@link GenerationState} slice; override only what a test seeds.
+ * The **one spread-friendly authority** for the slice shape (UNN-644): every field
+ * defaults empty — mirroring the schema's own `.default()`s — so a new
+ * `generationStateSchema` field lands here alone and the fixtures spreading this stay
+ * put, instead of a hand-edit across ~two dozen hardcoded literals.
+ */
+export const makeGenerationState = (
+  overrides: Partial<GenerationState> = {}
+): GenerationState => ({
+  zones: {},
+  stubs: {},
+  connections: {},
+  grafts: {},
+  startingZoneIds: [],
+  ...overrides,
+})
+
 /** A {@link MapInstanceState}; override what a test asserts. */
 export const makeMapInstanceState = (
   overrides: Partial<MapInstanceState> = {}
@@ -39,13 +61,7 @@ export const makeMapInstanceState = (
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
-  generation: {
-    zones: {},
-    stubs: {},
-    connections: {},
-    grafts: {},
-    startingZoneIds: [],
-  },
+  generation: makeGenerationState(),
   lastMovedTokenKey: null,
   ...overrides,
 })

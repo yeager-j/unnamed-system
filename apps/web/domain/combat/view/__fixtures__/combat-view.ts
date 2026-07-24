@@ -7,6 +7,7 @@ import type {
   MapInstanceState,
   MapZone,
 } from "@workspace/game-v2/spatial"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 
@@ -67,13 +68,7 @@ export function instanceWith(parts: {
       revealedConnectionIds: [],
       unlockedConnectionIds: [],
     },
-    generation: {
-      zones: {},
-      stubs: {},
-      connections: {},
-      grafts: {},
-      startingZoneIds: [],
-    },
+    generation: makeGenerationState(),
     lastMovedTokenKey: null,
   }
 }

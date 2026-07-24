@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   makeConnection,
+  makeGenerationState,
   makeGeometry,
   makeMapInstanceState,
   makeZone,
@@ -30,13 +31,9 @@ describe("withAuthoredProvenance", () => {
   it("replaces any pre-existing provenance (a fresh snapshot is all-authored)", () => {
     const seeded = makeMapInstanceState({
       geometry: makeGeometry([makeZone("zone-a", { name: "A" })]),
-      generation: {
+      generation: makeGenerationState({
         zones: { "zone-a": { source: "manual", depth: 0 } },
-        stubs: {},
-        connections: {},
-        grafts: {},
-        startingZoneIds: [],
-      },
+      }),
     })
 
     expect(withAuthoredProvenance(seeded).generation.zones).toEqual({
@@ -53,13 +50,9 @@ describe("withAuthoredProvenance", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
-      generation: {
-        zones: {},
-        stubs: {},
-        connections: {},
+      generation: makeGenerationState({
         grafts: { "map-x": { pageIds: ["p1"] } },
-        startingZoneIds: [],
-      },
+      }),
     })
 
     const next = withAuthoredProvenance(state)

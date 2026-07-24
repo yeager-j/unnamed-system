@@ -14,7 +14,15 @@
  * `thresholdAnchors` with the same inputs the revealed renderer will use, so the stub
  * lands exactly where the revealed near-notch will — the stub→reveal transition is
  * position-identical **by construction**, no jump possible.
+ *
+ * The **side** each notch opens through is the engine's rule — `footprints.sideBetween`
+ * (UNN-644) — so the exit-side derivation has one home shared with the generation
+ * layout's D10 side-continuity predicate, rather than a verbatim mirror tied together
+ * only by a docblock. The overlap-band midpoint + corner clamp below stay app-side:
+ * they are the offset math the engine's acceptance predicate has no need for.
  */
+
+import { sideBetween } from "@workspace/game-v2/spatial"
 
 /** An axis-aligned world-space rect: top-left `(x, y)` + size `(w, h)`. */
 export type Rect = { x: number; y: number; w: number; h: number }
@@ -53,39 +61,25 @@ const clampAlongEdge = (v: number, start: number, len: number): number =>
 
 /**
  * The two notch anchors for a connection between rects `a` and `b`, returned in input
- * order: index 0 sits on `a`'s wall, index 1 on `b`'s. Notches face across the axis of
- * greatest separation (left/right when the zones are more horizontally apart than
- * vertically, else top/bottom) and centre on the overlap band of the shared span,
- * clamped off the corners when the facing ranges don't overlap.
+ * order: index 0 sits on `a`'s wall, index 1 on `b`'s. The **side** each notch opens
+ * through is the engine's {@link sideBetween} — `a`'s facing wall for index 0, its
+ * opposite for index 1 (`sideBetween` is antisymmetric under a rect swap). Along that
+ * wall the notch centres on the overlap band of the shared span, clamped off the
+ * corners when the facing ranges don't overlap.
  */
 export function thresholdAnchors(a: Rect, b: Rect): [NotchAnchor, NotchAnchor] {
-  const dx = b.x + b.w / 2 - (a.x + a.w / 2)
-  const dy = b.y + b.h / 2 - (a.y + a.h / 2)
-
-  // Put the notches on the walls facing the *gap* between the zones — the axis on
-  // which they DON'T overlap. Two zones sharing an x-band (stacked) get top/bottom
-  // notches; sharing a y-band (side by side) get left/right; if they overlap on both
-  // (a real collision) or neither (a pure diagonal), fall back to center dominance.
-  // Center distance alone is wrong when zones are offset on the overlapping axis: a
-  // zone slightly up-and-right of another still connects through their shared column.
-  const xOverlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
-  const yOverlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)
-  const horizontal =
-    yOverlap > 0 && xOverlap <= 0
-      ? true
-      : xOverlap > 0 && yOverlap <= 0
-        ? false
-        : Math.abs(dx) >= Math.abs(dy)
+  const side = sideBetween(a, b) // a's wall facing b — the shared side rule
+  const horizontal = side === "e" || side === "w"
 
   if (horizontal) {
     const mid = (Math.max(a.y, b.y) + Math.min(a.y + a.h, b.y + b.h)) / 2
-    const bIsRight = dx > 0
+    const bIsRight = side === "e"
     return [
       {
         x: bIsRight ? a.x + a.w : a.x,
         y: clampAlongEdge(mid, a.y, a.h),
         orient: "v",
-        side: bIsRight ? "e" : "w",
+        side,
       },
       {
         x: bIsRight ? b.x : b.x + b.w,
@@ -97,13 +91,13 @@ export function thresholdAnchors(a: Rect, b: Rect): [NotchAnchor, NotchAnchor] {
   }
 
   const mid = (Math.max(a.x, b.x) + Math.min(a.x + a.w, b.x + b.w)) / 2
-  const bIsBelow = dy > 0
+  const bIsBelow = side === "s"
   return [
     {
       x: clampAlongEdge(mid, a.x, a.w),
       y: bIsBelow ? a.y + a.h : a.y,
       orient: "h",
-      side: bIsBelow ? "s" : "n",
+      side,
     },
     {
       x: clampAlongEdge(mid, b.x, b.w),

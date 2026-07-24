@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { makeMapInstanceState } from "../spatial/__fixtures__/spatial"
+import {
+  makeGenerationState,
+  makeMapInstanceState,
+} from "../spatial/__fixtures__/spatial"
 import { rectOfZone, rectsOverlap } from "../spatial/footprints"
 import { emptyGenerationLedger } from "../spatial/generation-ledger.schema"
 import type { MapInstanceState } from "../spatial/map-instance.schema"
@@ -70,13 +73,10 @@ function seeded(seed: string): {
       },
       connections: {},
     },
-    generation: {
+    generation: makeGenerationState({
       zones: { entry: { source: "authored", depth: 0 } },
-      stubs: {},
-      connections: {},
-      grafts: {},
       startingZoneIds: ["entry"],
-    },
+    }),
   })
   let counter = 0
   const { stubs, cursors } = sproutStartStubs({
@@ -172,13 +172,10 @@ describe("pregenerateExpedition", () => {
         },
         connections: {},
       },
-      generation: {
+      generation: makeGenerationState({
         zones: { entry: { source: "authored", depth: 0 } },
-        stubs: {},
-        connections: {},
-        grafts: {},
         startingZoneIds: ["entry"],
-      },
+      }),
     })
     let counter = 0
     const { stubs, cursors } = sproutStartStubs({

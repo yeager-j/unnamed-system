@@ -7,6 +7,7 @@ import {
   templateSetContentSchema,
   type TemplateSetContent,
 } from "@workspace/game-v2/generation/template-set.schema"
+import { makeGenerationState } from "@workspace/game-v2/spatial/__fixtures__/spatial"
 import { footprintOf } from "@workspace/game-v2/spatial/footprints"
 import type {
   Declaration,
@@ -278,13 +279,11 @@ export const arbitraryExpansionScenario: fc.Arbitrary<ExpansionScenario> =
             revealedConnectionIds: [],
             unlockedConnectionIds: [],
           },
-          generation: {
+          generation: makeGenerationState({
             zones: provenance,
             stubs,
-            connections: {},
-            grafts: {},
             startingZoneIds,
-          },
+          }),
           lastMovedTokenKey: null,
         })
         const ledger: GenerationLedger = {
